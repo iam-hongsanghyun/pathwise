@@ -144,6 +144,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             if cid in sale_traj
             else dict.fromkeys(years, base_sale)
         )
+        purchasable = None if r.get("purchasable") is None else _bool(r.get("purchasable"), True)
         commodities[cid] = Commodity(
             commodity_id=cid,
             kind=kind,
@@ -151,6 +152,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             price_by_year=prices,
             sale_price_by_year=sales,
             sellable=_bool(r.get("sellable"), True),
+            purchasable=purchasable,
         )
 
     # ── Impacts (+ price trajectory) ─────────────────────────────────────────
@@ -189,6 +191,12 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         k, i = _str(r.get("technology_id")), _str(r.get("impact_id"))
         if k and i:
             direct.setdefault(k, {})[i] = _num(r.get("factor"), 0.0) or 0.0
+
+    commodity_impacts: dict[tuple[str, str], float] = {}
+    for r in _rows(workbook, "commodity_impacts"):
+        c, i = _str(r.get("commodity_id")), _str(r.get("impact_id"))
+        if c and i:
+            commodity_impacts[(c, i)] = _num(r.get("factor"), 0.0) or 0.0
 
     technologies: dict[str, Technology] = {}
     for r in _rows(workbook, "technologies"):
@@ -317,6 +325,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         measures=measures,
         edges=edges,
         transitions=transitions,
+        commodity_impacts=commodity_impacts,
         demand=demand,
         impact_caps=impact_caps,
         discount_rate=econ.discount_rate,

@@ -38,13 +38,31 @@ slacks `ξ`. Inflow needed `= Σ_k in_intensity[k,r]·thru_k`; outflow produced
 `= Σ_k out_yield[k,r]·thru_k`; node balance ties `buy + Σ_in flow = inflow` and
 `outflow = Σ_out flow + sell + demand_served`.
 
-## 3. Objective (stub)
+## 3. Objective
 
-Discounted total system cost: capex(replace) + renewal(renew) + opex + resource
-cost + per-impact price (carbon/ETS) + measure capex − abatement credit + slack
-penalty. Filled in at P2.
+$$\min \sum_t DF_t\Big[\sum_{p,k}\text{opex}_{k,t}\,x_{p,k,t}
++\sum_{p,r}(\text{price}_{r,t}\,\text{buy}_{p,r,t}-\text{sale}_{r,t}\,\text{sell}_{p,r,t})
++\sum_{p,i}\pi_{i,t}\,\text{emit}_{p,i,t}\Big]
++\sum_{p,k}DF_t\,\text{capex}_{p,k}\,w_{p,k,t}
++\sum_{s}DF_t\,\text{capex}_s\,\Delta z_{s,t}
++\sigma\!\sum(\xi^D+\xi^{cap})$$
 
-## 4. Constraints (stub)
+`DF_t=(1+ρ)^{-(t-t_0)}`. Operational terms scale by period duration; capex is a
+discounted lump at the event year (annuity convention is a later refinement).
 
-Demand balance; one-tech + transition logic; resource use + pairing; network flow
-balance; impact equation + caps; MACC adoption; replacement coupling. Filled in at P2.
+## 4. Constraints (implemented in `core/build.py`)
+
+- **One technology / capacity**: `Σ_{k∈feas(p)} u_{p,k,t}=1`; `x_{p,k,t} ≤ CAP_p·u_{p,k,t}`.
+- **Baseline lock**: `u_{p,k₀(p),t₀}=1`.
+- **Transition event**: `w_{p,k,t} ≥ u_{p,k,t}−u_{p,k,prev}` (replacement capex on `w`).
+- **Node balance** (per `p,r,t`): `produced+buy+Σ_{in}flow = consumed+Σ_{out}flow+sell+deliver`,
+  where `produced=Σ_k yield_{k,r}x`, `consumed=Σ_k int_{k,r}x − savings`. Only raw
+  inputs (kind∈{energy,material,indirect}, produced by no technology) may be bought;
+  only products may be delivered; only sellable streams sold.
+- **Demand** (slack-softened): `Σ_{p∈c} deliver_{p,q,t}+ξ^D ≥ D_{c,q,t}`.
+- **Impacts**: `emit_{p,i,t}=Σ_r f_{r,i}·consumed_{p,r,t}+Σ_k d_{k,i}·x_{p,k,t}−abate_{p,i,t}`,
+  `emit ≥ 0`; caps `Σ_{p∈c} emit ≤ CAP_{c,i,t}+ξ^{cap}`.
+- **MACC** (LP-safe): efficiency savings `= Σ reduction·ref_consumption·z`; abatement
+  `= Σ reduction·ref_impact·z`; blocks cumulative (`z_a≥z_b`) and persistent (`z_t≥z_{prev}`).
+- **Replacement coupling** (incompatible swap forces neighbours): planned (P5+);
+  edges currently model pure flow.

@@ -48,6 +48,8 @@ class Problem:
         measures: MACC/measures.
         edges: Inter-process commodity flows.
         transitions: Permitted technology changes (replace/renew) + compatibility.
+        commodity_impacts: Impact factor of consuming a commodity, keyed by
+            ``(commodity_id, impact_id)`` [impact unit / commodity unit].
         demand: Required product output, keyed by ``(company, commodity_id, year)``
             [commodity unit / yr].
         impact_caps: Upper limit on an impact, keyed by ``(company, impact_id, year)``
@@ -67,6 +69,7 @@ class Problem:
     measures: list[Measure] = field(default_factory=list)
     edges: list[Edge] = field(default_factory=list)
     transitions: list[Transition] = field(default_factory=list)
+    commodity_impacts: dict[tuple[str, str], float] = field(default_factory=dict)
     demand: dict[tuple[str, str, int], float] = field(default_factory=dict)
     impact_caps: dict[tuple[str, str, int], float] = field(default_factory=dict)
     discount_rate: float = 0.08

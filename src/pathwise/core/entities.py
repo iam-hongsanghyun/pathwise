@@ -75,6 +75,10 @@ class Commodity:
         sale_price_by_year: Revenue when sold/exported [currency / unit] by year
             (0 ⇒ free disposal; negative ⇒ disposal cost).
         sellable: Whether surplus output may be sold/wasted rather than routed.
+        purchasable: Whether the stream may be bought externally. ``None`` ⇒ use
+            the default rule (raw energy/material/indirect inputs that no
+            technology produces are purchasable; products/by-products/intermediates
+            are not — they must be made or routed).
     """
 
     commodity_id: str
@@ -83,6 +87,7 @@ class Commodity:
     price_by_year: dict[int, float] = field(default_factory=dict)
     sale_price_by_year: dict[int, float] = field(default_factory=dict)
     sellable: bool = True
+    purchasable: bool | None = None
 
     def price(self, year: int) -> float:
         """Purchase price [currency/unit] in ``year`` (0 if unpriced)."""

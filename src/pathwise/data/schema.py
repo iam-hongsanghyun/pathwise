@@ -48,6 +48,7 @@ SCHEMA: dict[str, Any] = {
             "price": {"label": "Purchase price (/unit)", "type": "number"},
             "sale_price": {"label": "Sale price (/unit)", "type": "number"},
             "sellable": {"label": "Sellable", "type": "boolean"},
+            "purchasable": {"label": "Purchasable", "type": "boolean"},
         },
     },
     "impacts": {
