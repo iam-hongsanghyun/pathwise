@@ -57,21 +57,34 @@ class SolverOptions:
         mip_rel_gap: Relative MIP optimality gap.
         threads: Solver threads.
         output_flag: If ``True``, HiGHS prints its log to stdout.
+        user_bound_scale: HiGHS global bound scaling (log2 exponent). ``None``
+            leaves HiGHS at its default. Negative values shrink large bounds to
+            improve conditioning; the transform is exact (solution-preserving).
+        user_objective_scale: HiGHS global objective scaling (log2 exponent).
+            ``None`` leaves HiGHS at its default. Negative values shrink large
+            costs to avoid ``internal_solver_error`` on badly-scaled models.
     """
 
     time_limit_s: float = 600.0
     mip_rel_gap: float = 0.01
     threads: int = 4
     output_flag: bool = False
+    user_bound_scale: int | None = None
+    user_objective_scale: int | None = None
 
     def as_highs_kwargs(self) -> dict[str, Any]:
         """Return the HiGHS keyword arguments ``linopy`` forwards."""
-        return {
+        kwargs: dict[str, Any] = {
             "time_limit": float(self.time_limit_s),
             "mip_rel_gap": float(self.mip_rel_gap),
             "threads": int(self.threads),
             "output_flag": bool(self.output_flag),
         }
+        if self.user_bound_scale is not None:
+            kwargs["user_bound_scale"] = int(self.user_bound_scale)
+        if self.user_objective_scale is not None:
+            kwargs["user_objective_scale"] = int(self.user_objective_scale)
+        return kwargs
 
 
 _STATUS_MAP = {

@@ -83,6 +83,10 @@ class LinopyBackend:
             mip_rel_gap=sc.solver.mip_gap,
             threads=settings.solver_threads,
             output_flag=bool(options.get("verbose", False)),
+            # Global scaling keeps HiGHS stable on large-coefficient (MJ-scale)
+            # workbooks; exact transform, so well-scaled models are unaffected.
+            user_bound_scale=settings.highs_user_bound_scale,
+            user_objective_scale=settings.highs_user_objective_scale,
         )
         result = solve(ctx, solver_opts)
         return extract_results(result, domain.terminology(), report.as_dict())

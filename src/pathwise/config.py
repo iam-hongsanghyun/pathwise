@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     solver_threads: int = 4
     max_solver_time_limit_s: int = 1800
     default_mip_gap: float = 0.01
+    # HiGHS global scaling (log2 exponents). Real workbooks carry energy in MJ
+    # (capacities/activities ~1e8–1e9) and emission slack in gCO2e, so the matrix
+    # spans many orders of magnitude and HiGHS can hit an internal_solver_error.
+    # These are the scales HiGHS itself recommends for such problems; they are an
+    # exact (solution-preserving) transform, so harmless on well-scaled models.
+    highs_user_bound_scale: int = -8
+    highs_user_objective_scale: int = -10
 
     # ── Jobs / logging ───────────────────────────────────────────────────────
     max_jobs: int = 4
