@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Env
+.env
+
+# Node / frontend
+node_modules/
+dist/
+
+# Outputs (keep dir, ignore generated workbooks)
+output/*.xlsx
+output/*.parquet
+
+# OS / editor
+.DS_Store
