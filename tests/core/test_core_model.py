@@ -277,6 +277,41 @@ def test_new_build_to_cover_demand_shortfall() -> None:
     )
 
 
+def test_fixed_activity_pins_energy_and_picks_cheapest_fuel() -> None:
+    """A ship with fixed activity must consume its energy; it picks the cheapest fuel."""
+    tech = Technology("k1", specific_energy=2.0, allowed_carriers=frozenset({"a", "b"}))
+    prob = OptimisationProblem(
+        periods=[Period(2025)],
+        assets=[
+            Asset(
+                "ship1",
+                "op",
+                capacity=1e9,
+                baseline_technology="k1",
+                feasible_technologies=frozenset({"k1"}),
+                built_year=2010,
+                activity_by_year={2025: 7.0},  # fixed workload
+            )
+        ],
+        technologies=[tech],
+        carriers=[
+            Carrier("a", price_default=2.0),
+            Carrier("b", price_default=5.0),
+        ],
+        options=SolveOptions(
+            discount_rate=0.0,
+            base_year=2025,
+            include_transitions=False,
+            include_new_build=False,
+            include_measures=False,
+        ),
+    )
+    res = _solve(prob)
+    assert res.ok
+    # energy = SEC*activity = 2*7 = 14 MJ; cheapest carrier 'a' at 2.0 ⇒ 28.
+    np.testing.assert_allclose(res.objective, 28.0, rtol=RTOL)
+
+
 def test_overtight_target_uses_slack_not_infeasible() -> None:
     """An impossible cap (only dirty fuel available) yields slack, not infeasibility."""
     prob = OptimisationProblem(

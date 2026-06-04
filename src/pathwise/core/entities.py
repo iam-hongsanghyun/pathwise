@@ -140,6 +140,11 @@ class Asset:
             asset, charged when commissioned.
         build_lifetime_years: Economic lifetime [yr] of the new-build CAPEX.
         build_lead_years: Years between a build decision and availability.
+        activity_by_year: Optional *fixed* per-year activity the asset must
+            serve [activity/yr] (an exogenous workload). When set, the served
+            activity is pinned to this value while the asset is alive — the
+            natural representation for an existing fleet whose utilisation is
+            given. When empty, the asset instead serves pooled group demand.
     """
 
     asset_id: str
@@ -154,6 +159,16 @@ class Asset:
     build_capex_per_size: float = 0.0
     build_lifetime_years: int | None = None
     build_lead_years: int = 0
+    activity_by_year: dict[int, float] = field(default_factory=dict)
+
+    @property
+    def has_fixed_activity(self) -> bool:
+        """``True`` if this asset has an exogenous fixed activity profile."""
+        return bool(self.activity_by_year)
+
+    def activity(self, year: int) -> float:
+        """Fixed activity in ``year`` (0 if not specified)."""
+        return self.activity_by_year.get(year, 0.0)
 
 
 @dataclass(slots=True)

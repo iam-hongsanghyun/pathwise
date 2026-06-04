@@ -52,6 +52,7 @@ select = ["E", "F", "I", "W", "N", "UP", "B", "C4", "SIM", "RUF"]
 ignore = [
     "N803",    # single-letter math arg names (T, x, dt) — allowed per CLAUDE.md
     "N806",    # single-letter math local names (A, K, R, T) — allowed per CLAUDE.md
+    "RUF001",  # ambiguous unicode in strings — en-dash in UI labels is intentional
     "RUF002",  # ambiguous unicode in docstrings — Greek math symbols (ρ, ε) are intentional
     "RUF003",  # ambiguous unicode in comments — ditto
     "SIM103",  # guard-style predicate helpers read clearer than a single negated return
