@@ -44,21 +44,12 @@ for _ in $(seq 1 60); do
   sleep 0.5
 done
 
-# 5) Wait for Vite to actually be listening before opening the browser.
-# Skipping this races the browser ahead of Vite's first-boot dep pre-bundling:
-# it lands on chrome-error://chromewebdata/ and the reload is rejected as an
-# "Unsafe attempt to load URL … from frame with URL chrome-error://…".
+# 5) Open the browser. We do NOT poll the frontend: Vite binds to `localhost`
+# (often IPv6 ::1) so a curl probe on 127.0.0.1 can hang forever even though the
+# dev server is up. Vite boots in well under a second; the browser retries its
+# own connection, so just give it a brief settle and open.
 URL="http://${BACKEND_HOST}:${FRONTEND_PORT}"
-echo -n "▶ waiting for frontend"
-for _ in $(seq 1 120); do
-  if curl -fsS "${URL}" >/dev/null 2>&1; then
-    echo " ✓"
-    break
-  fi
-  echo -n "."
-  sleep 0.5
-done
-
+sleep 2
 if command -v open >/dev/null 2>&1; then
   open "${URL}"          # macOS
 elif command -v xdg-open >/dev/null 2>&1; then
