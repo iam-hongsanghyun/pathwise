@@ -1,0 +1,80 @@
+"""The reference solver backend: build → solve (linopy + HiGHS) → extract."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from pathwise.config import get_settings
+from pathwise.core.build import build
+from pathwise.core.extract import empty_result, extract_results
+from pathwise.core.solve import SolverOptions, solve
+from pathwise.data.scenario import ScenarioConfig
+from pathwise.data.workbook import Workbook
+from pathwise.domains.base import get_domain
+from pathwise.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+class LinopyBackend:
+    """Builds and solves the process-network model with ``linopy`` + HiGHS."""
+
+    name = "linopy"
+    label = "linopy + HiGHS"
+
+    def capabilities(self) -> dict[str, Any]:
+        """Backend capability descriptor for the handshake."""
+        return {
+            "name": self.name,
+            "label": self.label,
+            "solver": "HiGHS",
+            "features": {
+                "multiPeriod": True,
+                "network": True,
+                "multiImpact": True,
+                "transitions": True,
+                "macc": True,
+                "carbonPrice": True,
+            },
+        }
+
+    def run(
+        self,
+        model: Workbook,
+        scenario: dict[str, Any],
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Validate, build, solve, and extract one case.
+
+        Args:
+            model: The in-memory workbook.
+            scenario: The run definition (a :class:`ScenarioConfig` as a dict).
+            options: ``domain`` / verbosity overrides.
+
+        Returns:
+            pathwise's result dict (validation folded in).
+        """
+        options = options or {}
+        settings = get_settings()
+        sc = ScenarioConfig.from_dict(scenario)
+        domain = get_domain(options.get("domain") or sc.domain)
+        logger.info("running domain=%s backend=%s", domain.name, self.name)
+
+        report = domain.validate(model)
+        if not report.ok:
+            logger.warning("validation failed: %d error(s)", len(report.errors))
+            return empty_result("invalid", domain.terminology(), report.as_dict())
+
+        problem = domain.build_problem(model, sc)
+        ctx = build(problem)
+        time_limit = min(sc.solver.time_limit_s, float(settings.max_solver_time_limit_s))
+        opts = SolverOptions(
+            time_limit_s=time_limit,
+            mip_rel_gap=sc.solver.mip_gap,
+            threads=settings.solver_threads,
+            output_flag=bool(options.get("verbose", False)),
+            user_bound_scale=settings.highs_user_bound_scale,
+            user_objective_scale=settings.highs_user_objective_scale,
+        )
+        result = solve(ctx, opts)
+        return extract_results(result, domain.terminology(), report.as_dict())

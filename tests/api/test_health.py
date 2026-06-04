@@ -21,4 +21,5 @@ def test_config_handshake() -> None:
     body = resp.json()
     assert body["schemaVersion"] == "1.0"
     assert body["server"]["solver"] == "highs"
-    assert body["domains"] == []  # populated in P3
+    assert {d["name"] for d in body["domains"]} == {"process"}
+    assert {b["name"] for b in body["backends"]} == {"linopy"}
