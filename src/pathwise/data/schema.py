@@ -237,37 +237,57 @@ SCHEMA: dict[str, Any] = {
     "investment_budget": {
         "label": "Investment budget",
         "columns": {
+            "budget_id": {"label": "Budget", "type": "string"},
             "company": {"label": "Company (or all)", "type": "string"},
-            "year": {"label": "Year", "type": "integer", "required": True},
-            "limit": {"label": "Max CAPEX (/yr)", "type": "number", "required": True},
+            "year": {"label": "Year (legacy)", "type": "integer"},
+            "limit": {"label": "Max CAPEX (legacy /yr)", "type": "number"},
         },
+    },
+    "investment_budget_t__limit": {
+        "label": "Investment budget · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
     },
     "min_production": {
         "label": "Minimum production",
         "columns": {
+            "min_id": {"label": "Floor", "type": "string"},
             "company": {"label": "Company (or all)", "type": "string"},
             "commodity_id": {"label": "Product", "type": "string", "required": True},
-            "year": {"label": "Year", "type": "integer", "required": True},
-            "amount": {"label": "Min produced (/yr)", "type": "number", "required": True},
+            "year": {"label": "Year (legacy)", "type": "integer"},
+            "amount": {"label": "Min produced (legacy /yr)", "type": "number"},
         },
+    },
+    "min_production_t__amount": {
+        "label": "Minimum production · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
     },
     "demand": {
         "label": "Product demand",
         "columns": {
+            "demand_id": {"label": "Demand", "type": "string"},
             "company": {"label": "Company", "type": "string", "required": True},
             "commodity_id": {"label": "Product", "type": "string", "required": True},
-            "year": {"label": "Year", "type": "integer", "required": True},
-            "amount": {"label": "Demand (/yr)", "type": "number", "required": True},
+            "year": {"label": "Year (legacy)", "type": "integer"},
+            "amount": {"label": "Demand (legacy /yr)", "type": "number"},
         },
+    },
+    "demand_t__amount": {
+        "label": "Demand · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
     },
     "impact_caps": {
         "label": "Impact caps",
         "columns": {
+            "cap_id": {"label": "Cap", "type": "string"},
             "company": {"label": "Company (or all)", "type": "string"},
             "impact_id": {"label": "Impact", "type": "string", "required": True},
-            "year": {"label": "Year", "type": "integer", "required": True},
-            "limit": {"label": "Limit (/yr)", "type": "number", "required": True},
+            "year": {"label": "Year (legacy)", "type": "integer"},
+            "limit": {"label": "Limit (legacy /yr)", "type": "number"},
         },
+    },
+    "impact_caps_t__limit": {
+        "label": "Impact caps · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
     },
     "impact_prices": {
         "label": "Impact prices (carbon/ETS)",

@@ -94,6 +94,34 @@ def _wide_temporal(wb: Workbook, sheet: str) -> dict[str, dict[int, float]]:
     return out
 
 
+def _temporal_dict(
+    wb: Workbook,
+    sheet: str,
+    temporal_sheet: str,
+    id_col: str,
+    key_cols: list[str],
+    value_col: str,
+) -> dict[tuple[Any, ...], float]:
+    """Aggregate a relational sheet into ``{(*key, year): value}``.
+
+    Accepts both the legacy long format (a ``year`` + ``value_col`` on each row)
+    and the PyPSA-style named-component form (a static row identified by
+    ``id_col`` whose values live in the wide ``temporal_sheet``, columns = names).
+    Multiple rows mapping to the same key/year are summed.
+    """
+    wide = _wide_temporal(wb, temporal_sheet)
+    out: dict[tuple[Any, ...], float] = {}
+    for r in _rows(wb, sheet):
+        key = tuple(_str(r.get(c)) or "all" for c in key_cols)
+        yr, val = _num(r.get("year")), _num(r.get(value_col))
+        if yr is not None and val is not None:  # legacy long row
+            out[(*key, int(yr))] = out.get((*key, int(yr)), 0.0) + val
+        elif (name := _str(r.get(id_col))) is not None:  # named component
+            for y, v in wide.get(name, {}).items():
+                out[(*key, y)] = out.get((*key, y), 0.0) + v
+    return out
+
+
 def _actions(value: Any) -> frozenset[TransitionAction]:
     """Parse a comma-separated availability string into actions (default: all)."""
     s = _str(value)
@@ -426,35 +454,29 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             )
         )
 
-    # ── Decision controls: investment budget + minimum production ────────────
-    investment_budget: dict[tuple[str, int], float] = {}
-    for r in _rows(workbook, "investment_budget"):
-        lim = _num(r.get("limit"))
-        if lim is not None:
-            investment_budget[(_str(r.get("company")) or "all", int(r["year"]))] = lim
-    min_production: dict[tuple[str, str, int], float] = {}
-    for r in _rows(workbook, "min_production"):
-        q = _str(r.get("commodity_id"))
-        if q is None:
-            continue
-        min_production[(_str(r.get("company")) or "all", q, int(r["year"]))] = (
-            _num(r.get("amount"), 0.0) or 0.0
-        )
-
-    # ── Demand & impact caps ─────────────────────────────────────────────────
-    demand: dict[tuple[str, str, int], float] = {}
-    for r in _rows(workbook, "demand"):
-        c, q = _str(r.get("company")) or "all", _str(r.get("commodity_id"))
-        if q is None:
-            continue
-        demand[(c, q, int(r["year"]))] = _num(r.get("amount"), 0.0) or 0.0
-
-    impact_caps: dict[tuple[str, str, int], float] = {}
-    for r in _rows(workbook, "impact_caps"):
-        c, i = _str(r.get("company")) or "all", _str(r.get("impact_id"))
-        if i is None:
-            continue
-        impact_caps[(c, i, int(r["year"]))] = _num(r.get("limit"), 0.0) or 0.0
+    # ── Relational data: legacy long format OR named component + wide temporal ─
+    investment_budget = _temporal_dict(
+        workbook,
+        "investment_budget",
+        "investment_budget_t__limit",
+        "budget_id",
+        ["company"],
+        "limit",
+    )
+    min_production = _temporal_dict(
+        workbook,
+        "min_production",
+        "min_production_t__amount",
+        "min_id",
+        ["company", "commodity_id"],
+        "amount",
+    )
+    demand = _temporal_dict(
+        workbook, "demand", "demand_t__amount", "demand_id", ["company", "commodity_id"], "amount"
+    )
+    impact_caps = _temporal_dict(
+        workbook, "impact_caps", "impact_caps_t__limit", "cap_id", ["company", "impact_id"], "limit"
+    )
 
     toggles = CostToggles(**scenario.cost_components.model_dump())
 

@@ -74,3 +74,14 @@ def test_wide_temporal_overrides_static_by_name() -> None:
     prob = assemble_problem(wb, sc)
     assert prob.commodities["gas"].price(2025) == 12.0  # temporal overrides static 10
     assert prob.commodities["gas"].price(2030) == 99.0
+
+
+def test_named_demand_component_with_temporal() -> None:
+    # Demand as a named component (demand_id + wide demand_t__amount), not long-format.
+    wb = _io_wb()
+    wb["demand"] = [{"demand_id": "D1", "company": "C", "commodity_id": "widget"}]
+    wb["demand_t__amount"] = [{"year": 2025, "D1": 50}]
+    res = _solve(wb)
+    assert res["status"] == "optimal"
+    np.testing.assert_allclose(res["objective"], 1000.0, rtol=1e-6)  # same as legacy demand 50
+    assert res["outputs"]["demand_slack"] == []
