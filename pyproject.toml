@@ -41,7 +41,9 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "C4", "SIM", "RUF"]
-ignore = ["RUF012"]
+# RUF001/002/003: allow Greek letters / en-dashes in math docstrings (per CLAUDE.md).
+# RUF012: ClassVar mutable defaults not relevant to our dataclasses.
+ignore = ["RUF001", "RUF002", "RUF003", "RUF012"]
 
 [tool.mypy]
 python_version = "3.11"
