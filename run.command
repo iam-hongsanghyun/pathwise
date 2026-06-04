@@ -33,7 +33,7 @@ uv run uvicorn pathwise.api.main:app --host "${BACKEND_HOST}" --port "${BACKEND_
 echo "▶ frontend → http://${BACKEND_HOST}:${FRONTEND_PORT}"
 ( cd "${FRONTEND_DIR}" && npm run dev -- --port "${FRONTEND_PORT}" ) &
 
-# 4) Wait for the backend to answer, then open the browser at the frontend.
+# 4) Wait for the backend to answer.
 echo -n "▶ waiting for backend"
 for _ in $(seq 1 60); do
   if curl -fsS "http://${BACKEND_HOST}:${BACKEND_PORT}/api/health" >/dev/null 2>&1; then
@@ -44,8 +44,21 @@ for _ in $(seq 1 60); do
   sleep 0.5
 done
 
+# 5) Wait for Vite to actually be listening before opening the browser.
+# Skipping this races the browser ahead of Vite's first-boot dep pre-bundling:
+# it lands on chrome-error://chromewebdata/ and the reload is rejected as an
+# "Unsafe attempt to load URL … from frame with URL chrome-error://…".
 URL="http://${BACKEND_HOST}:${FRONTEND_PORT}"
-sleep 1
+echo -n "▶ waiting for frontend"
+for _ in $(seq 1 120); do
+  if curl -fsS "${URL}" >/dev/null 2>&1; then
+    echo " ✓"
+    break
+  fi
+  echo -n "."
+  sleep 0.5
+done
+
 if command -v open >/dev/null 2>&1; then
   open "${URL}"          # macOS
 elif command -v xdg-open >/dev/null 2>&1; then
