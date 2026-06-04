@@ -87,14 +87,19 @@ class BuildContext:
 
 
 def _feasible_techs(problem: Problem) -> dict[str, list[str]]:
-    """Technologies each process may run: baseline + one-step transition targets."""
+    """Technologies each process may run: baseline + one-step transition targets.
+
+    A non-replaceable facility is locked to its baseline technology.
+    """
     by_from: dict[str, set[str]] = {}
     for tr in problem.transitions:
         if tr.action in (TransitionAction.REPLACE, TransitionAction.RENEW):
             by_from.setdefault(tr.from_technology, set()).add(tr.to_technology)
     out: dict[str, list[str]] = {}
     for p in problem.processes:
-        techs = {p.baseline_technology} | by_from.get(p.baseline_technology, set())
+        techs = {p.baseline_technology}
+        if p.replaceable:
+            techs |= by_from.get(p.baseline_technology, set())
         out[p.process_id] = sorted(t for t in techs if t in problem.technologies)
     return out
 

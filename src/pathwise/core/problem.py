@@ -16,6 +16,7 @@ from pathwise.core.entities import (
     Edge,
     Impact,
     Measure,
+    ObjectiveMode,
     Period,
     Process,
     Storage,
@@ -60,6 +61,7 @@ class Problem:
             [currency / yr]; company ``"all"`` ⇒ sector-wide.
         min_production: Minimum delivered product, keyed by
             ``(company, commodity_id, year)`` [commodity unit / yr].
+        company_objective: Per-company goal (``cost`` default, or ``profit``).
         discount_rate: Annual discount rate ``ρ`` [1/yr].
         base_year: Baseline period ``t₀``.
         capex_convention: Annuity (CRF) or NPV lump.
@@ -81,6 +83,7 @@ class Problem:
     impact_caps: dict[tuple[str, str, int], float] = field(default_factory=dict)
     investment_budget: dict[tuple[str, int], float] = field(default_factory=dict)
     min_production: dict[tuple[str, str, int], float] = field(default_factory=dict)
+    company_objective: dict[str, ObjectiveMode] = field(default_factory=dict)
     discount_rate: float = 0.08
     base_year: int = 0
     capex_convention: CapexConvention = CapexConvention.ANNUITY
@@ -100,3 +103,7 @@ class Problem:
     def discount_factor(self, year: int) -> float:
         r"""Discount factor ``DF_t = (1+ρ)^-(year - base_year)`` [—]."""
         return (1.0 + self.discount_rate) ** (-(year - self.base_year))
+
+    def objective_of(self, company: str) -> ObjectiveMode:
+        """Objective mode for ``company`` (default :attr:`ObjectiveMode.COST`)."""
+        return self.company_objective.get(company, ObjectiveMode.COST)

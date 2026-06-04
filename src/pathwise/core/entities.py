@@ -50,6 +50,13 @@ class CapexConvention(StrEnum):
     NPV = "npv"  # full discounted lump at the event year
 
 
+class ObjectiveMode(StrEnum):
+    """A company's optimisation goal."""
+
+    COST = "cost"  # minimise total cost; demand is a hard, slack-softened floor
+    PROFIT = "profit"  # maximise profit; demand is the max sellable (produce less is OK)
+
+
 @dataclass(slots=True, frozen=True)
 class Period:
     """One horizon step.
@@ -179,6 +186,8 @@ class Process:
         fixed_opex: Fixed annual cost while the facility operates [currency / yr].
         failure_rate: Unexpected-failure / forced-outage fraction [—], 0–1; the
             available throughput is ``capacity · (1 − failure_rate)``.
+        replaceable: If ``False`` the facility may not transition technologies
+            (feasible set = baseline only) — the user marks it fixed.
     """
 
     process_id: str
@@ -189,6 +198,7 @@ class Process:
     capex: float = 0.0
     fixed_opex: float = 0.0
     failure_rate: float = 0.0
+    replaceable: bool = True
 
     @property
     def available_capacity(self) -> float:

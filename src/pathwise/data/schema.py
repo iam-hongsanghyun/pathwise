@@ -81,6 +81,14 @@ SCHEMA: dict[str, Any] = {
             "capex": {"label": "Build CAPEX", "type": "number"},
             "fixed_opex": {"label": "Fixed O&M (/yr)", "type": "number"},
             "failure_rate": {"label": "Failure rate (0-1)", "type": "number"},
+            "replaceable": {"label": "Replaceable", "type": "boolean"},
+        },
+    },
+    "company_config": {
+        "label": "Company settings",
+        "columns": {
+            "company": {"label": "Company", "type": "string", "required": True},
+            "objective": {"label": "Objective (cost|profit)", "type": "string"},
         },
     },
     "process_inputs": {

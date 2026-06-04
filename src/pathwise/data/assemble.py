@@ -18,6 +18,7 @@ from pathwise.core.entities import (
     Measure,
     MeasureBlock,
     MeasureType,
+    ObjectiveMode,
     Period,
     Process,
     Storage,
@@ -231,10 +232,19 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             capex=_num(r.get("capex"), 0.0) or 0.0,
             fixed_opex=_num(r.get("fixed_opex"), 0.0) or 0.0,
             failure_rate=min(max(_num(r.get("failure_rate"), 0.0) or 0.0, 0.0), 1.0),
+            replaceable=_bool(r.get("replaceable"), True),
         )
         for r in _rows(workbook, "processes")
         if _str(r.get("process_id"))
     ]
+
+    # ── Per-company objective (cost default; profit ⇒ maximise profit) ───────
+    company_objective: dict[str, ObjectiveMode] = {}
+    for r in _rows(workbook, "company_config"):
+        c = _str(r.get("company"))
+        obj = (_str(r.get("objective")) or "cost").lower()
+        if c and obj in {m.value for m in ObjectiveMode}:
+            company_objective[c] = ObjectiveMode(obj)
 
     # ── Edges ────────────────────────────────────────────────────────────────
     edges = [
@@ -371,6 +381,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         impact_caps=impact_caps,
         investment_budget=investment_budget,
         min_production=min_production,
+        company_objective=company_objective,
         discount_rate=econ.discount_rate,
         base_year=base_year,
         capex_convention=econ.capex_convention,

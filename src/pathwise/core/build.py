@@ -14,7 +14,7 @@ from typing import Any
 
 from linopy import Model
 
-from pathwise.core.entities import CommodityKind, MeasureType
+from pathwise.core.entities import CommodityKind, MeasureType, ObjectiveMode
 from pathwise.core.problem import Problem
 from pathwise.core.variables import BuildContext, build_context
 from pathwise.logger import get_logger
@@ -215,7 +215,9 @@ def _flow_balance(ctx: BuildContext) -> None:
                         ctx.deliver.sel(process=p, commodity=r, period=t) == 0,
                         name=f"nodeliver[{p},{r},{t}]",
                     )
-                if not comm.sellable:
+                # Products leave only via `deliver` (to demand/market); the
+                # generic `sell` is for by-products / surplus raw streams.
+                if r in products or not comm.sellable:
                     m.add_constraints(
                         ctx.sell.sel(process=p, commodity=r, period=t) == 0,
                         name=f"nosell[{p},{r},{t}]",
@@ -234,17 +236,22 @@ def _flow_balance(ctx: BuildContext) -> None:
                     ctx.flow.sel(edge=i, period=t) <= e.max_flow, name=f"emax[{i},{t}]"
                 )
 
-    # Demand (slack-softened): Σ deliver over company processes + slack >= demand.
+    # Demand: cost companies must meet it (slack-softened); profit companies may
+    # sell UP TO it (producing less is allowed — revenue handled in the objective).
     for c, q, y in ctx.demand_keys:
         procs = [p.process_id for p in prob.processes if c == "all" or p.company == c]
         delivered = _lin_sum([ctx.deliver.sel(process=p, commodity=q, period=y) for p in procs])
         key = f"{c}|{q}|{y}"
-        slack = ctx.slk_dem.sel(dkey=key)
         rhs = prob.demand[(c, q, y)]
-        if delivered is None:
-            m.add_constraints(slack >= rhs, name=f"demand[{key}]")
+        if prob.objective_of(c) == ObjectiveMode.PROFIT:
+            if delivered is not None:
+                m.add_constraints(delivered <= rhs, name=f"sellcap[{key}]")
         else:
-            m.add_constraints(delivered + slack >= rhs, name=f"demand[{key}]")
+            slack = ctx.slk_dem.sel(dkey=key)
+            if delivered is None:
+                m.add_constraints(slack >= rhs, name=f"demand[{key}]")
+            else:
+                m.add_constraints(delivered + slack >= rhs, name=f"demand[{key}]")
 
 
 def _abatement(ctx: BuildContext, p: str, i: str, t: int) -> Any:
@@ -514,6 +521,19 @@ def _objective(ctx: BuildContext) -> None:
                     inc = inc - ctx.z.sel(slot=s.key, period=pt)
                 if s.capex:
                     terms.append((df * s.capex) * inc)
+
+    # Product sale revenue for profit companies (negative cost ⇒ maximise profit):
+    # revenue = sale_price · delivered, summed over the company's processes.
+    for comp, q, y in ctx.demand_keys:
+        if prob.objective_of(comp) != ObjectiveMode.PROFIT:
+            continue
+        price = prob.commodities[q].sale_price(y)
+        if not price:
+            continue
+        scope = _scope_processes(ctx, comp)
+        delivered = _lin_sum([ctx.deliver.sel(process=p, commodity=q, period=y) for p in scope])
+        if delivered is not None:
+            terms.append((-(prob.discount_factor(y) * dur[y] * price)) * delivered)
 
     # Storage build capex — one-time, discounted at the first year.
     if tog.capex and prob.storages:
