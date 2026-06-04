@@ -13,7 +13,7 @@ from typing import Any
 import pandas as pd
 from linopy import Model
 
-from pathwise.core.entities import MeasureType, TransitionAction
+from pathwise.core.entities import MarketTarget, MeasureType, TransitionAction
 from pathwise.core.problem import Problem
 
 
@@ -79,6 +79,12 @@ class BuildContext:
     discharge: Any = None  # commodity discharged from a store [store, period]
     level: Any = None  # storage inventory level [store, period]
     extbuy: Any = None  # external purchase for a stored commodity [store, period]
+    mbuy: Any = None  # commodity-market purchase [cmarket, period]
+    msell: Any = None  # commodity-market sale [cmarket, period]
+    abuy: Any = None  # ETS allowance bought [imarket, period]
+    asell: Any = None  # ETS allowance sold [imarket, period]
+    cmarkets: list[Any] = field(default_factory=list)  # commodity Market entities
+    imarkets: list[Any] = field(default_factory=list)  # impact (ETS) Market entities
     slk_dem: Any = None  # demand slack [demand_key]
     slk_cap: Any = None  # impact-cap slack [cap_key]
 
@@ -211,6 +217,17 @@ def build_context(model: Model, problem: Problem) -> BuildContext:
         ctx.discharge = model.add_variables(lower=0.0, coords=[st_idx, t_idx], name="discharge")
         ctx.level = model.add_variables(lower=0.0, coords=[st_idx, t_idx], name="level")
         ctx.extbuy = model.add_variables(lower=0.0, coords=[st_idx, t_idx], name="extbuy")
+
+    ctx.cmarkets = [m for m in problem.markets if m.target_kind == MarketTarget.COMMODITY]
+    ctx.imarkets = [m for m in problem.markets if m.target_kind == MarketTarget.IMPACT]
+    if ctx.cmarkets:
+        cm_idx = pd.Index([m.market_id for m in ctx.cmarkets], name="cmarket")
+        ctx.mbuy = model.add_variables(lower=0.0, coords=[cm_idx, t_idx], name="mbuy")
+        ctx.msell = model.add_variables(lower=0.0, coords=[cm_idx, t_idx], name="msell")
+    if ctx.imarkets:
+        im_idx = pd.Index([m.market_id for m in ctx.imarkets], name="imarket")
+        ctx.abuy = model.add_variables(lower=0.0, coords=[im_idx, t_idx], name="abuy")
+        ctx.asell = model.add_variables(lower=0.0, coords=[im_idx, t_idx], name="asell")
 
     ctx.demand_keys = sorted(problem.demand)
     if ctx.demand_keys:

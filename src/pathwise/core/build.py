@@ -50,6 +50,7 @@ def build(problem: Problem) -> BuildContext:
     _technology(ctx)
     _flow_balance(ctx)
     _storage(ctx)
+    _markets(ctx)
     _impacts(ctx)
     _macc(ctx)
     _controls(ctx)
@@ -393,6 +394,80 @@ def _storage(ctx: BuildContext) -> None:
             m.add_constraints(ctx.extbuy.sel(store=sid, period=t) == link, name=f"smkt[{sid},{t}]")
 
 
+def _markets(ctx: BuildContext) -> None:
+    """Commodity-market clearing (least-cost mixture) + tradable ETS balance.
+
+    Commodity markets supply a stream's external need (process draw, or the
+    store's external purchase if storable):
+        Σ_m (mbuy_{m,t} − msell_{m,t}) = external_need_{r,t}
+    ETS markets cover emissions with allowances (deficit bought, surplus sold):
+        allocation_t + abuy_{m,t} − asell_{m,t} = Σ_{p∈scope} emit_{p,i,t}
+    """
+    m, prob = ctx.model, ctx.problem
+
+    # ── Commodity markets ────────────────────────────────────────────────────
+    by_commodity: dict[str, list[Any]] = {}
+    for mk in ctx.cmarkets:
+        by_commodity.setdefault(mk.target, []).append(mk)
+    storages_of: dict[str, list[Any]] = {}
+    for st in prob.storages:
+        storages_of.setdefault(st.commodity_id, []).append(st)
+
+    for r, mkts in by_commodity.items():
+        scope_companies = {mk.company for mk in mkts}
+        procs = (
+            ctx.procs
+            if "all" in scope_companies
+            else [p.process_id for p in prob.processes if p.company in scope_companies]
+        )
+        for t in ctx.years:
+            net = _lin_sum(
+                [ctx.mbuy.sel(cmarket=mk.market_id, period=t) for mk in mkts]
+                + [(-1.0) * ctx.msell.sel(cmarket=mk.market_id, period=t) for mk in mkts]
+            )
+            if r in storages_of:
+                target = _lin_sum(
+                    [ctx.extbuy.sel(store=s.storage_id, period=t) for s in storages_of[r]]
+                )
+            else:
+                target = _lin_sum([ctx.buy.sel(process=p, commodity=r, period=t) for p in procs])
+            rhs = target if target is not None else 0.0
+            m.add_constraints(net == rhs, name=f"mclear[{r},{t}]")
+        for mk in mkts:
+            for t in ctx.years:
+                if mk.max_buy is not None:
+                    m.add_constraints(
+                        ctx.mbuy.sel(cmarket=mk.market_id, period=t) <= mk.max_buy,
+                        name=f"mmaxbuy[{mk.market_id},{t}]",
+                    )
+                if mk.max_sell is not None:
+                    m.add_constraints(
+                        ctx.msell.sel(cmarket=mk.market_id, period=t) <= mk.max_sell,
+                        name=f"mmaxsell[{mk.market_id},{t}]",
+                    )
+
+    # ── ETS allowance markets ─────────────────────────────────────────────────
+    for mk in ctx.imarkets:
+        scope = _scope_processes(ctx, mk.company)
+        for t in ctx.years:
+            emit = _lin_sum([ctx.emit.sel(process=p, impact=mk.target, period=t) for p in scope])
+            held = ctx.abuy.sel(imarket=mk.market_id, period=t) - ctx.asell.sel(
+                imarket=mk.market_id, period=t
+            )
+            lhs = held if emit is None else (held - emit)
+            m.add_constraints(lhs == -mk.allocation(t), name=f"ets[{mk.market_id},{t}]")
+            if mk.max_buy is not None:
+                m.add_constraints(
+                    ctx.abuy.sel(imarket=mk.market_id, period=t) <= mk.max_buy,
+                    name=f"etsmaxbuy[{mk.market_id},{t}]",
+                )
+            if mk.max_sell is not None:
+                m.add_constraints(
+                    ctx.asell.sel(imarket=mk.market_id, period=t) <= mk.max_sell,
+                    name=f"etsmaxsell[{mk.market_id},{t}]",
+                )
+
+
 def _controls(ctx: BuildContext) -> None:
     """Company decision controls: investment budget cap + minimum production."""
     m, prob = ctx.model, ctx.problem
@@ -457,6 +532,10 @@ def _objective(ctx: BuildContext) -> None:
     # Stored commodities are priced via the store's external purchase, not the
     # process buy (which becomes the internal draw) — avoids double counting.
     stored = {s.commodity_id for s in prob.storages}
+    # Market-covered streams/impacts are priced via the market (mbuy/msell,
+    # abuy/asell), not via the flat commodity/impact price.
+    market_comms = {mk.target for mk in ctx.cmarkets}
+    ets_impacts = {mk.target for mk in ctx.imarkets}
 
     terms: list[Any] = []
     for t in ctx.years:
@@ -478,8 +557,8 @@ def _objective(ctx: BuildContext) -> None:
                         terms.append((w * fixed_opex[p]) * active)
             if tog.commodity_cost:
                 for r in ctx.comms:
-                    if r in stored:
-                        continue  # priced via storage external purchase below
+                    if r in stored or r in market_comms:
+                        continue  # priced via storage / market below
                     price = prob.commodities[r].price(t)
                     sale = prob.commodities[r].sale_price(t)
                     if price:
@@ -488,18 +567,39 @@ def _objective(ctx: BuildContext) -> None:
                         terms.append((-w * sale) * ctx.sell.sel(process=p, commodity=r, period=t))
             if tog.impact_price:
                 for i in ctx.impacts:
+                    if i in ets_impacts:
+                        continue  # priced via the ETS allowance market below
                     pr = prob.impacts[i].price(t)
                     if pr:
                         terms.append((w * pr) * ctx.emit.sel(process=p, impact=i, period=t))
-        # Storage: external purchase priced + fixed O&M on built capacity.
+        # Storage: external purchase priced (unless a market prices the stream)
+        # + fixed O&M on built capacity.
         if tog.commodity_cost:
             for st in prob.storages:
-                price = prob.commodities[st.commodity_id].price(t)
-                if price:
-                    terms.append((w * price) * ctx.extbuy.sel(store=st.storage_id, period=t))
+                if st.commodity_id not in market_comms:
+                    price = prob.commodities[st.commodity_id].price(t)
+                    if price:
+                        terms.append((w * price) * ctx.extbuy.sel(store=st.storage_id, period=t))
                 if st.fixed_opex_per_capacity:
                     terms.append(
                         (w * st.fixed_opex_per_capacity) * ctx.cap_built.sel(store=st.storage_id)
+                    )
+        # Markets: commodity buy/sell + tradable ETS allowance buy/sell.
+        if tog.commodity_cost:
+            for mk in ctx.cmarkets:
+                if mk.price(t):
+                    terms.append((w * mk.price(t)) * ctx.mbuy.sel(cmarket=mk.market_id, period=t))
+                if mk.sell_price(t):
+                    terms.append(
+                        (-w * mk.sell_price(t)) * ctx.msell.sel(cmarket=mk.market_id, period=t)
+                    )
+        if tog.impact_price:
+            for mk in ctx.imarkets:
+                if mk.price(t):
+                    terms.append((w * mk.price(t)) * ctx.abuy.sel(imarket=mk.market_id, period=t))
+                if mk.sell_price(t):
+                    terms.append(
+                        (-w * mk.sell_price(t)) * ctx.asell.sel(imarket=mk.market_id, period=t)
                     )
         # Replacement capex (discounted lump at the event year).
         if tog.capex:

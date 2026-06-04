@@ -15,6 +15,7 @@ from pathwise.core.entities import (
     Commodity,
     Edge,
     Impact,
+    Market,
     Measure,
     ObjectiveMode,
     Period,
@@ -51,6 +52,7 @@ class Problem:
         edges: Inter-process commodity flows.
         transitions: Permitted technology changes (replace/renew) + compatibility.
         storages: Per-commodity inter-year stores.
+        markets: Priced buy/sell nodes (commodity supply or tradable ETS).
         commodity_impacts: Impact factor of consuming a commodity, keyed by
             ``(commodity_id, impact_id)`` [impact unit / commodity unit].
         demand: Required product output, keyed by ``(company, commodity_id, year)``
@@ -78,6 +80,7 @@ class Problem:
     edges: list[Edge] = field(default_factory=list)
     transitions: list[Transition] = field(default_factory=list)
     storages: list[Storage] = field(default_factory=list)
+    markets: list[Market] = field(default_factory=list)
     commodity_impacts: dict[tuple[str, str], float] = field(default_factory=dict)
     demand: dict[tuple[str, str, int], float] = field(default_factory=dict)
     impact_caps: dict[tuple[str, str, int], float] = field(default_factory=dict)

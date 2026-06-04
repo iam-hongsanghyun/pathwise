@@ -177,6 +177,31 @@ SCHEMA: dict[str, Any] = {
             "initial_level": {"label": "Initial level", "type": "number"},
         },
     },
+    "markets": {
+        "label": "Markets",
+        "columns": {
+            "market_id": {"label": "Market", "type": "string", "required": True},
+            "target": {"label": "Stream / impact", "type": "string", "required": True},
+            "target_kind": {"label": "Kind (commodity|impact)", "type": "string"},
+            "company": {"label": "Company (or all)", "type": "string"},
+            "price": {"label": "Buy price (/unit)", "type": "number"},
+            "sell_price": {"label": "Sell price (/unit)", "type": "number"},
+            "max_buy": {"label": "Max buy (/yr)", "type": "number"},
+            "max_sell": {"label": "Max sell (/yr)", "type": "number"},
+            "allocation": {"label": "ETS allocation (/yr)", "type": "number"},
+            "tag": {"label": "Tag (e.g. RE100)", "type": "string"},
+        },
+    },
+    "market_prices": {
+        "label": "Market price trajectory",
+        "columns": {
+            "market_id": {"label": "Market", "type": "string", "required": True},
+            "year": {"label": "Year", "type": "integer", "required": True},
+            "price": {"label": "Buy price", "type": "number"},
+            "sell_price": {"label": "Sell price", "type": "number"},
+            "allocation": {"label": "Allocation", "type": "number"},
+        },
+    },
     "investment_budget": {
         "label": "Investment budget",
         "columns": {

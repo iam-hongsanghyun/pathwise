@@ -15,6 +15,8 @@ from pathwise.core.entities import (
     CommodityKind,
     Edge,
     Impact,
+    Market,
+    MarketTarget,
     Measure,
     MeasureBlock,
     MeasureType,
@@ -334,6 +336,53 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             )
         )
 
+    # ── Markets (commodity supply / tradable ETS) ───────────────────────────
+    mkt_price: dict[str, dict[int, float]] = {}
+    mkt_sell: dict[str, dict[int, float]] = {}
+    mkt_alloc: dict[str, dict[int, float]] = {}
+    for r in _rows(workbook, "market_prices"):
+        mid = _str(r.get("market_id"))
+        if mid is None:
+            continue
+        y = int(r["year"])
+        if (v := _num(r.get("price"))) is not None:
+            mkt_price.setdefault(mid, {})[y] = v
+        if (v := _num(r.get("sell_price"))) is not None:
+            mkt_sell.setdefault(mid, {})[y] = v
+        if (v := _num(r.get("allocation"))) is not None:
+            mkt_alloc.setdefault(mid, {})[y] = v
+    markets: list[Market] = []
+    for r in _rows(workbook, "markets"):
+        mid, target = _str(r.get("market_id")), _str(r.get("target"))
+        if not mid or not target:
+            continue
+        kind_s = (_str(r.get("target_kind")) or "commodity").lower()
+        mkind = (
+            MarketTarget(kind_s)
+            if kind_s in {k.value for k in MarketTarget}
+            else MarketTarget.COMMODITY
+        )
+        base_p = _num(r.get("price"))
+        base_s = _num(r.get("sell_price"))
+        base_a = _num(r.get("allocation"))
+        prices = mkt_price.get(mid) or ({} if base_p is None else dict.fromkeys(years, base_p))
+        sells = mkt_sell.get(mid) or ({} if base_s is None else dict.fromkeys(years, base_s))
+        allocs = mkt_alloc.get(mid) or ({} if base_a is None else dict.fromkeys(years, base_a))
+        markets.append(
+            Market(
+                market_id=mid,
+                target=target,
+                target_kind=mkind,
+                company=_str(r.get("company")) or "all",
+                price_by_year=interpolate(prices, years) if prices else {},
+                sell_price_by_year=interpolate(sells, years) if sells else {},
+                max_buy=_num(r.get("max_buy")),
+                max_sell=_num(r.get("max_sell")),
+                allocation_by_year=interpolate(allocs, years) if allocs else {},
+                tag=_str(r.get("tag")),
+            )
+        )
+
     # ── Decision controls: investment budget + minimum production ────────────
     investment_budget: dict[tuple[str, int], float] = {}
     for r in _rows(workbook, "investment_budget"):
@@ -376,6 +425,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         edges=edges,
         transitions=transitions,
         storages=storages,
+        markets=markets,
         commodity_impacts=commodity_impacts,
         demand=demand,
         impact_caps=impact_caps,

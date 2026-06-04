@@ -82,6 +82,22 @@ discounted lump at the event year (annuity convention is a later refinement).
   over transition + measure + storage capex.
 - **Minimum production**: `Σ_{p∈c} deliver_{p,q,t} ≥ min_production_{c,q,t}` (hard).
 
+## 6b. Markets, tradable ETS & profit
+
+- **Per-company objective** (`company_config`): `cost` (default — demand is a
+  hard, slack-softened floor) or `profit` (demand is the max sellable; revenue
+  `= sale_price·deliver` enters the objective as negative cost; producing less
+  is allowed). Objective sense stays *minimise* (`min cost − revenue`).
+- **Commodity markets** (KEPCO / PPA-RE100 / JKM): least-cost mixture clears a
+  stream's external need, `Σ_m (mbuy − msell) = need`, each `≤ max_buy/max_sell`,
+  priced `mbuy·price − msell·sell_price`. Markets override the flat commodity
+  price; a stream with no market falls back to its attribute price.
+- **Tradable ETS** (impact market): `allocation_t + abuy_t − asell_t =
+  Σ_{p∈scope} emit`; cost `abuy·price − asell·sell_price` (net can be negative).
+  Replaces flat impact pricing for that impact; hard `impact_caps` still apply.
+- **Non-replaceable** facility ⇒ locked to baseline tech. **Storage** build is
+  optional (`max_capacity = 0` forbids it).
+
 ## 10. Time resolution (current vs planned)
 
 Current: **annual periods** for long-term planning; prices/caps/demand are

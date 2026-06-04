@@ -289,6 +289,59 @@ class Measure:
     blocks: list[MeasureBlock] = field(default_factory=list)
 
 
+class MarketTarget(StrEnum):
+    """What a market trades."""
+
+    COMMODITY = "commodity"  # priced supply/offtake of a stream (KEPCO/PPA/JKM)
+    IMPACT = "impact"  # tradable allowances for an impact (ETS)
+
+
+@dataclass(slots=True, frozen=True)
+class Market:
+    """A priced buy/sell node for a commodity or an impact (ETS allowances).
+
+    Commodity markets supply (and optionally absorb) a stream at a price, up to
+    volume caps — multiple markets on one stream give a least-cost mixture, and
+    tags (e.g. ``"RE100"``) label green sources. Impact markets are tradable ETS:
+    a free ``allocation`` per year, with deficits bought and surplus sold.
+
+    Attributes:
+        market_id: Unique id.
+        target: Commodity id or impact id traded.
+        target_kind: Whether ``target`` is a commodity or an impact.
+        company: Scope served (``"all"`` ⇒ sector-wide).
+        price_by_year: Buy price [currency / unit] by year.
+        sell_price_by_year: Sell/offtake price [currency / unit] by year.
+        max_buy: Max bought per year [unit] (``None`` ⇒ unlimited).
+        max_sell: Max sold per year [unit] (``None`` ⇒ unlimited).
+        allocation_by_year: Free ETS allowance per year [impact unit] (impact only).
+        tag: Optional label (e.g. ``"RE100"``).
+    """
+
+    market_id: str
+    target: str
+    target_kind: MarketTarget = MarketTarget.COMMODITY
+    company: str = "all"
+    price_by_year: dict[int, float] = field(default_factory=dict)
+    sell_price_by_year: dict[int, float] = field(default_factory=dict)
+    max_buy: float | None = None
+    max_sell: float | None = None
+    allocation_by_year: dict[int, float] = field(default_factory=dict)
+    tag: str | None = None
+
+    def price(self, year: int) -> float:
+        """Buy price [currency/unit] in ``year``."""
+        return self.price_by_year.get(year, 0.0)
+
+    def sell_price(self, year: int) -> float:
+        """Sell price [currency/unit] in ``year`` (falls back to buy price)."""
+        return self.sell_price_by_year.get(year, self.price(year))
+
+    def allocation(self, year: int) -> float:
+        """Free allowance [impact unit] in ``year`` (0 if unset)."""
+        return self.allocation_by_year.get(year, 0.0)
+
+
 @dataclass(slots=True, frozen=True)
 class Transition:
     """A permitted technology change and its cost/compatibility.

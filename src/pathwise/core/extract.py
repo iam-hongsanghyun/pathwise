@@ -38,6 +38,8 @@ def empty_result(
             "flows": [],
             "trade": [],
             "storage": [],
+            "markets": [],
+            "ets": [],
             "demand_slack": [],
         },
         "summary": {"periods": [], "impacts": []},
@@ -131,6 +133,37 @@ def extract_results(
                     for t in prob.years
                 ],
             }
+        )
+
+    # Commodity markets: buy/sell per period.
+    mbuy, msell = _series(ctx.mbuy), _series(ctx.msell)
+    for mk in ctx.cmarkets:
+        rows = [
+            {
+                "period": int(t),
+                "buy": mbuy.get((mk.market_id, t), 0.0),
+                "sell": msell.get((mk.market_id, t), 0.0),
+            }
+            for t in prob.years
+        ]
+        if any(r["buy"] > _EPS or r["sell"] > _EPS for r in rows):
+            out["outputs"]["markets"].append(
+                {"market": mk.market_id, "commodity": mk.target, "tag": mk.tag, "by_period": rows}
+            )
+
+    # ETS allowance markets: bought (deficit) / sold (surplus) per period.
+    abuy, asell = _series(ctx.abuy), _series(ctx.asell)
+    for mk in ctx.imarkets:
+        rows = [
+            {
+                "period": int(t),
+                "bought": abuy.get((mk.market_id, t), 0.0),
+                "sold": asell.get((mk.market_id, t), 0.0),
+            }
+            for t in prob.years
+        ]
+        out["outputs"]["ets"].append(
+            {"market": mk.market_id, "impact": mk.target, "by_period": rows}
         )
 
     for key, v in _series(ctx.slk_dem).items():
