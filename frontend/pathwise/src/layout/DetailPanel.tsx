@@ -20,6 +20,73 @@ function coerce(value: string): Cell {
   return Number.isNaN(n) || value.trim() === "" ? value : n;
 }
 
+/** A commodity owns its emission factors: consuming `factor` per unit becomes
+ *  real emission at the facility (emission = consumption × factor). Edited here
+ *  as a commodity attribute (stored in the commodity_impacts sheet). */
+function EmissionFactors({
+  workbook,
+  commodity,
+  onChange,
+}: {
+  workbook: Workbook;
+  commodity: string;
+  onChange: (wb: Workbook) => void;
+}) {
+  const rows = workbook.commodity_impacts ?? [];
+  const impacts = (workbook.impacts ?? []).map((r) => String(r.impact_id ?? "")).filter(Boolean);
+  const mine = rows
+    .map((r, i) => ({ r, i }))
+    .filter(({ r }) => String(r.commodity_id ?? "") === commodity);
+
+  const setFactor = (idx: number, val: string) =>
+    onChange({
+      ...workbook,
+      commodity_impacts: rows.map((r, i) =>
+        i === idx ? { ...r, factor: val === "" ? null : Number(val) } : r,
+      ),
+    });
+  const setImpact = (idx: number, val: string) =>
+    onChange({
+      ...workbook,
+      commodity_impacts: rows.map((r, i) => (i === idx ? { ...r, impact_id: val } : r)),
+    });
+  const add = () =>
+    onChange({
+      ...workbook,
+      commodity_impacts: [...rows, { commodity_id: commodity, impact_id: impacts[0] ?? "", factor: 0 }],
+    });
+  const del = (idx: number) =>
+    onChange({ ...workbook, commodity_impacts: rows.filter((_, i) => i !== idx) });
+
+  return (
+    <div className="emission-factors">
+      <div className="rail-count" style={{ marginTop: 8 }}>EMISSION FACTORS (per unit consumed)</div>
+      {mine.map(({ r, i }) => (
+        <div key={i} className="ef-row">
+          <select value={String(r.impact_id ?? "")} onChange={(e) => setImpact(i, e.target.value)}>
+            <option value="">—</option>
+            {impacts.map((imp) => (
+              <option key={imp} value={imp}>
+                {imp}
+              </option>
+            ))}
+          </select>
+          <input
+            value={r.factor == null ? "" : String(r.factor)}
+            onChange={(e) => setFactor(i, e.target.value)}
+          />
+          <button className="ghost" onClick={() => del(i)} title="remove">
+            ✕
+          </button>
+        </div>
+      ))}
+      <button className="ghost" onClick={add}>
+        + factor
+      </button>
+    </div>
+  );
+}
+
 /** Detail editor for one entity — rendered in the main panel (Data) or as a
  *  floating card on the canvas (Model). Replaces the old right-rail inspector. */
 export function DetailPanel({ workbook, selected, schema, onChange, onClose, floating }: Props) {
@@ -73,6 +140,9 @@ export function DetailPanel({ workbook, selected, schema, onChange, onClose, flo
               </label>
             );
           })}
+          {selected.sheet === "commodities" && (
+            <EmissionFactors workbook={workbook} commodity={selected.id} onChange={onChange} />
+          )}
           <button className="ghost" onClick={remove}>
             Delete
           </button>

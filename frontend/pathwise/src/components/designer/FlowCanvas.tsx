@@ -13,6 +13,7 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 import {
   DRAG_MIME,
+  addFacilityWithTech,
   connect as connectWb,
   persistLayout,
   placeEntity,
@@ -104,7 +105,13 @@ export function FlowCanvas({ workbook, onChange, onSelect }: Props) {
       const pos = rf.current?.screenToFlowPosition
         ? rf.current.screenToFlowPosition({ x: e.clientX, y: e.clientY })
         : { x: e.clientX - 260, y: e.clientY - 120 };
-      onChange(placeEntity(workbook, dragId, pos.x, pos.y));
+      // A technology payload spawns a new facility running it; otherwise the
+      // payload is an existing entity being placed on the map.
+      if (dragId.startsWith("tech:")) {
+        onChange(addFacilityWithTech(workbook, dragId.slice(5), pos.x, pos.y));
+      } else {
+        onChange(placeEntity(workbook, dragId, pos.x, pos.y));
+      }
     },
     [workbook, onChange],
   );

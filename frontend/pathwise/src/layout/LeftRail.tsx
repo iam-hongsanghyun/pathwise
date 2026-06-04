@@ -54,7 +54,7 @@ interface Props {
   workbook: Workbook;
   selected: Selection | null;
   activeSheet: string;
-  onGroup: (sheet: string) => void;
+  onGroup?: (sheet: string) => void;
   onItem: (s: Selection) => void;
   draggable?: boolean;
   width?: number;
@@ -81,7 +81,7 @@ export function LeftRail({ workbook, selected, activeSheet, onGroup, onItem, dra
         const groupActive = activeSheet === sheet && !selected ? " is-active" : "";
         return (
           <div className="rail-group" key={sheet}>
-            <button className={`rail-head${groupActive}`} onClick={() => onGroup(sheet)}>
+            <button className={`rail-head${groupActive}`} onClick={() => onGroup?.(sheet)}>
               {LABEL[sheet] ?? sheet} <span className="rail-count">{rows.length}</span>
             </button>
             {ent &&
@@ -90,7 +90,9 @@ export function LeftRail({ workbook, selected, activeSheet, onGroup, onItem, dra
                 if (!id) return null;
                 const active =
                   selected?.sheet === sheet && selected.id === id ? " is-active" : "";
-                const canDrag = Boolean(draggable && ent.kind);
+                const isTech = sheet === "technologies";
+                const canDrag = Boolean(draggable && (ent.kind || isTech));
+                const payload = ent.kind ? nodeId(ent.kind, id) : `tech:${id}`;
                 const onMap = ent.kind && placed.has(nodeId(ent.kind, id));
                 return (
                   <button
@@ -100,7 +102,7 @@ export function LeftRail({ workbook, selected, activeSheet, onGroup, onItem, dra
                     onDragStart={
                       canDrag
                         ? (e) => {
-                            e.dataTransfer.setData(DRAG_MIME, nodeId(ent.kind as NodeKind, id));
+                            e.dataTransfer.setData(DRAG_MIME, payload);
                             e.dataTransfer.effectAllowed = "copy";
                           }
                         : undefined

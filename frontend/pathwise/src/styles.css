@@ -105,6 +105,49 @@
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
+  position: relative;
+}
+.model-banner {
+  padding: 6px 16px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: var(--brand-soft);
+  border-bottom: 1px solid var(--border);
+}
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bar-row {
+  display: grid;
+  grid-template-columns: 180px 1fr 90px;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+.bar-track {
+  background: var(--bg-hover);
+  height: 12px;
+}
+.bar-fill {
+  display: block;
+  height: 12px;
+  background: var(--brand);
+}
+.bar-val {
+  text-align: right;
+  font-family: var(--font-mono);
+}
+.emission-factors {
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+}
+.ef-row {
+  display: grid;
+  grid-template-columns: 1fr 80px 28px;
+  gap: 4px;
+  margin: 3px 0;
 }
 .left-rail,
 .right-rail {

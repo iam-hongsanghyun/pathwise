@@ -142,6 +142,27 @@ export function unplace(wb: Workbook, id: string): Workbook {
   return { ...wb, node_layout: (wb.node_layout ?? []).filter((r) => s(r.id) !== id) };
 }
 
+/** Create a new facility running ``tech`` and place it at (x, y). Used when a
+ *  technology is dragged from the palette onto the canvas. */
+export function addFacilityWithTech(wb: Workbook, tech: string, x: number, y: number): Workbook {
+  const seen = new Set((wb.processes ?? []).map((r) => s(r.process_id)));
+  let i = 1;
+  while (seen.has(`F${i}`)) i += 1;
+  const id = `F${i}`;
+  return placeEntity(
+    {
+      ...wb,
+      processes: [
+        ...(wb.processes ?? []),
+        { process_id: id, company: "all", baseline_technology: tech, capacity: 1000 },
+      ],
+    },
+    nodeId("process", id),
+    x,
+    y,
+  );
+}
+
 /** Wire a connection: writes the appropriate sheet based on endpoint kinds. */
 export function connect(wb: Workbook, sourceId: string, targetId: string): Workbook {
   const a = parse(sourceId);
