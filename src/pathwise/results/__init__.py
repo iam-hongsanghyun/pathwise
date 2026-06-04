@@ -1,7 +1,7 @@
-"""pathwise.results — solution extraction, post-calculation, export."""
+"""pathwise.results — solution extraction and post-calculation."""
 
 from __future__ import annotations
 
-from pathwise.results.extract import extract_results
+from pathwise.results.extract import empty_result, extract_results
 
-__all__ = ["extract_results"]
+__all__ = ["empty_result", "extract_results"]

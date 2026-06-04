@@ -23,43 +23,44 @@ untouched.
 ```
 core/      generic optimisation model — no I/O, no sector vocabulary
 domains/   sector packs (shipping, …) + DomainPack registry
-data/      workbook + JSON-scenario loading, validation, imputation
-results/   solution extraction, post-calculation, Excel export
+data/      generic workbook assembly, scenario, validation, imputation
+results/   solution extraction + per-period summary
 backends/  pluggable solver backends (linopy + HiGHS)
-api/       FastAPI web application (async solve jobs)
-frontend/  React + TypeScript web UI (workbook editor, run, visualise)
+api/       FastAPI web application (stateless: config handshake + run)
+frontend/  React + TypeScript web UI — owns all data and user config
 ```
 
 - **Solver:** [linopy](https://linopy.readthedocs.io) + [HiGHS](https://highs.dev).
-- **Input:** Excel workbook (data tables) + JSON scenario (run definition).
-- **Frontend:** browser app — upload/edit a workbook, pick a sector and scenario, run, and visualise.
-
-## Quick start
-
-```bash
-uv sync --all-extras          # install (Python)
-cp .env.example .env          # configure
-uv run pytest                 # tests
-uv run ruff check .           # lint
-uv run mypy src/              # type-check
-```
+- **Isolation:** frontend and backend are coupled by **one HTTP contract only**
+  (`docs/API.md`); either is replaceable. The backend is **stateless** — all data
+  comes from the frontend; xlsx parse/export happen client-side. See
+  [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Run the app
 
 ```bash
-uv sync --all-extras                       # backend deps
-(cd frontend/pathwise_default && npm install)  # frontend deps
-./run.sh                                   # backend :8000 + frontend :5173
+./run.command      # installs deps if needed, starts backend + frontend, opens the browser
 ```
 
-Open http://127.0.0.1:5173, pick a sector, upload a workbook (a sample is at
-`data/sample_kss_line.xlsx`), set the scenario, and Run. To convert a legacy
-shipping workbook into the generic format:
+Then pick a sector, click **Load sample** (or upload your own `.xlsx`), set the
+scenario, and **Run**. Stop with Ctrl-C.
+
+To convert a legacy shipping workbook into the generic format (offline tool):
 
 ```bash
-uv run python tools/migrate_shipping_to_generic.py path/to/Reference.xlsx data/fleet.xlsx
+uv run python tools/migrate_shipping_to_generic.py path/to/Reference.xlsx out.xlsx
 ```
 
-See [`docs/ALGORITHM.md`](docs/ALGORITHM.md) for the mathematical formulation,
-[`docs/API.md`](docs/API.md) for the data schema and HTTP contract, and
-[`docs/DOMAINS.md`](docs/DOMAINS.md) for how to add a new sector pack.
+## Develop
+
+```bash
+uv sync --all-extras          # backend deps
+uv run pytest                 # backend tests
+uv run ruff check . && uv run mypy src/
+(cd frontend/pathwise_default && npm install && npm run build)  # frontend
+```
+
+See [`docs/ALGORITHM.md`](docs/ALGORITHM.md) for the formulation,
+[`docs/API.md`](docs/API.md) for the HTTP contract,
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the isolation model, and
+[`docs/DOMAINS.md`](docs/DOMAINS.md) for adding a sector pack.

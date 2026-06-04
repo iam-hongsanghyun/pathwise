@@ -1,4 +1,4 @@
-"""API tests via FastAPI TestClient: discovery, validate, run→poll→done."""
+"""API tests via FastAPI TestClient: the minimal contract (config + run)."""
 
 from __future__ import annotations
 
@@ -26,67 +26,56 @@ def _scenario() -> dict:
     }
 
 
+def _run_to_done(client: TestClient, model: dict, scenario: dict) -> dict:
+    submit = client.post(
+        "/api/run", json={"model": model, "scenario": scenario, "options": {"domain": "shipping"}}
+    ).json()
+    assert submit["status"] == "running"
+    job_id = submit["jobId"]
+    deadline = time.time() + 60
+    state = client.get(f"/api/run/{job_id}").json()
+    while state["status"] == "running" and time.time() < deadline:
+        time.sleep(0.1)
+        state = client.get(f"/api/run/{job_id}").json()
+    assert state["status"] == "done", state
+    return state["result"]
+
+
 def test_health_and_status(client: TestClient) -> None:
     assert client.get("/api/health").json()["status"] == "ok"
     status = client.get("/api/status").json()
     assert status["ready"] is True and status["buildId"]
 
 
-def test_config_lists_domains_and_backends(client: TestClient) -> None:
+def test_config_handshake_has_backend_truths_only(client: TestClient) -> None:
     cfg = client.get("/api/config").json()
     assert any(d["name"] == "shipping" for d in cfg["domains"])
     assert any(b["name"] == "linopy" for b in cfg["backends"])
+    assert cfg["server"]["maxSolverTimeLimitS"] > 0
     assert cfg["buildId"]
+    # No user-definable model defaults leak from the backend handshake.
+    assert "defaults" not in cfg
 
 
-def test_domain_schema_endpoint(client: TestClient) -> None:
-    resp = client.get("/api/domains/shipping/schema")
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["terminology"]["asset"] == "Ship"
-    assert "assets" in body["schema"]
-    assert client.get("/api/domains/nope/schema").status_code == 404
-
-
-def test_validate_endpoint(client: TestClient) -> None:
-    good = client.post(
-        "/api/validate", json={"model": _shipping_workbook(), "scenario": _scenario()}
-    ).json()
-    assert good["ok"] is True
-
-    bad_wb = _shipping_workbook()
-    bad_wb["assets"][0]["technology_id"] = "NUCLEAR"
-    bad = client.post("/api/validate", json={"model": bad_wb, "scenario": _scenario()}).json()
-    assert bad["ok"] is False and bad["errors"]
-
-
-def test_run_poll_and_export(client: TestClient) -> None:
-    submit = client.post(
-        "/api/run",
-        json={
-            "model": _shipping_workbook(),
-            "scenario": _scenario(),
-            "options": {"domain": "shipping"},
-        },
-    ).json()
-    job_id = submit["jobId"]
-    assert submit["status"] == "running"
-
-    # Poll until the job finishes (tiny model — finishes fast).
-    deadline = time.time() + 60
-    state = client.get(f"/api/run/{job_id}").json()
-    while state["status"] == "running" and time.time() < deadline:
-        time.sleep(0.1)
-        state = client.get(f"/api/run/{job_id}").json()
-
-    assert state["status"] == "done", state
-    result = state["result"]
+def test_run_returns_entire_result(client: TestClient) -> None:
+    result = _run_to_done(client, _shipping_workbook(), _scenario())
+    assert result["status"] == "optimal"
     np.testing.assert_allclose(result["objective"], 10300.0, rtol=1e-6)
+    assert result["validation"]["errors"] == []
+    chosen = {
+        (c["asset"], c["technology"], c["period"]) for c in result["outputs"]["chosen_technology"]
+    }
+    assert ("ship1", "LNG", 2030) in chosen
+    assert {p["period"] for p in result["summary"]["periods"]} == {2025, 2030}
 
-    # Export the result to xlsx.
-    export = client.post("/api/export/xlsx", json=result)
-    assert export.status_code == 200
-    assert export.content[:2] == b"PK"  # xlsx is a zip
+
+def test_invalid_workbook_surfaces_in_result_not_a_round_trip(client: TestClient) -> None:
+    bad = _shipping_workbook()
+    bad["assets"][0]["technology_id"] = "NUCLEAR"  # dangling reference
+    result = _run_to_done(client, bad, _scenario())
+    assert result["status"] == "invalid"
+    assert result["objective"] is None
+    assert any("NUCLEAR" in e for e in result["validation"]["errors"])
 
 
 def test_unknown_job_is_404(client: TestClient) -> None:

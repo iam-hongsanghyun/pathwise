@@ -9,13 +9,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from pathwise.config import get_settings
 from pathwise.core.builder import build
 from pathwise.core.solve import SolverOptions, solve
 from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.workbook import Workbook
 from pathwise.domains.base import get_domain
 from pathwise.logger import get_logger
-from pathwise.results.extract import extract_results
+from pathwise.results.extract import empty_result, extract_results
 
 logger = get_logger(__name__)
 
@@ -61,17 +62,27 @@ class LinopyBackend:
             pathwise's result dict.
         """
         options = options or {}
+        settings = get_settings()
         sc = ScenarioConfig.from_dict(scenario)
         domain = get_domain(options.get("domain") or sc.domain)
         logger.info("running domain=%s backend=%s", domain.name, self.name)
 
+        # Validation is part of the result — no separate round-trip.
+        report = domain.validate(model)
+        if not report.ok:
+            logger.warning("validation failed: %d error(s)", len(report.errors))
+            return empty_result("invalid", domain.terminology(), report.as_dict())
+
         problem = domain.build_problem(model, sc)
         ctx = build(problem)
+        # Solver resource limits are server-controlled: clamp the user's time
+        # limit and use the server's thread count; honour the user's MIP gap.
+        time_limit = min(sc.solver.time_limit_s, float(settings.max_solver_time_limit_s))
         solver_opts = SolverOptions(
-            time_limit_s=sc.solver.time_limit_s,
+            time_limit_s=time_limit,
             mip_rel_gap=sc.solver.mip_gap,
-            threads=sc.solver.threads,
+            threads=settings.solver_threads,
             output_flag=bool(options.get("verbose", False)),
         )
         result = solve(ctx, solver_opts)
-        return extract_results(result, terminology=domain.terminology())
+        return extract_results(result, domain.terminology(), report.as_dict())

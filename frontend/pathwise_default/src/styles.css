@@ -45,6 +45,7 @@ button:hover:not(:disabled) { border-color: var(--accent); }
 button:disabled { opacity: 0.4; cursor: not-allowed; }
 .actions button { background: var(--accent); border-color: var(--accent); color: #061018; font-weight: 600; }
 .actions button:disabled { background: var(--panel); color: var(--muted); }
+button.ghost { background: var(--panel); color: var(--fg); align-self: flex-end; }
 
 .error { background: rgba(255,107,107,0.12); border: 1px solid var(--bad); color: var(--bad); padding: 10px; border-radius: 6px; margin: 12px 0; white-space: pre-wrap; }
 .validation { padding: 10px; border-radius: 6px; margin: 12px 0; }

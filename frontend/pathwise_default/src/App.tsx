@@ -1,20 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  exportXlsx,
-  getConfig,
-  parseWorkbook,
-  runToCompletion,
-  validate,
-} from "./api";
+import { getConfig, runToCompletion } from "./api";
 import { WorkbookTable } from "./components/WorkbookTable";
-import type {
-  ConfigBundle,
-  DomainCapability,
-  RunResult,
-  Scenario,
-  ValidationResult,
-  Workbook,
-} from "./types";
+import { defaultScenario } from "./defaults";
+import { downloadResultXlsx, loadSample, parseWorkbookFile } from "./workbook";
+import type { ConfigBundle, DomainCapability, RunResult, Scenario, Workbook } from "./types";
 
 const FEATURE_LABELS: Record<string, string> = {
   include_transitions: "Technology transitions",
@@ -24,14 +13,15 @@ const FEATURE_LABELS: Record<string, string> = {
   include_capex: "Capital cost",
 };
 
+const SAMPLE_URL = "/sample_kss_line.xlsx";
+
 export function App() {
   const [config, setConfig] = useState<ConfigBundle | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [domainId, setDomainId] = useState<string>("");
   const [workbook, setWorkbook] = useState<Workbook>({});
   const [activeSheet, setActiveSheet] = useState<string>("");
-  const [scenario, setScenario] = useState<Scenario>(defaultScenario());
-  const [validation, setValidation] = useState<ValidationResult | null>(null);
+  const [scenario, setScenario] = useState<Scenario>(defaultScenario("shipping"));
   const [result, setResult] = useState<RunResult | null>(null);
   const [running, setRunning] = useState<string | null>(null);
 
@@ -39,8 +29,9 @@ export function App() {
     getConfig()
       .then((cfg) => {
         setConfig(cfg);
-        setDomainId(cfg.defaults.domain);
-        setScenario((s) => ({ ...s, domain: cfg.defaults.domain, economics: { ...s.economics, discount_rate: cfg.defaults.discountRate } }));
+        const first = cfg.domains[0]?.name ?? "shipping";
+        setDomainId(first);
+        setScenario(defaultScenario(first));
       })
       .catch((e) => setError(String(e)));
   }, []);
@@ -49,26 +40,27 @@ export function App() {
     () => config?.domains.find((d) => d.name === domainId),
     [config, domainId],
   );
-
   const sheetNames = Object.keys(workbook);
+
+  function loadModel(wb: Workbook) {
+    setWorkbook(wb);
+    setActiveSheet(Object.keys(wb)[0] ?? "");
+    setResult(null);
+  }
 
   async function onUpload(file: File) {
     setError(null);
     try {
-      const wb = await parseWorkbook(file);
-      setWorkbook(wb);
-      setActiveSheet(Object.keys(wb)[0] ?? "");
-      setResult(null);
-      setValidation(null);
+      loadModel(await parseWorkbookFile(file));
     } catch (e) {
       setError(String(e));
     }
   }
 
-  async function onValidate() {
+  async function onLoadSample() {
     setError(null);
     try {
-      setValidation(await validate(workbook, { ...scenario, domain: domainId }, { domain: domainId }));
+      loadModel(await loadSample(SAMPLE_URL));
     } catch (e) {
       setError(String(e));
     }
@@ -92,17 +84,6 @@ export function App() {
     }
   }
 
-  async function onExport() {
-    if (!result) return;
-    const blob = await exportXlsx(result);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "pathwise_result.xlsx";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
   if (error && !config) return <div className="app error">Failed to load: {error}</div>;
   if (!config) return <div className="app">Loading…</div>;
 
@@ -118,7 +99,13 @@ export function App() {
       <section className="controls">
         <label>
           Sector
-          <select value={domainId} onChange={(e) => setDomainId(e.target.value)}>
+          <select
+            value={domainId}
+            onChange={(e) => {
+              setDomainId(e.target.value);
+              setScenario((s) => ({ ...s, domain: e.target.value }));
+            }}
+          >
             {config.domains.map((d) => (
               <option key={d.name} value={d.name}>
                 {d.label}
@@ -135,6 +122,10 @@ export function App() {
             onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])}
           />
         </label>
+
+        <button className="ghost" onClick={onLoadSample}>
+          Load sample
+        </button>
 
         <label>
           Target set
@@ -167,7 +158,10 @@ export function App() {
             onChange={(e) =>
               setScenario({
                 ...scenario,
-                economics: { ...scenario.economics, capex_convention: e.target.value as "annuity" | "npv" },
+                economics: {
+                  ...scenario.economics,
+                  capex_convention: e.target.value as "annuity" | "npv",
+                },
               })
             }
           >
@@ -184,7 +178,10 @@ export function App() {
               type="checkbox"
               checked={scenario.features[key] ?? true}
               onChange={(e) =>
-                setScenario({ ...scenario, features: { ...scenario.features, [key]: e.target.checked } })
+                setScenario({
+                  ...scenario,
+                  features: { ...scenario.features, [key]: e.target.checked },
+                })
               }
             />
             {label}
@@ -193,19 +190,15 @@ export function App() {
       </section>
 
       <section className="actions">
-        <button onClick={onValidate} disabled={sheetNames.length === 0}>
-          Validate
-        </button>
         <button onClick={onRun} disabled={sheetNames.length === 0 || running != null}>
           {running ? `Running… (${running})` : "Run optimisation"}
         </button>
-        <button onClick={onExport} disabled={!result}>
+        <button onClick={() => result && downloadResultXlsx(result)} disabled={!result}>
           Export .xlsx
         </button>
       </section>
 
       {error && <div className="error">{error}</div>}
-      {validation && <ValidationView v={validation} />}
 
       {sheetNames.length > 0 && (
         <section className="workbook">
@@ -235,28 +228,9 @@ export function App() {
   );
 }
 
-function ValidationView({ v }: { v: ValidationResult }) {
-  return (
-    <div className={v.ok ? "validation ok" : "validation bad"}>
-      <strong>{v.ok ? "Valid ✓" : "Validation errors"}</strong>
-      <ul>
-        {v.errors.map((e, i) => (
-          <li key={`e${i}`} className="error-item">
-            {e}
-          </li>
-        ))}
-        {v.warnings.map((w, i) => (
-          <li key={`w${i}`} className="warn-item">
-            {w}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 function ResultsView({ result }: { result: RunResult }) {
   const term = result.terminology;
+  const invalid = result.status === "invalid";
   return (
     <section className="results">
       <h2>
@@ -266,65 +240,68 @@ function ResultsView({ result }: { result: RunResult }) {
         )}
       </h2>
 
-      <h3>Per-{term.period ?? "period"} summary</h3>
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>{term.period ?? "Period"}</th>
-              <th>Energy (MJ)</th>
-              <th>Emissions (tCO2e)</th>
-              <th>Intensity (gCO2e/MJ)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {result.summary.periods.map((p) => (
-              <tr key={p.period}>
-                <td>{p.period}</td>
-                <td>{p.energy_mj.toLocaleString()}</td>
-                <td>{p.emissions_tco2e.toFixed(2)}</td>
-                <td>{p.intensity_gco2e_per_mj.toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {result.outputs.transitions.length > 0 && (
-        <>
-          <h3>{term.technology ?? "Technology"} transitions</h3>
-          <ul>
-            {result.outputs.transitions.map((t, i) => (
-              <li key={i}>
-                {t.asset} → {t.to_technology} in {t.period}
-              </li>
-            ))}
-          </ul>
-        </>
+      {(result.validation.errors.length > 0 || result.validation.warnings.length > 0) && (
+        <div className={invalid ? "validation bad" : "validation ok"}>
+          {result.validation.errors.map((e, i) => (
+            <div key={`e${i}`} className="error-item">
+              ✗ {e}
+            </div>
+          ))}
+          {result.validation.warnings.map((w, i) => (
+            <div key={`w${i}`} className="warn-item">
+              ⚠ {w}
+            </div>
+          ))}
+        </div>
       )}
 
-      {result.outputs.slack.length > 0 && (
-        <div className="warn-item">
-          ⚠ Slack used (target/demand could not be fully met):{" "}
-          {result.outputs.slack.map((s) => `${s.kind}@${s.group}/${s.period}`).join(", ")}
-        </div>
+      {!invalid && (
+        <>
+          <h3>Per-{term.period ?? "period"} summary</h3>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>{term.period ?? "Period"}</th>
+                  <th>Energy (MJ)</th>
+                  <th>Emissions (tCO2e)</th>
+                  <th>Intensity (gCO2e/MJ)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.summary.periods.map((p) => (
+                  <tr key={p.period}>
+                    <td>{p.period}</td>
+                    <td>{p.energy_mj.toLocaleString()}</td>
+                    <td>{p.emissions_tco2e.toFixed(2)}</td>
+                    <td>{p.intensity_gco2e_per_mj.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {result.outputs.transitions.length > 0 && (
+            <>
+              <h3>{term.technology ?? "Technology"} transitions</h3>
+              <ul>
+                {result.outputs.transitions.map((t, i) => (
+                  <li key={i}>
+                    {t.asset} → {t.to_technology} in {t.period}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {result.outputs.slack.length > 0 && (
+            <div className="warn-item">
+              ⚠ Slack used (target/demand could not be fully met):{" "}
+              {result.outputs.slack.map((s) => `${s.kind}@${s.group}/${s.period}`).join(", ")}
+            </div>
+          )}
+        </>
       )}
     </section>
   );
-}
-
-function defaultScenario(): Scenario {
-  return {
-    name: "scenario",
-    domain: "shipping",
-    selection: { target_set: "Tier1" },
-    economics: { discount_rate: 0.08, base_period: 2025, capex_convention: "annuity" },
-    features: {
-      include_transitions: true,
-      include_measures: true,
-      include_new_build: true,
-      include_carbon_price: true,
-      include_capex: true,
-    },
-  };
 }

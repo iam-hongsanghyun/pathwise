@@ -7,14 +7,6 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
-class ValidatePayload(BaseModel):
-    """Body for ``POST /api/validate``."""
-
-    model: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
-    scenario: dict[str, Any] = Field(default_factory=dict)
-    options: dict[str, Any] = Field(default_factory=dict)
-
-
 class RunPayload(BaseModel):
     """Body for ``POST /api/run``.
 

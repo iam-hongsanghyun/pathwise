@@ -25,18 +25,46 @@ def _series(var: Any) -> dict[tuple, float]:
     return {idx: float(v) for idx, v in s.items()}
 
 
+def empty_result(
+    status: str,
+    terminology: dict[str, str] | None = None,
+    validation: dict[str, list[str]] | None = None,
+) -> dict[str, Any]:
+    """Return a result dict with no decisions (e.g. an ``invalid`` run)."""
+    return {
+        "status": status,
+        "termination": status,
+        "objective": None,
+        "terminology": terminology or {},
+        "validation": validation or {"errors": [], "warnings": []},
+        "outputs": {
+            "chosen_technology": [],
+            "carrier_energy": [],
+            "transitions": [],
+            "new_builds": [],
+            "measures": [],
+            "slack": [],
+        },
+        "summary": {"periods": []},
+    }
+
+
 def extract_results(
-    result: SolveResult, terminology: dict[str, str] | None = None
+    result: SolveResult,
+    terminology: dict[str, str] | None = None,
+    validation: dict[str, list[str]] | None = None,
 ) -> dict[str, Any]:
     """Build the result dict from a :class:`SolveResult`.
 
     Args:
         result: The solve outcome (carries the build context with solutions).
         terminology: Optional sector label overrides to echo back to the UI.
+        validation: Optional validation report (errors/warnings) to include.
 
     Returns:
         A JSON-serialisable result dict with ``status``, ``objective``,
-        ``outputs`` (decisions), and ``summary`` (per-period energy/emissions).
+        ``validation``, ``outputs`` (decisions), and ``summary``
+        (per-period energy/emissions).
     """
     ctx = result.context
     problem = ctx.problem
@@ -45,6 +73,7 @@ def extract_results(
         "termination": result.termination,
         "objective": result.objective,
         "terminology": terminology or {},
+        "validation": validation or {"errors": [], "warnings": []},
         "outputs": {
             "chosen_technology": [],
             "carrier_energy": [],

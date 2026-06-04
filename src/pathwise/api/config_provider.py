@@ -1,9 +1,13 @@
-"""Config bundle served to the frontend, with a build-id cache key.
+"""The config-handshake bundle — the backend's single source of truth.
 
-The bundle describes everything the UI needs to render: the registered sector
-packs (their schema + terminology), the available solver backends, and runtime
-defaults. ``build_id`` is a content hash so the frontend can cache the bundle
-and invalidate it when the backend changes.
+``GET /api/config`` returns exactly what the backend authoritatively owns: the
+schema version, the registered sector packs (with their workbook schemas and
+terminology), the available solver backends, and the server-side limits a
+client must respect. It contains **no model-parameter defaults** — those are
+user-definable and owned by the frontend.
+
+``buildId`` is a content hash so a client can cache the bundle and invalidate it
+when the backend changes (new pack, new solver, version bump).
 """
 
 from __future__ import annotations
@@ -27,29 +31,18 @@ def _build_id(payload: dict[str, Any]) -> str:
 
 @lru_cache(maxsize=1)
 def get_config_bundle() -> dict[str, Any]:
-    """Return the cached config bundle (schema, domains, backends, defaults, build_id)."""
+    """Return the cached handshake bundle (schema, domains, backends, server, build_id)."""
     settings = get_settings()
-    domains = available_domains()
-    backends = available_backends()
-    defaults = {
-        "domain": settings.default_domain,
-        "backend": settings.default_backend,
-        "discountRate": settings.default_discount_rate,
-        "carbonPrice": settings.default_carbon_price,
-        "currency": settings.currency,
-        "solver": {
-            "name": settings.solver_name,
-            "threads": settings.solver_threads,
-            "timeLimitS": settings.solver_time_limit_s,
-            "mipGap": settings.solver_mip_gap,
-        },
-    }
-    bundle = {
+    bundle: dict[str, Any] = {
         "schemaVersion": settings.schema_version,
         "version": __version__,
-        "domains": domains,
-        "backends": backends,
-        "defaults": defaults,
+        "domains": available_domains(),
+        "backends": available_backends(),
+        "server": {
+            "solver": settings.solver_name,
+            "maxSolverTimeLimitS": settings.max_solver_time_limit_s,
+            "defaultMipGap": settings.default_mip_gap,
+        },
     }
     bundle["buildId"] = _build_id(bundle)
     return bundle

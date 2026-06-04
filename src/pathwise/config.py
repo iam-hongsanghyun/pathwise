@@ -1,40 +1,27 @@
-"""Application configuration loaded from environment / ``.env``.
+"""Backend (server-side) configuration loaded from environment / ``.env``.
 
-All runtime knobs live here so that nothing is hardcoded elsewhere in the
-package (per the project convention in ``CLAUDE.md``). Every field below has a
-matching entry in ``.env.example``.
+This file is the **single source of truth for server-side configuration only** —
+things the operator controls and the user cannot: solver resource limits, job
+concurrency, logging, and the serving host/port.
 
-The values here are *server / runtime* defaults — they are not model data.
-Per-run model parameters (discount rate, carbon price, solver tuning, ...) can
-be overridden by a scenario JSON; the values here are the fallbacks used when a
-scenario does not specify them.
+It deliberately holds **no model parameters** (discount rate, carbon price,
+lifetimes, currency, feature toggles, …). Those are *user-definable* and belong
+to the frontend, which sends them inside the scenario on every run. Keeping the
+two homes separate (server-side here, user-definable in the frontend) is what
+lets the backend stay stateless and independently replaceable.
 
-Example:
-    >>> from pathwise.config import get_settings
-    >>> settings = get_settings()
-    >>> settings.default_discount_rate
-    0.08
+Every field below has a matching entry in ``.env.example``.
 """
 
 from __future__ import annotations
 
 from functools import lru_cache
-from pathlib import Path
 
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-#: Repository root (…/pathwise), used to resolve default relative paths.
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
-    """Typed application settings.
-
-    Attributes are populated from environment variables prefixed with
-    ``PATHWISE_`` (case-insensitive) or a local ``.env`` file. Unset attributes
-    fall back to the defaults below.
-    """
+    """Typed server-side settings (env prefix ``PATHWISE_``)."""
 
     model_config = SettingsConfigDict(
         env_prefix="PATHWISE_",
@@ -43,46 +30,26 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # ── Paths ────────────────────────────────────────────────────────────────
-    data_dir: Path = Field(default=PROJECT_ROOT / "data")
-    output_dir: Path = Field(default=PROJECT_ROOT / "output")
-    scenario_dir: Path = Field(default=PROJECT_ROOT / "scenarios")
-    output_pattern: str = Field(default="output/output_{timestamp}.xlsx")
+    # ── Serving ──────────────────────────────────────────────────────────────
+    host: str = "127.0.0.1"
+    port: int = 8000
 
-    # ── Schema / domain ──────────────────────────────────────────────────────
-    schema_version: str = Field(default="1.0")
-    default_domain: str = Field(default="shipping")
-    default_backend: str = Field(default="linopy")
+    # ── Solver resource limits (server-controlled; clamp user requests) ───────
+    solver_name: str = "highs"
+    solver_threads: int = 4
+    max_solver_time_limit_s: int = 1800
+    default_mip_gap: float = 0.01
 
-    # ── Economics (CRF / discounting fallbacks) ──────────────────────────────
-    default_discount_rate: float = Field(default=0.08, ge=0.0, lt=1.0)
-    default_carbon_price: float = Field(default=0.0, ge=0.0)
-    default_measure_lifetime_years: int = Field(default=15, ge=1)
-    default_newbuild_lifetime_years: int = Field(default=25, ge=1)
-    base_period: int = Field(default=2025)
-    currency: str = Field(default="USD")
-    noncompliance_rate: float = Field(default=380.0, ge=0.0)
+    # ── Jobs / logging ───────────────────────────────────────────────────────
+    max_jobs: int = 4
+    log_buffer_size: int = 2000
+    log_level: str = "INFO"
 
-    # ── Solver ───────────────────────────────────────────────────────────────
-    solver_name: str = Field(default="highs")
-    solver_threads: int = Field(default=4, ge=1)
-    solver_time_limit_s: int = Field(default=600, ge=1)
-    solver_mip_gap: float = Field(default=0.01, ge=0.0)
-
-    # ── Runtime / behaviour ──────────────────────────────────────────────────
-    random_seed: int = Field(default=42)
-    impute_intensity: bool = Field(default=True)
-    max_jobs: int = Field(default=4, ge=1)
-    log_buffer_size: int = Field(default=2000, ge=1)
-    log_level: str = Field(default="INFO")
-    verbose: bool = Field(default=True)
+    # ── Backend identity ─────────────────────────────────────────────────────
+    schema_version: str = "1.0"
 
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """Return the process-wide :class:`Settings` singleton (cached).
-
-    Returns:
-        The cached settings instance built from the environment / ``.env``.
-    """
+    """Return the process-wide :class:`Settings` singleton (cached)."""
     return Settings()

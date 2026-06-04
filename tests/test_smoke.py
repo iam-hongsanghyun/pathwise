@@ -23,13 +23,17 @@ def test_subpackages_import() -> None:
         assert importlib.import_module(name) is not None
 
 
-def test_settings_defaults() -> None:
+def test_settings_are_server_side_only() -> None:
     from pathwise.config import get_settings
 
     settings = get_settings()
-    assert 0.0 <= settings.default_discount_rate < 1.0
-    assert settings.default_domain == "shipping"
     assert settings.solver_name == "highs"
+    assert settings.max_solver_time_limit_s > 0
+    assert settings.max_jobs >= 1
+    assert settings.schema_version
+    # Model parameters must NOT live in server config (they belong to the frontend).
+    for forbidden in ("default_discount_rate", "default_carbon_price", "currency", "base_period"):
+        assert not hasattr(settings, forbidden), f"{forbidden} should not be server-side config"
 
 
 def test_logger_is_namespaced() -> None:

@@ -18,25 +18,14 @@ export interface BackendCapability {
   features?: Record<string, boolean>;
 }
 
+/** The backend handshake — server-side truths only (no model defaults). */
 export interface ConfigBundle {
   schemaVersion: string;
   version: string;
   domains: DomainCapability[];
   backends: BackendCapability[];
-  defaults: {
-    domain: string;
-    backend: string;
-    discountRate: number;
-    currency: string;
-    solver: { name: string; threads: number; timeLimitS: number; mipGap: number };
-  };
+  server: { solver: string; maxSolverTimeLimitS: number; defaultMipGap: number };
   buildId: string;
-}
-
-export interface ValidationResult {
-  ok: boolean;
-  errors: string[];
-  warnings: string[];
 }
 
 export interface PeriodSummary {
@@ -51,6 +40,7 @@ export interface RunResult {
   termination: string;
   objective: number | null;
   terminology: Record<string, string>;
+  validation: { errors: string[]; warnings: string[] };
   outputs: {
     chosen_technology: { asset: string; technology: string; period: number }[];
     transitions: { asset: string; to_technology: string; period: number }[];
@@ -69,10 +59,19 @@ export interface JobState {
   error?: string;
 }
 
+/** User-definable model config (owned by the frontend, sent with each run). */
 export interface Scenario {
   name: string;
   domain: string;
   selection: { target_set?: string };
-  economics: { discount_rate: number; base_period?: number; capex_convention: "annuity" | "npv" };
+  economics: {
+    discount_rate: number;
+    base_period?: number;
+    capex_convention: "annuity" | "npv";
+    default_measure_lifetime?: number;
+    default_newbuild_lifetime?: number;
+    currency?: string;
+  };
   features: Record<string, boolean>;
+  solver: { name: string; threads: number; time_limit_s: number; mip_gap: number };
 }
