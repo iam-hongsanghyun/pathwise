@@ -65,21 +65,24 @@ export function exampleWorkbook(): Workbook {
       { process_id: "F1", company: "Acme", baseline_technology: "BF", capacity: 1000, fixed_opex: 5000, failure_rate: 0.03 },
       { process_id: "F2", company: "Acme", baseline_technology: "EAF", capacity: 1000, fixed_opex: 4000, failure_rate: 0.02 },
     ],
-    process_inputs: [
-      { technology_id: "BF", commodity_id: "coal", intensity: 4 },
-      { technology_id: "BF", commodity_id: "ore", intensity: 1.6 },
-      { technology_id: "EAF", commodity_id: "iron", intensity: 1.1 },
-      { technology_id: "EAF", commodity_id: "elec", intensity: 0.6 },
-    ],
-    process_outputs: [
-      { technology_id: "BF", commodity_id: "iron", yield: 1, is_product: false },
-      { technology_id: "EAF", commodity_id: "steel", yield: 1, is_product: true },
+    io: [
+      { technology_id: "BF", target: "coal", role: "input", coefficient: 4 },
+      { technology_id: "BF", target: "ore", role: "input", coefficient: 1.6 },
+      { technology_id: "BF", target: "iron", role: "output", coefficient: 1, is_product: false },
+      { technology_id: "BF", target: "CO2", role: "impact", coefficient: 1.2 },
+      { technology_id: "EAF", target: "iron", role: "input", coefficient: 1.1 },
+      { technology_id: "EAF", target: "elec", role: "input", coefficient: 0.6 },
+      { technology_id: "EAF", target: "steel", role: "output", coefficient: 1, is_product: true },
     ],
     commodity_impacts: [
       { commodity_id: "coal", impact_id: "CO2", factor: 0.34 },
       { commodity_id: "elec", impact_id: "CO2", factor: 0.05 },
     ],
-    tech_impacts: [{ technology_id: "BF", impact_id: "CO2", factor: 1.2 }],
+    // PyPSA-style wide temporal: rows = years (snapshots), columns = stream names.
+    commodities_t__price: [
+      { year: 2025, coal: 30, elec: 80 },
+      { year: 2030, coal: 40, elec: 95 },
+    ],
     edges: [{ from_process: "F1", to_process: "F2", commodity_id: "iron" }],
     measures: [
       { measure_id: "BF_eff", type: "energy_efficiency", applies_to: "F1", target: "coal", lifetime: 15 },

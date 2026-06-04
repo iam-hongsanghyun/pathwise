@@ -73,6 +73,27 @@ def _meta(wb: Workbook) -> dict[str, Any]:
     return {str(r.get("key")): r.get("value") for r in _rows(wb, "meta")}
 
 
+def _wide_temporal(wb: Workbook, sheet: str) -> dict[str, dict[int, float]]:
+    """Parse a PyPSA-style wide temporal sheet → ``{item_name: {year: value}}``.
+
+    Rows are snapshots (a ``year`` column); every other column is named by a
+    static item (commodity / market / impact id), linking temporal to static
+    data by name. Blank cells are skipped (the static default applies).
+    """
+    out: dict[str, dict[int, float]] = {}
+    for r in _rows(wb, sheet):
+        if r.get("year") is None:
+            continue
+        y = int(r["year"])
+        for col, val in r.items():
+            if col == "year":
+                continue
+            v = _num(val)
+            if v is not None:
+                out.setdefault(str(col), {})[y] = v
+    return out
+
+
 def _actions(value: Any) -> frozenset[TransitionAction]:
     """Parse a comma-separated availability string into actions (default: all)."""
     s = _str(value)
@@ -124,6 +145,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             price_traj.setdefault(cid, {})[y] = p
         if (sp := _num(r.get("sale_price"))) is not None:
             sale_traj.setdefault(cid, {})[y] = sp
+    # PyPSA-style wide temporal tables override the legacy long-format.
+    price_traj.update(_wide_temporal(workbook, "commodities_t__price"))
+    sale_traj.update(_wide_temporal(workbook, "commodities_t__sale_price"))
 
     commodities: dict[str, Commodity] = {}
     for r in _rows(workbook, "commodities"):
@@ -165,6 +189,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         iid = _str(r.get("impact_id"))
         if iid is not None and (p := _num(r.get("price"))) is not None:
             impact_price_traj.setdefault(iid, {})[int(r["year"])] = p
+    impact_price_traj.update(_wide_temporal(workbook, "impacts_t__price"))
     impacts: dict[str, Impact] = {}
     for r in _rows(workbook, "impacts"):
         iid = _str(r.get("impact_id"))
@@ -195,6 +220,21 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         k, i = _str(r.get("technology_id")), _str(r.get("impact_id"))
         if k and i:
             direct.setdefault(k, {})[i] = _num(r.get("factor"), 0.0) or 0.0
+
+    # Unified I/O table (preferred): one row per (technology, target, role).
+    # role ∈ {input, output, impact}; augments/overrides the legacy sheets.
+    for r in _rows(workbook, "io"):
+        k, target = _str(r.get("technology_id")), _str(r.get("target"))
+        role = (_str(r.get("role")) or "input").lower()
+        coef = _num(r.get("coefficient"), 0.0) or 0.0
+        if not k or not target:
+            continue
+        if role == "output":
+            outputs.setdefault(k, {})[target] = coef
+        elif role == "impact":
+            direct.setdefault(k, {})[target] = coef
+        else:
+            inputs.setdefault(k, {})[target] = coef
 
     commodity_impacts: dict[tuple[str, str], float] = {}
     for r in _rows(workbook, "commodity_impacts"):
@@ -351,6 +391,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             mkt_sell.setdefault(mid, {})[y] = v
         if (v := _num(r.get("allocation"))) is not None:
             mkt_alloc.setdefault(mid, {})[y] = v
+    mkt_price.update(_wide_temporal(workbook, "markets_t__price"))
+    mkt_sell.update(_wide_temporal(workbook, "markets_t__sell_price"))
+    mkt_alloc.update(_wide_temporal(workbook, "markets_t__allocation"))
     markets: list[Market] = []
     for r in _rows(workbook, "markets"):
         mid, target = _str(r.get("market_id")), _str(r.get("target"))

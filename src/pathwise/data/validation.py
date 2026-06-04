@@ -51,6 +51,13 @@ def validate(workbook: Workbook) -> ValidationReport:
     for sheet in REQUIRED_SHEETS:
         if sheet not in workbook or not workbook[sheet]:
             report.errors.append(f"missing required sheet '{sheet}'")
+    # Technology I/O comes from the unified `io` table OR the legacy pair.
+    has_io = bool(workbook.get("io"))
+    has_legacy_io = bool(workbook.get("process_inputs")) and bool(workbook.get("process_outputs"))
+    if not has_io and not has_legacy_io:
+        report.errors.append(
+            "missing technology I/O: provide an 'io' sheet (or process_inputs + process_outputs)"
+        )
     if not report.ok:
         return report  # further checks would be noise
 
@@ -58,6 +65,15 @@ def validate(workbook: Workbook) -> ValidationReport:
     commodities = _ids(workbook, "commodities", "commodity_id")
     processes = _ids(workbook, "processes", "process_id")
     impacts = _ids(workbook, "impacts", "impact_id")
+
+    for r in workbook.get("io", []):
+        k = str(r.get("technology_id", ""))
+        if k and k not in techs:
+            report.errors.append(f"io: unknown technology '{k}'")
+        tgt, role = str(r.get("target", "")), str(r.get("role", "input"))
+        pool = impacts if role == "impact" else commodities
+        if tgt and tgt not in pool:
+            report.errors.append(f"io: unknown target '{tgt}' for role '{role}'")
 
     for r in workbook.get("processes", []):
         bt = str(r.get("baseline_technology", ""))
@@ -99,6 +115,16 @@ def validate(workbook: Workbook) -> ValidationReport:
         str(r["commodity_id"])
         for r in workbook.get("process_outputs", [])
         if r.get("is_product") and r.get("commodity_id")
+    }
+    product_ids |= {
+        str(r["target"])
+        for r in workbook.get("io", [])
+        if str(r.get("role", "")) == "output" and r.get("is_product") and r.get("target")
+    }
+    product_ids |= {
+        str(r["commodity_id"])
+        for r in workbook.get("commodities", [])
+        if str(r.get("kind", "")) == "product" and r.get("commodity_id")
     }
     for r in workbook.get("demand", []):
         q = str(r.get("commodity_id", ""))

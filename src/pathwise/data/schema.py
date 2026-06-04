@@ -14,8 +14,6 @@ REQUIRED_SHEETS: list[str] = [
     "commodities",
     "technologies",
     "processes",
-    "process_inputs",
-    "process_outputs",
     "demand",
 ]
 
@@ -107,6 +105,40 @@ SCHEMA: dict[str, Any] = {
             "yield": {"label": "Yield per throughput", "type": "number", "required": True},
             "is_product": {"label": "Is product", "type": "boolean"},
         },
+    },
+    "io": {
+        "label": "Technology I/O (unified)",
+        "columns": {
+            "technology_id": {"label": "Technology", "type": "string", "required": True},
+            "target": {"label": "Stream / impact", "type": "string", "required": True},
+            "role": {"label": "Role (input|output|impact)", "type": "string", "required": True},
+            "coefficient": {"label": "Per throughput", "type": "number", "required": True},
+            "is_product": {"label": "Is product", "type": "boolean"},
+        },
+    },
+    "commodities_t__price": {
+        "label": "Stream price · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
+    "commodities_t__sale_price": {
+        "label": "Stream sale price · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
+    "impacts_t__price": {
+        "label": "Impact price · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
+    "markets_t__price": {
+        "label": "Market buy price · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
+    "markets_t__sell_price": {
+        "label": "Market sell price · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
+    "markets_t__allocation": {
+        "label": "ETS allocation · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
     },
     "tech_impacts": {
         "label": "Direct (process) impacts",

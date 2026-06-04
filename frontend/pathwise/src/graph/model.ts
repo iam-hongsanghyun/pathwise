@@ -61,17 +61,28 @@ export function workbookToGraph(wb: Workbook): { nodes: GraphNode[]; edges: Grap
     nodes.push({ id, type: kind, position: place(id), data: { kind, entityId, label, sub, ports } });
   };
 
+  // Inputs/outputs come from the unified `io` table (legacy sheets as fallback).
+  const inputsOf = (tech: string): string[] => [
+    ...(wb.io ?? [])
+      .filter((r) => s(r.technology_id) === tech && s(r.role, "input") === "input")
+      .map((r) => s(r.target)),
+    ...(wb.process_inputs ?? [])
+      .filter((r) => s(r.technology_id) === tech)
+      .map((r) => s(r.commodity_id)),
+  ];
+  const outputsOf = (tech: string): string[] => [
+    ...(wb.io ?? [])
+      .filter((r) => s(r.technology_id) === tech && s(r.role) === "output")
+      .map((r) => s(r.target)),
+    ...(wb.process_outputs ?? [])
+      .filter((r) => s(r.technology_id) === tech)
+      .map((r) => s(r.commodity_id)),
+  ];
   const facilityPorts = (process: string): FacilityPorts => {
     const tech = s((wb.processes ?? []).find((p) => s(p.process_id) === process)?.baseline_technology);
     const p: FacilityPorts = { energyIn: [], materialIn: [], products: [], byproducts: [], energyOut: [] };
-    for (const r of wb.process_inputs ?? []) {
-      if (s(r.technology_id) !== tech) continue;
-      const c = s(r.commodity_id);
-      (kindOf.get(c) === "energy" ? p.energyIn : p.materialIn).push(c);
-    }
-    for (const r of wb.process_outputs ?? []) {
-      if (s(r.technology_id) !== tech) continue;
-      const c = s(r.commodity_id);
+    for (const c of inputsOf(tech)) (kindOf.get(c) === "energy" ? p.energyIn : p.materialIn).push(c);
+    for (const c of outputsOf(tech)) {
       const k = kindOf.get(c);
       if (k === "product") p.products.push(c);
       else if (k === "energy") p.energyOut.push(c);
@@ -95,10 +106,8 @@ export function workbookToGraph(wb: Workbook): { nodes: GraphNode[]; edges: Grap
   for (const p of wb.processes ?? []) {
     const pid = s(p.process_id);
     const tech = s(p.baseline_technology);
-    for (const r of wb.process_inputs ?? [])
-      if (s(r.technology_id) === tech) edge(nodeId("commodity", s(r.commodity_id)), nodeId("process", pid));
-    for (const r of wb.process_outputs ?? [])
-      if (s(r.technology_id) === tech) edge(nodeId("process", pid), nodeId("commodity", s(r.commodity_id)));
+    for (const c of inputsOf(tech)) edge(nodeId("commodity", c), nodeId("process", pid));
+    for (const c of outputsOf(tech)) edge(nodeId("process", pid), nodeId("commodity", c));
   }
   for (const r of wb.markets ?? [])
     if (s(r.target_kind, "commodity") === "commodity")
@@ -152,30 +161,22 @@ export function connect(wb: Workbook, sourceId: string, targetId: string): Workb
     );
     return out;
   }
-  // commodity → process : add an input on the process's baseline tech.
-  if (a.kind === "commodity" && b.kind === "process") {
-    const tech = baselineOf(wb, b.entityId);
-    const exists = (wb.process_inputs ?? []).some(
-      (r) => s(r.technology_id) === tech && s(r.commodity_id) === a.entityId,
+  // commodity → process (input) / process → commodity (output): add an `io` row
+  // on the process's baseline technology.
+  const ioLink = (tech: string, target: string, role: "input" | "output") => {
+    if (!tech) return;
+    const exists = (wb.io ?? []).some(
+      (r) => s(r.technology_id) === tech && s(r.target) === target && s(r.role, "input") === role,
     );
-    if (tech && !exists)
-      out.process_inputs = [
-        ...(wb.process_inputs ?? []),
-        { technology_id: tech, commodity_id: a.entityId, intensity: 1 },
-      ];
+    if (!exists)
+      out.io = [...(wb.io ?? []), { technology_id: tech, target, role, coefficient: 1 }];
+  };
+  if (a.kind === "commodity" && b.kind === "process") {
+    ioLink(baselineOf(wb, b.entityId), a.entityId, "input");
     return out;
   }
-  // process → commodity : add an output on the process's baseline tech.
   if (a.kind === "process" && b.kind === "commodity") {
-    const tech = baselineOf(wb, a.entityId);
-    const exists = (wb.process_outputs ?? []).some(
-      (r) => s(r.technology_id) === tech && s(r.commodity_id) === b.entityId,
-    );
-    if (tech && !exists)
-      out.process_outputs = [
-        ...(wb.process_outputs ?? []),
-        { technology_id: tech, commodity_id: b.entityId, yield: 1 },
-      ];
+    ioLink(baselineOf(wb, a.entityId), b.entityId, "output");
     return out;
   }
   return out;
