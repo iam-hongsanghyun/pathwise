@@ -7,6 +7,9 @@ cd "$(dirname "$0")"
 
 BACKEND_HOST="127.0.0.1"
 BACKEND_PORT="${PATHWISE_PORT:-8077}"   # 8000 is often taken (e.g. pypsa)
+# Vite binds to `localhost` (often IPv6 ::1), so 127.0.0.1 can fail to load —
+# open the frontend by its localhost name to match Vite's bind.
+FRONTEND_HOST="localhost"
 FRONTEND_PORT="5173"
 FRONTEND_DIR="frontend/pathwise_default"
 # Keep the Vite proxy in sync with the backend port (no drift).
@@ -30,7 +33,7 @@ echo "▶ backend  → http://${BACKEND_HOST}:${BACKEND_PORT}"
 uv run uvicorn pathwise.api.main:app --host "${BACKEND_HOST}" --port "${BACKEND_PORT}" --reload &
 
 # 3) Frontend.
-echo "▶ frontend → http://${BACKEND_HOST}:${FRONTEND_PORT}"
+echo "▶ frontend → http://${FRONTEND_HOST}:${FRONTEND_PORT}"
 ( cd "${FRONTEND_DIR}" && npm run dev -- --port "${FRONTEND_PORT}" ) &
 
 # 4) Wait for the backend to answer.
@@ -48,7 +51,7 @@ done
 # (often IPv6 ::1) so a curl probe on 127.0.0.1 can hang forever even though the
 # dev server is up. Vite boots in well under a second; the browser retries its
 # own connection, so just give it a brief settle and open.
-URL="http://${BACKEND_HOST}:${FRONTEND_PORT}"
+URL="http://${FRONTEND_HOST}:${FRONTEND_PORT}"
 sleep 2
 if command -v open >/dev/null 2>&1; then
   open "${URL}"          # macOS
