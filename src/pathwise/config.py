@@ -31,8 +31,11 @@ class Settings(BaseSettings):
     )
 
     # ── Serving ──────────────────────────────────────────────────────────────
+    # 8077 by default to avoid clashing with other local services (e.g. pypsa
+    # on 8000). Override with PATHWISE_PORT; the launcher keeps the frontend
+    # proxy in sync via PATHWISE_BACKEND_URL.
     host: str = "127.0.0.1"
-    port: int = 8000
+    port: int = 8077
 
     # ── Solver resource limits (server-controlled; clamp user requests) ───────
     solver_name: str = "highs"

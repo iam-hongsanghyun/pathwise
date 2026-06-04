@@ -19,5 +19,7 @@ npm run build      # type-check (tsc) + production build
 npm run typecheck  # tsc --noEmit only
 ```
 
-The dev server expects the backend on `:8000` (see `../../run.sh`, which starts
-both). A sample workbook to upload lives at `../../data/sample_kss_line.xlsx`.
+The dev server proxies `/api` to the backend (default `:8077`, overridable via
+the `PATHWISE_BACKEND_URL` env var — `../../run.command` sets it automatically so
+the ports never drift). A sample workbook to upload ships in `public/` and is
+loadable from the **Load sample** button.

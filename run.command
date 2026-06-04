@@ -6,9 +6,11 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 BACKEND_HOST="127.0.0.1"
-BACKEND_PORT="${PATHWISE_PORT:-8000}"
+BACKEND_PORT="${PATHWISE_PORT:-8077}"   # 8000 is often taken (e.g. pypsa)
 FRONTEND_PORT="5173"
 FRONTEND_DIR="frontend/pathwise_default"
+# Keep the Vite proxy in sync with the backend port (no drift).
+export PATHWISE_BACKEND_URL="http://${BACKEND_HOST}:${BACKEND_PORT}"
 
 cleanup() { echo; echo "▶ shutting down…"; kill 0 2>/dev/null || true; }
 trap cleanup EXIT INT TERM
