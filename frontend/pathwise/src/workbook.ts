@@ -114,5 +114,11 @@ export function exampleWorkbook(): Workbook {
     ],
     investment_budget: [{ company: "Acme", year: 2030, limit: 500000 }],
     min_production: [{ company: "Acme", commodity_id: "steel", year: 2030, amount: 700 }],
+    company_config: [{ company: "Acme", objective: "cost" }],
+    markets: [
+      { market_id: "KEPCO", target: "elec", target_kind: "commodity", price: 90, tag: "grid" },
+      { market_id: "PPA", target: "elec", target_kind: "commodity", price: 70, max_buy: 400, tag: "RE100" },
+      { market_id: "ETS", target: "CO2", target_kind: "impact", company: "all", price: 60, allocation: 2000 },
+    ],
   };
 }

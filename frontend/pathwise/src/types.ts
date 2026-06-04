@@ -46,6 +46,17 @@ export interface RunResult {
       capacity: number;
       by_period: { period: number; level: number; charge: number; discharge: number }[];
     }[];
+    markets: {
+      market: string;
+      commodity: string;
+      tag: string | null;
+      by_period: { period: number; buy: number; sell: number }[];
+    }[];
+    ets: {
+      market: string;
+      impact: string;
+      by_period: { period: number; bought: number; sold: number }[];
+    }[];
     demand_slack: { key: string; value: number }[];
   };
   summary: {

@@ -93,6 +93,43 @@ export function ResultsView({ result }: Props) {
             </>
           )}
 
+          {result.outputs.markets.length > 0 && (
+            <>
+              <h3>Energy / commodity markets</h3>
+              <ul>
+                {result.outputs.markets.map((mk, i) => (
+                  <li key={i}>
+                    {mk.market} ({mk.commodity}
+                    {mk.tag ? `, ${mk.tag}` : ""}) — buy{" "}
+                    {mk.by_period.map((b) => `${b.period}:${b.buy.toFixed(0)}`).join(", ")}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {result.outputs.ets.some((e) => e.by_period.some((b) => b.bought > 0 || b.sold > 0)) && (
+            <>
+              <h3>ETS allowances</h3>
+              <ul>
+                {result.outputs.ets.map((e, i) => (
+                  <li key={i}>
+                    {e.market} ({e.impact}) —{" "}
+                    {e.by_period
+                      .map((b) =>
+                        b.bought > 0
+                          ? `${b.period}: buy ${b.bought.toFixed(0)}`
+                          : b.sold > 0
+                            ? `${b.period}: sell ${b.sold.toFixed(0)}`
+                            : `${b.period}: —`,
+                      )
+                      .join(", ")}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
           {result.outputs.storage.length > 0 && (
             <>
               <h3>Storage</h3>

@@ -1,0 +1,58 @@
+/* Design tokens — ported from Ragnarok. Engineering-tool aesthetic: flat,
+   monospace-leaning, no gradients, no shadows, square boxes (radius 0); only
+   buttons are rounded (4px). Teal brand. Single source of truth. */
+
+:root {
+  --bg: #f8fafc;
+  --bg-hover: #f1f5f9;
+  --surface: #ffffff;
+  --panel: #ffffff;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #0f172a;
+  --muted: #64748b;
+  --brand: #0f766e;
+  --brand-strong: #0b5d56;
+  --brand-soft: #f0fdfa;
+  --brand-tint: #ccfbf1;
+  --brand-ring: rgba(15, 118, 110, 0.35);
+  --brand-fill: rgba(15, 118, 110, 0.08);
+  --danger: #dc2626;
+  --danger-soft: #fee2e2;
+  --warn: #f59e0b;
+  --warn-text: #b45309;
+  --font-sans: "IBM Plex Sans", "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius-button: 4px;
+  --radius: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--text);
+  background: var(--bg);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
