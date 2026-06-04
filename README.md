@@ -44,6 +44,22 @@ uv run ruff check .           # lint
 uv run mypy src/              # type-check
 ```
 
+## Run the app
+
+```bash
+uv sync --all-extras                       # backend deps
+(cd frontend/pathwise_default && npm install)  # frontend deps
+./run.sh                                   # backend :8000 + frontend :5173
+```
+
+Open http://127.0.0.1:5173, pick a sector, upload a workbook (a sample is at
+`data/sample_kss_line.xlsx`), set the scenario, and Run. To convert a legacy
+shipping workbook into the generic format:
+
+```bash
+uv run python tools/migrate_shipping_to_generic.py path/to/Reference.xlsx data/fleet.xlsx
+```
+
 See [`docs/ALGORITHM.md`](docs/ALGORITHM.md) for the mathematical formulation,
 [`docs/API.md`](docs/API.md) for the data schema and HTTP contract, and
 [`docs/DOMAINS.md`](docs/DOMAINS.md) for how to add a new sector pack.
