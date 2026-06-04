@@ -171,10 +171,14 @@ class Process:
 
     Attributes:
         process_id: Unique id.
-        company: Owner/site group (for demand & impact caps).
+        company: Owner/site group (for demand, caps, budgets).
         baseline_technology: Technology active at the horizon start.
-        capacity: Max throughput per year [throughput / yr].
+        capacity: Nameplate throughput per year [throughput / yr].
         introduced_year: Year the baseline was installed [yr].
+        capex: Overnight build cost [currency] (recorded; used for new builds).
+        fixed_opex: Fixed annual cost while the facility operates [currency / yr].
+        failure_rate: Unexpected-failure / forced-outage fraction [—], 0–1; the
+            available throughput is ``capacity · (1 − failure_rate)``.
     """
 
     process_id: str
@@ -182,6 +186,46 @@ class Process:
     baseline_technology: str
     capacity: float
     introduced_year: int | None = None
+    capex: float = 0.0
+    fixed_opex: float = 0.0
+    failure_rate: float = 0.0
+
+    @property
+    def available_capacity(self) -> float:
+        """Throughput available after expected unplanned outages [throughput/yr]."""
+        return self.capacity * (1.0 - self.failure_rate)
+
+
+@dataclass(slots=True, frozen=True)
+class Storage:
+    """A per-commodity store that carries inventory across periods (years).
+
+    Lets the system buy a commodity in cheap years and release it in expensive
+    ones. Operates over the ``company`` scope (``"all"`` ⇒ every process).
+
+    Attributes:
+        storage_id: Unique id.
+        commodity_id: The stored commodity.
+        company: Scope this store serves (``"all"`` ⇒ all processes).
+        max_capacity: Upper bound on built capacity [commodity unit].
+        capex_per_capacity: Overnight build cost [currency / commodity unit].
+        fixed_opex_per_capacity: Annual fixed cost [currency / (unit·yr)].
+        charge_efficiency: Fraction of charged commodity that reaches the level [—].
+        discharge_efficiency: Fraction of removed level that reaches the market [—].
+        standing_loss: Fraction of level lost per year [—].
+        initial_level: Inventory at the horizon start [commodity unit].
+    """
+
+    storage_id: str
+    commodity_id: str
+    company: str = "all"
+    max_capacity: float = 0.0
+    capex_per_capacity: float = 0.0
+    fixed_opex_per_capacity: float = 0.0
+    charge_efficiency: float = 1.0
+    discharge_efficiency: float = 1.0
+    standing_loss: float = 0.0
+    initial_level: float = 0.0
 
 
 @dataclass(slots=True, frozen=True)

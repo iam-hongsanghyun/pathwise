@@ -18,6 +18,7 @@ from pathwise.core.entities import (
     Measure,
     Period,
     Process,
+    Storage,
     Technology,
     Transition,
 )
@@ -48,12 +49,17 @@ class Problem:
         measures: MACC/measures.
         edges: Inter-process commodity flows.
         transitions: Permitted technology changes (replace/renew) + compatibility.
+        storages: Per-commodity inter-year stores.
         commodity_impacts: Impact factor of consuming a commodity, keyed by
             ``(commodity_id, impact_id)`` [impact unit / commodity unit].
         demand: Required product output, keyed by ``(company, commodity_id, year)``
             [commodity unit / yr].
         impact_caps: Upper limit on an impact, keyed by ``(company, impact_id, year)``
             [impact unit / yr]; company ``"all"`` ⇒ sector-wide.
+        investment_budget: Max nominal capex spend, keyed by ``(company, year)``
+            [currency / yr]; company ``"all"`` ⇒ sector-wide.
+        min_production: Minimum delivered product, keyed by
+            ``(company, commodity_id, year)`` [commodity unit / yr].
         discount_rate: Annual discount rate ``ρ`` [1/yr].
         base_year: Baseline period ``t₀``.
         capex_convention: Annuity (CRF) or NPV lump.
@@ -69,9 +75,12 @@ class Problem:
     measures: list[Measure] = field(default_factory=list)
     edges: list[Edge] = field(default_factory=list)
     transitions: list[Transition] = field(default_factory=list)
+    storages: list[Storage] = field(default_factory=list)
     commodity_impacts: dict[tuple[str, str], float] = field(default_factory=dict)
     demand: dict[tuple[str, str, int], float] = field(default_factory=dict)
     impact_caps: dict[tuple[str, str, int], float] = field(default_factory=dict)
+    investment_budget: dict[tuple[str, int], float] = field(default_factory=dict)
+    min_production: dict[tuple[str, str, int], float] = field(default_factory=dict)
     discount_rate: float = 0.08
     base_year: int = 0
     capex_convention: CapexConvention = CapexConvention.ANNUITY

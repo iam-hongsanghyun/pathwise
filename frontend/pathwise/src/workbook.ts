@@ -62,8 +62,8 @@ export function exampleWorkbook(): Workbook {
       { technology_id: "EAF", lifespan: 20, actions: "replace,renew,continue", capex: 150, opex: 12 },
     ],
     processes: [
-      { process_id: "F1", company: "Acme", baseline_technology: "BF", capacity: 1000 },
-      { process_id: "F2", company: "Acme", baseline_technology: "EAF", capacity: 1000 },
+      { process_id: "F1", company: "Acme", baseline_technology: "BF", capacity: 1000, fixed_opex: 5000, failure_rate: 0.03 },
+      { process_id: "F2", company: "Acme", baseline_technology: "EAF", capacity: 1000, fixed_opex: 4000, failure_rate: 0.02 },
     ],
     process_inputs: [
       { technology_id: "BF", commodity_id: "coal", intensity: 4 },
@@ -100,5 +100,19 @@ export function exampleWorkbook(): Workbook {
       { impact_id: "CO2", year: 2030, price: 120 },
     ],
     impact_caps: [{ company: "all", impact_id: "CO2", year: 2030, limit: 4000 }],
+    storage: [
+      {
+        storage_id: "coal_yard",
+        commodity_id: "coal",
+        company: "all",
+        max_capacity: 5000,
+        capex_per_capacity: 2,
+        fixed_opex_per_capacity: 0.1,
+        charge_efficiency: 1,
+        discharge_efficiency: 1,
+      },
+    ],
+    investment_budget: [{ company: "Acme", year: 2030, limit: 500000 }],
+    min_production: [{ company: "Acme", commodity_id: "steel", year: 2030, amount: 700 }],
   };
 }

@@ -49,8 +49,10 @@ def build(problem: Problem) -> BuildContext:
     )
     _technology(ctx)
     _flow_balance(ctx)
+    _storage(ctx)
     _impacts(ctx)
     _macc(ctx)
+    _controls(ctx)
     _objective(ctx)
     return ctx
 
@@ -63,7 +65,8 @@ def _technology(ctx: BuildContext) -> None:
     """One active technology per process; capacity link; baseline lock; events."""
     m, prob = ctx.model, ctx.problem
     prev = _prev(ctx.years)
-    cap = {p.process_id: p.capacity for p in prob.processes}
+    # Available throughput is derated by the facility's unexpected-failure rate.
+    cap = {p.process_id: p.available_capacity for p in prob.processes}
     baseline = {p.process_id: p.baseline_technology for p in prob.processes}
 
     for p in ctx.procs:
@@ -324,6 +327,115 @@ def _macc(ctx: BuildContext) -> None:
     _ = prob  # referenced for symmetry; measures already flattened into slots
 
 
+def _scope_processes(ctx: BuildContext, company: str) -> list[str]:
+    """Process ids in ``company`` (``"all"`` ⇒ every process)."""
+    return [p.process_id for p in ctx.problem.processes if company == "all" or p.company == company]
+
+
+def _transition_costs(ctx: BuildContext) -> dict[tuple[str, str], float]:
+    """Nominal replacement capex per ``(process, target tech)`` = capacity × cost."""
+    prob = ctx.problem
+    out: dict[tuple[str, str], float] = {}
+    for tr in prob.transitions:
+        for proc in prob.processes:
+            if tr.from_technology == proc.baseline_technology:
+                out[(proc.process_id, tr.to_technology)] = tr.capex_per_capacity * proc.capacity
+    return out
+
+
+def _storage(ctx: BuildContext) -> None:
+    """Inter-year inventory dynamics + market linkage for each store.
+
+    Algorithm (per store ``s`` of commodity ``r``, year ``t``):
+        level_t = (1−loss)·level_{t-1} + η_c·charge_t − discharge_t/η_d
+        extbuy_t = Σ_{p∈scope} buy_{p,r,t} + charge_t − discharge_t   (≥ 0)
+        0 ≤ level_t, charge_t, discharge_t ≤ cap_built ≤ max_capacity
+
+    ``charge`` draws commodity from the market (raises external purchase),
+    ``discharge`` returns it (lowers external purchase). Only the external
+    purchase ``extbuy`` is priced — process ``buy`` of a stored commodity is the
+    internal draw (repriced in the objective).
+    """
+    m, prob = ctx.model, ctx.problem
+    if not prob.storages:
+        return
+    prev = _prev(ctx.years)
+    for s in prob.storages:
+        sid = s.storage_id
+        m.add_constraints(ctx.cap_built.sel(store=sid) <= s.max_capacity, name=f"scap[{sid}]")
+        scope = _scope_processes(ctx, s.company)
+        for t in ctx.years:
+            charge_t = ctx.charge.sel(store=sid, period=t)
+            dis_t = ctx.discharge.sel(store=sid, period=t)
+            lvl_t = ctx.level.sel(store=sid, period=t)
+            pt = prev[t]
+            decay = 1.0 - s.standing_loss
+            gain = s.charge_efficiency * charge_t - (1.0 / s.discharge_efficiency) * dis_t
+            prior = decay * ctx.level.sel(store=sid, period=pt) if pt is not None else None
+            rhs = (gain + prior) if prior is not None else (gain + decay * s.initial_level)
+            m.add_constraints(lvl_t == rhs, name=f"slevel[{sid},{t}]")
+            m.add_constraints(lvl_t <= ctx.cap_built.sel(store=sid), name=f"slcap[{sid},{t}]")
+            m.add_constraints(charge_t <= ctx.cap_built.sel(store=sid), name=f"schg[{sid},{t}]")
+            m.add_constraints(dis_t <= ctx.cap_built.sel(store=sid), name=f"sdis[{sid},{t}]")
+            buys = _lin_sum(
+                [ctx.buy.sel(process=p, commodity=s.commodity_id, period=t) for p in scope]
+            )
+            link = charge_t - dis_t
+            if buys is not None:
+                link = link + buys
+            m.add_constraints(ctx.extbuy.sel(store=sid, period=t) == link, name=f"smkt[{sid},{t}]")
+
+
+def _controls(ctx: BuildContext) -> None:
+    """Company decision controls: investment budget cap + minimum production."""
+    m, prob = ctx.model, ctx.problem
+    prev = _prev(ctx.years)
+    company_of = {p.process_id: p.company for p in prob.processes}
+    trans_cost = _transition_costs(ctx)
+    cap = {p.process_id: p.capacity for p in prob.processes}
+    baseline = {p.process_id: p.baseline_technology for p in prob.processes}
+    slot_company = {s.key: company_of.get(s.process, "all") for s in ctx.slots}
+
+    def _in_scope(company: str, target: str) -> bool:
+        return company == "all" or target == company
+
+    # Investment-budget cap (nominal capex per company-year).
+    for (c, y), limit in prob.investment_budget.items():
+        terms: list[Any] = []
+        for p in ctx.procs:
+            if not _in_scope(c, company_of[p]):
+                continue
+            for k in ctx.feasible[p]:
+                if k == baseline[p]:
+                    continue
+                cost = trans_cost.get((p, k), prob.technologies[k].capex(y) * cap[p])
+                if cost:
+                    terms.append(cost * ctx.w.sel(process=p, tech=k, period=y))
+        for s in ctx.slots:
+            if not _in_scope(c, slot_company[s.key]) or not s.capex:
+                continue
+            inc = ctx.z.sel(slot=s.key, period=y)
+            pt = prev[y]
+            if pt is not None:
+                inc = inc - ctx.z.sel(slot=s.key, period=pt)
+            terms.append(s.capex * inc)
+        if y == ctx.years[0]:
+            for st in prob.storages:
+                if _in_scope(c, st.company) and st.capex_per_capacity:
+                    terms.append(st.capex_per_capacity * ctx.cap_built.sel(store=st.storage_id))
+        total = _lin_sum(terms)
+        if total is not None:
+            m.add_constraints(total <= limit, name=f"budget[{c},{y}]")
+
+    # Minimum annual production (hard floor on delivered product).
+    for (c, q, y), amount in prob.min_production.items():
+        delivered = _lin_sum(
+            [ctx.deliver.sel(process=p, commodity=q, period=y) for p in _scope_processes(ctx, c)]
+        )
+        if delivered is not None:
+            m.add_constraints(delivered >= amount, name=f"minprod[{c},{q},{y}]")
+
+
 def _objective(ctx: BuildContext) -> None:
     """Discounted total system cost + slack penalties (minimise)."""
     m, prob = ctx.model, ctx.problem
@@ -332,15 +444,12 @@ def _objective(ctx: BuildContext) -> None:
     dur = {p.year: p.duration_years for p in prob.periods}
     cap = {p.process_id: p.capacity for p in prob.processes}
     baseline = {p.process_id: p.baseline_technology for p in prob.processes}
+    fixed_opex = {p.process_id: p.fixed_opex for p in prob.processes}
+    trans_cost = _transition_costs(ctx)
 
-    # Replacement capex per (process, target tech) = capacity × transition cost.
-    trans_cost: dict[tuple[str, str], float] = {}
-    for tr in prob.transitions:
-        for proc in prob.processes:
-            if tr.from_technology == proc.baseline_technology:
-                trans_cost[(proc.process_id, tr.to_technology)] = (
-                    tr.capex_per_capacity * proc.capacity
-                )
+    # Stored commodities are priced via the store's external purchase, not the
+    # process buy (which becomes the internal draw) — avoids double counting.
+    stored = {s.commodity_id for s in prob.storages}
 
     terms: list[Any] = []
     for t in ctx.years:
@@ -353,8 +462,17 @@ def _objective(ctx: BuildContext) -> None:
                     ox = prob.technologies[k].opex(t)
                     if ox:
                         terms.append((w * ox) * ctx.x.sel(process=p, tech=k, period=t))
+                # Facility fixed annual O&M while operating (Σ_k u = 1).
+                if fixed_opex[p]:
+                    active = _lin_sum(
+                        [ctx.u.sel(process=p, tech=k, period=t) for k in ctx.feasible[p]]
+                    )
+                    if active is not None:
+                        terms.append((w * fixed_opex[p]) * active)
             if tog.commodity_cost:
                 for r in ctx.comms:
+                    if r in stored:
+                        continue  # priced via storage external purchase below
                     price = prob.commodities[r].price(t)
                     sale = prob.commodities[r].sale_price(t)
                     if price:
@@ -366,6 +484,16 @@ def _objective(ctx: BuildContext) -> None:
                     pr = prob.impacts[i].price(t)
                     if pr:
                         terms.append((w * pr) * ctx.emit.sel(process=p, impact=i, period=t))
+        # Storage: external purchase priced + fixed O&M on built capacity.
+        if tog.commodity_cost:
+            for st in prob.storages:
+                price = prob.commodities[st.commodity_id].price(t)
+                if price:
+                    terms.append((w * price) * ctx.extbuy.sel(store=st.storage_id, period=t))
+                if st.fixed_opex_per_capacity:
+                    terms.append(
+                        (w * st.fixed_opex_per_capacity) * ctx.cap_built.sel(store=st.storage_id)
+                    )
         # Replacement capex (discounted lump at the event year).
         if tog.capex:
             for p in ctx.procs:
@@ -386,6 +514,13 @@ def _objective(ctx: BuildContext) -> None:
                     inc = inc - ctx.z.sel(slot=s.key, period=pt)
                 if s.capex:
                     terms.append((df * s.capex) * inc)
+
+    # Storage build capex — one-time, discounted at the first year.
+    if tog.capex and prob.storages:
+        df0 = prob.discount_factor(ctx.years[0])
+        for st in prob.storages:
+            if st.capex_per_capacity:
+                terms.append((df0 * st.capex_per_capacity) * ctx.cap_built.sel(store=st.storage_id))
 
     # Slack penalties (keep the model well-posed and diagnosable).
     if ctx.demand_keys:

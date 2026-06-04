@@ -40,6 +40,12 @@ export interface RunResult {
     }[];
     flows: { from: string; to: string; commodity: string; period: number; value: number }[];
     trade: { process: string; commodity: string; period: number; kind: string; value: number }[];
+    storage: {
+      storage: string;
+      commodity: string | null;
+      capacity: number;
+      by_period: { period: number; level: number; charge: number; discharge: number }[];
+    }[];
     demand_slack: { key: string; value: number }[];
   };
   summary: {

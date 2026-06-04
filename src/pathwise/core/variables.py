@@ -74,6 +74,11 @@ class BuildContext:
     z: Any = None  # measure adoption [slot, period]
     emit: Any = None  # impact emitted [process, impact, period]
     w: Any = None  # transition (replace) event [process, tech, period]
+    cap_built: Any = None  # storage capacity built [store]
+    charge: Any = None  # commodity charged into a store [store, period]
+    discharge: Any = None  # commodity discharged from a store [store, period]
+    level: Any = None  # storage inventory level [store, period]
+    extbuy: Any = None  # external purchase for a stored commodity [store, period]
     slk_dem: Any = None  # demand slack [demand_key]
     slk_cap: Any = None  # impact-cap slack [cap_key]
 
@@ -194,6 +199,13 @@ def build_context(model: Model, problem: Problem) -> BuildContext:
     if problem.edges:
         e_idx = pd.Index(list(range(len(problem.edges))), name="edge")
         ctx.flow = model.add_variables(lower=0.0, coords=[e_idx, t_idx], name="flow")
+    if problem.storages:
+        st_idx = pd.Index([s.storage_id for s in problem.storages], name="store")
+        ctx.cap_built = model.add_variables(lower=0.0, coords=[st_idx], name="cap_built")
+        ctx.charge = model.add_variables(lower=0.0, coords=[st_idx, t_idx], name="charge")
+        ctx.discharge = model.add_variables(lower=0.0, coords=[st_idx, t_idx], name="discharge")
+        ctx.level = model.add_variables(lower=0.0, coords=[st_idx, t_idx], name="level")
+        ctx.extbuy = model.add_variables(lower=0.0, coords=[st_idx, t_idx], name="extbuy")
 
     ctx.demand_keys = sorted(problem.demand)
     if ctx.demand_keys:

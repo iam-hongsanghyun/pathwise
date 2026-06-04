@@ -93,6 +93,20 @@ export function ResultsView({ result }: Props) {
             </>
           )}
 
+          {result.outputs.storage.length > 0 && (
+            <>
+              <h3>Storage</h3>
+              <ul>
+                {result.outputs.storage.map((s, i) => (
+                  <li key={i}>
+                    {s.storage} ({s.commodity}) — built {s.capacity.toFixed(0)}; levels{" "}
+                    {s.by_period.map((b) => `${b.period}:${b.level.toFixed(0)}`).join(", ")}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
           {result.outputs.demand_slack.length > 0 && (
             <div className="error">⚠ demand not fully met: {result.outputs.demand_slack.map((s) => s.key).join(", ")}</div>
           )}

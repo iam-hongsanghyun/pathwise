@@ -64,5 +64,27 @@ discounted lump at the event year (annuity convention is a later refinement).
   `emit ≥ 0`; caps `Σ_{p∈c} emit ≤ CAP_{c,i,t}+ξ^{cap}`.
 - **MACC** (LP-safe): efficiency savings `= Σ reduction·ref_consumption·z`; abatement
   `= Σ reduction·ref_impact·z`; blocks cumulative (`z_a≥z_b`) and persistent (`z_t≥z_{prev}`).
-- **Replacement coupling** (incompatible swap forces neighbours): planned (P5+);
+- **Replacement coupling** (incompatible swap forces neighbours): planned;
   edges currently model pure flow.
+
+## 5b. Storage, facility costs & decision controls
+
+- **Capacity derate**: available throughput `= CAP_p·(1 − failure_rate_p)`; a
+  facility also carries a fixed annual O&M paid while it operates.
+- **Per-commodity storage** (inter-year inventory). Per store `s` of commodity `r`:
+  `level_t = (1−loss)·level_{t-1} + η_c·charge_t − discharge_t/η_d`;
+  `extbuy_t = Σ_{p∈scope} buy_{p,r,t} + charge_t − discharge_t ≥ 0`;
+  `0 ≤ level_t, charge_t, discharge_t ≤ cap_built ≤ max_capacity`. Only `extbuy`
+  is priced (process buy of a stored commodity is the internal draw). Cost adds
+  `capex·cap_built` (one-time) + `opex·cap_built` (annual). Lets the system buy
+  cheap years / release dear years against fluctuating annual prices.
+- **Investment budget**: `Σ (nominal capex in year t for company c) ≤ budget_{c,t}`
+  over transition + measure + storage capex.
+- **Minimum production**: `Σ_{p∈c} deliver_{p,q,t} ≥ min_production_{c,q,t}` (hard).
+
+## 10. Time resolution (current vs planned)
+
+Current: **annual periods** for long-term planning; prices/caps/demand are
+year-keyed trajectories. **Planned**: PyPSA-style **weighted snapshots**
+(hourly→yearly) for intra-period price fluctuation and short-cycle storage
+arbitrage / market analysis.

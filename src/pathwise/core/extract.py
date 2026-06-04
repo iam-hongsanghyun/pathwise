@@ -37,6 +37,7 @@ def empty_result(
             "measures": [],
             "flows": [],
             "trade": [],
+            "storage": [],
             "demand_slack": [],
         },
         "summary": {"periods": [], "impacts": []},
@@ -106,6 +107,32 @@ def extract_results(
             out["outputs"]["trade"].append(
                 {"process": p, "commodity": r, "period": int(t), "kind": "sell", "value": v}
             )
+    # Storage: built capacity + per-period level/charge/discharge.
+    built = _series(ctx.cap_built)
+    level = _series(ctx.level)
+    charge = _series(ctx.charge)
+    discharge = _series(ctx.discharge)
+    commodity_of = {s.storage_id: s.commodity_id for s in prob.storages}
+    for sid, capv in built.items():
+        if capv <= _EPS:
+            continue
+        out["outputs"]["storage"].append(
+            {
+                "storage": str(sid),
+                "commodity": commodity_of.get(str(sid)),
+                "capacity": capv,
+                "by_period": [
+                    {
+                        "period": int(t),
+                        "level": level.get((sid, t), 0.0),
+                        "charge": charge.get((sid, t), 0.0),
+                        "discharge": discharge.get((sid, t), 0.0),
+                    }
+                    for t in prob.years
+                ],
+            }
+        )
+
     for key, v in _series(ctx.slk_dem).items():
         if v > _EPS:
             out["outputs"]["demand_slack"].append({"key": str(key), "value": v})

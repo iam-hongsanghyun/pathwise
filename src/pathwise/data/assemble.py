@@ -20,6 +20,7 @@ from pathwise.core.entities import (
     MeasureType,
     Period,
     Process,
+    Storage,
     Technology,
     Transition,
     TransitionAction,
@@ -227,6 +228,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             baseline_technology=str(r["baseline_technology"]),
             capacity=_num(r.get("capacity"), 0.0) or 0.0,
             introduced_year=_int(r.get("introduced_year")),
+            capex=_num(r.get("capex"), 0.0) or 0.0,
+            fixed_opex=_num(r.get("fixed_opex"), 0.0) or 0.0,
+            failure_rate=min(max(_num(r.get("failure_rate"), 0.0) or 0.0, 0.0), 1.0),
         )
         for r in _rows(workbook, "processes")
         if _str(r.get("process_id"))
@@ -299,6 +303,42 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             )
         )
 
+    # ── Storage (per-commodity inter-year stores) ────────────────────────────
+    storages: list[Storage] = []
+    for r in _rows(workbook, "storage"):
+        sid, cid = _str(r.get("storage_id")), _str(r.get("commodity_id"))
+        if not sid or not cid:
+            continue
+        storages.append(
+            Storage(
+                storage_id=sid,
+                commodity_id=cid,
+                company=_str(r.get("company")) or "all",
+                max_capacity=_num(r.get("max_capacity"), 0.0) or 0.0,
+                capex_per_capacity=_num(r.get("capex_per_capacity"), 0.0) or 0.0,
+                fixed_opex_per_capacity=_num(r.get("fixed_opex_per_capacity"), 0.0) or 0.0,
+                charge_efficiency=_num(r.get("charge_efficiency"), 1.0) or 1.0,
+                discharge_efficiency=_num(r.get("discharge_efficiency"), 1.0) or 1.0,
+                standing_loss=_num(r.get("standing_loss"), 0.0) or 0.0,
+                initial_level=_num(r.get("initial_level"), 0.0) or 0.0,
+            )
+        )
+
+    # ── Decision controls: investment budget + minimum production ────────────
+    investment_budget: dict[tuple[str, int], float] = {}
+    for r in _rows(workbook, "investment_budget"):
+        lim = _num(r.get("limit"))
+        if lim is not None:
+            investment_budget[(_str(r.get("company")) or "all", int(r["year"]))] = lim
+    min_production: dict[tuple[str, str, int], float] = {}
+    for r in _rows(workbook, "min_production"):
+        q = _str(r.get("commodity_id"))
+        if q is None:
+            continue
+        min_production[(_str(r.get("company")) or "all", q, int(r["year"]))] = (
+            _num(r.get("amount"), 0.0) or 0.0
+        )
+
     # ── Demand & impact caps ─────────────────────────────────────────────────
     demand: dict[tuple[str, str, int], float] = {}
     for r in _rows(workbook, "demand"):
@@ -325,9 +365,12 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         measures=measures,
         edges=edges,
         transitions=transitions,
+        storages=storages,
         commodity_impacts=commodity_impacts,
         demand=demand,
         impact_caps=impact_caps,
+        investment_budget=investment_budget,
+        min_production=min_production,
         discount_rate=econ.discount_rate,
         base_year=base_year,
         capex_convention=econ.capex_convention,

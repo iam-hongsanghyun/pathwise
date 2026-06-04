@@ -78,6 +78,9 @@ SCHEMA: dict[str, Any] = {
             "baseline_technology": {"label": "Baseline tech", "type": "string", "required": True},
             "capacity": {"label": "Capacity (throughput/yr)", "type": "number"},
             "introduced_year": {"label": "Installed", "type": "integer"},
+            "capex": {"label": "Build CAPEX", "type": "number"},
+            "fixed_opex": {"label": "Fixed O&M (/yr)", "type": "number"},
+            "failure_rate": {"label": "Failure rate (0-1)", "type": "number"},
         },
     },
     "process_inputs": {
@@ -149,6 +152,38 @@ SCHEMA: dict[str, Any] = {
             "action": {"label": "Action", "type": "string"},
             "capex_per_capacity": {"label": "CAPEX (/cap)", "type": "number"},
             "compatible": {"label": "Reusable (compatible)", "type": "boolean"},
+        },
+    },
+    "storage": {
+        "label": "Storage",
+        "columns": {
+            "storage_id": {"label": "Store", "type": "string", "required": True},
+            "commodity_id": {"label": "Stream", "type": "string", "required": True},
+            "company": {"label": "Company (or all)", "type": "string"},
+            "max_capacity": {"label": "Max capacity", "type": "number"},
+            "capex_per_capacity": {"label": "CAPEX (/capacity)", "type": "number"},
+            "fixed_opex_per_capacity": {"label": "Fixed O&M (/capacity/yr)", "type": "number"},
+            "charge_efficiency": {"label": "Charge eff (0-1)", "type": "number"},
+            "discharge_efficiency": {"label": "Discharge eff (0-1)", "type": "number"},
+            "standing_loss": {"label": "Standing loss (/yr)", "type": "number"},
+            "initial_level": {"label": "Initial level", "type": "number"},
+        },
+    },
+    "investment_budget": {
+        "label": "Investment budget",
+        "columns": {
+            "company": {"label": "Company (or all)", "type": "string"},
+            "year": {"label": "Year", "type": "integer", "required": True},
+            "limit": {"label": "Max CAPEX (/yr)", "type": "number", "required": True},
+        },
+    },
+    "min_production": {
+        "label": "Minimum production",
+        "columns": {
+            "company": {"label": "Company (or all)", "type": "string"},
+            "commodity_id": {"label": "Product", "type": "string", "required": True},
+            "year": {"label": "Year", "type": "integer", "required": True},
+            "amount": {"label": "Min produced (/yr)", "type": "number", "required": True},
         },
     },
     "demand": {
