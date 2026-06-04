@@ -12,6 +12,13 @@ activity demand and emission targets over a multi-year horizon, choosing among:
 All capital costs are properly discounted (capital-recovery-factor annuity or
 NPV), and emission / carbon-price policy is fully data-driven.
 
+Beyond the default single solve, an optional **bilevel mode** (`scenario.outer`)
+searches the emission pathway itself: an outer loop (simulated annealing, or a
+deterministic sweep that traces a cost–emissions frontier) chooses a sector-wide
+per-year intensity cap, scoring each candidate by the inner least-cost solve —
+so the sector trajectory emerges from cost-optimising behaviour rather than a
+fixed target. See [`docs/ALGORITHM.md`](docs/ALGORITHM.md) §9.
+
 The engine is **domain-agnostic**. A *sector pack* maps a sector's vocabulary
 onto the generic model. **Shipping** ships as the first pack; adding a new
 sector (e.g. **steel**) means adding one folder under

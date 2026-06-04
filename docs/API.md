@@ -52,7 +52,11 @@ No model-parameter defaults appear here — those are the frontend's.
 {
   "model":    { "<sheet>": [ { "<col>": <value>, ... }, ... ] },   // the workbook
   "scenario": { "domain": "shipping", "selection": {...},
-                "economics": {...}, "features": {...}, "solver": {...} },
+                "economics": {...}, "features": {...}, "solver": {...},
+                // optional bilevel mode: search the emission pathway itself
+                "outer": { "enabled": true, "method": "anneal|sweep",
+                           "max_iterations": 60, "sweep_steps": 11,
+                           "floor_fraction": 0.3, "seed": 42 } },
   "options":  { "domain": "shipping", "backend": "linopy" }
 }
 ```
@@ -70,7 +74,13 @@ No model-parameter defaults appear here — those are the frontend's.
     "outputs": { "chosen_technology": [...], "carrier_energy": [...],
                  "transitions": [...], "new_builds": [...], "measures": [...], "slack": [...] },
     "summary": { "periods": [ { "period", "energy_mj", "emissions_tco2e",
-                                "intensity_gco2e_per_mj" } ] }
+                                "intensity_gco2e_per_mj" } ] },
+    // present only for bilevel runs (scenario.outer.enabled):
+    "pathway_search": { "method", "objective", "groups": [...],
+                        "evaluations": <int>,
+                        "pathway": [ { "year", "limit" } ],          // chosen sector cap
+                        "bounds": { "upper": [...], "floor": [...] },
+                        "frontier": [ {...} ] }                       // per-evaluation trace
   }
 }
 ```

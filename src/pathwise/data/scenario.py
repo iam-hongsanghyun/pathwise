@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -82,6 +82,38 @@ class Horizon(BaseModel):
     end: int | None = None
 
 
+class OuterSearch(BaseModel):
+    """Outer (upper-level) emission-pathway search.
+
+    When :attr:`enabled`, the backend wraps the inner cost-minimisation solve in
+    an outer search over a single sector-wide per-year intensity cap. The cap is
+    broadcast to every group; total discounted system cost is the outer
+    objective. Disabled by default ⇒ the run is the ordinary single-level solve.
+
+    Attributes:
+        enabled: Turn the outer search on.
+        method: ``"anneal"`` (simulated annealing) or ``"sweep"`` (deterministic
+            multiplier grid that traces a cost–emissions frontier).
+        max_iterations: SA proposal budget (clamped by the server-side cap).
+        initial_temp: SA initial temperature [objective units, ~USD].
+        min_temp: SA stopping temperature [objective units, ~USD].
+        cooling_rate: SA geometric cooling factor in ``(0, 1)``.
+        sweep_steps: Number of multiplier rungs for the ``"sweep"`` method.
+        floor_fraction: Lower bound on the cap as a fraction of the upper bound.
+        seed: RNG seed for the annealing proposals (reproducibility).
+    """
+
+    enabled: bool = False
+    method: Literal["anneal", "sweep"] = "anneal"
+    max_iterations: int = Field(default=60, ge=1)
+    initial_temp: float = Field(default=1.0e7, gt=0.0)
+    min_temp: float = Field(default=1.0e3, gt=0.0)
+    cooling_rate: float = Field(default=0.95, gt=0.0, lt=1.0)
+    sweep_steps: int = Field(default=11, ge=2)
+    floor_fraction: float = Field(default=0.3, ge=0.0, le=1.0)
+    seed: int = 42
+
+
 class ScenarioConfig(BaseModel):
     """A complete, validated run definition.
 
@@ -95,6 +127,7 @@ class ScenarioConfig(BaseModel):
         cost_components: Cost components to price.
         solver: Solver tuning.
         horizon: Modelled horizon bounds.
+        outer: Outer emission-pathway search (bilevel; disabled by default).
         max_transitions_per_asset: Retrofit-count cap per asset.
         min_dwell_years: Minimum asset age before a retrofit is allowed.
         slack_penalty: Objective penalty per unit of demand/target slack.
@@ -109,6 +142,7 @@ class ScenarioConfig(BaseModel):
     cost_components: CostComponents = Field(default_factory=CostComponents)
     solver: SolverConfig = Field(default_factory=SolverConfig)
     horizon: Horizon = Field(default_factory=Horizon)
+    outer: OuterSearch = Field(default_factory=OuterSearch)
     max_transitions_per_asset: int = Field(default=1, ge=0)
     min_dwell_years: int = Field(default=0, ge=0)
     slack_penalty: float = Field(default=1.0e9, ge=0.0)

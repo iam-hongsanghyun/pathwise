@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     solver_threads: int = 4
     max_solver_time_limit_s: int = 1800
     default_mip_gap: float = 0.01
+    # Cost guard for the bilevel outer search: each iteration is a full inner
+    # solve, so cap the user-requested iteration count (mirrors the time-limit
+    # clamp above). Model-side search params live in the scenario, not here.
+    max_outer_iterations: int = 200
 
     # ── Jobs / logging ───────────────────────────────────────────────────────
     max_jobs: int = 4

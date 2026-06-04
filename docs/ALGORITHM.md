@@ -168,3 +168,48 @@ not code branches.
   un-built slots.
 - Prefer per-unit-energy MACC (constant multiplier) to stay pure-LP; only
   introduce McCormick aux vars if absolute-energy abatement is required.
+
+## 9. Bilevel emission-pathway search (optional outer level)
+
+Sections 1–8 describe a **single-level** MILP: the emission pathway (intensity
+caps `EI̅_{g,t}`, C10) is *fixed input*. The optional outer level instead
+*chooses* a single sector-wide per-year intensity cap `c_t` and lets the inner
+MILP decide each group's least-cost response — so the sector trajectory is an
+output of cost-optimising behaviour rather than an imposed target.
+
+**Decision.** A vector `c = (c_t)_{t∈T}` [gCO2e/MJ], broadcast to **every** group
+(`EI̅_{g,t} := c_t ∀g`), then a single joint inner solve. Box bounds:
+
+$$ f_\text{floor}\cdot \bar c_t \le c_t \le \bar c_t,\qquad
+   \bar c_t = \max_g \widehat{EI}_{g,t} $$
+
+where `c̄_t` is the loosest existing cap in the selected target set (the
+upper bound) and `f_floor ∈ [0,1]` the floor fraction. ASCII:
+`floor_frac*upper[t] <= c[t] <= upper[t]`, `upper[t] = max over groups of the target-set cap`.
+
+**Bilevel objective.** With `J(c)` the inner optimal total discounted system
+cost (§4) under caps `c` (slack-softened, so an over-tight `c` is feasible but
+expensive):
+
+$$ \min_{c\in[\,f_\text{floor}\bar c,\ \bar c\,]} J(c),\qquad
+   J(c)=\min_{x\in\mathcal X(c)} \text{cost}(x) $$
+
+ASCII: `min_c J(c)` s.t. `J(c) = min_x cost(x)` over the inner feasible set `X(c)`.
+
+**Outer solvers** (`pathwise.core.outer`):
+
+- **Simulated annealing** (default) — symmetric Gaussian proposal per coordinate,
+  clamped to the box; Metropolis acceptance `P = exp(-Δ/T)` for `Δ>0`; geometric
+  cooling `T_{k+1}=γT_k`. Reproducible via a seeded `numpy` generator. Each
+  proposal is one inner solve, so the iteration count is clamped by the
+  server-side `max_outer_iterations`.
+- **Deterministic sweep** — scale `c = clip(α·c̄, floor, c̄)` for `α` over a grid
+  on `[1,0]`; the cheapest rung wins and the full set traces a cost–emissions
+  frontier.
+
+**Notes.** Because carbon is already priced in `J` (§6), the cost-optimal `c`
+can be interior (a genuine fuel-switching vs carbon-cost trade-off) or — when no
+carbon price is active — sit at the upper bound `c̄` (looser is cheaper). The
+`sweep` frontier makes this explicit. Broadcasting one cap to all groups and
+solving jointly preserves any cross-group coupling; per-company independent
+pathways are a future extension.
