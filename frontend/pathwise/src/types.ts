@@ -1,0 +1,56 @@
+// Shared types mirroring the pathwise API contract.
+
+export type Cell = string | number | boolean | null;
+export type Row = Record<string, Cell>;
+export type Workbook = Record<string, Row[]>;
+
+export interface DomainCapability {
+  name: string;
+  label: string;
+  terminology: Record<string, string>;
+  requiredSheets: string[];
+  schema: Record<string, { label?: string; columns?: Record<string, unknown> }>;
+}
+
+export interface ConfigBundle {
+  schemaVersion: string;
+  version: string;
+  domains: DomainCapability[];
+  backends: { name: string; label: string; features?: Record<string, boolean> }[];
+  server: { solver: string; maxSolverTimeLimitS: number; defaultMipGap: number };
+  buildId: string;
+}
+
+export interface RunResult {
+  status: string;
+  termination: string;
+  objective: number | null;
+  terminology: Record<string, string>;
+  validation: { errors: string[]; warnings: string[] };
+  outputs: {
+    technology: { process: string; technology: string; period: number }[];
+    throughput: { process: string; technology: string; period: number; value: number }[];
+    transitions: { process: string; to_technology: string; period: number }[];
+    measures: {
+      process: string | null;
+      measure: string;
+      type: string | null;
+      period: number;
+      adoption: number;
+    }[];
+    flows: { from: string; to: string; commodity: string; period: number; value: number }[];
+    trade: { process: string; commodity: string; period: number; kind: string; value: number }[];
+    demand_slack: { key: string; value: number }[];
+  };
+  summary: {
+    periods: { period: number }[];
+    impacts: { period: number; impact: string; total: number }[];
+  };
+}
+
+export interface JobState {
+  jobId: string;
+  status: "running" | "done" | "error" | "cancelled";
+  result?: RunResult;
+  error?: string;
+}
