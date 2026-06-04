@@ -1,77 +1,118 @@
 import { DRAG_MIME, nodeId, type NodeKind } from "../graph/model";
 import type { Selection, Workbook } from "../types";
 
-interface Group {
-  label: string;
-  sheet: string;
-  idCol: string;
-  kind?: NodeKind; // placeable on the map (draggable) when set
-}
+/** Entity sheets (id column) expand into clickable items; the placeable ones
+ *  are draggable onto the Model canvas. */
+const ENTITY: Record<string, { idCol: string; kind?: NodeKind }> = {
+  processes: { idCol: "process_id", kind: "process" },
+  commodities: { idCol: "commodity_id", kind: "commodity" },
+  markets: { idCol: "market_id", kind: "market" },
+  storage: { idCol: "storage_id", kind: "storage" },
+  technologies: { idCol: "technology_id" },
+  measures: { idCol: "measure_id" },
+  impacts: { idCol: "impact_id" },
+};
 
-const GROUPS: Group[] = [
-  { label: "Facilities", sheet: "processes", idCol: "process_id", kind: "process" },
-  { label: "Streams", sheet: "commodities", idCol: "commodity_id", kind: "commodity" },
-  { label: "Markets", sheet: "markets", idCol: "market_id", kind: "market" },
-  { label: "Storage", sheet: "storage", idCol: "storage_id", kind: "storage" },
-  { label: "Technologies", sheet: "technologies", idCol: "technology_id" },
-  { label: "Measures", sheet: "measures", idCol: "measure_id" },
-  { label: "Impacts", sheet: "impacts", idCol: "impact_id" },
+/** Preferred ordering; any other workbook sheets follow. */
+const ORDER = [
+  "processes",
+  "commodities",
+  "markets",
+  "storage",
+  "technologies",
+  "measures",
+  "impacts",
+  "periods",
+  "process_inputs",
+  "process_outputs",
+  "tech_impacts",
+  "commodity_impacts",
+  "edges",
+  "measure_blocks",
+  "transitions",
+  "demand",
+  "min_production",
+  "impact_caps",
+  "impact_prices",
+  "commodity_prices",
+  "market_prices",
+  "investment_budget",
+  "company_config",
 ];
+
+const LABEL: Record<string, string> = {
+  processes: "Facilities",
+  commodities: "Streams",
+  markets: "Markets",
+  storage: "Storage",
+  technologies: "Technologies",
+  measures: "Measures",
+  impacts: "Impacts",
+};
 
 interface Props {
   workbook: Workbook;
   selected: Selection | null;
-  onSelect: (s: Selection) => void;
-  /** When true (Model view), placeable items are draggable onto the canvas. */
+  activeSheet: string;
+  onGroup: (sheet: string) => void;
+  onItem: (s: Selection) => void;
   draggable?: boolean;
   width?: number;
 }
 
-/** Left rail — grouped model tree. Click to select; in the Model view, drag a
- *  facility/stream/market/storage onto the canvas to place it. */
-export function LeftRail({ workbook, selected, onSelect, draggable, width }: Props) {
+/** Left rail — the single navigator: every sheet is a group (click → table in
+ *  main); entity sheets expand to items (click → detail in main). */
+export function LeftRail({ workbook, selected, activeSheet, onGroup, onItem, draggable, width }: Props) {
   const placed = new Set((workbook.node_layout ?? []).map((r) => String(r.id)));
+  const sheets = [
+    ...ORDER.filter((s) => s in workbook),
+    ...Object.keys(workbook).filter((s) => s !== "node_layout" && s !== "meta" && !ORDER.includes(s)),
+  ];
+
   return (
     <aside
       className="left-rail"
       aria-label="Model tree"
       style={width ? { width, flex: `0 0 ${width}px` } : undefined}
     >
-      {GROUPS.map((g) => {
-        const rows = workbook[g.sheet] ?? [];
+      {sheets.map((sheet) => {
+        const rows = workbook[sheet] ?? [];
+        const ent = ENTITY[sheet];
+        const groupActive = activeSheet === sheet && !selected ? " is-active" : "";
         return (
-          <div className="rail-group" key={g.sheet}>
-            <h4>
-              {g.label} <span className="rail-count">{rows.length}</span>
-            </h4>
-            {rows.map((r, i) => {
-              const id = String(r[g.idCol] ?? "");
-              if (!id) return null;
-              const active = selected?.sheet === g.sheet && selected.id === id ? " is-active" : "";
-              const canDrag = Boolean(draggable && g.kind);
-              const onMap = g.kind && placed.has(nodeId(g.kind, id));
-              return (
-                <button
-                  key={`${id}-${i}`}
-                  className={`rail-item${active}`}
-                  draggable={canDrag}
-                  onDragStart={
-                    canDrag
-                      ? (e) => {
-                          e.dataTransfer.setData(DRAG_MIME, nodeId(g.kind as NodeKind, id));
-                          e.dataTransfer.effectAllowed = "copy";
-                        }
-                      : undefined
-                  }
-                  onClick={() => onSelect({ sheet: g.sheet, idCol: g.idCol, id })}
-                  title={canDrag ? `${id} — drag onto the canvas` : id}
-                >
-                  {onMap ? "● " : canDrag ? "○ " : ""}
-                  {id}
-                </button>
-              );
-            })}
-            {rows.length === 0 && <div className="rail-empty muted">—</div>}
+          <div className="rail-group" key={sheet}>
+            <button className={`rail-head${groupActive}`} onClick={() => onGroup(sheet)}>
+              {LABEL[sheet] ?? sheet} <span className="rail-count">{rows.length}</span>
+            </button>
+            {ent &&
+              rows.map((r, i) => {
+                const id = String(r[ent.idCol] ?? "");
+                if (!id) return null;
+                const active =
+                  selected?.sheet === sheet && selected.id === id ? " is-active" : "";
+                const canDrag = Boolean(draggable && ent.kind);
+                const onMap = ent.kind && placed.has(nodeId(ent.kind, id));
+                return (
+                  <button
+                    key={`${id}-${i}`}
+                    className={`rail-item${active}`}
+                    draggable={canDrag}
+                    onDragStart={
+                      canDrag
+                        ? (e) => {
+                            e.dataTransfer.setData(DRAG_MIME, nodeId(ent.kind as NodeKind, id));
+                            e.dataTransfer.effectAllowed = "copy";
+                          }
+                        : undefined
+                    }
+                    onClick={() => onItem({ sheet, idCol: ent.idCol, id })}
+                    title={canDrag ? `${id} — drag onto the canvas` : id}
+                  >
+                    {onMap ? "● " : canDrag ? "○ " : ""}
+                    {id}
+                  </button>
+                );
+              })}
           </div>
         );
       })}

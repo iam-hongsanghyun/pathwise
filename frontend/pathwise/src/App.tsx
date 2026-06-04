@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { getConfig, runToCompletion } from "./api";
 import { ActivityBar, type View } from "./layout/ActivityBar";
-import { Inspector } from "./layout/Inspector";
+import { DetailPanel } from "./layout/DetailPanel";
 import { LeftRail } from "./layout/LeftRail";
 import { Resizer } from "./layout/Resizer";
 import { FlowCanvas } from "./components/designer/FlowCanvas";
@@ -22,17 +22,13 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Selection | null>(null);
   const [leftW, setLeftW] = useState(232);
-  const [rightW, setRightW] = useState(260);
   const schema = config?.domains[0]?.schema ?? {};
-  const railed = view === "model" || view === "data";
 
   useEffect(() => {
     getConfig()
       .then(setConfig)
       .catch((e) => setError(String(e)));
   }, []);
-
-  const sheets = useMemo(() => Object.keys(workbook), [workbook]);
 
   async function onUpload(file: File) {
     setError(null);
@@ -63,11 +59,15 @@ export function App() {
     }
   }
 
-  // The Data view selection jumps the active sheet to the selected entity.
-  function select(sel: Selection) {
+  const onGroup = (sheet: string) => {
+    setActiveSheet(sheet);
+    setSelected(null);
+    if (view === "analytics" || view === "settings") setView("data");
+  };
+  const onItem = (sel: Selection) => {
     setSelected(sel);
-    if (view === "data") setActiveSheet(sel.sheet);
-  }
+    setActiveSheet(sel.sheet);
+  };
 
   return (
     <div className="studio-shell">
@@ -107,7 +107,9 @@ export function App() {
           <LeftRail
             workbook={workbook}
             selected={selected}
-            onSelect={select}
+            activeSheet={activeSheet}
+            onGroup={onGroup}
+            onItem={onItem}
             draggable={view === "model"}
             width={leftW}
           />
@@ -115,25 +117,34 @@ export function App() {
 
           <main className="main-area">
             {view === "model" && (
-              <FlowCanvas workbook={workbook} onChange={setWorkbook} onSelect={setSelected} />
+              <div className="view-full canvas-wrap">
+                <FlowCanvas workbook={workbook} onChange={setWorkbook} onSelect={setSelected} />
+                {selected && (
+                  <DetailPanel
+                    workbook={workbook}
+                    selected={selected}
+                    schema={schema}
+                    onChange={setWorkbook}
+                    onClose={() => setSelected(null)}
+                    floating
+                  />
+                )}
+              </div>
             )}
 
             {view === "data" && (
               <div className="view">
-                <div className="sheet-tabs">
-                  {sheets.map((sname) => (
-                    <button
-                      key={sname}
-                      className={sname === activeSheet ? "tab active" : "tab"}
-                      onClick={() => setActiveSheet(sname)}
-                    >
-                      {sname}
-                    </button>
-                  ))}
-                </div>
-                {workbook[activeSheet] && (
+                {selected ? (
+                  <DetailPanel
+                    workbook={workbook}
+                    selected={selected}
+                    schema={schema}
+                    onChange={setWorkbook}
+                    onClose={() => setSelected(null)}
+                  />
+                ) : (
                   <WorkbookTable
-                    rows={workbook[activeSheet]}
+                    rows={workbook[activeSheet] ?? []}
                     onChange={(rows) => setWorkbook({ ...workbook, [activeSheet]: rows })}
                   />
                 )}
@@ -144,20 +155,6 @@ export function App() {
 
             {view === "settings" && <SettingsView discount={discount} onDiscount={setDiscount} />}
           </main>
-
-          {railed && (
-            <>
-              <Resizer width={rightW} setWidth={setRightW} side="right" />
-              <Inspector
-                workbook={workbook}
-                selected={selected}
-                schema={schema}
-                onChange={setWorkbook}
-                onClear={() => setSelected(null)}
-                width={rightW}
-              />
-            </>
-          )}
         </div>
       </div>
     </div>

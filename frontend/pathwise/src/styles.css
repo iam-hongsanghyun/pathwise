@@ -132,9 +132,13 @@
   padding: 8px 0;
   border-bottom: 1px solid var(--border);
 }
-.rail-group h4 {
-  margin: 0;
-  padding: 4px 12px;
+.rail-head {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 5px 12px;
   font-family: var(--font-mono);
   font-size: 0.7rem;
   text-transform: uppercase;
@@ -142,6 +146,13 @@
   color: var(--muted);
   display: flex;
   justify-content: space-between;
+}
+.rail-head:hover {
+  background: var(--bg-hover);
+}
+.rail-head.is-active {
+  color: var(--brand);
+  background: var(--brand-fill);
 }
 .rail-count {
   color: var(--muted);
@@ -184,9 +195,37 @@
   font-size: 0.7rem;
   color: var(--muted);
 }
-.inspector-field input {
+.inspector-field input,
+.inspector-field select {
   font-size: 0.8rem;
   color: var(--text);
+}
+
+/* Detail editor (main panel in Data; floating card in Model). */
+.canvas-wrap {
+  position: relative;
+}
+.detail-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 12px;
+  max-width: 540px;
+}
+.detail-panel.floating {
+  position: absolute;
+  top: 52px;
+  right: 16px;
+  width: 300px;
+  max-height: calc(100% - 80px);
+  overflow: auto;
+  z-index: 5;
+  border-color: var(--border-strong);
+}
+.detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
 }
 
 /* ── View area ──────────────────────────────────────────────────────────── */
