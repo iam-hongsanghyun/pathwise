@@ -24,14 +24,19 @@ interface Props {
   onSelect: (s: Selection) => void;
   /** When true (Model view), placeable items are draggable onto the canvas. */
   draggable?: boolean;
+  width?: number;
 }
 
 /** Left rail — grouped model tree. Click to select; in the Model view, drag a
  *  facility/stream/market/storage onto the canvas to place it. */
-export function LeftRail({ workbook, selected, onSelect, draggable }: Props) {
+export function LeftRail({ workbook, selected, onSelect, draggable, width }: Props) {
   const placed = new Set((workbook.node_layout ?? []).map((r) => String(r.id)));
   return (
-    <aside className="left-rail" aria-label="Model tree">
+    <aside
+      className="left-rail"
+      aria-label="Model tree"
+      style={width ? { width, flex: `0 0 ${width}px` } : undefined}
+    >
       {GROUPS.map((g) => {
         const rows = workbook[g.sheet] ?? [];
         return (

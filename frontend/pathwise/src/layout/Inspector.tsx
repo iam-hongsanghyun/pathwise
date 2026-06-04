@@ -1,3 +1,4 @@
+import { optionsFor } from "../graph/references";
 import type { Cell, Row, Selection, Workbook } from "../types";
 
 type SchemaMap = Record<string, { label?: string; columns?: Record<string, { label?: string }> }>;
@@ -8,6 +9,7 @@ interface Props {
   schema: SchemaMap;
   onChange: (wb: Workbook) => void;
   onClear: () => void;
+  width?: number;
 }
 
 function coerce(value: string): Cell {
@@ -19,10 +21,14 @@ function coerce(value: string): Cell {
 }
 
 /** Right rail — edit the selected entity's properties (schema-labelled form). */
-export function Inspector({ workbook, selected, schema, onChange, onClear }: Props) {
+export function Inspector({ workbook, selected, schema, onChange, onClear, width }: Props) {
   if (!selected) {
     return (
-      <aside className="right-rail" aria-label="Inspector">
+      <aside
+      className="right-rail"
+      aria-label="Inspector"
+      style={width ? { width, flex: `0 0 ${width}px` } : undefined}
+    >
         <div className="rail-group">
           <h4>Inspector</h4>
           <div className="muted" style={{ padding: "4px 12px" }}>
@@ -50,22 +56,38 @@ export function Inspector({ workbook, selected, schema, onChange, onClear }: Pro
   };
 
   return (
-    <aside className="right-rail" aria-label="Inspector">
+    <aside
+      className="right-rail"
+      aria-label="Inspector"
+      style={width ? { width, flex: `0 0 ${width}px` } : undefined}
+    >
       <div className="rail-group">
         <h4>
           {selected.id} <span className="rail-count">{selected.sheet}</span>
         </h4>
         {row ? (
           <div className="inspector-form">
-            {allCols.map((c) => (
-              <label key={c} className="inspector-field">
-                <span>{labelOf(c)}</span>
-                <input
-                  value={row[c] == null ? "" : String(row[c])}
-                  onChange={(e) => edit(c, e.target.value)}
-                />
-              </label>
-            ))}
+            {allCols.map((c) => {
+              const opts = c === selected.idCol ? null : optionsFor(workbook, selected.sheet, c, row);
+              const value = row[c] == null ? "" : String(row[c]);
+              return (
+                <label key={c} className="inspector-field">
+                  <span>{labelOf(c)}</span>
+                  {opts ? (
+                    <select value={value} onChange={(e) => edit(c, e.target.value)}>
+                      <option value="">—</option>
+                      {opts.map((o) => (
+                        <option key={o} value={o}>
+                          {o}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input value={value} onChange={(e) => edit(c, e.target.value)} />
+                  )}
+                </label>
+              );
+            })}
             <button className="ghost" onClick={remove}>
               Delete
             </button>

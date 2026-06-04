@@ -3,6 +3,7 @@ import { getConfig, runToCompletion } from "./api";
 import { ActivityBar, type View } from "./layout/ActivityBar";
 import { Inspector } from "./layout/Inspector";
 import { LeftRail } from "./layout/LeftRail";
+import { Resizer } from "./layout/Resizer";
 import { FlowCanvas } from "./components/designer/FlowCanvas";
 import { WorkbookTable } from "./components/WorkbookTable";
 import { AnalyticsView } from "./views/AnalyticsView";
@@ -20,7 +21,10 @@ export function App() {
   const [running, setRunning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Selection | null>(null);
+  const [leftW, setLeftW] = useState(232);
+  const [rightW, setRightW] = useState(260);
   const schema = config?.domains[0]?.schema ?? {};
+  const railed = view === "model" || view === "data";
 
   useEffect(() => {
     getConfig()
@@ -105,7 +109,9 @@ export function App() {
             selected={selected}
             onSelect={select}
             draggable={view === "model"}
+            width={leftW}
           />
+          <Resizer width={leftW} setWidth={setLeftW} side="left" />
 
           <main className="main-area">
             {view === "model" && (
@@ -139,14 +145,18 @@ export function App() {
             {view === "settings" && <SettingsView discount={discount} onDiscount={setDiscount} />}
           </main>
 
-          {(view === "model" || view === "data") && (
-            <Inspector
-              workbook={workbook}
-              selected={selected}
-              schema={schema}
-              onChange={setWorkbook}
-              onClear={() => setSelected(null)}
-            />
+          {railed && (
+            <>
+              <Resizer width={rightW} setWidth={setRightW} side="right" />
+              <Inspector
+                workbook={workbook}
+                selected={selected}
+                schema={schema}
+                onChange={setWorkbook}
+                onClear={() => setSelected(null)}
+                width={rightW}
+              />
+            </>
           )}
         </div>
       </div>
