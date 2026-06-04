@@ -89,6 +89,93 @@
   flex: 1;
 }
 
+/* ── Body: left rail | main | right rail ────────────────────────────────── */
+.body-row {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+.left-rail,
+.right-rail {
+  width: 232px;
+  flex: 0 0 232px;
+  overflow: auto;
+  background: var(--surface);
+}
+.left-rail {
+  border-right: 1px solid var(--border);
+}
+.right-rail {
+  border-left: 1px solid var(--border);
+}
+.rail-group {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.rail-group h4 {
+  margin: 0;
+  padding: 4px 12px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+}
+.rail-count {
+  color: var(--muted);
+  font-weight: 400;
+}
+.rail-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--text);
+  border: none;
+  border-radius: 0;
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rail-item:hover {
+  background: var(--bg-hover);
+}
+.rail-item.is-active {
+  background: var(--brand-fill);
+  color: var(--brand);
+  border-left: 2px solid var(--brand);
+}
+.rail-empty {
+  padding: 2px 12px;
+}
+.inspector-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 12px;
+}
+.inspector-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+.inspector-field input {
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
 /* ── View area ──────────────────────────────────────────────────────────── */
 .view {
   flex: 1;

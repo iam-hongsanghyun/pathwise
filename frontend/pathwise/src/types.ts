@@ -4,12 +4,19 @@ export type Cell = string | number | boolean | null;
 export type Row = Record<string, Cell>;
 export type Workbook = Record<string, Row[]>;
 
+/** A selected model entity (drives the right-rail inspector). */
+export interface Selection {
+  sheet: string;
+  idCol: string;
+  id: string;
+}
+
 export interface DomainCapability {
   name: string;
   label: string;
   terminology: Record<string, string>;
   requiredSheets: string[];
-  schema: Record<string, { label?: string; columns?: Record<string, unknown> }>;
+  schema: Record<string, { label?: string; columns?: Record<string, { label?: string }> }>;
 }
 
 export interface ConfigBundle {

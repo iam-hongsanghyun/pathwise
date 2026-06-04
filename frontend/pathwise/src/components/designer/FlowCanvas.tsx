@@ -61,14 +61,22 @@ interface Menu {
   nodeId?: string;
 }
 
+const SHEET_OF: Record<NodeKind, { sheet: string; idCol: string }> = {
+  process: { sheet: "processes", idCol: "process_id" },
+  commodity: { sheet: "commodities", idCol: "commodity_id" },
+  market: { sheet: "markets", idCol: "market_id" },
+  storage: { sheet: "storage", idCol: "storage_id" },
+};
+
 interface Props {
   workbook: Workbook;
   onChange: (wb: Workbook) => void;
+  onSelect?: (sel: { sheet: string; idCol: string; id: string }) => void;
 }
 
 /** Chemical-process-style canvas: drag to connect, right-click to add/delete.
  *  Streams = rounded nodes; facilities/markets/stores = squares. Two-way synced. */
-export function FlowCanvas({ workbook, onChange }: Props) {
+export function FlowCanvas({ workbook, onChange, onSelect }: Props) {
   const { nodes, edges } = useMemo(() => workbookToGraph(workbook), [workbook]);
   const [menu, setMenu] = useState<Menu | null>(null);
 
@@ -118,6 +126,12 @@ export function FlowCanvas({ workbook, onChange }: Props) {
           onNodeContextMenu={(e, node) => {
             e.preventDefault();
             setMenu({ x: e.clientX, y: e.clientY, nodeId: node.id });
+          }}
+          onNodeClick={(_e, node) => {
+            const kind = (node.data as { kind?: NodeKind }).kind;
+            const entityId = (node.data as { entityId?: string }).entityId;
+            const map = kind ? SHEET_OF[kind] : undefined;
+            if (map && entityId) onSelect?.({ ...map, id: entityId });
           }}
           fitView
         >

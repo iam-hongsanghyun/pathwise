@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { getConfig, runToCompletion } from "./api";
 import { ActivityBar, type View } from "./layout/ActivityBar";
+import { Inspector } from "./layout/Inspector";
+import { LeftRail } from "./layout/LeftRail";
 import { FlowCanvas } from "./components/designer/FlowCanvas";
 import { MaccDesigner } from "./components/MaccDesigner";
 import { ResultsView } from "./components/ResultsView";
 import { WorkbookTable } from "./components/WorkbookTable";
 import { SettingsView } from "./views/SettingsView";
-import type { ConfigBundle, RunResult, Workbook } from "./types";
+import type { ConfigBundle, RunResult, Selection, Workbook } from "./types";
 import { downloadResult, downloadWorkbook, exampleWorkbook, parseWorkbookFile } from "./workbook";
 
 export function App() {
@@ -18,6 +20,8 @@ export function App() {
   const [result, setResult] = useState<RunResult | null>(null);
   const [running, setRunning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Selection | null>(null);
+  const schema = config?.domains[0]?.schema ?? {};
 
   useEffect(() => {
     getConfig()
@@ -90,54 +94,70 @@ export function App() {
 
         {error && <div className="error" style={{ padding: "4px 16px" }}>{error}</div>}
 
-        {view === "designer" && <FlowCanvas workbook={workbook} onChange={setWorkbook} />}
+        <div className="body-row">
+          <LeftRail workbook={workbook} selected={selected} onSelect={setSelected} />
 
-        {view === "tables" && (
-          <div className="view">
-            <div className="sheet-tabs">
-              {sheets.map((s) => (
-                <button
-                  key={s}
-                  className={s === activeSheet ? "tab active" : "tab"}
-                  onClick={() => setActiveSheet(s)}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-            {workbook[activeSheet] && (
-              <WorkbookTable
-                rows={workbook[activeSheet]}
-                onChange={(rows) => setWorkbook({ ...workbook, [activeSheet]: rows })}
+          <main className="main-area">
+            {view === "designer" && (
+              <FlowCanvas workbook={workbook} onChange={setWorkbook} onSelect={setSelected} />
+            )}
+
+            {view === "tables" && (
+              <div className="view">
+                <div className="sheet-tabs">
+                  {sheets.map((s) => (
+                    <button
+                      key={s}
+                      className={s === activeSheet ? "tab active" : "tab"}
+                      onClick={() => setActiveSheet(s)}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+                {workbook[activeSheet] && (
+                  <WorkbookTable
+                    rows={workbook[activeSheet]}
+                    onChange={(rows) => setWorkbook({ ...workbook, [activeSheet]: rows })}
+                  />
+                )}
+              </div>
+            )}
+
+            {view === "macc" && (
+              <div className="view">
+                <MaccDesigner workbook={workbook} />
+              </div>
+            )}
+
+            {view === "results" && (
+              <div className="view">
+                {result ? (
+                  <ResultsView result={result} />
+                ) : (
+                  <p className="muted">Run an optimisation to see results.</p>
+                )}
+              </div>
+            )}
+
+            {view === "settings" && (
+              <SettingsView
+                workbook={workbook}
+                onChange={setWorkbook}
+                discount={discount}
+                onDiscount={setDiscount}
               />
             )}
-          </div>
-        )}
+          </main>
 
-        {view === "macc" && (
-          <div className="view">
-            <MaccDesigner workbook={workbook} />
-          </div>
-        )}
-
-        {view === "results" && (
-          <div className="view">
-            {result ? (
-              <ResultsView result={result} />
-            ) : (
-              <p className="muted">Run an optimisation to see results.</p>
-            )}
-          </div>
-        )}
-
-        {view === "settings" && (
-          <SettingsView
+          <Inspector
             workbook={workbook}
+            selected={selected}
+            schema={schema}
             onChange={setWorkbook}
-            discount={discount}
-            onDiscount={setDiscount}
+            onClear={() => setSelected(null)}
           />
-        )}
+        </div>
       </div>
     </div>
   );
