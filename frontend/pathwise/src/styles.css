@@ -221,6 +221,21 @@ td input:focus {
   color: var(--muted);
   letter-spacing: 0.05em;
 }
+.node .ports {
+  margin-top: 4px;
+  text-align: left;
+  border-top: 1px solid var(--border);
+  padding-top: 4px;
+}
+.node .port-row {
+  font-size: 0.62rem;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.node .port-label {
+  font-family: var(--font-mono);
+  color: var(--muted);
+}
 .node.process {
   border-color: var(--brand);
 }

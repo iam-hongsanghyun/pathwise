@@ -22,13 +22,33 @@ import {
 } from "../../graph/model";
 import type { Workbook } from "../../types";
 
+function PortList({ title, items }: { title: string; items: string[] }) {
+  if (!items.length) return null;
+  return (
+    <div className="port-row">
+      <span className="port-label">{title}</span> {items.join(", ")}
+    </div>
+  );
+}
+
 function NodeView({ data }: NodeProps<NodeData>) {
+  const p = data.ports;
   return (
     <div className={`node ${data.kind}`}>
       <Handle type="target" position={Position.Left} />
       <div className="node-kind">{data.kind}</div>
       <strong>{data.label}</strong>
-      {data.sub && <div className="muted">{data.sub}</div>}
+      {data.kind === "process" && p ? (
+        <div className="ports">
+          <PortList title="⚡ in" items={p.energyIn} />
+          <PortList title="📦 in" items={p.materialIn} />
+          <PortList title="▸ product" items={p.products} />
+          <PortList title="↻ residual" items={p.energyOut} />
+          <PortList title="• by-product" items={p.byproducts} />
+        </div>
+      ) : (
+        data.sub && <div className="muted">{data.sub}</div>
+      )}
       <Handle type="source" position={Position.Right} />
     </div>
   );

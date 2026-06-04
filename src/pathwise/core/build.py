@@ -74,9 +74,10 @@ def _technology(ctx: BuildContext) -> None:
         feas = ctx.feasible[p]
         infeasible = [k for k in ctx.techs if k not in feas]
         for t in ctx.years:
-            # Exactly one feasible technology is active each period.
+            # One technology active iff the facility operates (`on`). If off, the
+            # facility runs nothing — its output is sourced elsewhere (outsourced).
             active = _lin_sum([ctx.u.sel(process=p, tech=k, period=t) for k in feas])
-            m.add_constraints(active == 1, name=f"one_tech[{p},{t}]")
+            m.add_constraints(active == ctx.on.sel(process=p, period=t), name=f"one_tech[{p},{t}]")
             for k in feas:
                 # Throughput only on the active technology, bounded by capacity.
                 m.add_constraints(
@@ -92,10 +93,11 @@ def _technology(ctx: BuildContext) -> None:
                 m.add_constraints(
                     ctx.x.sel(process=p, tech=k, period=t) == 0, name=f"nofeas_x[{p},{k},{t}]"
                 )
-        # Baseline locked in the first period.
+        # If operating in the first period, it runs the baseline (no prior switch).
         t0 = ctx.years[0]
         m.add_constraints(
-            ctx.u.sel(process=p, tech=baseline[p], period=t0) == 1, name=f"baseline[{p}]"
+            ctx.u.sel(process=p, tech=baseline[p], period=t0) == ctx.on.sel(process=p, period=t0),
+            name=f"baseline[{p}]",
         )
         # Transition (replace) event detection: w >= u_t - u_prev.
         for k in feas:
@@ -169,9 +171,14 @@ def _flow_balance(ctx: BuildContext) -> None:
         r for k in prob.technologies.values() for r, y in k.output_yield.items() if y != 0.0
     }
     raw_kinds = {CommodityKind.ENERGY, CommodityKind.MATERIAL, CommodityKind.INDIRECT}
+    # A commodity with a market can be bought even if it is produced internally —
+    # this is what lets the model outsource an upstream process (buy its output).
+    market_commodities = {mk.target for mk in ctx.cmarkets}
 
     def _purchasable(r: str) -> bool:
         c = prob.commodities[r]
+        if r in market_commodities:
+            return True
         if c.purchasable is not None:
             return c.purchasable
         return c.kind in raw_kinds and r not in produced_anywhere
@@ -548,13 +555,9 @@ def _objective(ctx: BuildContext) -> None:
                     ox = prob.technologies[k].opex(t)
                     if ox:
                         terms.append((w * ox) * ctx.x.sel(process=p, tech=k, period=t))
-                # Facility fixed annual O&M while operating (Σ_k u = 1).
+                # Facility fixed annual O&M — only while operating (`on`).
                 if fixed_opex[p]:
-                    active = _lin_sum(
-                        [ctx.u.sel(process=p, tech=k, period=t) for k in ctx.feasible[p]]
-                    )
-                    if active is not None:
-                        terms.append((w * fixed_opex[p]) * active)
+                    terms.append((w * fixed_opex[p]) * ctx.on.sel(process=p, period=t))
             if tog.commodity_cost:
                 for r in ctx.comms:
                     if r in stored or r in market_comms:

@@ -65,6 +65,7 @@ class BuildContext:
     ref_impact: dict[tuple[str, str], float]  # (process, impact) -> baseline emission
 
     # Decision variables (set in build_context).
+    on: Any = None  # binary: facility operates [process, period]
     u: Any = None  # binary: tech active [process, tech, period]
     x: Any = None  # throughput on tech [process, tech, period]
     buy: Any = None  # external purchase [process, commodity, period]
@@ -194,6 +195,7 @@ def build_context(model: Model, problem: Problem) -> BuildContext:
         ref_impact=ref_imp,
     )
 
+    ctx.on = model.add_variables(binary=True, coords=[p_idx, t_idx], name="on")
     ctx.u = model.add_variables(binary=True, coords=[p_idx, k_idx, t_idx], name="u")
     ctx.x = model.add_variables(lower=0.0, coords=[p_idx, k_idx, t_idx], name="x")
     # Transition (replace) event: continuous in [0, 1] — w >= u_t - u_prev pins it

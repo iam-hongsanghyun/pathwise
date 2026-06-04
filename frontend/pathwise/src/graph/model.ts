@@ -5,11 +5,19 @@ import type { Edge, Node } from "reactflow";
 import type { Row, Workbook } from "../types";
 
 export type NodeKind = "process" | "commodity" | "market" | "storage";
+export interface FacilityPorts {
+  energyIn: string[];
+  materialIn: string[];
+  products: string[];
+  byproducts: string[];
+  energyOut: string[]; // residual energy (heat/steam) out
+}
 export interface NodeData {
   kind: NodeKind;
   entityId: string;
   label: string;
   sub?: string;
+  ports?: FacilityPorts;
 }
 export type GraphNode = Node<NodeData>;
 export type GraphEdge = Edge;
@@ -33,16 +41,40 @@ export function workbookToGraph(wb: Workbook): { nodes: GraphNode[]; edges: Grap
   const layout = new Map<string, { x: number; y: number }>();
   for (const r of wb.node_layout ?? []) layout.set(s(r.id), { x: n(r.x), y: n(r.y) });
 
+  const kindOf = new Map<string, string>(
+    (wb.commodities ?? []).map((r) => [s(r.commodity_id), s(r.kind, "material")]),
+  );
+
   const nodes: GraphNode[] = [];
   let auto = 0;
   const place = (id: string) => layout.get(id) ?? { x: 60 + (auto % 5) * 200, y: 60 + Math.floor(auto++ / 5) * 130 };
-  const add = (kind: NodeKind, entityId: string, label: string, sub?: string) => {
+  const add = (kind: NodeKind, entityId: string, label: string, sub?: string, ports?: FacilityPorts) => {
     const id = nodeId(kind, entityId);
-    nodes.push({ id, type: kind, position: place(id), data: { kind, entityId, label, sub } });
+    nodes.push({ id, type: kind, position: place(id), data: { kind, entityId, label, sub, ports } });
+  };
+
+  const facilityPorts = (process: string): FacilityPorts => {
+    const tech = s((wb.processes ?? []).find((p) => s(p.process_id) === process)?.baseline_technology);
+    const p: FacilityPorts = { energyIn: [], materialIn: [], products: [], byproducts: [], energyOut: [] };
+    for (const r of wb.process_inputs ?? []) {
+      if (s(r.technology_id) !== tech) continue;
+      const c = s(r.commodity_id);
+      (kindOf.get(c) === "energy" ? p.energyIn : p.materialIn).push(c);
+    }
+    for (const r of wb.process_outputs ?? []) {
+      if (s(r.technology_id) !== tech) continue;
+      const c = s(r.commodity_id);
+      const k = kindOf.get(c);
+      if (k === "product") p.products.push(c);
+      else if (k === "energy") p.energyOut.push(c);
+      else p.byproducts.push(c);
+    }
+    return p;
   };
 
   for (const r of wb.commodities ?? []) add("commodity", s(r.commodity_id), s(r.commodity_id), s(r.kind));
-  for (const r of wb.processes ?? []) add("process", s(r.process_id), s(r.process_id), s(r.baseline_technology));
+  for (const r of wb.processes ?? [])
+    add("process", s(r.process_id), s(r.process_id), s(r.baseline_technology), facilityPorts(s(r.process_id)));
   for (const r of wb.markets ?? []) add("market", s(r.market_id), s(r.market_id), s(r.target_kind, "commodity"));
   for (const r of wb.storage ?? []) add("storage", s(r.storage_id), s(r.storage_id), s(r.commodity_id));
 
