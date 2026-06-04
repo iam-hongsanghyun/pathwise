@@ -1,22 +1,17 @@
-import type { Row, Workbook } from "../types";
-import { WorkbookTable } from "../components/WorkbookTable";
-
 interface Props {
-  workbook: Workbook;
-  onChange: (wb: Workbook) => void;
   discount: number;
   onDiscount: (v: number) => void;
 }
 
-/** Scenario + per-company settings: objective (profit/cost), discount, budgets. */
-export function SettingsView({ workbook, onChange, discount, onDiscount }: Props) {
-  const set = (sheet: string, rows: Row[]) => onChange({ ...workbook, [sheet]: rows });
+/** Settings — scenario / run parameters only (model data is edited in Data).
+ *  Snapshots are the planned PyPSA-style sub-annual resolution. */
+export function SettingsView({ discount, onDiscount }: Props) {
   return (
     <div className="view">
       <section className="card">
-        <h3>Scenario</h3>
-        <label>
-          Discount rate{" "}
+        <h3>Economics</h3>
+        <label className="inspector-field">
+          <span>Discount rate</span>
           <input
             type="number"
             step="0.01"
@@ -26,35 +21,25 @@ export function SettingsView({ workbook, onChange, discount, onDiscount }: Props
         </label>
       </section>
 
-      <section>
-        <h3>Per-company objective</h3>
+      <section className="card">
+        <h3>Snapshots (time resolution)</h3>
         <p className="muted">
-          <code>cost</code> = meet demand at least cost; <code>profit</code> = maximise profit
-          (sell up to demand, produce less if unprofitable).
+          Current runs are <strong>annual</strong> (one snapshot per period). Weighted
+          sub-annual snapshots (hourly→yearly, PyPSA-style) for intra-year price/storage
+          dynamics are planned.
         </p>
-        <WorkbookTable
-          rows={workbook.company_config ?? []}
-          columns={["company", "objective"]}
-          onChange={(r) => set("company_config", r)}
-        />
+        <label className="inspector-field">
+          <span>Resolution</span>
+          <select disabled value="annual">
+            <option value="annual">Annual (per period)</option>
+          </select>
+        </label>
       </section>
 
-      <section>
-        <h3>Investment budget</h3>
-        <WorkbookTable
-          rows={workbook.investment_budget ?? []}
-          columns={["company", "year", "limit"]}
-          onChange={(r) => set("investment_budget", r)}
-        />
-      </section>
-
-      <section>
-        <h3>Minimum production</h3>
-        <WorkbookTable
-          rows={workbook.min_production ?? []}
-          columns={["company", "commodity_id", "year", "amount"]}
-          onChange={(r) => set("min_production", r)}
-        />
+      <section className="card">
+        <h3>Solver</h3>
+        <p className="muted">HiGHS via linopy. Per-company objective, budgets, and minimum
+          production are edited in the Data tables.</p>
       </section>
     </div>
   );

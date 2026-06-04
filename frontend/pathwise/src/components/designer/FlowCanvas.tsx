@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import ReactFlow, {
   Background,
   Controls,
@@ -8,19 +8,29 @@ import ReactFlow, {
   type Connection,
   type NodeChange,
   type NodeProps,
+  type ReactFlowInstance,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import {
-  addEntity,
+  DRAG_MIME,
   connect as connectWb,
-  deleteNode,
   persistLayout,
+  placeEntity,
+  unplace,
   workbookToGraph,
+  type FacilityPorts,
   type GraphNode,
   type NodeData,
   type NodeKind,
 } from "../../graph/model";
 import type { Workbook } from "../../types";
+
+const SHEET_OF: Record<NodeKind, { sheet: string; idCol: string }> = {
+  process: { sheet: "processes", idCol: "process_id" },
+  commodity: { sheet: "commodities", idCol: "commodity_id" },
+  market: { sheet: "markets", idCol: "market_id" },
+  storage: { sheet: "storage", idCol: "storage_id" },
+};
 
 function PortList({ title, items }: { title: string; items: string[] }) {
   if (!items.length) return null;
@@ -32,7 +42,7 @@ function PortList({ title, items }: { title: string; items: string[] }) {
 }
 
 function NodeView({ data }: NodeProps<NodeData>) {
-  const p = data.ports;
+  const p: FacilityPorts | undefined = data.ports;
   return (
     <div className={`node ${data.kind}`}>
       <Handle type="target" position={Position.Left} />
@@ -55,30 +65,20 @@ function NodeView({ data }: NodeProps<NodeData>) {
 }
 const nodeTypes = { process: NodeView, commodity: NodeView, market: NodeView, storage: NodeView };
 
-interface Menu {
-  x: number;
-  y: number;
-  nodeId?: string;
-}
-
-const SHEET_OF: Record<NodeKind, { sheet: string; idCol: string }> = {
-  process: { sheet: "processes", idCol: "process_id" },
-  commodity: { sheet: "commodities", idCol: "commodity_id" },
-  market: { sheet: "markets", idCol: "market_id" },
-  storage: { sheet: "storage", idCol: "storage_id" },
-};
-
 interface Props {
   workbook: Workbook;
   onChange: (wb: Workbook) => void;
   onSelect?: (sel: { sheet: string; idCol: string; id: string }) => void;
 }
 
-/** Chemical-process-style canvas: drag to connect, right-click to add/delete.
- *  Streams = rounded nodes; facilities/markets/stores = squares. Two-way synced. */
+/** Process-map canvas. Entities are predefined in the Data tables; drag them
+ *  from the left-rail tree onto the canvas to place them, then drag handle→
+ *  handle to connect. Right-click a node to remove it from the map. */
 export function FlowCanvas({ workbook, onChange, onSelect }: Props) {
   const { nodes, edges } = useMemo(() => workbookToGraph(workbook), [workbook]);
-  const [menu, setMenu] = useState<Menu | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
+  const rf = useRef<ReactFlowInstance | null>(null);
+  const wrap = useRef<HTMLDivElement | null>(null);
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
@@ -96,33 +96,43 @@ export function FlowCanvas({ workbook, onChange, onSelect }: Props) {
     [workbook, onChange],
   );
 
-  const add = (kind: NodeKind) => {
-    onChange(addEntity(workbook, kind));
-    setMenu(null);
-  };
+  const onDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      const dragId = e.dataTransfer.getData(DRAG_MIME);
+      if (!dragId) return;
+      const pos = rf.current?.screenToFlowPosition
+        ? rf.current.screenToFlowPosition({ x: e.clientX, y: e.clientY })
+        : { x: e.clientX - 260, y: e.clientY - 120 };
+      onChange(placeEntity(workbook, dragId, pos.x, pos.y));
+    },
+    [workbook, onChange],
+  );
 
   return (
     <div className="view-full" onClick={() => menu && setMenu(null)}>
       <div className="toolbar">
-        <button onClick={() => add("process")}>+ facility</button>
-        <button onClick={() => add("commodity")}>+ stream</button>
-        <button onClick={() => add("market")}>+ market</button>
-        <button onClick={() => add("storage")}>+ storage</button>
         <span className="muted">
-          drag handle→handle to connect (stream→facility = input, market→stream = supply); right-click to add/delete
+          drag a component from the tree onto the canvas to place it; drag handle→handle to connect
+          (stream→facility = input, facility→stream = output, market→stream = supply)
         </span>
       </div>
-      <div className="canvas">
+      <div
+        className="canvas"
+        ref={wrap}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+        }}
+        onDrop={onDrop}
+      >
         <ReactFlow
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
+          onInit={(inst) => (rf.current = inst)}
           onNodesChange={onNodesChange}
           onConnect={onConnect}
-          onPaneContextMenu={(e) => {
-            e.preventDefault();
-            setMenu({ x: e.clientX, y: e.clientY });
-          }}
           onNodeContextMenu={(e, node) => {
             e.preventDefault();
             setMenu({ x: e.clientX, y: e.clientY, nodeId: node.id });
@@ -140,23 +150,14 @@ export function FlowCanvas({ workbook, onChange, onSelect }: Props) {
         </ReactFlow>
         {menu && (
           <div className="context-menu" style={{ left: menu.x, top: menu.y }}>
-            {menu.nodeId ? (
-              <button
-                onClick={() => {
-                  onChange(deleteNode(workbook, menu.nodeId!));
-                  setMenu(null);
-                }}
-              >
-                Delete node
-              </button>
-            ) : (
-              <>
-                <button onClick={() => add("process")}>Add facility</button>
-                <button onClick={() => add("commodity")}>Add stream</button>
-                <button onClick={() => add("market")}>Add market</button>
-                <button onClick={() => add("storage")}>Add storage</button>
-              </>
-            )}
+            <button
+              onClick={() => {
+                onChange(unplace(workbook, menu.nodeId));
+                setMenu(null);
+              }}
+            >
+              Remove from map
+            </button>
           </div>
         )}
       </div>

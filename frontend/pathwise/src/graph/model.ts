@@ -2,7 +2,7 @@
 // Node id = `${kind}:${entityId}`; the workbook stays the single source of truth.
 
 import type { Edge, Node } from "reactflow";
-import type { Row, Workbook } from "../types";
+import type { Workbook } from "../types";
 
 export type NodeKind = "process" | "commodity" | "market" | "storage";
 export interface FacilityPorts {
@@ -36,10 +36,17 @@ function baselineOf(wb: Workbook, process: string): string {
   );
 }
 
-/** Derive React Flow nodes + edges from the workbook. */
+/** dataTransfer MIME type for dragging a tree item onto the canvas. */
+export const DRAG_MIME = "application/pathwise-node";
+
+/** Derive React Flow nodes + edges from the workbook. Only *placed* entities
+ *  (present in `node_layout`) appear on the map; if nothing is placed yet, all
+ *  entities are shown (bootstrap) so an imported model is visible. */
 export function workbookToGraph(wb: Workbook): { nodes: GraphNode[]; edges: GraphEdge[] } {
   const layout = new Map<string, { x: number; y: number }>();
   for (const r of wb.node_layout ?? []) layout.set(s(r.id), { x: n(r.x), y: n(r.y) });
+  const placedOnly = layout.size > 0;
+  const isShown = (id: string) => !placedOnly || layout.has(id);
 
   const kindOf = new Map<string, string>(
     (wb.commodities ?? []).map((r) => [s(r.commodity_id), s(r.kind, "material")]),
@@ -50,6 +57,7 @@ export function workbookToGraph(wb: Workbook): { nodes: GraphNode[]; edges: Grap
   const place = (id: string) => layout.get(id) ?? { x: 60 + (auto % 5) * 200, y: 60 + Math.floor(auto++ / 5) * 130 };
   const add = (kind: NodeKind, entityId: string, label: string, sub?: string, ports?: FacilityPorts) => {
     const id = nodeId(kind, entityId);
+    if (!isShown(id)) return;
     nodes.push({ id, type: kind, position: place(id), data: { kind, entityId, label, sub, ports } });
   };
 
@@ -100,54 +108,29 @@ export function workbookToGraph(wb: Workbook): { nodes: GraphNode[]; edges: Grap
   return { nodes, edges };
 }
 
-/** Persist node positions into the workbook's `node_layout` sheet. */
+/** Persist node positions into the workbook's `node_layout` sheet (placed nodes
+ *  whose positions changed; others are kept as-is). */
 export function persistLayout(wb: Workbook, nodes: GraphNode[]): Workbook {
-  const node_layout: Row[] = nodes.map((nd) => ({
-    id: nd.id,
-    x: Math.round(nd.position.x),
-    y: Math.round(nd.position.y),
-  }));
-  return { ...wb, node_layout };
+  const pos = new Map(nodes.map((nd) => [nd.id, nd.position]));
+  const kept = (wb.node_layout ?? []).map((r) => {
+    const p = pos.get(s(r.id));
+    return p ? { ...r, x: Math.round(p.x), y: Math.round(p.y) } : r;
+  });
+  return { ...wb, node_layout: kept };
 }
 
-function uniqueId(wb: Workbook, sheet: string, col: string, prefix: string): string {
-  const seen = new Set((wb[sheet] ?? []).map((r) => s(r[col])));
-  let i = 1;
-  while (seen.has(`${prefix}${i}`)) i += 1;
-  return `${prefix}${i}`;
+/** Place an existing entity on the map at (x, y) — adds a `node_layout` row. */
+export function placeEntity(wb: Workbook, dragId: string, x: number, y: number): Workbook {
+  const existing = (wb.node_layout ?? []).filter((r) => s(r.id) !== dragId);
+  return {
+    ...wb,
+    node_layout: [...existing, { id: dragId, x: Math.round(x), y: Math.round(y) }],
+  };
 }
 
-/** Add a new entity of the given kind; returns the new workbook. */
-export function addEntity(wb: Workbook, kind: NodeKind): Workbook {
-  const next: Workbook = { ...wb };
-  if (kind === "commodity") {
-    const id = uniqueId(wb, "commodities", "commodity_id", "stream");
-    next.commodities = [...(wb.commodities ?? []), { commodity_id: id, kind: "material", unit: "unit" }];
-  } else if (kind === "process") {
-    const id = uniqueId(wb, "processes", "process_id", "F");
-    next.processes = [...(wb.processes ?? []), { process_id: id, company: "all", baseline_technology: "", capacity: 1000 }];
-  } else if (kind === "market") {
-    const id = uniqueId(wb, "markets", "market_id", "MKT");
-    next.markets = [...(wb.markets ?? []), { market_id: id, target: "", target_kind: "commodity", price: 0 }];
-  } else {
-    const id = uniqueId(wb, "storage", "storage_id", "STO");
-    next.storage = [...(wb.storage ?? []), { storage_id: id, commodity_id: "", max_capacity: 0 }];
-  }
-  return next;
-}
-
-/** Delete a node's underlying entity (and dependent rows). */
-export function deleteNode(wb: Workbook, id: string): Workbook {
-  const { kind, entityId } = parse(id);
-  const out: Workbook = { ...wb };
-  const drop = (sheet: string, col: string) =>
-    (out[sheet] = (wb[sheet] ?? []).filter((r) => s(r[col]) !== entityId));
-  if (kind === "commodity") drop("commodities", "commodity_id");
-  else if (kind === "process") drop("processes", "process_id");
-  else if (kind === "market") drop("markets", "market_id");
-  else if (kind === "storage") drop("storage", "storage_id");
-  out.node_layout = (wb.node_layout ?? []).filter((r) => s(r.id) !== id);
-  return out;
+/** Remove an entity from the map (un-place) — keeps its data row. */
+export function unplace(wb: Workbook, id: string): Workbook {
+  return { ...wb, node_layout: (wb.node_layout ?? []).filter((r) => s(r.id) !== id) };
 }
 
 /** Wire a connection: writes the appropriate sheet based on endpoint kinds. */

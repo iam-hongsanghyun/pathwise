@@ -88,6 +88,10 @@
 .spacer {
   flex: 1;
 }
+.run-button {
+  font-weight: 600;
+  padding: 6px 16px;
+}
 
 /* ── Body: left rail | main | right rail ────────────────────────────────── */
 .body-row {

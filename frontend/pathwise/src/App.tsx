@@ -4,9 +4,8 @@ import { ActivityBar, type View } from "./layout/ActivityBar";
 import { Inspector } from "./layout/Inspector";
 import { LeftRail } from "./layout/LeftRail";
 import { FlowCanvas } from "./components/designer/FlowCanvas";
-import { MaccDesigner } from "./components/MaccDesigner";
-import { ResultsView } from "./components/ResultsView";
 import { WorkbookTable } from "./components/WorkbookTable";
+import { AnalyticsView } from "./views/AnalyticsView";
 import { SettingsView } from "./views/SettingsView";
 import type { ConfigBundle, RunResult, Selection, Workbook } from "./types";
 import { downloadResult, downloadWorkbook, exampleWorkbook, parseWorkbookFile } from "./workbook";
@@ -14,7 +13,7 @@ import { downloadResult, downloadWorkbook, exampleWorkbook, parseWorkbookFile } 
 export function App() {
   const [config, setConfig] = useState<ConfigBundle | null>(null);
   const [workbook, setWorkbook] = useState<Workbook>(exampleWorkbook());
-  const [view, setView] = useState<View>("designer");
+  const [view, setView] = useState<View>("model");
   const [activeSheet, setActiveSheet] = useState<string>("processes");
   const [discount, setDiscount] = useState(0.08);
   const [result, setResult] = useState<RunResult | null>(null);
@@ -52,7 +51,7 @@ export function App() {
         setRunning,
       );
       setResult(res);
-      setView("results");
+      setView("analytics");
     } catch (e) {
       setError(String(e));
     } finally {
@@ -60,11 +59,20 @@ export function App() {
     }
   }
 
+  // The Data view selection jumps the active sheet to the selected entity.
+  function select(sel: Selection) {
+    setSelected(sel);
+    if (view === "data") setActiveSheet(sel.sheet);
+  }
+
   return (
     <div className="studio-shell">
       <ActivityBar view={view} onChange={setView} />
       <div className="workspace">
         <header className="topbar">
+          <button className="run-button" onClick={onRun} disabled={running != null}>
+            {running ? `▶ Running… (${running})` : "▶ Run"}
+          </button>
           <div>
             <div className="eyebrow">process-network optimiser</div>
             <h1>pathwise{config ? ` · build ${config.buildId}` : ""}</h1>
@@ -84,9 +92,6 @@ export function App() {
           <button className="ghost" onClick={() => downloadWorkbook(workbook)}>
             Export model
           </button>
-          <button onClick={onRun} disabled={running != null}>
-            {running ? `Running… (${running})` : "Optimise"}
-          </button>
           <button className="ghost" onClick={() => result && downloadResult(result)} disabled={!result}>
             Export result
           </button>
@@ -95,23 +100,28 @@ export function App() {
         {error && <div className="error" style={{ padding: "4px 16px" }}>{error}</div>}
 
         <div className="body-row">
-          <LeftRail workbook={workbook} selected={selected} onSelect={setSelected} />
+          <LeftRail
+            workbook={workbook}
+            selected={selected}
+            onSelect={select}
+            draggable={view === "model"}
+          />
 
           <main className="main-area">
-            {view === "designer" && (
+            {view === "model" && (
               <FlowCanvas workbook={workbook} onChange={setWorkbook} onSelect={setSelected} />
             )}
 
-            {view === "tables" && (
+            {view === "data" && (
               <div className="view">
                 <div className="sheet-tabs">
-                  {sheets.map((s) => (
+                  {sheets.map((sname) => (
                     <button
-                      key={s}
-                      className={s === activeSheet ? "tab active" : "tab"}
-                      onClick={() => setActiveSheet(s)}
+                      key={sname}
+                      className={sname === activeSheet ? "tab active" : "tab"}
+                      onClick={() => setActiveSheet(sname)}
                     >
-                      {s}
+                      {sname}
                     </button>
                   ))}
                 </div>
@@ -124,39 +134,20 @@ export function App() {
               </div>
             )}
 
-            {view === "macc" && (
-              <div className="view">
-                <MaccDesigner workbook={workbook} />
-              </div>
-            )}
+            {view === "analytics" && <AnalyticsView workbook={workbook} result={result} />}
 
-            {view === "results" && (
-              <div className="view">
-                {result ? (
-                  <ResultsView result={result} />
-                ) : (
-                  <p className="muted">Run an optimisation to see results.</p>
-                )}
-              </div>
-            )}
-
-            {view === "settings" && (
-              <SettingsView
-                workbook={workbook}
-                onChange={setWorkbook}
-                discount={discount}
-                onDiscount={setDiscount}
-              />
-            )}
+            {view === "settings" && <SettingsView discount={discount} onDiscount={setDiscount} />}
           </main>
 
-          <Inspector
-            workbook={workbook}
-            selected={selected}
-            schema={schema}
-            onChange={setWorkbook}
-            onClear={() => setSelected(null)}
-          />
+          {(view === "model" || view === "data") && (
+            <Inspector
+              workbook={workbook}
+              selected={selected}
+              schema={schema}
+              onChange={setWorkbook}
+              onClear={() => setSelected(null)}
+            />
+          )}
         </div>
       </div>
     </div>
