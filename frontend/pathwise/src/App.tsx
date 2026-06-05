@@ -5,23 +5,48 @@ import { AnalyticsView } from "./views/AnalyticsView";
 import { ModelView } from "./views/ModelView";
 import { SettingsView } from "./views/SettingsView";
 import type { ConfigBundle, RunResult, Workbook } from "./types";
-import { downloadResult, downloadWorkbook, exampleWorkbook, parseWorkbookFile } from "./workbook";
+import {
+  downloadResult,
+  downloadWorkbook,
+  emptyWorkbook,
+  type ExampleModel,
+  listExamples,
+  loadExample,
+  parseWorkbookFile,
+} from "./workbook";
 
 export function App() {
   const [config, setConfig] = useState<ConfigBundle | null>(null);
-  const [workbook, setWorkbook] = useState<Workbook>(exampleWorkbook());
+  const [workbook, setWorkbook] = useState<Workbook>(emptyWorkbook());
   const [view, setView] = useState<View>("model");
   const [discount, setDiscount] = useState(0.08);
   const [result, setResult] = useState<RunResult | null>(null);
   const [running, setRunning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [leftW, setLeftW] = useState(232);
+  const [examples, setExamples] = useState<ExampleModel[]>([]);
 
   useEffect(() => {
     getConfig()
       .then(setConfig)
       .catch((e) => setError(String(e)));
+    listExamples()
+      .then(setExamples)
+      .catch(() => setExamples([]));
   }, []);
+
+  async function onPickExample(id: string) {
+    const model = examples.find((e) => e.id === id);
+    if (!model) return;
+    setError(null);
+    try {
+      setWorkbook(await loadExample(model.file));
+      setResult(null);
+      setView("model");
+    } catch (e) {
+      setError(String(e));
+    }
+  }
 
   async function onUpload(file: File) {
     setError(null);
@@ -68,16 +93,28 @@ export function App() {
           </div>
           <span className="spacer" />
           <label>
-            Model
+            Example library
+            <select
+              value=""
+              onChange={(e) => e.target.value && onPickExample(e.target.value)}
+              disabled={examples.length === 0}
+            >
+              <option value="">{examples.length ? "Open a model…" : "no examples"}</option>
+              {examples.map((m) => (
+                <option key={m.id} value={m.id} title={m.description}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Upload
             <input
               type="file"
               accept=".xlsx"
               onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])}
             />
           </label>
-          <button className="ghost" onClick={() => setWorkbook(exampleWorkbook())}>
-            Example
-          </button>
           <button className="ghost" onClick={() => downloadWorkbook(workbook)}>
             Export model
           </button>
