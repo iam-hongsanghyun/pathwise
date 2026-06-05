@@ -244,6 +244,46 @@
 .rail-empty {
   padding: 2px 12px;
 }
+.rail-section {
+  padding: 8px 12px 2px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+}
+.dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.dot-active {
+  background: var(--brand);
+}
+.dot-alt {
+  background: var(--warm);
+}
+.dot-avail {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+}
+.make-temporal {
+  margin-left: 6px;
+  padding: 0 4px;
+  font-size: 0.6rem;
+  background: var(--surface);
+  color: var(--brand);
+  border: 1px solid var(--border-strong);
+}
+.node.dim {
+  opacity: 0.4;
+  border-style: dashed;
+}
 .inspector-form {
   display: flex;
   flex-direction: column;

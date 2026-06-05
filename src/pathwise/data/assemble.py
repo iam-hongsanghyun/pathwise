@@ -270,22 +270,29 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         if c and i:
             commodity_impacts[(c, i)] = _num(r.get("factor"), 0.0) or 0.0
 
+    # Any technology scalar attribute may go temporal via technologies_t__<attr>.
+    tech_capex_t = _wide_temporal(workbook, "technologies_t__capex")
+    tech_renewal_t = _wide_temporal(workbook, "technologies_t__renewal")
+    tech_opex_t = _wide_temporal(workbook, "technologies_t__opex")
+
+    def _attr_by_year(
+        name: str, base: float, wide: dict[str, dict[int, float]]
+    ) -> dict[int, float]:
+        return interpolate(wide[name], years) if name in wide else dict.fromkeys(years, base)
+
     technologies: dict[str, Technology] = {}
     for r in _rows(workbook, "technologies"):
         k = _str(r.get("technology_id"))
         if k is None:
             continue
-        capex = _num(r.get("capex"), 0.0) or 0.0
-        renewal = _num(r.get("renewal"), 0.0) or 0.0
-        opex = _num(r.get("opex"), 0.0) or 0.0
         technologies[k] = Technology(
             technology_id=k,
             lifespan=_int(r.get("lifespan"), 20) or 20,
             introduction_year=_int(r.get("introduction_year")),
             actions=_actions(r.get("actions")),
-            capex_by_year=dict.fromkeys(years, capex),
-            renewal_by_year=dict.fromkeys(years, renewal),
-            opex_by_year=dict.fromkeys(years, opex),
+            capex_by_year=_attr_by_year(k, _num(r.get("capex"), 0.0) or 0.0, tech_capex_t),
+            renewal_by_year=_attr_by_year(k, _num(r.get("renewal"), 0.0) or 0.0, tech_renewal_t),
+            opex_by_year=_attr_by_year(k, _num(r.get("opex"), 0.0) or 0.0, tech_opex_t),
             input_intensity=inputs.get(k, {}),
             output_yield=outputs.get(k, {}),
             direct_impact=direct.get(k, {}),

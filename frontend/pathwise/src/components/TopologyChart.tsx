@@ -1,21 +1,35 @@
 import { useMemo } from "react";
-import ReactFlow, { Background, Handle, Position, type NodeProps } from "reactflow";
+import ReactFlow, { Background, Handle, Position, type Edge, type NodeProps } from "reactflow";
 import "reactflow/dist/style.css";
-import { workbookToGraph, type NodeData } from "../graph/model";
+import { nodeId, workbookToGraph, type GraphNode, type NodeData } from "../graph/model";
 import type { RunResult, Workbook } from "../types";
 
-function ReadNode({ data }: NodeProps<NodeData & { active?: string }>) {
+type RNData = NodeData & { active?: string; dim?: boolean };
+
+function ReadNode({ data }: NodeProps<RNData>) {
   return (
-    <div className={`node ${data.kind}`}>
+    <div className={`node ${data.kind}${data.dim ? " dim" : ""}`}>
       <Handle type="target" position={Position.Left} />
       <div className="node-kind">{data.kind}</div>
       <strong>{data.label}</strong>
-      {data.active && <div className="muted">▶ {data.active}</div>}
-      <Handle type="source" position={Position.Right} />
+      {data.kind === "process" && <div className="muted">{data.active ? `▶ ${data.active}` : "idle"}</div>}
     </div>
   );
 }
 const nodeTypes = { process: ReadNode, commodity: ReadNode, market: ReadNode, storage: ReadNode };
+
+const s = (v: unknown): string => (v == null ? "" : String(v));
+
+function ioOf(wb: Workbook, tech: string, role: "input" | "output"): string[] {
+  return [
+    ...(wb.io ?? [])
+      .filter((r) => s(r.technology_id) === tech && s(r.role || "input") === role)
+      .map((r) => s(r.target)),
+    ...(wb[role === "input" ? "process_inputs" : "process_outputs"] ?? [])
+      .filter((r) => s(r.technology_id) === tech)
+      .map((r) => s(r.commodity_id)),
+  ];
+}
 
 interface Props {
   workbook: Workbook;
@@ -23,30 +37,40 @@ interface Props {
   year: number;
 }
 
-/** Read-only process map for one year: nodes show the active technology, edges
- *  show that year's flow (so the slider animates the topology over time). */
+/** Read-only process map for one year. Edges are drawn from each facility's
+ *  ACTIVE technology that year (so the diagram restructures across the slider —
+ *  coal in a BF year, hydrogen in an H2-DRI year); idle facilities are dimmed
+ *  and market supply (e.g. imported iron) is shown. */
 export function TopologyChart({ workbook, result, year }: Props) {
   const { nodes, edges } = useMemo(() => {
-    const g = workbookToGraph(workbook);
-    const activeOf = new Map(
-      result.outputs.technology
-        .filter((t) => t.period === year)
-        .map((t) => [`process:${t.process}`, t.technology]),
+    const base = workbookToGraph(workbook);
+    const pos = new Map(base.nodes.map((n) => [n.id, n.position]));
+    const shown = new Set(base.nodes.map((n) => n.id));
+    const active = new Map(
+      result.outputs.technology.filter((t) => t.period === year).map((t) => [t.process, t.technology]),
     );
-    const nodes = g.nodes.map((n) => ({
-      ...n,
-      data: { ...n.data, active: activeOf.get(n.id) },
-    }));
-    const flowOf = new Map<string, number>();
-    for (const f of result.outputs.flows)
-      if (f.period === year)
-        flowOf.set(`${f.from}->${f.to}:${f.commodity}`, (flowOf.get(`${f.from}->${f.to}:${f.commodity}`) ?? 0) + f.value);
-    const edges = g.edges.map((e) => {
-      // process→commodity / commodity→process edges aren't inter-facility flows;
-      // only label the IRON→STEEL style edges where we have a flow value.
-      const label = e.label;
-      return { ...e, label, animated: true, style: { stroke: "#0f766e" } };
+
+    const nodes: GraphNode[] = base.nodes.map((n) => {
+      if (n.data.kind !== "process") return n;
+      const tech = active.get(n.data.entityId);
+      return { ...n, data: { ...n.data, active: tech, dim: !tech } as RNData };
     });
+
+    const edges: Edge[] = [];
+    const add = (from: string, to: string, label?: string) => {
+      if (shown.has(from) && shown.has(to))
+        edges.push({ id: `${from}->${to}-${edges.length}`, source: from, target: to, label, style: { stroke: "#0f766e" } });
+    };
+    for (const [proc, tech] of active) {
+      for (const c of ioOf(workbook, tech, "input")) add(nodeId("commodity", c), nodeId("process", proc));
+      for (const c of ioOf(workbook, tech, "output")) add(nodeId("process", proc), nodeId("commodity", c));
+    }
+    // Market supply that's actually used this year (e.g. imported HBI/iron).
+    for (const m of result.outputs.markets) {
+      const buy = m.by_period.find((b) => b.period === year)?.buy ?? 0;
+      if (buy > 1) add(nodeId("market", m.market), nodeId("commodity", m.commodity), buy.toFixed(0));
+    }
+    void pos;
     return { nodes, edges };
   }, [workbook, result, year]);
 

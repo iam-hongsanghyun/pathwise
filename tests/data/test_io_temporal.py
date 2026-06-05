@@ -76,6 +76,28 @@ def test_wide_temporal_overrides_static_by_name() -> None:
     assert prob.commodities["gas"].price(2030) == 99.0
 
 
+def test_any_attribute_can_be_temporal() -> None:
+    # Technology CAPEX varies by year via technologies_t__capex (wide, by name).
+    sc = ScenarioConfig.from_dict({"economics": {"base_year": 2025}})
+    wb = {
+        "periods": [{"year": 2025}, {"year": 2030}],
+        "commodities": [{"commodity_id": "gas", "kind": "energy"}],
+        "technologies": [{"technology_id": "T", "capex": 100}],
+        "processes": [
+            {"process_id": "P", "company": "C", "baseline_technology": "T", "capacity": 1}
+        ],
+        "io": [{"technology_id": "T", "target": "gas", "role": "input", "coefficient": 1}],
+        "demand": [{"company": "C", "commodity_id": "gas", "year": 2025, "amount": 0}],
+        "technologies_t__capex": [
+            {"year": 2025, "T": 100},
+            {"year": 2030, "T": 250},
+        ],
+    }
+    prob = assemble_problem(wb, sc)
+    assert prob.technologies["T"].capex(2025) == 100.0
+    assert prob.technologies["T"].capex(2030) == 250.0  # temporal override
+
+
 def test_named_demand_component_with_temporal() -> None:
     # Demand as a named component (demand_id + wide demand_t__amount), not long-format.
     wb = _io_wb()

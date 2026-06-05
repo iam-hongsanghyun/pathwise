@@ -20,6 +20,14 @@ function coerce(value: string): Cell {
   return Number.isNaN(n) || value.trim() === "" ? value : n;
 }
 
+/** Attributes the assembler reads as wide temporal tables ‹sheet›_t__‹attr›. */
+const TEMPORAL: Record<string, string[]> = {
+  commodities: ["price", "sale_price"],
+  markets: ["price", "sell_price", "allocation"],
+  impacts: ["price"],
+  technologies: ["capex", "opex", "renewal"],
+};
+
 /** A commodity owns its emission factors: consuming `factor` per unit becomes
  *  real emission at the facility (emission = consumption × factor). Edited here
  *  as a commodity attribute (stored in the commodity_impacts sheet). */
@@ -102,6 +110,20 @@ export function DetailPanel({ workbook, selected, schema, onChange, onClose, flo
       ...workbook,
       [selected.sheet]: rows.map((r, i) => (i === idx ? { ...r, [col]: coerce(value) } : r)),
     });
+
+  // Promote a static attribute to a wide temporal table column for this item.
+  const makeTemporal = (col: string) => {
+    const tsheet = `${selected.sheet}_t__${col}`;
+    const years = [...new Set((workbook.periods ?? []).map((r) => Number(r.year)))].sort((a, b) => a - b);
+    const byYear = new Map((workbook[tsheet] ?? []).map((r) => [Number(r.year), r]));
+    const base = row && typeof row[col] === "number" ? (row[col] as number) : 0;
+    const trows = years.map((y) => {
+      const ex = byYear.get(y) ?? { year: y };
+      return { ...ex, [selected.id]: (ex[selected.id] as number) ?? base };
+    });
+    onChange({ ...workbook, [tsheet]: trows });
+  };
+  const canTemporal = (col: string) => (TEMPORAL[selected.sheet] ?? []).includes(col);
   const remove = () => {
     onChange({ ...workbook, [selected.sheet]: rows.filter((_, i) => i !== idx) });
     onClose();
@@ -124,7 +146,21 @@ export function DetailPanel({ workbook, selected, schema, onChange, onClose, flo
             const value = row[c] == null ? "" : String(row[c]);
             return (
               <label key={c} className="inspector-field">
-                <span>{labelOf(c)}</span>
+                <span>
+                  {labelOf(c)}
+                  {canTemporal(c) && (
+                    <button
+                      className="make-temporal"
+                      title="make this value vary by year (temporal)"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        makeTemporal(c);
+                      }}
+                    >
+                      ⟳ temporal
+                    </button>
+                  )}
+                </span>
                 {opts ? (
                   <select value={value} onChange={(e) => edit(c, e.target.value)}>
                     <option value="">—</option>

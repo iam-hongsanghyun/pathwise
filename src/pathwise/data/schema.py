@@ -106,6 +106,18 @@ SCHEMA: dict[str, Any] = {
             "is_product": {"label": "Is product", "type": "boolean"},
         },
     },
+    "technologies_t__capex": {
+        "label": "Technology CAPEX · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
+    "technologies_t__opex": {
+        "label": "Technology O&M · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
+    "technologies_t__renewal": {
+        "label": "Technology renewal · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
     "io": {
         "label": "Technology I/O (unified)",
         "columns": {
