@@ -319,7 +319,76 @@
   color: var(--text);
 }
 
-/* Detail editor (main panel in Data; floating card in Model). */
+/* ── Model: canvas + bottom editor dock (single editing surface) ─────────── */
+.canvas-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.editor-dock {
+  flex: 0 0 42%;
+  max-height: 50%;
+  display: flex;
+  flex-direction: column;
+  border-top: 2px solid var(--border-strong);
+  background: var(--surface);
+  overflow: hidden;
+}
+.dock-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-hover);
+  font-size: 0.85rem;
+}
+.dock-body {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 12px;
+}
+
+/* Rail group head + add button; item rows with include checkbox. */
+.rail-head-row {
+  display: flex;
+  align-items: center;
+}
+.rail-head-row .rail-head {
+  flex: 1;
+}
+.rail-add {
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  border-radius: 0;
+  padding: 2px 10px;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+.rail-add:hover {
+  color: var(--brand);
+  background: var(--bg-hover);
+}
+.rail-item-row {
+  display: flex;
+  align-items: center;
+}
+.rail-item-row .rail-item {
+  flex: 1;
+}
+.rail-check {
+  margin: 0 2px 0 8px;
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+}
+.rail-item-row.is-excluded .rail-item {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+/* Detail editor (docked in Model; floating card variant retained). */
 .canvas-wrap {
   position: relative;
 }

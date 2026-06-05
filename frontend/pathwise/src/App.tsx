@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { getConfig, runToCompletion } from "./api";
 import { ActivityBar, type View } from "./layout/ActivityBar";
 import { AnalyticsView } from "./views/AnalyticsView";
-import { DataView } from "./views/DataView";
 import { ModelView } from "./views/ModelView";
 import { SettingsView } from "./views/SettingsView";
 import type { ConfigBundle, RunResult, Workbook } from "./types";
@@ -90,7 +89,6 @@ export function App() {
         {error && <div className="error" style={{ padding: "4px 16px" }}>{error}</div>}
 
         {view === "model" && <ModelView {...shared} />}
-        {view === "data" && <DataView {...shared} />}
         {view === "analytics" && (
           <AnalyticsView workbook={workbook} result={result} leftW={leftW} setLeftW={setLeftW} />
         )}

@@ -13,6 +13,9 @@ const ENTITY: Record<string, { idCol: string; kind?: NodeKind }> = {
   impacts: { idCol: "impact_id" },
 };
 
+/** Sheets whose rows carry an `enabled` flag (left-rail include checkbox). */
+const TOGGLEABLE = new Set(["technologies", "processes", "markets", "storage"]);
+
 /** Preferred ordering; any other workbook sheets follow. */
 const ORDER = [
   "processes",
@@ -56,13 +59,27 @@ interface Props {
   activeSheet: string;
   onGroup?: (sheet: string) => void;
   onItem: (s: Selection) => void;
+  onToggle?: (sheet: string, idCol: string, id: string, enabled: boolean) => void;
+  onAdd?: (sheet: string) => void;
   draggable?: boolean;
   width?: number;
 }
 
 /** Left rail — the single navigator: every sheet is a group (click → table in
- *  main); entity sheets expand to items (click → detail in main). */
-export function LeftRail({ workbook, selected, activeSheet, onGroup, onItem, draggable, width }: Props) {
+ *  main; `+` adds a row); entity sheets expand to items (click → detail; toggle
+ *  the checkbox to include/exclude in the optimisation). Each item nests its own
+ *  temporal datasets (`↳ attr · by year`) directly beneath it. */
+export function LeftRail({
+  workbook,
+  selected,
+  activeSheet,
+  onGroup,
+  onItem,
+  onToggle,
+  onAdd,
+  draggable,
+  width,
+}: Props) {
   const placed = new Set((workbook.node_layout ?? []).map((r) => String(r.id)));
   const baselineTechs = new Set(
     (workbook.processes ?? []).map((r) => String(r.baseline_technology ?? "")),
@@ -81,70 +98,88 @@ export function LeftRail({ workbook, selected, activeSheet, onGroup, onItem, dra
       .filter((ts) => (workbook[ts] ?? []).some((r) => id in r))
       .map((ts) => ({ ts, attr: ts.split("_t__")[1] }));
 
+  const isEnabled = (r: Record<string, unknown>) => r.enabled !== false && r.enabled !== "false";
+
+  const renderItem = (sheet: string, ent: { idCol: string; kind?: NodeKind }, r: Record<string, unknown>, i: number) => {
+    const id = String(r[ent.idCol] ?? "");
+    if (!id) return null;
+    const sel = selected?.sheet === sheet && selected.id === id ? " is-active" : "";
+    const isTech = sheet === "technologies";
+    const canDrag = Boolean(draggable && (ent.kind || isTech));
+    const payload = ent.kind ? nodeId(ent.kind, id) : `tech:${id}`;
+    const toggleable = TOGGLEABLE.has(sheet) && Boolean(onToggle);
+    const enabled = isEnabled(r);
+    // Status dot: ● active (placed / baseline tech), ○ alternative (transition
+    // target, not baseline). Excluded items are dimmed.
+    let dot = "";
+    if (ent.kind && placed.has(nodeId(ent.kind, id))) dot = "dot-active";
+    else if (isTech && baselineTechs.has(id)) dot = "dot-active";
+    else if (isTech && targetTechs.has(id)) dot = "dot-alt";
+    else if (canDrag) dot = "dot-avail";
+    const temporals = temporalFor(sheet, id);
+    return (
+      <div key={`${id}-${i}`}>
+        <div className={`rail-item-row${enabled ? "" : " is-excluded"}`}>
+          {toggleable && (
+            <input
+              type="checkbox"
+              className="rail-check"
+              checked={enabled}
+              title={enabled ? "included — uncheck to exclude from the model" : "excluded — check to include"}
+              onChange={(e) => onToggle?.(sheet, ent.idCol, id, e.target.checked)}
+            />
+          )}
+          <button
+            className={`rail-item${sel}`}
+            draggable={canDrag}
+            onDragStart={
+              canDrag
+                ? (e) => {
+                    e.dataTransfer.setData(DRAG_MIME, payload);
+                    e.dataTransfer.effectAllowed = "copy";
+                  }
+                : undefined
+            }
+            onClick={() => onItem({ sheet, idCol: ent.idCol, id })}
+            title={
+              dot === "dot-alt" ? `${id} — alternative technology` : canDrag ? `${id} — drag onto the canvas` : id
+            }
+          >
+            {dot && <span className={`dot ${dot}`} />}
+            {id}
+          </button>
+        </div>
+        {temporals.map(({ ts, attr }) => (
+          <button
+            key={`${id}-${attr}`}
+            className={`rail-subitem${activeSheet === ts ? " is-active" : ""}`}
+            onClick={() => onGroup?.(ts)}
+            title={`${id} · ${attr} (temporal — click to edit by year)`}
+          >
+            ↳ {attr} · by year
+          </button>
+        ))}
+      </div>
+    );
+  };
+
   const renderGroup = (sheet: string) => {
     const rows = workbook[sheet] ?? [];
     const ent = ENTITY[sheet];
     const groupActive = activeSheet === sheet && !selected ? " is-active" : "";
     return (
       <div className="rail-group" key={sheet}>
-        <button className={`rail-head${groupActive}`} onClick={() => onGroup?.(sheet)}>
-          {LABEL[sheet] ?? sheet} <span className="rail-count">{rows.length}</span>
-        </button>
-        {ent &&
-          rows.map((r, i) => {
-            const id = String(r[ent.idCol] ?? "");
-            if (!id) return null;
-            const sel = selected?.sheet === sheet && selected.id === id ? " is-active" : "";
-            const isTech = sheet === "technologies";
-            const canDrag = Boolean(draggable && (ent.kind || isTech));
-            const payload = ent.kind ? nodeId(ent.kind, id) : `tech:${id}`;
-            // Status dot: ● active (placed / baseline tech), ○ alternative (tech
-            // that's a transition target but not a baseline).
-            let dot = "";
-            if (ent.kind && placed.has(nodeId(ent.kind, id))) dot = "dot-active";
-            else if (isTech && baselineTechs.has(id)) dot = "dot-active";
-            else if (isTech && targetTechs.has(id)) dot = "dot-alt";
-            else if (canDrag) dot = "dot-avail";
-            return (
-              <button
-                key={`${id}-${i}`}
-                className={`rail-item${sel}`}
-                draggable={canDrag}
-                onDragStart={
-                  canDrag
-                    ? (e) => {
-                        e.dataTransfer.setData(DRAG_MIME, payload);
-                        e.dataTransfer.effectAllowed = "copy";
-                      }
-                    : undefined
-                }
-                onClick={() => onItem({ sheet, idCol: ent.idCol, id })}
-                title={
-                  dot === "dot-alt" ? `${id} — alternative technology` : canDrag ? `${id} — drag onto the canvas` : id
-                }
-              >
-                {dot && <span className={`dot ${dot}`} />}
-                {id}
-              </button>
-            );
-          })}
-        {/* Temporal datasets nested under each component (static lives in detail). */}
-        {ent &&
-          rows.flatMap((r) => {
-            const id = String(r[ent.idCol] ?? "");
-            return id
-              ? temporalFor(sheet, id).map(({ ts, attr }) => (
-                  <button
-                    key={`${id}-${attr}`}
-                    className="rail-subitem"
-                    onClick={() => onGroup?.(ts)}
-                    title={`${id} · ${attr} (temporal)`}
-                  >
-                    ↳ {id} · {attr}
-                  </button>
-                ))
-              : [];
-          })}
+        <div className="rail-head-row">
+          <button className={`rail-head${groupActive}`} onClick={() => onGroup?.(sheet)}>
+            {LABEL[sheet] ?? sheet} <span className="rail-count">{rows.length}</span>
+          </button>
+          {ent && onAdd && (
+            <button className="rail-add" title={`add a ${LABEL[sheet] ?? sheet} row`} onClick={() => onAdd(sheet)}>
+              +
+            </button>
+          )}
+        </div>
+        {ent && rows.map((r, i) => renderItem(sheet, ent, r, i))}
       </div>
     );
   };
