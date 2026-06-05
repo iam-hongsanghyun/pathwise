@@ -202,16 +202,22 @@ export function LeftRail({
             [...byCompany.entries()].map(([company, items]) => {
               const cKey = `company:${group}|${company}`;
               const cOpen = !collapsed.has(cKey);
+              // Skip the company header when it would just repeat the group
+              // (the company is its own group company) — render facilities directly.
+              const showCompany = !showGroup || company !== group;
               return (
                 <div key={company} className={showGroup ? "rail-indent" : ""}>
-                  <button
-                    className="rail-subhead"
-                    onClick={() => toggleCollapse(cKey)}
-                    title={cOpen ? "collapse" : "expand"}
-                  >
-                    {cOpen ? "▾" : "▸"} {company}
-                  </button>
-                  {cOpen && items.map(({ r, i }) => renderItem("processes", ent, r, i))}
+                  {showCompany && (
+                    <button
+                      className="rail-subhead"
+                      onClick={() => toggleCollapse(cKey)}
+                      title={cOpen ? "collapse" : "expand"}
+                    >
+                      {cOpen ? "▾" : "▸"} {company}
+                    </button>
+                  )}
+                  {(!showCompany || cOpen) &&
+                    items.map(({ r, i }) => renderItem("processes", ent, r, i))}
                 </div>
               );
             })}
