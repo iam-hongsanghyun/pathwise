@@ -25,7 +25,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _writer import Workbook, verify, write_workbook  # noqa: E402
+from _writer import Workbook, verify, write_workbook
 
 DEFAULT_SRC = Path.home() / "Downloads" / "Steel Data Mar 10 Global.xlsx"
 OUT = Path(__file__).resolve().parents[2] / "frontend/pathwise/public/examples/steel.xlsx"
@@ -188,35 +188,35 @@ def build_workbook(src: Path) -> Workbook:
             }
         )
 
-    # ── facilities (one per system, own company) + demand ────────────────────
+    # ── hierarchy: company (owner) → facility (plant) → technology ───────────
+    # Each plant is a facility; its owning company (POSCO / Hyundai Steel) is the
+    # demand + cap scope and may allocate its (declining) steel demand across its
+    # plants while transitioning each plant's technology (BF→H2-DRI-ESF/EAF).
     prod_by = _by_name(production, "system", years)
     processes = []
-    demand = []
+    owner_prod: dict[str, dict[int, float]] = {}
     for _, r in baseline.iterrows():
         system = str(r["system"])
         cap = max(prod_by.get(system, {0: 0.0}).values()) if prod_by.get(system) else 0.0
-        # Owner group (for per-company emission caps): Pohang/Gwangyang → POSCO,
-        # Hyundai plants → Hyundai Steel; each plant is still its own demand scope.
         owner = "Hyundai Steel" if system.lower().startswith("hyundai") else "POSCO"
         processes.append(
             {
-                "process_id": system,
-                "company": system,
-                "group": owner,
+                "process_id": system,  # facility (plant)
+                "company": owner,  # company (group of plants)
                 "baseline_technology": str(r["technology"]),
                 "capacity": cap,
                 "introduced_year": int(r["introduced_year"]),
             }
         )
         for y in years:
-            demand.append(
-                {
-                    "company": system,
-                    "commodity_id": "steel",
-                    "year": y,
-                    "amount": prod_by.get(system, {}).get(y, 0.0),
-                }
-            )
+            owner_prod.setdefault(owner, {})[y] = owner_prod.get(owner, {}).get(y, 0.0) + prod_by.get(
+                system, {}
+            ).get(y, 0.0)
+    demand = [
+        {"company": owner, "commodity_id": "steel", "year": y, "amount": amt}
+        for owner, by_y in owner_prod.items()
+        for y, amt in by_y.items()
+    ]
 
     # ── transitions: each baseline tech may switch to any other technology ────
     baseline_techs = sorted(set(baseline["technology"]))

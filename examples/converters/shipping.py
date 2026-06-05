@@ -63,6 +63,14 @@ def build_workbook(src: Path) -> Workbook:
     clark["owner"] = clark["Company"].where(clark["Company"].isin(top), "Other")
     counts = clark.groupby(["owner", ENGINE]).size()
     base_engines = sorted({e for _o, e in counts.index})
+    # Upper group: each company (operator) rolls up to its Group Company
+    # (conglomerate) — Group → Company → Facility → Technology.
+    grp_of = (
+        clark.groupby("owner")["Group Company"]
+        .agg(lambda s: s.mode().iat[0] if len(s.mode()) else "—")
+        .to_dict()
+    )
+    grp_of["Other"] = "Other"
 
     def bounds(engine: str, fuel: str) -> tuple[float, float]:
         mn = fmin[(fmin[ENGINE] == engine) & (fmin["Fuel"] == fuel)]
@@ -123,31 +131,37 @@ def build_workbook(src: Path) -> Workbook:
             }
         )
 
-    # ── facilities per (owner, engine): company = demand scope, group = owner ─
+    # Hierarchy: company (owner) → facility (one per engine class it operates) →
+    # technology (engine). The owner is the demand + cap scope; each facility is a
+    # ship-group whose capacity = its ship count. Owner demand = total ships, so
+    # capacities are tight and every ship-group runs (no idle), while the owner
+    # may transition any of its facilities to ammonia / hydrogen.
     commodities: list[dict[str, object]] = [
         {"commodity_id": "transport", "kind": "product", "unit": "ship-yr"}
     ]
     processes: list[dict[str, object]] = []
-    demand: list[dict[str, object]] = []
     baseline_emission: dict[str, float] = {}
+    owner_ships: dict[str, float] = {}
     for (owner, engine), n in counts.items():
-        comp = f"{owner} · {engine}"
         processes.append(
             {
-                "process_id": comp,
-                "company": comp,
-                "group": owner,
+                "process_id": f"{owner} · {engine}",  # facility (unit)
+                "company": owner,  # company / operator (group of facilities)
+                "group": grp_of.get(owner, owner),  # upper group (Group Company)
                 "baseline_technology": engine,
                 "capacity": float(n),
             }
         )
-        for y in years:
-            demand.append(
-                {"company": comp, "commodity_id": "transport", "year": y, "amount": float(n)}
-            )
         paired = [str(f) for f in pairing[pairing[ENGINE] == engine]["Fuel"] if str(f) in base_cost]
         e_base = float(n) * sum(baseline_share(engine, f) * float(wtw.get(f, 0.0)) for f in paired)
         baseline_emission[owner] = baseline_emission.get(owner, 0.0) + e_base
+        owner_ships[owner] = owner_ships.get(owner, 0.0) + float(n)
+
+    demand = [
+        {"company": owner, "commodity_id": "transport", "year": y, "amount": total}
+        for owner, total in owner_ships.items()
+        for y in years
+    ]
 
     # ── alt-fuel engine transitions (engine → ammonia / hydrogen) ────────────
     transitions = [
