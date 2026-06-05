@@ -31,17 +31,20 @@ from _writer import Workbook, verify, write_workbook  # noqa: E402
 DEFAULT_DIR = Path("/tmp/petro")
 OUT = Path(__file__).resolve().parents[2] / "frontend/pathwise/public/examples/petrochemical.xlsx"
 
-# Energy-intensity column → (commodity id, unit). Electricity stays in kWh.
+# Energy-intensity column → (commodity id, unit, source→unit factor on the
+# amount). Electricity is reported in kWh but modelled in MWh (÷1000); other
+# energy stays in GJ.
 FUELS = {
-    "Naphtha_GJ_per_tonne": ("Naphtha", "GJ"),
-    "Electricity_kWh_per_tonne": ("Electricity", "kWh"),
-    "LNG_GJ_per_tonne": ("LNG", "GJ"),
-    "Fuel_Gas_GJ_per_tonne": ("Fuel_Gas", "GJ"),
-    "Byproduct_Gas_GJ_per_tonne": ("Byproduct_Gas", "GJ"),
-    "LPG_GJ_per_tonne": ("LPG", "GJ"),
-    "Fuel_Oil_GJ_per_tonne": ("Fuel_Oil", "GJ"),
-    "Diesel_GJ_per_tonne": ("Diesel", "GJ"),
+    "Naphtha_GJ_per_tonne": ("Naphtha", "GJ", 1.0),
+    "Electricity_kWh_per_tonne": ("Electricity", "MWh", 1.0e-3),
+    "LNG_GJ_per_tonne": ("LNG", "GJ", 1.0),
+    "Fuel_Gas_GJ_per_tonne": ("Fuel_Gas", "GJ", 1.0),
+    "Byproduct_Gas_GJ_per_tonne": ("Byproduct_Gas", "GJ", 1.0),
+    "LPG_GJ_per_tonne": ("LPG", "GJ", 1.0),
+    "Fuel_Oil_GJ_per_tonne": ("Fuel_Oil", "GJ", 1.0),
+    "Diesel_GJ_per_tonne": ("Diesel", "GJ", 1.0),
 }
+UNIT = {cid: unit for cid, unit, _f in FUELS.values()} | {"H2": "t", "product": "t"}
 PRICE_COL = {
     "Naphtha": "naphtha_usd_per_gj",
     "LNG": "lng_usd_per_gj",
@@ -86,9 +89,9 @@ def build_workbook(d: Path) -> Workbook:
     transitions: list[dict[str, object]] = []
 
     nc_alt = {  # Naphtha-cracker abatement technologies (per the dataset)
-        "NCC-H2": {"H2": float(tp.loc["NCC-H2", "h2_ton_per_ton_ethylene"])},
-        "NCC-Electricity": {
-            "Electricity": float(tp.loc["NCC-Electricity", "elec_mwh_per_ton_ethylene"]) * 1000.0
+        "NCC-H2": {"H2": float(tp.loc["NCC-H2", "h2_ton_per_ton_ethylene"])},  # t H2 / t
+        "NCC-Electricity": {  # MWh / t (native unit in the dataset)
+            "Electricity": float(tp.loc["NCC-Electricity", "elec_mwh_per_ton_ethylene"])
         },
     }
 
@@ -100,10 +103,10 @@ def build_workbook(d: Path) -> Workbook:
             {"technology_id": base_tech, "lifespan": 25, "actions": "continue,replace"}
         )
         for col in intensity_cols:
-            coef = float(row[col])
+            cid, _unit, fct = FUELS[col]
+            coef = float(row[col]) * fct
             if coef <= 0:
                 continue
-            cid, _unit = FUELS[col]
             used_fuels.add(cid)
             io.append(
                 {"technology_id": base_tech, "target": cid, "role": "input", "coefficient": coef}
@@ -169,8 +172,7 @@ def build_workbook(d: Path) -> Workbook:
     used_fuels.add("H2")
     commodities.append({"commodity_id": "product", "kind": "product", "unit": "t"})
     for cid in sorted(used_fuels):
-        unit = "kWh" if cid == "Electricity" else ("t" if cid == "H2" else "GJ")
-        commodities.append({"commodity_id": cid, "kind": "energy", "unit": unit})
+        commodities.append({"commodity_id": cid, "kind": "energy", "unit": UNIT.get(cid, "GJ")})
 
     # ── temporal prices ──────────────────────────────────────────────────────
     price_rows = []
@@ -178,21 +180,20 @@ def build_workbook(d: Path) -> Workbook:
         r: dict[str, object] = {"year": y}
         for cid, col in PRICE_COL.items():
             if y in fuel_price.index:
-                r[cid] = float(fuel_price.loc[y, col])
+                v = float(fuel_price.loc[y, col])
+                r[cid] = v * 1000.0 if cid == "Electricity" else v  # $/kWh → $/MWh
         if y in h2_price.index:
             r["H2"] = float(h2_price.loc[y, "h2_price_usd_per_kg"]) * 1000.0  # $/kg → $/t
         price_rows.append(r)
 
     # ── emission factors (static; grid taken at base year — see module note) ──
-    grid_kwh = (
-        float(grid_ef.loc[base_y, "grid_ef_tco2_per_mwh"]) / 1000.0
-        if base_y in grid_ef.index
-        else 0.0
+    grid_mwh = (
+        float(grid_ef.loc[base_y, "grid_ef_tco2_per_mwh"]) if base_y in grid_ef.index else 0.0
     )
     commodity_impacts = []
     for cid in sorted(used_fuels):
         if cid == "Electricity":
-            factor = grid_kwh
+            factor = grid_mwh  # tCO2 / MWh (native unit)
         elif cid in ef.index and pd.notna(ef.loc[cid, "tCO2_per_GJ"]):
             factor = float(ef.loc[cid, "tCO2_per_GJ"])
         else:

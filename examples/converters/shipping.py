@@ -60,7 +60,7 @@ def build_workbook(src: Path) -> Workbook:
 
     # ── commodities + temporal fuel prices (cost × trend) ────────────────────
     commodities = [{"commodity_id": "transport", "kind": "product", "unit": "ship-yr"}]
-    commodities += [{"commodity_id": f, "kind": "energy", "unit": "MT"} for f in fuels_used]
+    commodities += [{"commodity_id": f, "kind": "energy", "unit": "t"} for f in fuels_used]
     trend = {str(r["Fuel"]): {y: float(r[y]) for y in years} for _, r in cost_trend.iterrows()}
     price_rows = [
         {"year": y, **{f: base_cost[f] * trend.get(f, {}).get(y, 1.0) for f in fuels_used}}
