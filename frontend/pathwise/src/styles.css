@@ -241,6 +241,22 @@
   color: var(--brand);
   border-left: 2px solid var(--brand);
 }
+.rail-subitem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  border-radius: 0;
+  padding: 2px 12px 2px 26px;
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+}
+.rail-subitem:hover {
+  background: var(--bg-hover);
+  color: var(--brand);
+}
 .rail-empty {
   padding: 2px 12px;
 }

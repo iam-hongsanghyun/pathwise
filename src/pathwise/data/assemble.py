@@ -298,7 +298,8 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             direct_impact=direct.get(k, {}),
         )
 
-    # ── Processes ────────────────────────────────────────────────────────────
+    # ── Processes (capacity may be temporal via processes_t__capacity) ───────
+    cap_t = _wide_temporal(workbook, "processes_t__capacity")
     processes = [
         Process(
             process_id=str(r["process_id"]),
@@ -310,6 +311,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             fixed_opex=_num(r.get("fixed_opex"), 0.0) or 0.0,
             failure_rate=min(max(_num(r.get("failure_rate"), 0.0) or 0.0, 0.0), 1.0),
             replaceable=_bool(r.get("replaceable"), True),
+            capacity_by_year=(
+                interpolate(cap_t[pid], years) if (pid := str(r["process_id"])) in cap_t else {}
+            ),
         )
         for r in _rows(workbook, "processes")
         if _str(r.get("process_id"))

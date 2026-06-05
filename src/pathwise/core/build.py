@@ -66,8 +66,8 @@ def _technology(ctx: BuildContext) -> None:
     """One active technology per process; capacity link; baseline lock; events."""
     m, prob = ctx.model, ctx.problem
     prev = _prev(ctx.years)
-    # Available throughput is derated by the facility's unexpected-failure rate.
-    cap = {p.process_id: p.available_capacity for p in prob.processes}
+    # Available throughput = (possibly temporal) capacity derated by failure rate.
+    avail = {p.process_id: p for p in prob.processes}
     baseline = {p.process_id: p.baseline_technology for p in prob.processes}
 
     for p in ctx.procs:
@@ -78,11 +78,12 @@ def _technology(ctx: BuildContext) -> None:
             # facility runs nothing — its output is sourced elsewhere (outsourced).
             active = _lin_sum([ctx.u.sel(process=p, tech=k, period=t) for k in feas])
             m.add_constraints(active == ctx.on.sel(process=p, period=t), name=f"one_tech[{p},{t}]")
+            cap_pt = avail[p].available(t)
             for k in feas:
                 # Throughput only on the active technology, bounded by capacity.
                 m.add_constraints(
                     ctx.x.sel(process=p, tech=k, period=t)
-                    <= cap[p] * ctx.u.sel(process=p, tech=k, period=t),
+                    <= cap_pt * ctx.u.sel(process=p, tech=k, period=t),
                     name=f"cap[{p},{k},{t}]",
                 )
             # Forbid infeasible technologies entirely.

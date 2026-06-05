@@ -98,6 +98,30 @@ def test_any_attribute_can_be_temporal() -> None:
     assert prob.technologies["T"].capex(2030) == 250.0  # temporal override
 
 
+def test_capacity_can_be_temporal() -> None:
+    sc = ScenarioConfig.from_dict({"economics": {"base_year": 2025}})
+    wb = {
+        "periods": [{"year": 2025}, {"year": 2030}],
+        "commodities": [{"commodity_id": "gas", "kind": "energy"}],
+        "technologies": [{"technology_id": "T"}],
+        "processes": [
+            {
+                "process_id": "P",
+                "company": "C",
+                "baseline_technology": "T",
+                "capacity": 100,
+                "failure_rate": 0.1,
+            }
+        ],
+        "io": [{"technology_id": "T", "target": "gas", "role": "input", "coefficient": 1}],
+        "demand": [{"company": "C", "commodity_id": "gas", "year": 2025, "amount": 0}],
+        "processes_t__capacity": [{"year": 2025, "P": 100}, {"year": 2030, "P": 200}],
+    }
+    p = assemble_problem(wb, sc).processes[0]
+    assert p.available(2025) == 90.0  # 100 × (1 − 0.1)
+    assert p.available(2030) == 180.0  # temporal 200 × 0.9
+
+
 def test_named_demand_component_with_temporal() -> None:
     # Demand as a named component (demand_id + wide demand_t__amount), not long-format.
     wb = _io_wb()

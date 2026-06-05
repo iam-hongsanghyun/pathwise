@@ -199,11 +199,17 @@ class Process:
     fixed_opex: float = 0.0
     failure_rate: float = 0.0
     replaceable: bool = True
+    capacity_by_year: dict[int, float] = field(default_factory=dict)
 
     @property
     def available_capacity(self) -> float:
         """Throughput available after expected unplanned outages [throughput/yr]."""
         return self.capacity * (1.0 - self.failure_rate)
+
+    def available(self, year: int) -> float:
+        """Available throughput in ``year`` (temporal capacity × uptime)."""
+        cap = self.capacity_by_year.get(year, self.capacity)
+        return cap * (1.0 - self.failure_rate)
 
 
 @dataclass(slots=True, frozen=True)

@@ -75,6 +75,12 @@ export function LeftRail({ workbook, selected, activeSheet, onGroup, onItem, dra
   ];
   const temporalSheets = all.filter((s) => s.includes("_t__"));
 
+  const temporalFor = (sheet: string, id: string): { ts: string; attr: string }[] =>
+    temporalSheets
+      .filter((ts) => ts.startsWith(`${sheet}_t__`))
+      .filter((ts) => (workbook[ts] ?? []).some((r) => id in r))
+      .map((ts) => ({ ts, attr: ts.split("_t__")[1] }));
+
   const renderGroup = (sheet: string) => {
     const rows = workbook[sheet] ?? [];
     const ent = ENTITY[sheet];
@@ -121,6 +127,23 @@ export function LeftRail({ workbook, selected, activeSheet, onGroup, onItem, dra
                 {id}
               </button>
             );
+          })}
+        {/* Temporal datasets nested under each component (static lives in detail). */}
+        {ent &&
+          rows.flatMap((r) => {
+            const id = String(r[ent.idCol] ?? "");
+            return id
+              ? temporalFor(sheet, id).map(({ ts, attr }) => (
+                  <button
+                    key={`${id}-${attr}`}
+                    className="rail-subitem"
+                    onClick={() => onGroup?.(ts)}
+                    title={`${id} · ${attr} (temporal)`}
+                  >
+                    ↳ {id} · {attr}
+                  </button>
+                ))
+              : [];
           })}
       </div>
     );

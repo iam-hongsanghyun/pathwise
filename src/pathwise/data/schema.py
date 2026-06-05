@@ -82,6 +82,10 @@ SCHEMA: dict[str, Any] = {
             "replaceable": {"label": "Replaceable", "type": "boolean"},
         },
     },
+    "processes_t__capacity": {
+        "label": "Facility capacity · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
     "company_config": {
         "label": "Company settings",
         "columns": {

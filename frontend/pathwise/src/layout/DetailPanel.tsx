@@ -26,6 +26,7 @@ const TEMPORAL: Record<string, string[]> = {
   markets: ["price", "sell_price", "allocation"],
   impacts: ["price"],
   technologies: ["capex", "opex", "renewal"],
+  processes: ["capacity"],
 };
 
 /** A commodity owns its emission factors: consuming `factor` per unit becomes
