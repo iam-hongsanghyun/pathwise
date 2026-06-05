@@ -86,6 +86,14 @@ def _technology(ctx: BuildContext) -> None:
                     <= cap_pt * ctx.u.sel(process=p, tech=k, period=t),
                     name=f"cap[{p},{k},{t}]",
                 )
+                # Must-run floor: when active, throughput ≥ min_cf × capacity.
+                min_cf = prob.technologies[k].min_capacity_factor
+                if min_cf > 0.0:
+                    m.add_constraints(
+                        ctx.x.sel(process=p, tech=k, period=t)
+                        >= min_cf * cap_pt * ctx.u.sel(process=p, tech=k, period=t),
+                        name=f"mincf[{p},{k},{t}]",
+                    )
             # Forbid infeasible technologies entirely.
             for k in infeasible:
                 m.add_constraints(

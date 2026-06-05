@@ -144,6 +144,10 @@ class Technology:
         input_intensity: Input commodity use [commodity unit / throughput] by id.
         output_yield: Output commodity production [commodity unit / throughput] by id.
         direct_impact: Process (chemical) impact [impact unit / throughput] by id.
+        min_capacity_factor: Must-run floor — when this technology is active its
+            throughput must be at least ``min_capacity_factor × available
+            capacity`` [dimensionless, 0–1]. Captures a minimum business level
+            (e.g. a blast furnace that cannot idle below a threshold).
     """
 
     technology_id: str
@@ -158,6 +162,7 @@ class Technology:
     input_intensity: dict[str, float] = field(default_factory=dict)
     output_yield: dict[str, float] = field(default_factory=dict)
     direct_impact: dict[str, float] = field(default_factory=dict)
+    min_capacity_factor: float = 0.0
 
     def capex(self, year: int) -> float:
         """Replacement capex [currency/unit capacity] in ``year``."""

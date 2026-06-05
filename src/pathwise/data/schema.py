@@ -66,6 +66,7 @@ SCHEMA: dict[str, Any] = {
             "capex": {"label": "Replace CAPEX (/cap)", "type": "number"},
             "renewal": {"label": "Renewal cost (/cap)", "type": "number"},
             "opex": {"label": "Fixed O&M (/throughput)", "type": "number"},
+            "min_capacity_factor": {"label": "Min capacity factor (0-1)", "type": "number"},
         },
     },
     "processes": {
@@ -230,7 +231,7 @@ SCHEMA: dict[str, Any] = {
         "columns": {
             "market_id": {"label": "Market", "type": "string", "required": True},
             "target": {"label": "Stream / impact", "type": "string", "required": True},
-            "target_kind": {"label": "Kind (commodity|impact)", "type": "string"},
+            "target_kind": {"label": "Kind (auto: commodity|impact)", "type": "string"},
             "company": {"label": "Company (or all)", "type": "string"},
             "price": {"label": "Buy price (/unit)", "type": "number"},
             "sell_price": {"label": "Sell price (/unit)", "type": "number"},

@@ -296,6 +296,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             input_intensity=inputs.get(k, {}),
             output_yield=outputs.get(k, {}),
             direct_impact=direct.get(k, {}),
+            min_capacity_factor=min(max(_num(r.get("min_capacity_factor"), 0.0) or 0.0, 0.0), 1.0),
         )
 
     # ── Processes (capacity may be temporal via processes_t__capacity) ───────
@@ -438,12 +439,16 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         mid, target = _str(r.get("market_id")), _str(r.get("target"))
         if not mid or not target:
             continue
-        kind_s = (_str(r.get("target_kind")) or "commodity").lower()
-        mkind = (
-            MarketTarget(kind_s)
-            if kind_s in {k.value for k in MarketTarget}
-            else MarketTarget.COMMODITY
-        )
+        # Kind is auto-inferred from the target: if it names an impact it is a
+        # tradable-allowance (ETS) market, otherwise a commodity market. An
+        # explicit ``target_kind`` still wins for backward compatibility.
+        kind_s = (_str(r.get("target_kind")) or "").lower()
+        if kind_s in {k.value for k in MarketTarget}:
+            mkind = MarketTarget(kind_s)
+        elif target in impacts:
+            mkind = MarketTarget.IMPACT
+        else:
+            mkind = MarketTarget.COMMODITY
         base_p = _num(r.get("price"))
         base_s = _num(r.get("sell_price"))
         base_a = _num(r.get("allocation"))
