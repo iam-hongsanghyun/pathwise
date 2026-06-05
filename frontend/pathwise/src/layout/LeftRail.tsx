@@ -159,6 +159,36 @@ export function LeftRail({
     );
   };
 
+  // Facilities are shown as a Group (conglomerate) → Company (operator) →
+  // Facility tree. The upper Group level is only shown when it actually differs
+  // from the company (e.g. shipping's Group Company); otherwise it's Company →
+  // Facility (e.g. steel: POSCO → its plants).
+  const renderFacilityTree = (ent: { idCol: string; kind?: NodeKind }, rows: Record<string, unknown>[]) => {
+    const tree = new Map<string, Map<string, { r: Record<string, unknown>; i: number }[]>>();
+    rows.forEach((r, i) => {
+      const company = String(r.company ?? "—") || "—";
+      const group = String(r.group ?? "") || company;
+      if (!tree.has(group)) tree.set(group, new Map());
+      const byCompany = tree.get(group)!;
+      if (!byCompany.has(company)) byCompany.set(company, []);
+      byCompany.get(company)!.push({ r, i });
+    });
+    const showGroup = [...tree.entries()].some(
+      ([g, byC]) => !(byC.size === 1 && byC.has(g)),
+    );
+    return [...tree.entries()].map(([group, byCompany]) => (
+      <div key={group}>
+        {showGroup && <div className="rail-grouphead">▸ {group}</div>}
+        {[...byCompany.entries()].map(([company, items]) => (
+          <div key={company} className={showGroup ? "rail-indent" : ""}>
+            <div className="rail-subhead">{company}</div>
+            {items.map(({ r, i }) => renderItem("processes", ent, r, i))}
+          </div>
+        ))}
+      </div>
+    ));
+  };
+
   const renderGroup = (sheet: string) => {
     const rows = workbook[sheet] ?? [];
     const ent = ENTITY[sheet];
@@ -186,7 +216,10 @@ export function LeftRail({
             </button>
           )}
         </div>
-        {ent && rows.map((r, i) => renderItem(sheet, ent, r, i))}
+        {ent &&
+          (sheet === "processes"
+            ? renderFacilityTree(ent, rows)
+            : rows.map((r, i) => renderItem(sheet, ent, r, i)))}
       </div>
     );
   };
