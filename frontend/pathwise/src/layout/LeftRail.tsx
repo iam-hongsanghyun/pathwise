@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { DRAG_MIME, nodeId, type NodeKind } from "../graph/model";
 import type { Selection, Workbook } from "../types";
 
@@ -93,6 +94,13 @@ export function LeftRail({
   draggable,
   width,
 }: Props) {
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleCollapse = (key: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
   const placed = new Set((workbook.node_layout ?? []).map((r) => String(r.id)));
   const baselineTechs = new Set(
     (workbook.processes ?? []).map((r) => String(r.baseline_technology ?? "")),
@@ -176,17 +184,40 @@ export function LeftRail({
     const showGroup = [...tree.entries()].some(
       ([g, byC]) => !(byC.size === 1 && byC.has(g)),
     );
-    return [...tree.entries()].map(([group, byCompany]) => (
-      <div key={group}>
-        {showGroup && <div className="rail-grouphead">▸ {group}</div>}
-        {[...byCompany.entries()].map(([company, items]) => (
-          <div key={company} className={showGroup ? "rail-indent" : ""}>
-            <div className="rail-subhead">{company}</div>
-            {items.map(({ r, i }) => renderItem("processes", ent, r, i))}
-          </div>
-        ))}
-      </div>
-    ));
+    return [...tree.entries()].map(([group, byCompany]) => {
+      const gKey = `group:${group}`;
+      const gOpen = !collapsed.has(gKey);
+      return (
+        <div key={group}>
+          {showGroup && (
+            <button
+              className="rail-grouphead"
+              onClick={() => toggleCollapse(gKey)}
+              title={gOpen ? "collapse" : "expand"}
+            >
+              {gOpen ? "▾" : "▸"} {group}
+            </button>
+          )}
+          {(!showGroup || gOpen) &&
+            [...byCompany.entries()].map(([company, items]) => {
+              const cKey = `company:${group}|${company}`;
+              const cOpen = !collapsed.has(cKey);
+              return (
+                <div key={company} className={showGroup ? "rail-indent" : ""}>
+                  <button
+                    className="rail-subhead"
+                    onClick={() => toggleCollapse(cKey)}
+                    title={cOpen ? "collapse" : "expand"}
+                  >
+                    {cOpen ? "▾" : "▸"} {company}
+                  </button>
+                  {cOpen && items.map(({ r, i }) => renderItem("processes", ent, r, i))}
+                </div>
+              );
+            })}
+        </div>
+      );
+    });
   };
 
   const renderGroup = (sheet: string) => {

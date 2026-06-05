@@ -399,6 +399,12 @@
   background: var(--bg-hover);
 }
 .rail-grouphead {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   padding: 4px 12px 2px;
   font-family: var(--font-mono);
   font-size: 0.66rem;
@@ -407,10 +413,20 @@
   font-weight: 600;
 }
 .rail-subhead {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   padding: 2px 12px 2px 14px;
   font-size: 0.72rem;
   font-weight: 600;
   color: var(--text);
+}
+.rail-grouphead:hover,
+.rail-subhead:hover {
+  background: var(--bg-hover);
 }
 .rail-indent {
   padding-left: 8px;
