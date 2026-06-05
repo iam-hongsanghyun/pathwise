@@ -27,8 +27,9 @@ const ID_COL: Record<string, string> = {
 const coerce = (v: string): Cell =>
   v === "" ? null : Number.isNaN(Number(v)) || v.trim() === "" ? v : Number(v);
 
-/** Bottom dock when an item is selected: every time-series this item owns
- *  (`<sheet>_t__<attr>` columns named after the item), as editable year tables. */
+/** Bottom dock when an item is selected: ALL the time series this item owns
+ *  (`<sheet>_t__<attr>` columns named after the item) in ONE table — a `year`
+ *  row index with one editable column per temporal attribute. */
 function ItemTimeSeries({
   workbook,
   selected,
@@ -49,45 +50,45 @@ function ItemTimeSeries({
       </div>
     );
   }
-  const editCell = (ts: string, rowIdx: number, value: string) =>
+  const attrOf = (ts: string) => ts.split("_t__")[1];
+  const years = [
+    ...new Set(sheets.flatMap((ts) => (workbook[ts] ?? []).map((r) => Number(r.year)))),
+  ].sort((a, b) => a - b);
+  const valueAt = (ts: string, year: number) => {
+    const row = (workbook[ts] ?? []).find((r) => Number(r.year) === year);
+    return row && row[selected.id] != null ? String(row[selected.id]) : "";
+  };
+  const editCell = (ts: string, year: number, value: string) =>
     onChange({
       ...workbook,
-      [ts]: (workbook[ts] ?? []).map((r, i) =>
-        i === rowIdx ? { ...r, [selected.id]: coerce(value) } : r,
+      [ts]: (workbook[ts] ?? []).map((r) =>
+        Number(r.year) === year ? { ...r, [selected.id]: coerce(value) } : r,
       ),
     });
   return (
-    <div className="ts-grid">
-      {sheets.map((ts) => {
-        const attr = ts.split("_t__")[1];
-        const rows = workbook[ts] ?? [];
-        return (
-          <div key={ts} className="ts-card">
-            <div className="ts-head">{attr} · by year</div>
-            <table>
-              <thead>
-                <tr>
-                  <th>year</th>
-                  <th>{attr}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => (
-                  <tr key={i}>
-                    <td>{String(r.year ?? "")}</td>
-                    <td>
-                      <input
-                        value={r[selected.id] == null ? "" : String(r[selected.id])}
-                        onChange={(e) => editCell(ts, i, e.target.value)}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        );
-      })}
+    <div className="table-wrap" style={{ maxWidth: 640 }}>
+      <table>
+        <thead>
+          <tr>
+            <th>year</th>
+            {sheets.map((ts) => (
+              <th key={ts}>{attrOf(ts)}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {years.map((y) => (
+            <tr key={y}>
+              <td>{y}</td>
+              {sheets.map((ts) => (
+                <td key={ts}>
+                  <input value={valueAt(ts, y)} onChange={(e) => editCell(ts, y, e.target.value)} />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

@@ -92,12 +92,6 @@ export function LeftRail({
   ];
   const temporalSheets = all.filter((s) => s.includes("_t__"));
 
-  const temporalFor = (sheet: string, id: string): { ts: string; attr: string }[] =>
-    temporalSheets
-      .filter((ts) => ts.startsWith(`${sheet}_t__`))
-      .filter((ts) => (workbook[ts] ?? []).some((r) => id in r))
-      .map((ts) => ({ ts, attr: ts.split("_t__")[1] }));
-
   const isEnabled = (r: Record<string, unknown>) => r.enabled !== false && r.enabled !== "false";
 
   const renderItem = (sheet: string, ent: { idCol: string; kind?: NodeKind }, r: Record<string, unknown>, i: number) => {
@@ -116,49 +110,38 @@ export function LeftRail({
     else if (isTech && baselineTechs.has(id)) dot = "dot-active";
     else if (isTech && targetTechs.has(id)) dot = "dot-alt";
     else if (canDrag) dot = "dot-avail";
-    const temporals = temporalFor(sheet, id);
+    // Temporal series are NOT nested here — selecting the item shows them in the
+    // bottom panel, and they also live in the "Temporal datasets" group below.
     return (
-      <div key={`${id}-${i}`}>
-        <div className={`rail-item-row${enabled ? "" : " is-excluded"}`}>
-          {toggleable && (
-            <input
-              type="checkbox"
-              className="rail-check"
-              checked={enabled}
-              title={enabled ? "included — uncheck to exclude from the model" : "excluded — check to include"}
-              onChange={(e) => onToggle?.(sheet, ent.idCol, id, e.target.checked)}
-            />
-          )}
-          <button
-            className={`rail-item${sel}`}
-            draggable={canDrag}
-            onDragStart={
-              canDrag
-                ? (e) => {
-                    e.dataTransfer.setData(DRAG_MIME, payload);
-                    e.dataTransfer.effectAllowed = "copy";
-                  }
-                : undefined
-            }
-            onClick={() => onItem({ sheet, idCol: ent.idCol, id })}
-            title={
-              dot === "dot-alt" ? `${id} — alternative technology` : canDrag ? `${id} — drag onto the canvas` : id
-            }
-          >
-            {dot && <span className={`dot ${dot}`} />}
-            {id}
-          </button>
-        </div>
-        {temporals.map(({ ts, attr }) => (
-          <button
-            key={`${id}-${attr}`}
-            className={`rail-subitem${activeSheet === ts ? " is-active" : ""}`}
-            onClick={() => onGroup?.(ts)}
-            title={`${id} · ${attr} (temporal — click to edit by year)`}
-          >
-            ↳ {attr} · by year
-          </button>
-        ))}
+      <div className={`rail-item-row${enabled ? "" : " is-excluded"}`} key={`${id}-${i}`}>
+        {toggleable && (
+          <input
+            type="checkbox"
+            className="rail-check"
+            checked={enabled}
+            title={enabled ? "included — uncheck to exclude from the model" : "excluded — check to include"}
+            onChange={(e) => onToggle?.(sheet, ent.idCol, id, e.target.checked)}
+          />
+        )}
+        <button
+          className={`rail-item${sel}`}
+          draggable={canDrag}
+          onDragStart={
+            canDrag
+              ? (e) => {
+                  e.dataTransfer.setData(DRAG_MIME, payload);
+                  e.dataTransfer.effectAllowed = "copy";
+                }
+              : undefined
+          }
+          onClick={() => onItem({ sheet, idCol: ent.idCol, id })}
+          title={
+            dot === "dot-alt" ? `${id} — alternative technology` : canDrag ? `${id} — drag onto the canvas` : id
+          }
+        >
+          {dot && <span className={`dot ${dot}`} />}
+          {id}
+        </button>
       </div>
     );
   };
