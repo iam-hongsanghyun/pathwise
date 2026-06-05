@@ -67,6 +67,7 @@ SCHEMA: dict[str, Any] = {
             "renewal": {"label": "Renewal cost (/cap)", "type": "number"},
             "opex": {"label": "Fixed O&M (/throughput)", "type": "number"},
             "min_capacity_factor": {"label": "Min capacity factor (0-1)", "type": "number"},
+            "enabled": {"label": "Included in model", "type": "boolean"},
         },
     },
     "processes": {
@@ -81,6 +82,7 @@ SCHEMA: dict[str, Any] = {
             "fixed_opex": {"label": "Fixed O&M (/yr)", "type": "number"},
             "failure_rate": {"label": "Failure rate (0-1)", "type": "number"},
             "replaceable": {"label": "Replaceable", "type": "boolean"},
+            "enabled": {"label": "Included in model", "type": "boolean"},
         },
     },
     "processes_t__capacity": {
@@ -224,6 +226,7 @@ SCHEMA: dict[str, Any] = {
             "discharge_efficiency": {"label": "Discharge eff (0-1)", "type": "number"},
             "standing_loss": {"label": "Standing loss (/yr)", "type": "number"},
             "initial_level": {"label": "Initial level", "type": "number"},
+            "enabled": {"label": "Included in model", "type": "boolean"},
         },
     },
     "markets": {
@@ -239,6 +242,7 @@ SCHEMA: dict[str, Any] = {
             "max_sell": {"label": "Max sell (/yr)", "type": "number"},
             "allocation": {"label": "ETS allocation (/yr)", "type": "number"},
             "tag": {"label": "Tag (e.g. RE100)", "type": "string"},
+            "enabled": {"label": "Included in model", "type": "boolean"},
         },
     },
     "market_prices": {

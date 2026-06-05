@@ -69,6 +69,20 @@ def _bool(value: Any, default: bool = False) -> bool:
     return bool(value)
 
 
+def _enabled(r: dict[str, Any]) -> bool:
+    """Whether a component row is included in the model.
+
+    Components are included by default; a row is excluded only when its
+    ``enabled`` cell is explicitly falsy (the left-rail checkbox). An excluded
+    technology / facility / market / store is dropped from the optimisation
+    entirely (a checked-but-unplaced item stays in as an available alternative).
+    """
+    v = r.get("enabled")
+    if v is None or (isinstance(v, float) and math.isnan(v)):
+        return True
+    return _bool(v, True)
+
+
 def _meta(wb: Workbook) -> dict[str, Any]:
     return {str(r.get("key")): r.get("value") for r in _rows(wb, "meta")}
 
@@ -283,7 +297,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     technologies: dict[str, Technology] = {}
     for r in _rows(workbook, "technologies"):
         k = _str(r.get("technology_id"))
-        if k is None:
+        if k is None or not _enabled(r):
             continue
         technologies[k] = Technology(
             technology_id=k,
@@ -317,7 +331,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             ),
         )
         for r in _rows(workbook, "processes")
-        if _str(r.get("process_id"))
+        if _str(r.get("process_id")) and _enabled(r)
     ]
 
     # ── Per-company objective (cost default; profit ⇒ maximise profit) ───────
@@ -379,6 +393,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         frm, to = _str(r.get("from_technology")), _str(r.get("to_technology"))
         if not frm or not to:
             continue
+        # Drop transitions whose endpoints were excluded (unchecked technology).
+        if frm not in technologies or to not in technologies:
+            continue
         action_s = (_str(r.get("action")) or "replace").lower()
         action = (
             TransitionAction(action_s)
@@ -399,7 +416,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     storages: list[Storage] = []
     for r in _rows(workbook, "storage"):
         sid, cid = _str(r.get("storage_id")), _str(r.get("commodity_id"))
-        if not sid or not cid:
+        if not sid or not cid or not _enabled(r):
             continue
         storages.append(
             Storage(
@@ -437,7 +454,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     markets: list[Market] = []
     for r in _rows(workbook, "markets"):
         mid, target = _str(r.get("market_id")), _str(r.get("target"))
-        if not mid or not target:
+        if not mid or not target or not _enabled(r):
             continue
         # Kind is auto-inferred from the target: if it names an impact it is a
         # tradable-allowance (ETS) market, otherwise a commodity market. An

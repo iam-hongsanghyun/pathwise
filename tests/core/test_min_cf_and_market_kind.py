@@ -69,3 +69,25 @@ def test_market_kind_inferred_from_target() -> None:
     by_id = {m.market_id: m for m in prob.markets}
     assert by_id["KEPCO"].target_kind is MarketTarget.COMMODITY
     assert by_id["ETS"].target_kind is MarketTarget.IMPACT
+
+
+def test_disabled_technology_is_excluded_with_its_transitions() -> None:
+    # H2DRI is unchecked (enabled=false) ⇒ dropped from the model, and the
+    # transition that targets it is dropped too (no dangling endpoint).
+    wb = {
+        "periods": [{"year": 2025}],
+        "commodities": [{"commodity_id": "gas", "kind": "energy"}],
+        "technologies": [
+            {"technology_id": "BF"},
+            {"technology_id": "H2DRI", "enabled": False},
+        ],
+        "processes": [
+            {"process_id": "P", "company": "C", "baseline_technology": "BF", "capacity": 1}
+        ],
+        "io": [{"technology_id": "BF", "target": "gas", "role": "input", "coefficient": 1}],
+        "transitions": [{"from_technology": "BF", "to_technology": "H2DRI"}],
+        "demand": [{"company": "C", "commodity_id": "gas", "year": 2025, "amount": 0}],
+    }
+    prob = assemble_problem(wb, _sc())
+    assert "H2DRI" not in prob.technologies
+    assert prob.transitions == []
