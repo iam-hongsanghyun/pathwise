@@ -42,7 +42,7 @@ def empty_result(
             "ets": [],
             "demand_slack": [],
         },
-        "summary": {"periods": [], "impacts": []},
+        "summary": {"periods": [], "impacts": [], "commodity": []},
     }
 
 
@@ -178,5 +178,122 @@ def extract_results(
     out["summary"]["impacts"] = [
         {"period": t, "impact": i, "total": val} for (t, i), val in sorted(by_period_impact.items())
     ]
-    out["summary"]["periods"] = [{"period": y} for y in prob.years]
+    out["summary"]["periods"] = [
+        {"period": y, "cost": cost} for y, cost in _period_costs(ctx).items()
+    ]
+    out["summary"]["commodity"] = _commodity_summary(ctx)
     return out
+
+
+def _period_costs(ctx: Any) -> dict[int, float]:
+    """Nominal cost per year (operational + that year's capex) for time-series."""
+    prob = ctx.problem
+    tog = prob.toggles
+    years = prob.years
+    prev = {y: (years[i - 1] if i > 0 else None) for i, y in enumerate(years)}
+    cost: dict[int, float] = dict.fromkeys(years, 0.0)
+
+    x, buy, sell, emit, on = (
+        _series(ctx.x),
+        _series(ctx.buy),
+        _series(ctx.sell),
+        _series(ctx.emit),
+        _series(ctx.on),
+    )
+    w, z = _series(ctx.w), _series(ctx.z)
+    mbuy, msell, abuy, asell = (
+        _series(ctx.mbuy),
+        _series(ctx.msell),
+        _series(ctx.abuy),
+        _series(ctx.asell),
+    )
+    cap_built, extbuy = _series(ctx.cap_built), _series(ctx.extbuy)
+    stored = {s.commodity_id for s in prob.storages}
+    market_comms = {m.target for m in ctx.cmarkets}
+    ets_impacts = {m.target for m in ctx.imarkets}
+    fixed_opex = {p.process_id: p.fixed_opex for p in prob.processes}
+    baseline = {p.process_id: p.baseline_technology for p in prob.processes}
+    cap = {p.process_id: p.capacity for p in prob.processes}
+    smap = {s.storage_id: s for s in prob.storages}
+    cmap = {m.market_id: m for m in ctx.cmarkets}
+    imap = {m.market_id: m for m in ctx.imarkets}
+    trans_cost: dict[tuple[str, str], float] = {}
+    for tr in prob.transitions:
+        for pr in prob.processes:
+            if tr.from_technology == pr.baseline_technology:
+                trans_cost[(pr.process_id, tr.to_technology)] = tr.capex_per_capacity * pr.capacity
+
+    if tog.opex:
+        for (_p, k, t), v in x.items():
+            cost[int(t)] += prob.technologies[k].opex(int(t)) * v
+        for (p, t), v in on.items():
+            if fixed_opex.get(p):
+                cost[int(t)] += fixed_opex[p] * v
+    if tog.commodity_cost:
+        for (_p, r, t), v in buy.items():
+            if r not in stored and r not in market_comms:
+                cost[int(t)] += prob.commodities[r].price(int(t)) * v
+        for (_p, r, t), v in sell.items():
+            if r not in stored and r not in market_comms:
+                cost[int(t)] -= prob.commodities[r].sale_price(int(t)) * v
+        for (sid, t), v in extbuy.items():
+            s = smap[sid]
+            if s.commodity_id not in market_comms:
+                cost[int(t)] += prob.commodities[s.commodity_id].price(int(t)) * v
+        for (mid, t), v in mbuy.items():
+            cost[int(t)] += cmap[mid].price(int(t)) * v
+        for (mid, t), v in msell.items():
+            cost[int(t)] -= cmap[mid].sell_price(int(t)) * v
+    if tog.impact_price:
+        for (_p, i, t), v in emit.items():
+            if i not in ets_impacts:
+                cost[int(t)] += prob.impacts[i].price(int(t)) * v
+        for (mid, t), v in abuy.items():
+            cost[int(t)] += imap[mid].price(int(t)) * v
+        for (mid, t), v in asell.items():
+            cost[int(t)] -= imap[mid].sell_price(int(t)) * v
+    if tog.capex:
+        for (p, k, t), v in w.items():
+            if k != baseline[p] and v > _EPS:
+                cost[int(t)] += (
+                    trans_cost.get((p, k), prob.technologies[k].capex(int(t)) * cap[p]) * v
+                )
+        for s in prob.storages:
+            cb = cap_built.get(s.storage_id, 0.0)
+            cost[years[0]] += s.capex_per_capacity * cb
+            for t in years:
+                cost[t] += s.fixed_opex_per_capacity * cb
+    if tog.measure_capex:
+        slot_by_key = {sl.key: sl for sl in ctx.slots}
+        for (key, t), v in z.items():
+            sl = slot_by_key.get(key)
+            if sl is None or not sl.capex:
+                continue
+            pt = prev[int(t)]
+            inc = v - (z.get((key, pt), 0.0) if pt is not None else 0.0)
+            cost[int(t)] += sl.capex * inc
+    return cost
+
+
+def _commodity_summary(ctx: Any) -> list[dict[str, Any]]:
+    """Per (commodity, year) gross consumed and produced — for the line chart."""
+    prob = ctx.problem
+    x = _series(ctx.x)
+    cons: dict[tuple[str, int], float] = {}
+    prod: dict[tuple[str, int], float] = {}
+    for (_p, k, t), v in x.items():
+        tech = prob.technologies[k]
+        for r, intensity in tech.input_intensity.items():
+            cons[(r, int(t))] = cons.get((r, int(t)), 0.0) + intensity * v
+        for r, yld in tech.output_yield.items():
+            prod[(r, int(t))] = prod.get((r, int(t)), 0.0) + yld * v
+    keys = sorted(set(cons) | set(prod))
+    return [
+        {
+            "commodity": r,
+            "period": t,
+            "consumed": cons.get((r, t), 0.0),
+            "produced": prod.get((r, t), 0.0),
+        }
+        for (r, t) in keys
+    ]
