@@ -13,6 +13,7 @@ function ReadNode({ data }: NodeProps<RNData>) {
       <div className="node-kind">{data.kind}</div>
       <strong>{data.label}</strong>
       {data.kind === "process" && <div className="muted">{data.active ? `▶ ${data.active}` : "idle"}</div>}
+      <Handle type="source" position={Position.Right} />
     </div>
   );
 }
@@ -46,9 +47,11 @@ export function TopologyChart({ workbook, result, year }: Props) {
     const base = workbookToGraph(workbook);
     const pos = new Map(base.nodes.map((n) => [n.id, n.position]));
     const shown = new Set(base.nodes.map((n) => n.id));
-    const active = new Map(
-      result.outputs.technology.filter((t) => t.period === year).map((t) => [t.process, t.technology]),
-    );
+    // A facility is "operating" a tech this year only if it has real throughput
+    // (a tech can be nominally on with zero output while its product is imported).
+    const active = new Map<string, string>();
+    for (const t of result.outputs.throughput)
+      if (t.period === year && t.value > 1) active.set(t.process, t.technology);
 
     const nodes: GraphNode[] = base.nodes.map((n) => {
       if (n.data.kind !== "process") return n;

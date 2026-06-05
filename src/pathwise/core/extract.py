@@ -69,8 +69,12 @@ def extract_results(
             out["outputs"]["throughput"].append(
                 {"process": p, "technology": k, "period": int(t), "value": v}
             )
+    # A real transition is a switch INTO a non-baseline technology; the event
+    # variable on a facility's own baseline carries no cost, so the solver may
+    # leave it at 1 — exclude those.
+    baseline = {p.process_id: p.baseline_technology for p in prob.processes}
     for (p, k, t), v in _series(ctx.w).items():
-        if v > _ON:
+        if v > _ON and k != baseline.get(p):
             out["outputs"]["transitions"].append(
                 {"process": p, "to_technology": k, "period": int(t)}
             )
