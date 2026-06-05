@@ -395,6 +395,7 @@ def _impacts(ctx: BuildContext) -> None:
                     ctx.emit.sel(process=p, impact=i, period=t) >= 0, name=f"emitpos[{p},{i},{t}]"
                 )
 
+    products = {r for r, comm in prob.commodities.items() if comm.kind == CommodityKind.PRODUCT}
     for c, i, y in ctx.cap_keys:
         # A cap scope (``c``) may target a facility id, a company, a group, or
         # "all" — so emissions can be capped at any level.
@@ -402,14 +403,22 @@ def _impacts(ctx: BuildContext) -> None:
         total = _lin_sum([ctx.emit.sel(process=p, impact=i, period=y) for p in procs])
         key = f"{c}|{i}|{y}"
         slack = ctx.slk_cap.sel(ckey=key)
-        rhs = prob.impact_caps[(c, i, y)]
+        limit = prob.impact_caps[(c, i, y)]
+        # An intensity cap is impact per unit product: emit ≤ limit · production.
+        # An absolute cap is emit ≤ limit. Production = product output in scope.
+        if prob.impact_cap_intensity.get((c, i), False):
+            prod_terms = [_produced(ctx, p, r, y) for p in procs for r in products]
+            production = _lin_sum([t for t in prod_terms if t is not None])
+            cap_rhs: Any = limit * production if production is not None else 0.0
+        else:
+            cap_rhs = limit
         # A hard cap forbids exceedance (slack pinned to zero); a soft cap allows
         # it at the cap's penalty (applied in the objective). Default: soft.
         soft = prob.impact_cap_soft.get((c, i), True)
         if not soft:
             m.add_constraints(slack == 0, name=f"caphard[{key}]")
         if total is not None:
-            m.add_constraints(total - slack <= rhs, name=f"cap[{key}]")
+            m.add_constraints(total - slack <= cap_rhs, name=f"cap[{key}]")
 
 
 def _macc(ctx: BuildContext) -> None:

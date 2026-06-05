@@ -310,6 +310,7 @@ SCHEMA: dict[str, Any] = {
             "limit": {"label": "Limit (legacy /yr)", "type": "number"},
             "soft": {"label": "Soft target (else hard)", "type": "boolean"},
             "penalty": {"label": "Penalty (/unit over)", "type": "number"},
+            "intensity": {"label": "Intensity (per production)", "type": "boolean"},
         },
     },
     "impact_caps_t__limit": {

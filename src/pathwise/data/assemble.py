@@ -537,26 +537,37 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     # a `penalty` (per unit exceedance); a hard cap must hold exactly.
     impact_cap_soft: dict[tuple[str, str], bool] = {}
     impact_cap_penalty: dict[tuple[str, str], float] = {}
+    impact_cap_intensity: dict[tuple[str, str], bool] = {}
     for r in _rows(workbook, "impact_caps"):
         ckey = (_str(r.get("company")) or "all", _str(r.get("impact_id")) or "")
         if r.get("soft") is not None:
             impact_cap_soft[ckey] = _bool(r.get("soft"), True)
         if (pen := _num(r.get("penalty"))) is not None:
             impact_cap_penalty[ckey] = pen
+        if r.get("intensity") is not None:
+            impact_cap_intensity[ckey] = _bool(r.get("intensity"), False)
 
     # Optimisation scope: "system" pools every emission target for an (impact,
     # year) into a single economy-wide cap (companies trade off → minimise the
     # whole economy's cost); "company"/"facility" keep targets as authored (each
     # entity independent → minimise its own cost).
     if scenario.optimisation_scope == "system":
+        intensity_imps = {imp for (_s, imp), on in impact_cap_intensity.items() if on}
         pooled: dict[tuple[str, str, int], float] = {}
         for (_scope, imp, yr), limit in impact_caps.items():
-            pooled[("all", imp, yr)] = pooled.get(("all", imp, yr), 0.0) + limit
+            key = ("all", imp, yr)
+            # Absolute caps add up; an intensity target is shared (take the max).
+            pooled[key] = (
+                max(pooled.get(key, 0.0), limit)
+                if imp in intensity_imps
+                else pooled.get(key, 0.0) + limit
+            )
         impact_caps = pooled
         any_soft = (not impact_cap_soft) or any(impact_cap_soft.values())
         pen_max = max(impact_cap_penalty.values(), default=scenario.slack_penalty)
         impact_cap_soft = {("all", imp): bool(any_soft) for (_s, imp, _y) in pooled}
         impact_cap_penalty = {("all", imp): pen_max for (_s, imp, _y) in pooled}
+        impact_cap_intensity = {("all", imp): imp in intensity_imps for (_s, imp, _y) in pooled}
 
     toggles = CostToggles(**scenario.cost_components.model_dump())
 
@@ -576,6 +587,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         impact_caps=impact_caps,
         impact_cap_soft=impact_cap_soft,
         impact_cap_penalty=impact_cap_penalty,
+        impact_cap_intensity=impact_cap_intensity,
         investment_budget=investment_budget,
         min_production=min_production,
         company_objective=company_objective,

@@ -123,6 +123,18 @@ export function ModelView({ workbook, setWorkbook, config, leftW, setLeftW }: Pr
   const [activeSheet, setActiveSheet] = useState<string | null>(null);
   const schema = config?.domains[0]?.schema ?? {};
 
+  // Table columns = schema columns ∪ keys present in the rows, so optional
+  // columns (e.g. impact_caps `intensity` / `soft` / `penalty`) are always
+  // editable even when the rows don't yet carry them.
+  const columnsFor = (sheet: string): string[] | undefined => {
+    const schemaCols = Object.keys(
+      (schema as Record<string, { columns?: Record<string, unknown> }>)[sheet]?.columns ?? {},
+    );
+    if (!schemaCols.length) return undefined;
+    const rowCols = new Set((workbook[sheet] ?? []).flatMap((r) => Object.keys(r)));
+    return [...new Set([...schemaCols, ...rowCols])];
+  };
+
   const openItem = (s: Selection) => {
     setSelected(s);
     setActiveSheet(null);
@@ -216,6 +228,7 @@ export function ModelView({ workbook, setWorkbook, config, leftW, setLeftW }: Pr
                 activeSheet && (
                   <WorkbookTable
                     rows={workbook[activeSheet] ?? []}
+                    columns={columnsFor(activeSheet)}
                     onChange={(rows) => setWorkbook({ ...workbook, [activeSheet]: rows })}
                   />
                 )
