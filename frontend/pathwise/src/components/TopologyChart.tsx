@@ -79,7 +79,7 @@ export function TopologyChart({ workbook, result, year }: Props) {
 
   return (
     <div className="topology">
-      <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView nodesDraggable={false}>
+      <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView nodesDraggable>
         <Background />
       </ReactFlow>
     </div>

@@ -42,20 +42,39 @@ function PortList({ title, items }: { title: string; items: string[] }) {
   );
 }
 
+/** Human-readable explanation shown on hover (native tooltip). */
+function describe(data: NodeData): string {
+  const p = data.ports;
+  if (data.kind === "process" && p) {
+    const ins = [...p.energyIn, ...p.materialIn];
+    return [
+      `Facility: ${data.label}`,
+      data.sub ? `Technology: ${data.sub}` : "",
+      ins.length ? `Inputs: ${ins.join(", ")}` : "",
+      p.products.length ? `Products: ${p.products.join(", ")}` : "",
+      p.energyOut.length ? `Residual energy: ${p.energyOut.join(", ")}` : "",
+      p.byproducts.length ? `By-products: ${p.byproducts.join(", ")}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+  const role = data.kind === "commodity" ? "Stream" : data.kind === "market" ? "Market" : "Storage";
+  return `${role}: ${data.label}${data.sub ? ` (${data.sub})` : ""}`;
+}
+
 function NodeView({ data }: NodeProps<NodeData>) {
   const p: FacilityPorts | undefined = data.ports;
   return (
-    <div className={`node ${data.kind}`}>
+    <div className={`node ${data.kind}`} title={describe(data)}>
       <Handle type="target" position={Position.Left} />
       <div className="node-kind">{data.kind}</div>
       <strong>{data.label}</strong>
       {data.kind === "process" && p ? (
         <div className="ports">
-          <PortList title="⚡ in" items={p.energyIn} />
-          <PortList title="📦 in" items={p.materialIn} />
-          <PortList title="▸ product" items={p.products} />
-          <PortList title="↻ residual" items={p.energyOut} />
-          <PortList title="• by-product" items={p.byproducts} />
+          <PortList title="in" items={[...p.energyIn, ...p.materialIn]} />
+          <PortList title="product" items={p.products} />
+          <PortList title="residual" items={p.energyOut} />
+          <PortList title="by-product" items={p.byproducts} />
         </div>
       ) : (
         data.sub && <div className="muted">{data.sub}</div>

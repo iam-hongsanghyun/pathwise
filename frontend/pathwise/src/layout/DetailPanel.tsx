@@ -1,7 +1,10 @@
 import { optionsFor } from "../graph/references";
 import type { Cell, Selection, Workbook } from "../types";
 
-type SchemaMap = Record<string, { label?: string; columns?: Record<string, { label?: string }> }>;
+type SchemaMap = Record<
+  string,
+  { label?: string; columns?: Record<string, { label?: string; type?: string }> }
+>;
 
 interface Props {
   workbook: Workbook;
@@ -19,15 +22,6 @@ function coerce(value: string): Cell {
   const n = Number(value);
   return Number.isNaN(n) || value.trim() === "" ? value : n;
 }
-
-/** Attributes the assembler reads as wide temporal tables ‹sheet›_t__‹attr›. */
-const TEMPORAL: Record<string, string[]> = {
-  commodities: ["price", "sale_price"],
-  markets: ["price", "sell_price", "allocation"],
-  impacts: ["price"],
-  technologies: ["capex", "opex", "renewal"],
-  processes: ["capacity"],
-};
 
 /** A commodity owns its emission factors: consuming `factor` per unit becomes
  *  real emission at the facility (emission = consumption × factor). Edited here
@@ -124,7 +118,16 @@ export function DetailPanel({ workbook, selected, schema, onChange, onClose, flo
     });
     onChange({ ...workbook, [tsheet]: trows });
   };
-  const canTemporal = (col: string) => (TEMPORAL[selected.sheet] ?? []).includes(col);
+  // Any numeric attribute can be promoted to a per-year time series — no
+  // hardcoded whitelist (the `<sheet>_t__<attr>` table is created on demand).
+  const numericType = (col: string) => {
+    const t = schema[selected.sheet]?.columns?.[col]?.type;
+    return t === "number" || t === "integer";
+  };
+  const canTemporal = (col: string) =>
+    col !== selected.idCol &&
+    col !== "year" &&
+    (numericType(col) || (row != null && typeof row[col] === "number"));
   const remove = () => {
     onChange({ ...workbook, [selected.sheet]: rows.filter((_, i) => i !== idx) });
     onClose();

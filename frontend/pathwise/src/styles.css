@@ -348,6 +348,29 @@
   overflow: auto;
   padding: 8px 12px;
 }
+.ts-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+}
+.ts-card {
+  border: 1px solid var(--border);
+  min-width: 150px;
+}
+.ts-head {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--brand);
+  padding: 4px 8px;
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border);
+}
+.ts-card table {
+  font-size: 0.75rem;
+}
 
 /* Rail group head + add button; item rows with include checkbox. */
 .rail-head-row {
