@@ -84,6 +84,10 @@ class Problem:
     commodity_impacts: dict[tuple[str, str], float] = field(default_factory=dict)
     demand: dict[tuple[str, str, int], float] = field(default_factory=dict)
     impact_caps: dict[tuple[str, str, int], float] = field(default_factory=dict)
+    # Per (company, impact): whether the cap is soft (exceedance allowed at a
+    # penalty) or hard (must hold). Default soft preserves prior behaviour.
+    impact_cap_soft: dict[tuple[str, str], bool] = field(default_factory=dict)
+    impact_cap_penalty: dict[tuple[str, str], float] = field(default_factory=dict)
     investment_budget: dict[tuple[str, int], float] = field(default_factory=dict)
     min_production: dict[tuple[str, str, int], float] = field(default_factory=dict)
     company_objective: dict[str, ObjectiveMode] = field(default_factory=dict)

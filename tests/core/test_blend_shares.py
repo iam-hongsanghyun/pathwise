@@ -69,9 +69,7 @@ def test_blend_picks_cheapest_within_bounds() -> None:
     assert res["status"] == "optimal"
     # 80 coal × $1 + 20 h2 × $10 = 80 + 200 = 280.
     np.testing.assert_allclose(res["objective"], 280.0, rtol=1e-6)
-    comm = {
-        (r["commodity"], r["period"]): r["consumed"] for r in res["summary"]["commodity"]
-    }
+    comm = {(r["commodity"], r["period"]): r["consumed"] for r in res["summary"]["commodity"]}
     np.testing.assert_allclose(comm[("coal", 2025)], 80.0, rtol=1e-6)
     np.testing.assert_allclose(comm[("h2", 2025)], 20.0, rtol=1e-6)
 
@@ -82,8 +80,6 @@ def test_blend_min_share_forces_expensive_fuel() -> None:
     assert res["status"] == "optimal"
     # 30 coal × $10 + 70 h2 × $1 = 300 + 70 = 370.
     np.testing.assert_allclose(res["objective"], 370.0, rtol=1e-6)
-    comm = {
-        (r["commodity"], r["period"]): r["consumed"] for r in res["summary"]["commodity"]
-    }
+    comm = {(r["commodity"], r["period"]): r["consumed"] for r in res["summary"]["commodity"]}
     np.testing.assert_allclose(comm[("coal", 2025)], 30.0, rtol=1e-6)
     np.testing.assert_allclose(comm[("h2", 2025)], 70.0, rtol=1e-6)

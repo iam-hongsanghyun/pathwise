@@ -307,6 +307,8 @@ SCHEMA: dict[str, Any] = {
             "impact_id": {"label": "Impact", "type": "string", "required": True},
             "year": {"label": "Year (legacy)", "type": "integer"},
             "limit": {"label": "Limit (legacy /yr)", "type": "number"},
+            "soft": {"label": "Soft target (else hard)", "type": "boolean"},
+            "penalty": {"label": "Penalty (/unit over)", "type": "number"},
         },
     },
     "impact_caps_t__limit": {

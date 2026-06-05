@@ -520,6 +520,16 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     impact_caps = _temporal_dict(
         workbook, "impact_caps", "impact_caps_t__limit", "cap_id", ["company", "impact_id"], "limit"
     )
+    # Hard/soft per (company, impact): a cap row may set `soft` (default true) and
+    # a `penalty` (per unit exceedance); a hard cap must hold exactly.
+    impact_cap_soft: dict[tuple[str, str], bool] = {}
+    impact_cap_penalty: dict[tuple[str, str], float] = {}
+    for r in _rows(workbook, "impact_caps"):
+        ckey = (_str(r.get("company")) or "all", _str(r.get("impact_id")) or "")
+        if r.get("soft") is not None:
+            impact_cap_soft[ckey] = _bool(r.get("soft"), True)
+        if (pen := _num(r.get("penalty"))) is not None:
+            impact_cap_penalty[ckey] = pen
 
     toggles = CostToggles(**scenario.cost_components.model_dump())
 
@@ -537,6 +547,8 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         commodity_impacts=commodity_impacts,
         demand=demand,
         impact_caps=impact_caps,
+        impact_cap_soft=impact_cap_soft,
+        impact_cap_penalty=impact_cap_penalty,
         investment_budget=investment_budget,
         min_production=min_production,
         company_objective=company_objective,

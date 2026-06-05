@@ -373,6 +373,11 @@ def _impacts(ctx: BuildContext) -> None:
         key = f"{c}|{i}|{y}"
         slack = ctx.slk_cap.sel(ckey=key)
         rhs = prob.impact_caps[(c, i, y)]
+        # A hard cap forbids exceedance (slack pinned to zero); a soft cap allows
+        # it at the cap's penalty (applied in the objective). Default: soft.
+        soft = prob.impact_cap_soft.get((c, i), True)
+        if not soft:
+            m.add_constraints(slack == 0, name=f"caphard[{key}]")
         if total is not None:
             m.add_constraints(total - slack <= rhs, name=f"cap[{key}]")
 
@@ -709,7 +714,11 @@ def _objective(ctx: BuildContext) -> None:
     if ctx.demand_keys:
         terms.append(prob.slack_penalty * ctx.slk_dem.sum())
     if ctx.cap_keys:
-        terms.append(prob.slack_penalty * ctx.slk_cap.sum())
+        # Soft caps are penalised at their own penalty (default slack_penalty);
+        # hard caps have slack pinned to zero so their coefficient is irrelevant.
+        for cap_c, cap_i, cap_y in ctx.cap_keys:
+            pen = prob.impact_cap_penalty.get((cap_c, cap_i), prob.slack_penalty)
+            terms.append(pen * ctx.slk_cap.sel(ckey=f"{cap_c}|{cap_i}|{cap_y}"))
 
     obj = _lin_sum(terms)
     if obj is not None:
