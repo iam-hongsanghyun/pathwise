@@ -12,6 +12,8 @@ from __future__ import annotations
 import itertools
 from typing import Any
 
+import numpy as np
+import xarray as xr
 from linopy import Model
 
 from pathwise.core.entities import CommodityKind, MeasureType, ObjectiveMode
@@ -71,16 +73,34 @@ def _technology(ctx: BuildContext) -> None:
     avail = {p.process_id: p for p in prob.processes}
     baseline = {p.process_id: p.baseline_technology for p in prob.processes}
 
+    # Infeasible (process, technology) pairs are forbidden in a single vectorised
+    # constraint each — NOT a per-pair Python loop — so the model scales to many
+    # technologies (e.g. one specific technology per facility).
+    feas_arr = np.array(
+        [
+            [[1.0 if k in ctx.feasible[p] else 0.0 for _t in ctx.years] for k in ctx.techs]
+            for p in ctx.procs
+        ]
+    )
+    feas = xr.DataArray(
+        feas_arr,
+        coords={"process": ctx.procs, "tech": ctx.techs, "period": ctx.years},
+        dims=["process", "tech", "period"],
+    )
+    big = (max((p.capacity for p in prob.processes), default=1.0) or 1.0) * 1.0e3 + 1.0e6
+    m.add_constraints(ctx.u <= feas, name="ufeas")
+    m.add_constraints(ctx.w <= feas, name="wfeas")
+    m.add_constraints(ctx.x <= big * feas, name="xfeas")
+
     for p in ctx.procs:
-        feas = ctx.feasible[p]
-        infeasible = [k for k in ctx.techs if k not in feas]
+        feas_p = ctx.feasible[p]
         for t in ctx.years:
             # One technology active iff the facility operates (`on`). If off, the
             # facility runs nothing — its output is sourced elsewhere (outsourced).
-            active = _lin_sum([ctx.u.sel(process=p, tech=k, period=t) for k in feas])
+            active = _lin_sum([ctx.u.sel(process=p, tech=k, period=t) for k in feas_p])
             m.add_constraints(active == ctx.on.sel(process=p, period=t), name=f"one_tech[{p},{t}]")
             cap_pt = avail[p].available(t)
-            for k in feas:
+            for k in feas_p:
                 # Throughput only on the active technology, bounded by capacity.
                 m.add_constraints(
                     ctx.x.sel(process=p, tech=k, period=t)
@@ -95,22 +115,14 @@ def _technology(ctx: BuildContext) -> None:
                         >= min_cf * cap_pt * ctx.u.sel(process=p, tech=k, period=t),
                         name=f"mincf[{p},{k},{t}]",
                     )
-            # Forbid infeasible technologies entirely.
-            for k in infeasible:
-                m.add_constraints(
-                    ctx.u.sel(process=p, tech=k, period=t) == 0, name=f"nofeas_u[{p},{k},{t}]"
-                )
-                m.add_constraints(
-                    ctx.x.sel(process=p, tech=k, period=t) == 0, name=f"nofeas_x[{p},{k},{t}]"
-                )
         # If operating in the first period, it runs the baseline (no prior switch).
         t0 = ctx.years[0]
         m.add_constraints(
             ctx.u.sel(process=p, tech=baseline[p], period=t0) == ctx.on.sel(process=p, period=t0),
             name=f"baseline[{p}]",
         )
-        # Transition (replace) event detection: w >= u_t - u_prev.
-        for k in feas:
+        # Transition (replace) event detection: w >= u_t - u_prev (feasible techs).
+        for k in feas_p:
             for t in ctx.years:
                 pt = prev[t]
                 if pt is None:
@@ -124,11 +136,6 @@ def _technology(ctx: BuildContext) -> None:
                         - ctx.u.sel(process=p, tech=k, period=pt),
                         name=f"event[{p},{k},{t}]",
                     )
-        for k in [k for k in ctx.techs if k not in feas]:
-            for t in ctx.years:
-                m.add_constraints(
-                    ctx.w.sel(process=p, tech=k, period=t) == 0, name=f"wnofeas[{p},{k},{t}]"
-                )
 
 
 def _produced(ctx: BuildContext, p: str, r: str, t: int) -> Any:

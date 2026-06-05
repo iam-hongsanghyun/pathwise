@@ -1,12 +1,12 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ReactFlow, {
   Background,
   Controls,
   Handle,
   Position,
-  applyNodeChanges,
+  useEdgesState,
+  useNodesState,
   type Connection,
-  type NodeChange,
   type NodeProps,
   type ReactFlowInstance,
 } from "reactflow";
@@ -33,15 +33,6 @@ const SHEET_OF: Record<NodeKind, { sheet: string; idCol: string }> = {
   storage: { sheet: "storage", idCol: "storage_id" },
 };
 
-function PortList({ title, items }: { title: string; items: string[] }) {
-  if (!items.length) return null;
-  return (
-    <div className="port-row">
-      <span className="port-label">{title}</span> {items.join(", ")}
-    </div>
-  );
-}
-
 /** Human-readable explanation shown on hover (native tooltip). */
 function describe(data: NodeData): string {
   const p = data.ports;
@@ -64,21 +55,16 @@ function describe(data: NodeData): string {
 
 function NodeView({ data }: NodeProps<NodeData>) {
   const p: FacilityPorts | undefined = data.ports;
+  // Keep the box minimal — name + main product only; full I/O is on hover.
+  const mainProduct = p?.products[0] ?? p?.energyOut[0] ?? p?.byproducts[0];
   return (
     <div className={`node ${data.kind}`} title={describe(data)}>
       <Handle type="target" position={Position.Left} />
       <div className="node-kind">{data.kind}</div>
       <strong>{data.label}</strong>
-      {data.kind === "process" && p ? (
-        <div className="ports">
-          <PortList title="in" items={[...p.energyIn, ...p.materialIn]} />
-          <PortList title="product" items={p.products} />
-          <PortList title="residual" items={p.energyOut} />
-          <PortList title="by-product" items={p.byproducts} />
-        </div>
-      ) : (
-        data.sub && <div className="muted">{data.sub}</div>
-      )}
+      {data.kind === "process"
+        ? mainProduct && <div className="node-main">▸ {mainProduct}</div>
+        : data.sub && <div className="muted">{data.sub}</div>}
       <Handle type="source" position={Position.Right} />
     </div>
   );
@@ -95,19 +81,24 @@ interface Props {
  *  from the left-rail tree onto the canvas to place them, then drag handle→
  *  handle to connect. Right-click a node to remove it from the map. */
 export function FlowCanvas({ workbook, onChange, onSelect }: Props) {
-  const { nodes, edges } = useMemo(() => workbookToGraph(workbook), [workbook]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<NodeData>([]);
+  const [edges, setEdges] = useEdgesState([]);
   const [menu, setMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
   const rf = useRef<ReactFlowInstance | null>(null);
   const wrap = useRef<HTMLDivElement | null>(null);
 
-  const onNodesChange = useCallback(
-    (changes: NodeChange[]) => {
-      if (changes.some((c) => c.type === "position")) {
-        onChange(persistLayout(workbook, applyNodeChanges(changes, nodes) as GraphNode[]));
-      }
-    },
-    [workbook, nodes, onChange],
-  );
+  // The workbook is the source of truth: re-derive the graph when it changes.
+  // Dragging mutates only the local node state (smooth); positions are written
+  // back to the workbook on drag-stop, so a mid-drag round-trip can't blank the map.
+  useEffect(() => {
+    const g = workbookToGraph(workbook);
+    setNodes(g.nodes);
+    setEdges(g.edges);
+  }, [workbook, setNodes, setEdges]);
+
+  const onNodeDragStop = useCallback(() => {
+    onChange(persistLayout(workbook, nodes as GraphNode[]));
+  }, [workbook, nodes, onChange]);
 
   const onConnect = useCallback(
     (c: Connection) => {
@@ -158,6 +149,7 @@ export function FlowCanvas({ workbook, onChange, onSelect }: Props) {
           nodeTypes={nodeTypes}
           onInit={(inst) => (rf.current = inst)}
           onNodesChange={onNodesChange}
+          onNodeDragStop={onNodeDragStop}
           onConnect={onConnect}
           onNodeContextMenu={(e, node) => {
             e.preventDefault();

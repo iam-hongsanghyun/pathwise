@@ -26,7 +26,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _writer import Workbook, verify, write_workbook  # noqa: E402
+from _writer import Workbook, verify, write_workbook
 
 DEFAULT_DIR = Path("/tmp/petro")
 OUT = Path(__file__).resolve().parents[2] / "frontend/pathwise/public/examples/petrochemical.xlsx"
@@ -72,13 +72,25 @@ def build_workbook(d: Path) -> Workbook:
     base_y = years[0]
     intensity_cols = [c for c in FUELS if c in ei.columns]
 
-    # Aggregate the 248 plants into process archetypes (Naphtha Cracker / BTX
-    # Plant / Utility): capacity-weighted mean intensity, summed capacity. Keeps
-    # the MILP small enough for an interactive run while preserving the decarb
-    # structure (the Naphtha-cracker switch to H2 / electric cracking).
-    grp = ei.groupby("process")
-    cap = fac.groupby("process")["capacity_kt"].sum()
+    # Specific products: one facility per (product, process), each producing its
+    # OWN product stream. The cracker olefins feed downstream polymer plants —
+    # the output of one process is the input of another, routed by `edges` (the
+    # multi-commodity flow mechanism that chains processes into a network).
+    grp = ei.groupby(["product", "process"])
+    cap = fac.groupby(["product", "process"])["capacity_kt"].sum()
     mean_int = grp[intensity_cols].mean()
+
+    # Downstream polymer → (olefin feedstock, tonnes per tonne product).
+    chain = {
+        "HDPE": ("Ethylene", 1.0),
+        "LDPE": ("Ethylene", 1.0),
+        "L-LDPE": ("Ethylene", 1.0),
+        "PP": ("Propylene", 1.0),
+    }
+    intermediates = {"Ethylene", "Propylene"}  # consumed downstream, no final demand
+    olefin_facility = {  # olefin → its producing facility label (Naphtha Cracker)
+        prod: f"{prod} [{proc}]" for prod, proc in mean_int.index if prod in intermediates
+    }
 
     used_fuels: set[str] = set()
     commodities: list[dict[str, object]] = []
@@ -87,6 +99,8 @@ def build_workbook(d: Path) -> Workbook:
     processes: list[dict[str, object]] = []
     demand: list[dict[str, object]] = []
     transitions: list[dict[str, object]] = []
+    edges: list[dict[str, object]] = []
+    seen_products: set[str] = set()
 
     nc_alt = {  # Naphtha-cracker abatement technologies (per the dataset)
         "NCC-H2": {"H2": float(tp.loc["NCC-H2", "h2_ton_per_ton_ethylene"])},  # t H2 / t
@@ -95,40 +109,62 @@ def build_workbook(d: Path) -> Workbook:
         },
     }
 
-    # One generic product commodity keeps the commodity dimension small (each
-    # facility meets its own demand; the product identity lives in its label).
-    for process, row in mean_int.iterrows():
-        base_tech = str(process)
-        technologies.append(
-            {"technology_id": base_tech, "lifespan": 25, "actions": "continue,replace"}
-        )
+    def add_tech(
+        tech: str, row: pd.Series, product: str, extra: dict[str, float], is_prod: bool
+    ) -> None:
+        technologies.append({"technology_id": tech, "lifespan": 25, "actions": "continue,replace"})
         for col in intensity_cols:
-            cid, _unit, fct = FUELS[col]
+            cid, _u, fct = FUELS[col]
             coef = float(row[col]) * fct
-            if coef <= 0:
-                continue
-            used_fuels.add(cid)
-            io.append(
-                {"technology_id": base_tech, "target": cid, "role": "input", "coefficient": coef}
-            )
+            if coef > 0:
+                used_fuels.add(cid)
+                io.append(
+                    {"technology_id": tech, "target": cid, "role": "input", "coefficient": coef}
+                )
+        for cid, coef in extra.items():
+            io.append({"technology_id": tech, "target": cid, "role": "input", "coefficient": coef})
         io.append(
             {
-                "technology_id": base_tech,
-                "target": "product",
+                "technology_id": tech,
+                "target": product,
                 "role": "output",
                 "coefficient": 1.0,
-                "is_product": True,
+                "is_product": is_prod,
             }
         )
 
-        c = float(cap.get(process, 0.0)) * 1000.0  # kt → t
+    for (product, process), row in mean_int.iterrows():
+        label = f"{product} [{process}]"
+        intermediate = product in intermediates
+        if product not in seen_products:
+            commodities.append(
+                {
+                    "commodity_id": product,
+                    "kind": "material" if intermediate else "product",
+                    "unit": "t",
+                }
+            )
+            seen_products.add(product)
+
+        # A downstream polymer draws its olefin from the cracker (routing edge).
+        feed: dict[str, float] = {}
+        if product in chain:
+            olefin, coeff = chain[product]
+            feed[olefin] = coeff
+            if olefin in olefin_facility:
+                edges.append(
+                    {
+                        "from_process": olefin_facility[olefin],
+                        "to_process": label,
+                        "commodity_id": olefin,
+                    }
+                )
+
+        add_tech(label, row, product, feed, is_prod=not intermediate)
+
+        c = float(cap.get((product, process), 0.0)) * 1000.0  # kt → t
         processes.append(
-            {
-                "process_id": base_tech,
-                "company": base_tech,
-                "baseline_technology": base_tech,
-                "capacity": c,
-            }
+            {"process_id": label, "company": label, "baseline_technology": label, "capacity": c}
         )
         for y in years:
             mult = (
@@ -137,40 +173,29 @@ def build_workbook(d: Path) -> Workbook:
                 else 1.0
             )
             demand.append(
-                {"company": base_tech, "commodity_id": "product", "year": y, "amount": c * mult}
+                {
+                    "company": label,
+                    "commodity_id": product,
+                    "year": y,
+                    "amount": 0.0 if intermediate else c * mult,
+                }
             )
 
-        # Naphtha crackers may switch to H2 or electric cracking.
+        # Naphtha crackers may switch to H2 / electric cracking (per product).
         if process == "Naphtha Cracker":
             for alt, inputs in nc_alt.items():
-                technologies.append(
-                    {"technology_id": alt, "lifespan": 25, "actions": "continue,replace"}
-                )
-                for cid, coef in inputs.items():
-                    used_fuels.add(cid)
-                    io.append(
-                        {"technology_id": alt, "target": cid, "role": "input", "coefficient": coef}
-                    )
-                io.append(
-                    {
-                        "technology_id": alt,
-                        "target": "product",
-                        "role": "output",
-                        "coefficient": 1.0,
-                        "is_product": True,
-                    }
-                )
+                alt_tech = f"{product} [{alt}]"
+                add_tech(alt_tech, row, product, inputs, is_prod=not intermediate)
                 transitions.append(
                     {
-                        "from_technology": base_tech,
-                        "to_technology": alt,
+                        "from_technology": label,
+                        "to_technology": alt_tech,
                         "action": "replace",
                         "capex_per_capacity": float(tp.loc[alt, "capex_2025_musd_per_mtco2"]),
                     }
                 )
 
     used_fuels.add("H2")
-    commodities.append({"commodity_id": "product", "kind": "product", "unit": "t"})
     for cid in sorted(used_fuels):
         commodities.append({"commodity_id": cid, "kind": "energy", "unit": UNIT.get(cid, "GJ")})
 
@@ -231,6 +256,7 @@ def build_workbook(d: Path) -> Workbook:
         "commodity_impacts": commodity_impacts,
         "technologies": technologies,
         "io": io,
+        "edges": edges,
         "processes": processes,
         "demand": demand,
         "transitions": transitions,

@@ -563,6 +563,12 @@ td input:focus {
   min-width: 96px;
   text-align: center;
 }
+.node .node-main {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--brand);
+  margin-top: 2px;
+}
 .node .node-kind {
   font-family: var(--font-mono);
   font-size: 0.6rem;
