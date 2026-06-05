@@ -371,6 +371,11 @@
 .ts-card table {
   font-size: 0.75rem;
 }
+.ts-del {
+  padding: 0 4px;
+  font-size: 0.6rem;
+  line-height: 1;
+}
 
 /* Rail group head + add button; item rows with include checkbox. */
 .rail-head-row {

@@ -53,6 +53,17 @@ const LABEL: Record<string, string> = {
   impacts: "Impacts",
 };
 
+/** Sheets hidden from the rail — IO lives inside each Technology, not as its own
+ *  group; legacy/internal sheets are not user-facing. */
+const HIDDEN = new Set([
+  "io",
+  "process_inputs",
+  "process_outputs",
+  "tech_impacts",
+  "node_layout",
+  "meta",
+]);
+
 interface Props {
   workbook: Workbook;
   selected: Selection | null;
@@ -60,6 +71,7 @@ interface Props {
   onGroup?: (sheet: string) => void;
   onItem: (s: Selection) => void;
   onToggle?: (sheet: string, idCol: string, id: string, enabled: boolean) => void;
+  onToggleAll?: (sheet: string, idCol: string, enabled: boolean) => void;
   onAdd?: (sheet: string) => void;
   draggable?: boolean;
   width?: number;
@@ -76,6 +88,7 @@ export function LeftRail({
   onGroup,
   onItem,
   onToggle,
+  onToggleAll,
   onAdd,
   draggable,
   width,
@@ -85,9 +98,9 @@ export function LeftRail({
     (workbook.processes ?? []).map((r) => String(r.baseline_technology ?? "")),
   );
   const targetTechs = new Set((workbook.transitions ?? []).map((r) => String(r.to_technology ?? "")));
-  const all = Object.keys(workbook).filter((s) => s !== "node_layout" && s !== "meta");
+  const all = Object.keys(workbook).filter((s) => !HIDDEN.has(s));
   const staticSheets = [
-    ...ORDER.filter((s) => s in workbook),
+    ...ORDER.filter((s) => s in workbook && !HIDDEN.has(s)),
     ...all.filter((s) => !ORDER.includes(s) && !s.includes("_t__")),
   ];
   const temporalSheets = all.filter((s) => s.includes("_t__"));
@@ -150,9 +163,20 @@ export function LeftRail({
     const rows = workbook[sheet] ?? [];
     const ent = ENTITY[sheet];
     const groupActive = activeSheet === sheet && !selected ? " is-active" : "";
+    const toggleable = TOGGLEABLE.has(sheet) && Boolean(onToggleAll) && ent;
+    const allOn = toggleable && rows.length > 0 && rows.every(isEnabled);
     return (
       <div className="rail-group" key={sheet}>
         <div className="rail-head-row">
+          {toggleable && ent && (
+            <input
+              type="checkbox"
+              className="rail-check"
+              checked={allOn}
+              title={allOn ? "deselect all" : "select all"}
+              onChange={(e) => onToggleAll?.(sheet, ent.idCol, e.target.checked)}
+            />
+          )}
           <button className={`rail-head${groupActive}`} onClick={() => onGroup?.(sheet)}>
             {LABEL[sheet] ?? sheet} <span className="rail-count">{rows.length}</span>
           </button>

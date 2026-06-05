@@ -333,7 +333,9 @@ def _flow_balance(ctx: BuildContext) -> None:
     # Demand: cost companies must meet it (slack-softened); profit companies may
     # sell UP TO it (producing less is allowed — revenue handled in the objective).
     for c, q, y in ctx.demand_keys:
-        procs = [p.process_id for p in prob.processes if c == "all" or p.company == c]
+        # Demand scope (``c``) may target a facility, a company, a group, or
+        # "all" — so demand can be set at any level (facility- vs company-level).
+        procs = [p.process_id for p in prob.processes if p.in_scope(c)]
         delivered = _lin_sum([ctx.deliver.sel(process=p, commodity=q, period=y) for p in procs])
         key = f"{c}|{q}|{y}"
         rhs = prob.demand[(c, q, y)]
@@ -435,9 +437,9 @@ def _macc(ctx: BuildContext) -> None:
     _ = prob  # referenced for symmetry; measures already flattened into slots
 
 
-def _scope_processes(ctx: BuildContext, company: str) -> list[str]:
-    """Process ids in ``company`` (``"all"`` ⇒ every process)."""
-    return [p.process_id for p in ctx.problem.processes if company == "all" or p.company == company]
+def _scope_processes(ctx: BuildContext, scope: str) -> list[str]:
+    """Process ids matched by ``scope`` (facility / company / group / ``"all"``)."""
+    return [p.process_id for p in ctx.problem.processes if p.in_scope(scope)]
 
 
 def _transition_costs(ctx: BuildContext) -> dict[tuple[str, str], float]:

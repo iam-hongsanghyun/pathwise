@@ -65,6 +65,19 @@ function ItemTimeSeries({
         Number(r.year) === year ? { ...r, [selected.id]: coerce(value) } : r,
       ),
     });
+  // Remove this item's temporal series: drop its column from the sheet; if no
+  // other item uses the sheet, drop the sheet. The static value (right) remains.
+  const removeSeries = (ts: string) => {
+    const stripped = (workbook[ts] ?? []).map((r) => {
+      const { [selected.id]: _drop, ...rest } = r;
+      return rest;
+    });
+    const stillUsed = stripped.some((r) => Object.keys(r).some((k) => k !== "year"));
+    const next = { ...workbook };
+    if (stillUsed) next[ts] = stripped;
+    else delete next[ts];
+    onChange(next);
+  };
   return (
     <div className="table-wrap" style={{ maxWidth: 640 }}>
       <table>
@@ -72,7 +85,16 @@ function ItemTimeSeries({
           <tr>
             <th>year</th>
             {sheets.map((ts) => (
-              <th key={ts}>{attrOf(ts)}</th>
+              <th key={ts}>
+                {attrOf(ts)}{" "}
+                <button
+                  className="ghost ts-del"
+                  title={`remove the ${attrOf(ts)} time series (revert to static)`}
+                  onClick={() => removeSeries(ts)}
+                >
+                  ✕
+                </button>
+              </th>
             ))}
           </tr>
         </thead>
@@ -122,6 +144,12 @@ export function ModelView({ workbook, setWorkbook, config, leftW, setLeftW }: Pr
       ),
     });
 
+  const toggleAll = (sheet: string, _idCol: string, enabled: boolean) =>
+    setWorkbook({
+      ...workbook,
+      [sheet]: (workbook[sheet] ?? []).map((r) => ({ ...r, enabled })),
+    });
+
   const addRow = (sheet: string) => {
     const idCol = ID_COL[sheet] ?? "id";
     const rows = workbook[sheet] ?? [];
@@ -146,6 +174,7 @@ export function ModelView({ workbook, setWorkbook, config, leftW, setLeftW }: Pr
         onItem={openItem}
         onGroup={openGroup}
         onToggle={toggle}
+        onToggleAll={toggleAll}
         onAdd={addRow}
         draggable
         width={leftW}
