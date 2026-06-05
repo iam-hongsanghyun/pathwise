@@ -63,11 +63,13 @@ class BuildContext:
     slots: list[MeasureSlot]
     ref_consumption: dict[tuple[str, str], float]  # (process, commodity) -> baseline use
     ref_impact: dict[tuple[str, str], float]  # (process, impact) -> baseline emission
+    grouped_comms: list[str] = field(default_factory=list)  # commodities in any blend group
 
     # Decision variables (set in build_context).
     on: Any = None  # binary: facility operates [process, period]
     u: Any = None  # binary: tech active [process, tech, period]
     x: Any = None  # throughput on tech [process, tech, period]
+    fin: Any = None  # blend-group input flow [process, tech, commodity, period]
     buy: Any = None  # external purchase [process, commodity, period]
     sell: Any = None  # external sale/disposal [process, commodity, period]
     deliver: Any = None  # product delivered to demand [process, commodity, period]
@@ -174,6 +176,7 @@ def build_context(model: Model, problem: Problem) -> BuildContext:
     feasible = _feasible_techs(problem)
     slots = _measure_slots(problem)
     ref_cons, ref_imp = _references(problem)
+    grouped_comms = sorted({c for k in problem.technologies.values() for c in k.grouped_inputs()})
 
     p_idx = pd.Index(procs, name="process")
     k_idx = pd.Index(techs, name="tech")
@@ -193,11 +196,15 @@ def build_context(model: Model, problem: Problem) -> BuildContext:
         slots=slots,
         ref_consumption=ref_cons,
         ref_impact=ref_imp,
+        grouped_comms=grouped_comms,
     )
 
     ctx.on = model.add_variables(binary=True, coords=[p_idx, t_idx], name="on")
     ctx.u = model.add_variables(binary=True, coords=[p_idx, k_idx, t_idx], name="u")
     ctx.x = model.add_variables(lower=0.0, coords=[p_idx, k_idx, t_idx], name="x")
+    if grouped_comms:
+        gc_idx = pd.Index(grouped_comms, name="commodity")
+        ctx.fin = model.add_variables(lower=0.0, coords=[p_idx, k_idx, gc_idx, t_idx], name="fin")
     # Transition (replace) event: continuous in [0, 1] — w >= u_t - u_prev pins it
     # to the switch-in, and cost minimisation keeps it at the lower bound.
     ctx.w = model.add_variables(lower=0.0, upper=1.0, coords=[p_idx, k_idx, t_idx], name="w")

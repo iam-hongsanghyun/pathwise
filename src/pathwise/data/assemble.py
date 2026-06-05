@@ -265,6 +265,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
 
     # Unified I/O table (preferred): one row per (technology, target, role).
     # role ∈ {input, output, impact}; augments/overrides the legacy sheets.
+    # Input rows may carry a blend `group` + `share_min`/`share_max` (the mix the
+    # optimiser may pick within); `coefficient` is then the member's baseline use.
+    share_groups: dict[str, dict[str, dict[str, tuple[float, float]]]] = {}
     for r in _rows(workbook, "io"):
         k, target = _str(r.get("technology_id")), _str(r.get("target"))
         role = (_str(r.get("role")) or "input").lower()
@@ -277,6 +280,12 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             direct.setdefault(k, {})[target] = coef
         else:
             inputs.setdefault(k, {})[target] = coef
+            if (g := _str(r.get("group"))) is not None:
+                lo_raw = _num(r.get("share_min"), 0.0)
+                hi_raw = _num(r.get("share_max"), 1.0)
+                lo = min(max(float(lo_raw if lo_raw is not None else 0.0), 0.0), 1.0)
+                hi = min(max(float(hi_raw if hi_raw is not None else 1.0), 0.0), 1.0)
+                share_groups.setdefault(k, {}).setdefault(g, {})[target] = (lo, max(lo, hi))
 
     commodity_impacts: dict[tuple[str, str], float] = {}
     for r in _rows(workbook, "commodity_impacts"):
@@ -311,6 +320,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             output_yield=outputs.get(k, {}),
             direct_impact=direct.get(k, {}),
             min_capacity_factor=min(max(_num(r.get("min_capacity_factor"), 0.0) or 0.0, 0.0), 1.0),
+            share_groups=share_groups.get(k, {}),
         )
 
     # ── Processes (capacity may be temporal via processes_t__capacity) ───────

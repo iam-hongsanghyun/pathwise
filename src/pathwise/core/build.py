@@ -48,6 +48,7 @@ def build(problem: Problem) -> BuildContext:
         len(ctx.slots),
     )
     _technology(ctx)
+    _blend(ctx)
     _flow_balance(ctx)
     _storage(ctx)
     _markets(ctx)
@@ -142,14 +143,64 @@ def _produced(ctx: BuildContext, p: str, r: str, t: int) -> Any:
 
 
 def _gross_consumed(ctx: BuildContext, p: str, r: str, t: int) -> Any:
-    """Gross input of commodity ``r`` at ``p`` (before efficiency savings)."""
-    terms = [
-        ctx.problem.technologies[k].input_intensity.get(r, 0.0)
-        * ctx.x.sel(process=p, tech=k, period=t)
-        for k in ctx.feasible[p]
-        if ctx.problem.technologies[k].input_intensity.get(r, 0.0) != 0.0
-    ]
+    """Gross input of commodity ``r`` at ``p`` (before efficiency savings).
+
+    A commodity that is part of a technology's blend group is consumed via the
+    mix flow variable ``fin`` (so the optimiser picks the share); other inputs
+    keep the fixed form ``intensity · throughput``.
+    """
+    terms = []
+    for k in ctx.feasible[p]:
+        tech = ctx.problem.technologies[k]
+        if r in tech.grouped_inputs():
+            terms.append(ctx.fin.sel(process=p, tech=k, commodity=r, period=t))
+        else:
+            coef = tech.input_intensity.get(r, 0.0)
+            if coef != 0.0:
+                terms.append(coef * ctx.x.sel(process=p, tech=k, period=t))
     return _lin_sum(terms)
+
+
+def _blend(ctx: BuildContext) -> None:
+    """Blend-group mix: members sum to the group requirement; shares bounded.
+
+    For each technology blend group ``g`` (members ``C_g``, requirement
+    ``R_g = Σ intensity_c``) and throughput ``x``::
+
+        Σ_{c∈C_g} fin_c = R_g · x ;   s_min_c·R_g·x ≤ fin_c ≤ s_max_c·R_g·x
+
+    Grouped commodities not used by a technology are pinned to zero.
+    """
+    if not ctx.grouped_comms:
+        return
+    m, prob = ctx.model, ctx.problem
+    for p in ctx.procs:
+        for k in ctx.techs:
+            tech = prob.technologies[k]
+            members_all = tech.grouped_inputs()
+            for t in ctx.years:
+                xpkt = ctx.x.sel(process=p, tech=k, period=t)
+                for g, members in tech.share_groups.items():
+                    req = tech.group_requirement(g)
+                    m.add_constraints(
+                        _lin_sum(
+                            [ctx.fin.sel(process=p, tech=k, commodity=c, period=t) for c in members]
+                        )
+                        == req * xpkt,
+                        name=f"mix[{p},{k},{g},{t}]",
+                    )
+                    for c, (lo, hi) in members.items():
+                        f = ctx.fin.sel(process=p, tech=k, commodity=c, period=t)
+                        if lo > 0.0:
+                            m.add_constraints(f >= lo * req * xpkt, name=f"mixlo[{p},{k},{c},{t}]")
+                        if hi < 1.0:
+                            m.add_constraints(f <= hi * req * xpkt, name=f"mixhi[{p},{k},{c},{t}]")
+                for c in ctx.grouped_comms:
+                    if c not in members_all:
+                        m.add_constraints(
+                            ctx.fin.sel(process=p, tech=k, commodity=c, period=t) == 0,
+                            name=f"mix0[{p},{k},{c},{t}]",
+                        )
 
 
 def _efficiency_savings(ctx: BuildContext, p: str, r: str, t: int) -> Any:

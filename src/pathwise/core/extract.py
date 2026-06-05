@@ -287,10 +287,16 @@ def _commodity_summary(ctx: Any) -> list[dict[str, Any]]:
     prod: dict[tuple[str, int], float] = {}
     for (_p, k, t), v in x.items():
         tech = prob.technologies[k]
+        grouped = tech.grouped_inputs()
         for r, intensity in tech.input_intensity.items():
+            if r in grouped:
+                continue  # blend members counted from the mix flow `fin` below
             cons[(r, int(t))] = cons.get((r, int(t)), 0.0) + intensity * v
         for r, yld in tech.output_yield.items():
             prod[(r, int(t))] = prod.get((r, int(t)), 0.0) + yld * v
+    if ctx.fin is not None:
+        for (_p, _k, r, t), v in _series(ctx.fin).items():
+            cons[(r, int(t))] = cons.get((r, int(t)), 0.0) + v
     keys = sorted(set(cons) | set(prod))
     return [
         {

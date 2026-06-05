@@ -133,6 +133,9 @@ SCHEMA: dict[str, Any] = {
             "role": {"label": "Role (input|output|impact)", "type": "string", "required": True},
             "coefficient": {"label": "Per throughput", "type": "number", "required": True},
             "is_product": {"label": "Is product", "type": "boolean"},
+            "group": {"label": "Blend group (inputs)", "type": "string"},
+            "share_min": {"label": "Min share (0-1)", "type": "number"},
+            "share_max": {"label": "Max share (0-1)", "type": "number"},
         },
     },
     "commodities_t__price": {

@@ -148,6 +148,23 @@ class Technology:
             throughput must be at least ``min_capacity_factor × available
             capacity`` [dimensionless, 0–1]. Captures a minimum business level
             (e.g. a blast furnace that cannot idle below a threshold).
+        share_groups: Blend (mix) groups ``{group: {commodity: (min, max)}}``.
+            Members of a group are substitutable inputs (e.g. a fuel mix) whose
+            consumption sums to the group requirement; each member's share of
+            that sum is bounded ``[min, max]`` [dimensionless, 0–1]. The optimiser
+            picks the mix per period (so a fuel blend can shift coal→H2 over time).
+
+    Algorithm:
+        For each blend group ``g`` of members ``C_g`` with requirement
+        ``R_g = Σ_{c∈C_g} intensity_c`` and throughput ``x``::
+
+            $$\\sum_{c\\in C_g} f_c = R_g\\,x,\\qquad
+              \\underline{s}_c R_g\\,x \\le f_c \\le \\overline{s}_c R_g\\,x$$
+
+            sum_c f_c = R_g * x ;  s_min_c * R_g * x <= f_c <= s_max_c * R_g * x
+
+        where ``f_c`` [input unit] is member ``c``'s consumption. Non-grouped
+        inputs keep the fixed form ``f_c = intensity_c · x``.
     """
 
     technology_id: str
@@ -163,6 +180,19 @@ class Technology:
     output_yield: dict[str, float] = field(default_factory=dict)
     direct_impact: dict[str, float] = field(default_factory=dict)
     min_capacity_factor: float = 0.0
+    share_groups: dict[str, dict[str, tuple[float, float]]] = field(default_factory=dict)
+
+    def grouped_inputs(self) -> set[str]:
+        """Input commodities that belong to a blend (share) group."""
+        return {c for members in self.share_groups.values() for c in members}
+
+    def group_requirement(self, group: str) -> float:
+        """Total input requirement of a blend group [input unit / throughput].
+
+        The group's members reallocate within their share bounds while the sum
+        stays equal to this requirement — i.e. the baseline total intensity.
+        """
+        return sum(self.input_intensity.get(c, 0.0) for c in self.share_groups.get(group, {}))
 
     def capex(self, year: int) -> float:
         """Replacement capex [currency/unit capacity] in ``year``."""
