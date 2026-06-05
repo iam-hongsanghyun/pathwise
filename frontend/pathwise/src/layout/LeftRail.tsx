@@ -73,6 +73,7 @@ interface Props {
   onItem: (s: Selection) => void;
   onToggle?: (sheet: string, idCol: string, id: string, enabled: boolean) => void;
   onToggleAll?: (sheet: string, idCol: string, enabled: boolean) => void;
+  onToggleIds?: (sheet: string, idCol: string, ids: string[], enabled: boolean) => void;
   onAdd?: (sheet: string) => void;
   draggable?: boolean;
   width?: number;
@@ -90,6 +91,7 @@ export function LeftRail({
   onItem,
   onToggle,
   onToggleAll,
+  onToggleIds,
   onAdd,
   draggable,
   width,
@@ -184,19 +186,34 @@ export function LeftRail({
     const showGroup = [...tree.entries()].some(
       ([g, byC]) => !(byC.size === 1 && byC.has(g)),
     );
+    const idsOf = (items: { r: Record<string, unknown> }[]) =>
+      items.map(({ r }) => String(r[ent.idCol] ?? "")).filter(Boolean);
+    const allEnabled = (items: { r: Record<string, unknown> }[]) => items.every(({ r }) => isEnabled(r));
     return [...tree.entries()].map(([group, byCompany]) => {
       const gKey = `group:${group}`;
       const gOpen = !collapsed.has(gKey);
+      const gItems = [...byCompany.values()].flat();
       return (
         <div key={group}>
           {showGroup && (
-            <button
-              className="rail-grouphead"
-              onClick={() => toggleCollapse(gKey)}
-              title={gOpen ? "collapse" : "expand"}
-            >
-              {gOpen ? "▾" : "▸"} {group}
-            </button>
+            <div className="rail-head-row">
+              {onToggleIds && (
+                <input
+                  type="checkbox"
+                  className="rail-check"
+                  checked={allEnabled(gItems)}
+                  title="include / exclude this group in the model"
+                  onChange={(e) => onToggleIds("processes", ent.idCol, idsOf(gItems), e.target.checked)}
+                />
+              )}
+              <button
+                className="rail-grouphead"
+                onClick={() => toggleCollapse(gKey)}
+                title={gOpen ? "collapse" : "expand"}
+              >
+                {gOpen ? "▾" : "▸"} {group}
+              </button>
+            </div>
           )}
           {(!showGroup || gOpen) &&
             [...byCompany.entries()].map(([company, items]) => {
@@ -208,13 +225,26 @@ export function LeftRail({
               return (
                 <div key={company} className={showGroup ? "rail-indent" : ""}>
                   {showCompany && (
-                    <button
-                      className="rail-subhead"
-                      onClick={() => toggleCollapse(cKey)}
-                      title={cOpen ? "collapse" : "expand"}
-                    >
-                      {cOpen ? "▾" : "▸"} {company}
-                    </button>
+                    <div className="rail-head-row">
+                      {onToggleIds && (
+                        <input
+                          type="checkbox"
+                          className="rail-check"
+                          checked={allEnabled(items)}
+                          title="include / exclude this company in the model"
+                          onChange={(e) =>
+                            onToggleIds("processes", ent.idCol, idsOf(items), e.target.checked)
+                          }
+                        />
+                      )}
+                      <button
+                        className="rail-subhead"
+                        onClick={() => toggleCollapse(cKey)}
+                        title={cOpen ? "collapse" : "expand"}
+                      >
+                        {cOpen ? "▾" : "▸"} {company}
+                      </button>
+                    </div>
                   )}
                   {(!showCompany || cOpen) &&
                     items.map(({ r, i }) => renderItem("processes", ent, r, i))}

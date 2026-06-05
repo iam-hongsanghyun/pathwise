@@ -150,6 +150,16 @@ export function ModelView({ workbook, setWorkbook, config, leftW, setLeftW }: Pr
       [sheet]: (workbook[sheet] ?? []).map((r) => ({ ...r, enabled })),
     });
 
+  const toggleIds = (sheet: string, idCol: string, ids: string[], enabled: boolean) => {
+    const set = new Set(ids);
+    setWorkbook({
+      ...workbook,
+      [sheet]: (workbook[sheet] ?? []).map((r) =>
+        set.has(String(r[idCol] ?? "")) ? { ...r, enabled } : r,
+      ),
+    });
+  };
+
   const addRow = (sheet: string) => {
     const idCol = ID_COL[sheet] ?? "id";
     const rows = workbook[sheet] ?? [];
@@ -175,6 +185,7 @@ export function ModelView({ workbook, setWorkbook, config, leftW, setLeftW }: Pr
         onGroup={openGroup}
         onToggle={toggle}
         onToggleAll={toggleAll}
+        onToggleIds={toggleIds}
         onAdd={addRow}
         draggable
         width={leftW}

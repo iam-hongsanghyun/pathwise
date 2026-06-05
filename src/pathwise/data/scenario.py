@@ -72,6 +72,10 @@ class ScenarioConfig(BaseModel):
     solver: SolverConfig = Field(default_factory=SolverConfig)
     horizon: Horizon = Field(default_factory=Horizon)
     slack_penalty: float = Field(default=1.0e9, ge=0.0)
+    # Level the emission targets bind at — sets whether the optimisation minimises
+    # cost for the whole economy (one shared cap; companies trade off) or per
+    # company / facility (each independent). ``company`` keeps caps as authored.
+    optimisation_scope: str = Field(default="company", pattern="^(system|company|facility)$")
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ScenarioConfig:

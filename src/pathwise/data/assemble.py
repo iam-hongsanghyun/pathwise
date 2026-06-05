@@ -544,6 +544,20 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         if (pen := _num(r.get("penalty"))) is not None:
             impact_cap_penalty[ckey] = pen
 
+    # Optimisation scope: "system" pools every emission target for an (impact,
+    # year) into a single economy-wide cap (companies trade off → minimise the
+    # whole economy's cost); "company"/"facility" keep targets as authored (each
+    # entity independent → minimise its own cost).
+    if scenario.optimisation_scope == "system":
+        pooled: dict[tuple[str, str, int], float] = {}
+        for (_scope, imp, yr), limit in impact_caps.items():
+            pooled[("all", imp, yr)] = pooled.get(("all", imp, yr), 0.0) + limit
+        impact_caps = pooled
+        any_soft = (not impact_cap_soft) or any(impact_cap_soft.values())
+        pen_max = max(impact_cap_penalty.values(), default=scenario.slack_penalty)
+        impact_cap_soft = {("all", imp): bool(any_soft) for (_s, imp, _y) in pooled}
+        impact_cap_penalty = {("all", imp): pen_max for (_s, imp, _y) in pooled}
+
     toggles = CostToggles(**scenario.cost_components.model_dump())
 
     return Problem(

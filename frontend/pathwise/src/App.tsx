@@ -20,6 +20,7 @@ export function App() {
   const [workbook, setWorkbook] = useState<Workbook>(emptyWorkbook());
   const [view, setView] = useState<View>("model");
   const [discount, setDiscount] = useState(0.08);
+  const [objScope, setObjScope] = useState<"system" | "company" | "facility">("company");
   const [result, setResult] = useState<RunResult | null>(null);
   const [running, setRunning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +65,7 @@ export function App() {
     try {
       const res = await runToCompletion(
         workbook,
-        { domain: "process", economics: { discount_rate: discount } },
+        { domain: "process", economics: { discount_rate: discount }, optimisation_scope: objScope },
         { domain: "process" },
         setRunning,
       );
@@ -130,7 +131,14 @@ export function App() {
           <AnalyticsView workbook={workbook} result={result} leftW={leftW} setLeftW={setLeftW} />
         )}
         {view === "settings" && (
-          <SettingsView discount={discount} onDiscount={setDiscount} leftW={leftW} setLeftW={setLeftW} />
+          <SettingsView
+            discount={discount}
+            onDiscount={setDiscount}
+            objScope={objScope}
+            onObjScope={setObjScope}
+            leftW={leftW}
+            setLeftW={setLeftW}
+          />
         )}
       </div>
     </div>

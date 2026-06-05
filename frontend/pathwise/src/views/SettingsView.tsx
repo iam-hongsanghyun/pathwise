@@ -3,17 +3,20 @@ import { RailList, type RailItem } from "../layout/RailList";
 import { Resizer } from "../layout/Resizer";
 
 type Section = "economics" | "snapshots" | "solver" | "policy";
+type Scope = "system" | "company" | "facility";
 
 interface Props {
   discount: number;
   onDiscount: (v: number) => void;
+  objScope: Scope;
+  onObjScope: (s: Scope) => void;
   leftW: number;
   setLeftW: (w: number) => void;
 }
 
 /** Settings — its own section rail; scenario/run parameters only (model data is
  *  edited in Data). */
-export function SettingsView({ discount, onDiscount, leftW, setLeftW }: Props) {
+export function SettingsView({ discount, onDiscount, objScope, onObjScope, leftW, setLeftW }: Props) {
   const [section, setSection] = useState<Section>("economics");
   const items: RailItem[] = [
     { id: "economics", label: "Economics" },
@@ -46,8 +49,23 @@ export function SettingsView({ discount, onDiscount, leftW, setLeftW }: Props) {
                   onChange={(e) => onDiscount(Number(e.target.value))}
                 />
               </label>
-              <p className="muted">Per-company objective (cost / profit), budgets, and minimum
-                production are edited in Data.</p>
+              <label className="inspector-field">
+                <span>Optimise cost for</span>
+                <select value={objScope} onChange={(e) => onObjScope(e.target.value as Scope)}>
+                  <option value="company">Each company (independent targets)</option>
+                  <option value="system">The whole economy (one shared target)</option>
+                  <option value="facility">Each facility (independent targets)</option>
+                </select>
+              </label>
+              <p className="muted">
+                The objective is always to minimise total discounted cost. This sets the level the
+                emission targets bind at: <strong>whole economy</strong> pools every target into one
+                shared cap (companies trade off to the cheapest system-wide outcome);{" "}
+                <strong>each company / facility</strong> keeps targets separate, so the solve
+                decomposes into independent per-company (or per-facility) cost minimisations.
+                Per-company objective (cost / profit), budgets and minimum production are edited per
+                company in the model.
+              </p>
             </section>
           )}
           {section === "snapshots" && (
