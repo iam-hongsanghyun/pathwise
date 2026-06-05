@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { LineChart } from "../components/LineChart";
 import { MaccDesigner } from "../components/MaccDesigner";
+import { TopologyChart } from "../components/TopologyChart";
 import { RailList, type RailItem } from "../layout/RailList";
 import { Resizer } from "../layout/Resizer";
 import type { RunResult, Workbook } from "../types";
 
-type Cat = "overview" | "impacts" | "energy" | "transitions" | "measures" | "macc";
+type Cat = "overview" | "map" | "consumption" | "cost" | "impacts" | "transitions" | "measures" | "macc";
 
 interface Props {
   workbook: Workbook;
@@ -13,14 +15,20 @@ interface Props {
   setLeftW: (w: number) => void;
 }
 
-/** Analytics — its own category rail; the main shows the chart/table for the
- *  chosen category. (Design-time MACC works without a run.) */
+/** Analytics — category rail + tailored main; the process map animates over
+ *  years via the bottom slider, with consumption and cost as time series. */
 export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
   const [cat, setCat] = useState<Cat>("overview");
+  const years = [...new Set((result?.summary.periods ?? []).map((p) => p.period))].sort((a, b) => a - b);
+  const [year, setYear] = useState<number | null>(null);
+  const activeYear = year ?? years[years.length - 1] ?? 0;
+
   const items: RailItem[] = [
     { id: "overview", label: "Overview" },
+    { id: "map", label: "Process map (by year)" },
+    { id: "consumption", label: "Commodity consumption" },
+    { id: "cost", label: "Cost over time" },
     { id: "impacts", label: "Impacts" },
-    { id: "energy", label: "Energy & flows" },
     { id: "transitions", label: "Transitions" },
     { id: "measures", label: "Measures" },
     { id: "macc", label: "MACC" },
@@ -28,114 +36,93 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
 
   return (
     <div className="body-row">
-      <RailList
-        title="Analytics"
-        items={items}
-        activeId={cat}
-        onSelect={(id) => setCat(id as Cat)}
-        width={leftW}
-      />
+      <RailList title="Analytics" items={items} activeId={cat} onSelect={(id) => setCat(id as Cat)} width={leftW} />
       <Resizer width={leftW} setWidth={setLeftW} side="left" />
       <main className="main-area">
-        <div className="view">
-          {cat === "macc" ? (
+        {cat === "macc" ? (
+          <div className="view">
             <MaccDesigner workbook={workbook} />
-          ) : !result ? (
+          </div>
+        ) : !result ? (
+          <div className="view">
             <p className="muted">Run the model (▶ top-left) to populate analytics.</p>
-          ) : (
-            <Category cat={cat} result={result} />
-          )}
-        </div>
+          </div>
+        ) : cat === "map" ? (
+          <>
+            <div className="topology-wrap">
+              <TopologyChart workbook={workbook} result={result} year={activeYear} />
+            </div>
+            <div className="year-slider">
+              <span className="muted">Year</span>
+              <input
+                type="range"
+                min={0}
+                max={Math.max(years.length - 1, 0)}
+                value={years.indexOf(activeYear)}
+                onChange={(e) => setYear(years[Number(e.target.value)])}
+              />
+              <strong>{activeYear}</strong>
+            </div>
+          </>
+        ) : (
+          <div className="view">
+            <Body cat={cat} result={result} years={years} />
+          </div>
+        )}
       </main>
     </div>
   );
 }
 
-function Bars({ rows }: { rows: { label: string; value: number }[] }) {
-  const max = Math.max(...rows.map((r) => Math.abs(r.value)), 1);
-  return (
-    <div className="bars">
-      {rows.map((r, i) => (
-        <div key={i} className="bar-row">
-          <span className="bar-label">{r.label}</span>
-          <span className="bar-track">
-            <span className="bar-fill" style={{ width: `${(Math.abs(r.value) / max) * 100}%` }} />
-          </span>
-          <span className="bar-val">{r.value.toLocaleString()}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function Category({ cat, result }: { cat: Cat; result: RunResult }) {
+function Body({ cat, result, years }: { cat: Cat; result: RunResult; years: number[] }) {
   if (cat === "overview") {
     return (
       <div className="card">
-        <h3>Result</h3>
-        <p>
-          Status <strong>{result.status}</strong>
-          {result.objective != null && (
-            <>
-              {" "}
-              · net cost <strong>{result.objective.toLocaleString()}</strong>
-            </>
-          )}
+        <h3>Result · {result.status}</h3>
+        {result.objective != null && <p>Net cost (NPV): <strong>{result.objective.toLocaleString()}</strong></p>}
+        <p className="muted">
+          {result.outputs.transitions.length} transition(s), {result.outputs.measures.length} measure
+          adoption(s){result.outputs.demand_slack.length ? `, ${result.outputs.demand_slack.length} unmet demand` : ""}.
         </p>
-        {result.outputs.demand_slack.length > 0 && (
-          <p className="error">⚠ demand not fully met: {result.outputs.demand_slack.length} item(s)</p>
-        )}
+      </div>
+    );
+  }
+  if (cat === "cost") {
+    const values = years.map((y) => result.summary.periods.find((p) => p.period === y)?.cost ?? 0);
+    return (
+      <div className="card">
+        <h3>Cost over time (per year)</h3>
+        <LineChart years={years} series={[{ label: "annual cost", values }]} />
+      </div>
+    );
+  }
+  if (cat === "consumption") {
+    const names = [...new Set(result.summary.commodity.map((s) => s.commodity))]
+      .filter((c) => result.summary.commodity.some((s) => s.commodity === c && s.consumed > 1e-6))
+      .sort();
+    const series = names.map((c) => ({
+      label: c,
+      values: years.map(
+        (y) => result.summary.commodity.find((s) => s.commodity === c && s.period === y)?.consumed ?? 0,
+      ),
+    }));
+    return (
+      <div className="card">
+        <h3>Commodity consumption over time</h3>
+        {series.length ? <LineChart years={years} series={series} /> : <p className="muted">No consumption.</p>}
       </div>
     );
   }
   if (cat === "impacts") {
-    const periods = [...new Set(result.summary.impacts.map((s) => s.period))].sort();
     const names = [...new Set(result.summary.impacts.map((s) => s.impact))].sort();
-    const at = (p: number, i: string) =>
-      result.summary.impacts.find((s) => s.period === p && s.impact === i)?.total ?? 0;
-    return (
-      <div className="card">
-        <h3>Environmental impacts by year</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>impact</th>
-              {periods.map((p) => (
-                <th key={p}>{p}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {names.map((i) => (
-              <tr key={i}>
-                <td>{i}</td>
-                {periods.map((p) => (
-                  <td key={p}>{at(p, i).toFixed(1)}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  }
-  if (cat === "energy") {
-    const mk = result.outputs.markets.map((m) => ({
-      label: `${m.market} (${m.commodity})`,
-      value: m.by_period.reduce((s, b) => s + b.buy, 0),
+    const series = names.map((i) => ({
+      label: i,
+      values: years.map((y) => result.summary.impacts.find((s) => s.impact === i && s.period === y)?.total ?? 0),
     }));
     return (
       <div className="card">
-        <h3>Market purchases (total)</h3>
-        {mk.length ? <Bars rows={mk} /> : <p className="muted">No market purchases.</p>}
-        <h3>Flows</h3>
-        <ul>
-          {result.outputs.flows.map((f, i) => (
-            <li key={i}>
-              {f.from} → {f.to} · {f.commodity} · {f.value.toFixed(0)} ({f.period})
-            </li>
-          ))}
-        </ul>
+        <h3>Environmental impacts over time</h3>
+        {series.length ? <LineChart years={years} series={series} unit="" /> : <p className="muted">No impacts.</p>}
       </div>
     );
   }
@@ -146,9 +133,7 @@ function Category({ cat, result }: { cat: Cat; result: RunResult }) {
         {result.outputs.transitions.length ? (
           <ul>
             {result.outputs.transitions.map((t, i) => (
-              <li key={i}>
-                {t.process} → {t.to_technology} in {t.period}
-              </li>
+              <li key={i}>{t.process} → {t.to_technology} in {t.period}</li>
             ))}
           </ul>
         ) : (
@@ -157,7 +142,6 @@ function Category({ cat, result }: { cat: Cat; result: RunResult }) {
       </div>
     );
   }
-  // measures
   return (
     <div className="card">
       <h3>Measures adopted (MACC upgrades)</h3>

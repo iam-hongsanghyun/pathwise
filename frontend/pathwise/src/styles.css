@@ -139,6 +139,25 @@
   text-align: right;
   font-family: var(--font-mono);
 }
+.topology-wrap {
+  flex: 1;
+  min-height: 0;
+}
+.topology {
+  height: 100%;
+  border-bottom: 1px solid var(--border);
+}
+.year-slider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+.year-slider input[type="range"] {
+  flex: 1;
+}
 .emission-factors {
   border-top: 1px solid var(--border);
   padding-top: 6px;

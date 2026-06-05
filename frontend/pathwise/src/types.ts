@@ -67,8 +67,9 @@ export interface RunResult {
     demand_slack: { key: string; value: number }[];
   };
   summary: {
-    periods: { period: number }[];
+    periods: { period: number; cost?: number }[];
     impacts: { period: number; impact: string; total: number }[];
+    commodity: { commodity: string; period: number; consumed: number; produced: number }[];
   };
 }
 
