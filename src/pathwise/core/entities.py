@@ -213,7 +213,11 @@ class Process:
 
     Attributes:
         process_id: Unique id.
-        company: Owner/site group (for demand, caps, budgets).
+        company: Demand/economic scope (the entity that must meet its demand).
+        group: Higher-level grouping for constraint scoping (e.g. the owning
+            company when ``company`` is used per ship-type). Defaults to
+            ``company``. Constraints (caps) may be scoped to a facility id, a
+            company, a group, or ``"all"`` — see :meth:`in_scope`.
         baseline_technology: Technology active at the horizon start.
         capacity: Nameplate throughput per year [throughput / yr].
         introduced_year: Year the baseline was installed [yr].
@@ -235,6 +239,19 @@ class Process:
     failure_rate: float = 0.0
     replaceable: bool = True
     capacity_by_year: dict[int, float] = field(default_factory=dict)
+    group: str = ""
+
+    def in_scope(self, scope: str) -> bool:
+        """Whether this facility is covered by a constraint ``scope``.
+
+        A scope matches ``"all"``, the facility id, its company, or its group —
+        so a cap can be applied at any level (facility / company / group / all).
+        """
+        return scope == "all" or scope in {
+            self.process_id,
+            self.company,
+            self.group or self.company,
+        }
 
     @property
     def available_capacity(self) -> float:

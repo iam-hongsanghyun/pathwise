@@ -195,10 +195,14 @@ def build_workbook(src: Path) -> Workbook:
     for _, r in baseline.iterrows():
         system = str(r["system"])
         cap = max(prod_by.get(system, {0: 0.0}).values()) if prod_by.get(system) else 0.0
+        # Owner group (for per-company emission caps): Pohang/Gwangyang → POSCO,
+        # Hyundai plants → Hyundai Steel; each plant is still its own demand scope.
+        owner = "Hyundai Steel" if system.lower().startswith("hyundai") else "POSCO"
         processes.append(
             {
                 "process_id": system,
                 "company": system,
+                "group": owner,
                 "baseline_technology": str(r["technology"]),
                 "capacity": cap,
                 "introduced_year": int(r["introduced_year"]),

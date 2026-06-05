@@ -91,3 +91,39 @@ def test_disabled_technology_is_excluded_with_its_transitions() -> None:
     prob = assemble_problem(wb, _sc())
     assert "H2DRI" not in prob.technologies
     assert prob.transitions == []
+
+
+def _stage_wb(enabled: bool, placed: bool) -> dict:
+    wb = {
+        "periods": [{"year": 2025}],
+        "commodities": [{"commodity_id": "gas", "kind": "energy"}],
+        "technologies": [{"technology_id": "T"}, {"technology_id": "T2"}],
+        "processes": [
+            {
+                "process_id": "P",
+                "company": "C",
+                "baseline_technology": "T",
+                "capacity": 1,
+                "enabled": enabled,
+            }
+        ],
+        "io": [{"technology_id": "T", "target": "gas", "role": "input", "coefficient": 1}],
+        "transitions": [{"from_technology": "T", "to_technology": "T2"}],
+        "demand": [{"company": "C", "commodity_id": "gas", "year": 2025, "amount": 0}],
+    }
+    if placed:
+        wb["node_layout"] = [{"id": "process:P", "x": 0, "y": 0}]
+    return wb
+
+
+def test_four_stage_inclusion() -> None:
+    # stage 3: unchecked + unplaced → excluded
+    assert assemble_problem(_stage_wb(False, False), _sc()).processes == []
+    # stage 1: checked + placed → active, replaceable (can transition)
+    p1 = assemble_problem(_stage_wb(True, True), _sc()).processes[0]
+    assert p1.replaceable is True
+    # stage 4: unchecked + placed → fixed (kept, locked to baseline)
+    p4 = assemble_problem(_stage_wb(False, True), _sc()).processes
+    assert len(p4) == 1 and p4[0].replaceable is False
+    # stage 2: checked + unplaced → included (in optimisation, not initial)
+    assert len(assemble_problem(_stage_wb(True, False), _sc()).processes) == 1

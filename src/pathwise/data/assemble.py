@@ -323,26 +323,39 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             share_groups=share_groups.get(k, {}),
         )
 
-    # ── Processes (capacity may be temporal via processes_t__capacity) ───────
+    # ── Processes (4-stage inclusion via `enabled` × placement in node_layout) ─
+    # Placement (a node in `node_layout`) means "in the initial topology":
+    #   checked + placed   → initial, active (baseline runs from the start)
+    #   checked + unplaced → available (in the optimisation, not initial)
+    #   unchecked + placed → fixed (kept but locked to baseline; replaceable=False)
+    #   unchecked + unplaced → excluded from the optimisation
     cap_t = _wide_temporal(workbook, "processes_t__capacity")
-    processes = [
-        Process(
-            process_id=str(r["process_id"]),
-            company=_str(r.get("company")) or "all",
-            baseline_technology=str(r["baseline_technology"]),
-            capacity=_num(r.get("capacity"), 0.0) or 0.0,
-            introduced_year=_int(r.get("introduced_year")),
-            capex=_num(r.get("capex"), 0.0) or 0.0,
-            fixed_opex=_num(r.get("fixed_opex"), 0.0) or 0.0,
-            failure_rate=min(max(_num(r.get("failure_rate"), 0.0) or 0.0, 0.0), 1.0),
-            replaceable=_bool(r.get("replaceable"), True),
-            capacity_by_year=(
-                interpolate(cap_t[pid], years) if (pid := str(r["process_id"])) in cap_t else {}
-            ),
+    placed_nodes = {_str(r.get("id")) for r in _rows(workbook, "node_layout")}
+    processes = []
+    for r in _rows(workbook, "processes"):
+        pid = _str(r.get("process_id"))
+        if not pid:
+            continue
+        enabled = _enabled(r)
+        placed = f"process:{pid}" in placed_nodes
+        if not enabled and not placed:
+            continue  # stage 3: excluded
+        fixed = not enabled  # stage 4: unchecked but placed → locked to baseline
+        processes.append(
+            Process(
+                process_id=pid,
+                company=_str(r.get("company")) or "all",
+                baseline_technology=str(r["baseline_technology"]),
+                capacity=_num(r.get("capacity"), 0.0) or 0.0,
+                introduced_year=_int(r.get("introduced_year")),
+                capex=_num(r.get("capex"), 0.0) or 0.0,
+                fixed_opex=_num(r.get("fixed_opex"), 0.0) or 0.0,
+                failure_rate=min(max(_num(r.get("failure_rate"), 0.0) or 0.0, 0.0), 1.0),
+                replaceable=False if fixed else _bool(r.get("replaceable"), True),
+                group=_str(r.get("group")) or "",
+                capacity_by_year=interpolate(cap_t[pid], years) if pid in cap_t else {},
+            )
         )
-        for r in _rows(workbook, "processes")
-        if _str(r.get("process_id")) and _enabled(r)
-    ]
 
     # ── Per-company objective (cost default; profit ⇒ maximise profit) ───────
     company_objective: dict[str, ObjectiveMode] = {}

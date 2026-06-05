@@ -1,18 +1,19 @@
 """Convert the shipping fleet dataset (Reference.xlsx) into a pathwise workbook.
 
-Mapping (sector data → generic schema):
+Per-company model:
+    company (clarkson)    → top fleets become facility owners; the rest aggregate
+                            into "Other". Each (owner, engine) is a facility whose
+                            `company` (demand scope) is unique per engine, and whose
+                            `group` is the owning company — so the CO2 target is
+                            applied PER COMPANY (group) while each ship-type meets
+                            its own activity.
     Main Engine Fuel Type → technology (engine class)
-    clarkson ships        → aggregated into one fleet facility per engine class
-                            (throughput = ship count; each meets its own activity)
     fuel_spec fuels       → energy streams; emission = well_to_wake; cost = cost·trend
-    fuel_pairing + mix    → io blend group "fuel"; baseline_fuelmix = baseline share;
-                            fuel_max / fuel_min = share bounds (representative year)
-    emission_scenario     → fleet CO2 target trajectory (soft), scaled to baseline
-    operation_scenario    → activity (kept flat here)
-
-Decarbonisation happens by shifting the fuel blend (bio / LNG / e-fuels) within
-share bounds under the tightening emission target — engine transitions are off in
-this dataset, so the blend-share lever does the work.
+    fuel_pairing + mix     → io blend group "fuel" (bio / LNG / e-fuels) within bounds
+    ammonia / hydrogen     → alternative engines (transition targets, transition_rule
+                            = True) burning e-ammonia / e-hydrogen — the decarb levers
+    emission_scenario     → per-company CO2 target (Tier1), scaled to each company's
+                            baseline (soft)
 
 Run:  uv run python examples/converters/shipping.py [SOURCE.xlsx]
 """
@@ -26,11 +27,13 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _writer import Workbook, verify, write_workbook  # noqa: E402
+from _writer import Workbook, verify, write_workbook
 
 DEFAULT_SRC = Path.home() / "Downloads" / "Reference.xlsx"
 OUT = Path(__file__).resolve().parents[2] / "frontend/pathwise/public/examples/shipping.xlsx"
 ENGINE = "Main Engine Fuel Type"
+N_TOP = 8  # top owners modelled individually; the remaining fleet → "Other"
+ALT = {"ammonia": "e-ammonia", "hydrogen": "e-hydrogen"}  # alt engine → its fuel
 
 
 def _years(df: pd.DataFrame) -> list[int]:
@@ -46,35 +49,21 @@ def build_workbook(src: Path) -> Workbook:
     fmin = xl.parse("fuel_min")
     cost_trend = xl.parse("fuelcost_trend")
     emis = xl.parse("emission_scenario").set_index("Scenario")
+    tcost = xl.parse("transition_cost").set_index(ENGINE)
     clark = xl.parse("clarkson")
 
     years = _years(fmax)
-    rep = years[-1]  # representative year for (static) share bounds — most permissive
-
-    counts = clark[ENGINE].value_counts().to_dict()
-    engines = [e for e in counts if isinstance(e, str)]
-
+    rep = years[-1]
     wtw = spec["well_to_wake"].to_dict()
     base_cost = spec["cost"].to_dict()
-    fuels_used = sorted({str(f) for f in pairing["Fuel"] if str(f) in base_cost})
 
-    # ── commodities + temporal fuel prices (cost × trend) ────────────────────
-    commodities = [{"commodity_id": "transport", "kind": "product", "unit": "ship-yr"}]
-    commodities += [{"commodity_id": f, "kind": "energy", "unit": "t"} for f in fuels_used]
-    trend = {str(r["Fuel"]): {y: float(r[y]) for y in years} for _, r in cost_trend.iterrows()}
-    price_rows = [
-        {"year": y, **{f: base_cost[f] * trend.get(f, {}).get(y, 1.0) for f in fuels_used}}
-        for y in years
-    ]
+    # ── fleet → owners (top N + "Other"), counted by (owner, engine) ─────────
+    clark = clark.dropna(subset=["Company", ENGINE])
+    top = list(clark["Company"].value_counts().head(N_TOP).index)
+    clark["owner"] = clark["Company"].where(clark["Company"].isin(top), "Other")
+    counts = clark.groupby(["owner", ENGINE]).size()
+    base_engines = sorted({e for _o, e in counts.index})
 
-    # ── impacts (CO2, well-to-wake) ──────────────────────────────────────────
-    impacts = [{"impact_id": "CO2", "unit": "tCO2"}]
-    commodity_impacts = [
-        {"commodity_id": f, "impact_id": "CO2", "factor": float(wtw.get(f, 0.0))}
-        for f in fuels_used
-    ]
-
-    # ── technologies (engine classes) + io blend group ───────────────────────
     def bounds(engine: str, fuel: str) -> tuple[float, float]:
         mn = fmin[(fmin[ENGINE] == engine) & (fmin["Fuel"] == fuel)]
         mx = fmax[(fmax[ENGINE] == engine) & (fmax["Fuel"] == fuel)]
@@ -86,19 +75,21 @@ def build_workbook(src: Path) -> Workbook:
         row = base_mix[(base_mix[ENGINE] == engine) & (base_mix["Fuel"] == fuel)]
         return float(row["fuel mix"].iloc[0]) if len(row) else 0.0
 
-    technologies = []
+    used_fuels: set[str] = set()
+    technologies: list[dict[str, object]] = []
     io: list[dict[str, object]] = []
-    for e in engines:
-        technologies.append({"technology_id": e, "lifespan": 25, "actions": "continue"})
-        paired = [str(f) for f in pairing[pairing[ENGINE] == e]["Fuel"] if str(f) in base_cost]
+
+    def conventional_io(engine: str) -> None:
+        paired = [str(f) for f in pairing[pairing[ENGINE] == engine]["Fuel"] if str(f) in base_cost]
         for f in paired:
-            lo, hi = bounds(e, f)
+            lo, hi = bounds(engine, f)
+            used_fuels.add(f)
             io.append(
                 {
-                    "technology_id": e,
+                    "technology_id": engine,
                     "target": f,
                     "role": "input",
-                    "coefficient": baseline_share(e, f),  # fuel per ship-yr at baseline
+                    "coefficient": baseline_share(engine, f),  # fuel per ship-yr (mix)
                     "group": "fuel",
                     "share_min": lo,
                     "share_max": hi,
@@ -106,7 +97,7 @@ def build_workbook(src: Path) -> Workbook:
             )
         io.append(
             {
-                "technology_id": e,
+                "technology_id": engine,
                 "target": "transport",
                 "role": "output",
                 "coefficient": 1.0,
@@ -114,48 +105,108 @@ def build_workbook(src: Path) -> Workbook:
             }
         )
 
-    # ── fleet facilities (one per engine) + activity demand ──────────────────
-    processes = []
-    demand = []
-    baseline_emission = 0.0
-    for e in engines:
-        n = float(counts[e])
-        processes.append({"process_id": e, "company": e, "baseline_technology": e, "capacity": n})
-        for y in years:
-            demand.append({"company": e, "commodity_id": "transport", "year": y, "amount": n})
-        paired = [str(f) for f in pairing[pairing[ENGINE] == e]["Fuel"] if str(f) in base_cost]
-        baseline_emission += n * sum(baseline_share(e, f) * float(wtw.get(f, 0.0)) for f in paired)
+    for e in base_engines:
+        technologies.append({"technology_id": e, "lifespan": 25, "actions": "continue,replace"})
+        conventional_io(e)
+    # Alternative-fuel engines: single zero/low-carbon fuel, 1 unit per ship-yr.
+    for alt, fuel in ALT.items():
+        technologies.append({"technology_id": alt, "lifespan": 25, "actions": "continue,replace"})
+        used_fuels.add(fuel)
+        io.append({"technology_id": alt, "target": fuel, "role": "input", "coefficient": 1.0})
+        io.append(
+            {
+                "technology_id": alt,
+                "target": "transport",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": True,
+            }
+        )
 
-    # ── emission target (Tier1 scenario, scaled to baseline; soft) ───────────
+    # ── facilities per (owner, engine): company = demand scope, group = owner ─
+    commodities: list[dict[str, object]] = [
+        {"commodity_id": "transport", "kind": "product", "unit": "ship-yr"}
+    ]
+    processes: list[dict[str, object]] = []
+    demand: list[dict[str, object]] = []
+    baseline_emission: dict[str, float] = {}
+    for (owner, engine), n in counts.items():
+        comp = f"{owner} · {engine}"
+        processes.append(
+            {
+                "process_id": comp,
+                "company": comp,
+                "group": owner,
+                "baseline_technology": engine,
+                "capacity": float(n),
+            }
+        )
+        for y in years:
+            demand.append(
+                {"company": comp, "commodity_id": "transport", "year": y, "amount": float(n)}
+            )
+        paired = [str(f) for f in pairing[pairing[ENGINE] == engine]["Fuel"] if str(f) in base_cost]
+        e_base = float(n) * sum(baseline_share(engine, f) * float(wtw.get(f, 0.0)) for f in paired)
+        baseline_emission[owner] = baseline_emission.get(owner, 0.0) + e_base
+
+    # ── alt-fuel engine transitions (engine → ammonia / hydrogen) ────────────
+    transitions = [
+        {
+            "from_technology": e,
+            "to_technology": alt,
+            "action": "replace",
+            "capex_per_capacity": float(tcost.loc[alt, rep]) if alt in tcost.index else 1000.0,
+        }
+        for e in base_engines
+        for alt in ALT
+    ]
+
+    for f in sorted(used_fuels):
+        commodities.append({"commodity_id": f, "kind": "energy", "unit": "t"})
+    commodity_impacts = [
+        {"commodity_id": f, "impact_id": "CO2", "factor": float(wtw.get(f, 0.0))}
+        for f in sorted(used_fuels)
+    ]
+
+    # ── temporal fuel prices (cost × trend) ──────────────────────────────────
+    trend = {str(r["Fuel"]): {y: float(r[y]) for y in years} for _, r in cost_trend.iterrows()}
+    price_rows = [
+        {"year": y, **{f: base_cost[f] * trend.get(f, {}).get(y, 1.0) for f in sorted(used_fuels)}}
+        for y in years
+    ]
+
+    # ── per-company (group) CO2 target — Tier1 scaled to each owner's baseline ─
     scen = {y: float(emis.loc["Tier1", y]) for y in years}
     base_idx = scen[years[0]] or 1.0
     pen = 5.0 * max(base_cost.values())
     impact_caps = [
         {
-            "company": "all",
+            "company": owner,
             "impact_id": "CO2",
             "year": y,
-            "limit": baseline_emission * scen[y] / base_idx,
+            "limit": baseline_emission.get(owner, 0.0) * scen[y] / base_idx,
             "soft": True,
             "penalty": pen,
         }
+        for owner in sorted(baseline_emission)
         for y in years
     ]
 
     return {
         "meta": [
-            {"key": "title", "value": "Shipping fleet (engine fuel-mix transition)"},
+            {"key": "title", "value": "Shipping fleet — per-company transition"},
             {"key": "base_year", "value": years[0]},
         ],
         "periods": [{"year": y, "duration_years": 1} for y in years],
         "commodities": commodities,
         "commodities_t__price": price_rows,
-        "impacts": impacts,
+        "impacts": [{"impact_id": "CO2", "unit": "tCO2"}],
         "commodity_impacts": commodity_impacts,
         "technologies": technologies,
         "io": io,
         "processes": processes,
         "demand": demand,
+        "transitions": transitions,
         "impact_caps": impact_caps,
     }
 

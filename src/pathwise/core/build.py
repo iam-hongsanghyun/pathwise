@@ -181,10 +181,35 @@ def _blend(ctx: BuildContext) -> None:
     if not ctx.grouped_comms:
         return
     m, prob = ctx.model, ctx.problem
+    gc = ctx.grouped_comms
+    # The mix flow is non-zero only for (process, feasible tech, member commodity);
+    # everything else is killed by ONE vectorised bound — not a per-cell Python
+    # loop — so blend models scale to many facilities/technologies.
+    member = np.zeros((len(ctx.procs), len(ctx.techs), len(gc)))
+    for i, p in enumerate(ctx.procs):
+        fset = set(ctx.feasible[p])
+        for j, k in enumerate(ctx.techs):
+            if k not in fset:
+                continue
+            member_set = prob.technologies[k].grouped_inputs()
+            for li, c in enumerate(gc):
+                if c in member_set:
+                    member[i, j, li] = 1.0
+    big = (max((p.capacity for p in prob.processes), default=1.0) or 1.0) * 1.0e3 + 1.0e6
+    member_da = xr.DataArray(
+        member,
+        coords={"process": ctx.procs, "tech": ctx.techs, "commodity": gc},
+        dims=["process", "tech", "commodity"],
+    )
+    m.add_constraints(ctx.fin <= big * member_da, name="finmask")
+
+    # Group sum + share bounds — only over feasible (process, technology) pairs
+    # that actually carry a blend group.
     for p in ctx.procs:
-        for k in ctx.techs:
+        for k in ctx.feasible[p]:
             tech = prob.technologies[k]
-            members_all = tech.grouped_inputs()
+            if not tech.share_groups:
+                continue
             for t in ctx.years:
                 xpkt = ctx.x.sel(process=p, tech=k, period=t)
                 for g, members in tech.share_groups.items():
@@ -202,12 +227,6 @@ def _blend(ctx: BuildContext) -> None:
                             m.add_constraints(f >= lo * req * xpkt, name=f"mixlo[{p},{k},{c},{t}]")
                         if hi < 1.0:
                             m.add_constraints(f <= hi * req * xpkt, name=f"mixhi[{p},{k},{c},{t}]")
-                for c in ctx.grouped_comms:
-                    if c not in members_all:
-                        m.add_constraints(
-                            ctx.fin.sel(process=p, tech=k, commodity=c, period=t) == 0,
-                            name=f"mix0[{p},{k},{c},{t}]",
-                        )
 
 
 def _efficiency_savings(ctx: BuildContext, p: str, r: str, t: int) -> Any:
@@ -375,7 +394,9 @@ def _impacts(ctx: BuildContext) -> None:
                 )
 
     for c, i, y in ctx.cap_keys:
-        procs = [p.process_id for p in prob.processes if c == "all" or p.company == c]
+        # A cap scope (``c``) may target a facility id, a company, a group, or
+        # "all" — so emissions can be capped at any level.
+        procs = [p.process_id for p in prob.processes if p.in_scope(c)]
         total = _lin_sum([ctx.emit.sel(process=p, impact=i, period=y) for p in procs])
         key = f"{c}|{i}|{y}"
         slack = ctx.slk_cap.sel(ckey=key)

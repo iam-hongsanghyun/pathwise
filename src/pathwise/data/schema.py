@@ -74,7 +74,8 @@ SCHEMA: dict[str, Any] = {
         "label": "Facilities",
         "columns": {
             "process_id": {"label": "Facility", "type": "string", "required": True},
-            "company": {"label": "Company", "type": "string", "required": True},
+            "company": {"label": "Company (demand scope)", "type": "string", "required": True},
+            "group": {"label": "Group (cap scope, opt.)", "type": "string"},
             "baseline_technology": {"label": "Baseline tech", "type": "string", "required": True},
             "capacity": {"label": "Capacity (throughput/yr)", "type": "number"},
             "introduced_year": {"label": "Installed", "type": "integer"},
