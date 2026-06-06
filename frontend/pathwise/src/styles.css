@@ -199,6 +199,16 @@
 .resizer:hover {
   background: var(--brand-ring);
 }
+.resizer-h {
+  flex: 0 0 5px;
+  height: 5px;
+  width: 100%;
+  cursor: row-resize;
+  background: var(--border);
+}
+.resizer-h:hover {
+  background: var(--brand-ring);
+}
 .rail-group {
   padding: 8px 0;
   border-bottom: 1px solid var(--border);

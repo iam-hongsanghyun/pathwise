@@ -123,6 +123,8 @@ export function ModelView({ workbook, setWorkbook, config, leftW, setLeftW }: Pr
   const [selected, setSelected] = useState<Selection | null>(null);
   const [activeSheet, setActiveSheet] = useState<string | null>(null);
   const [simple, setSimple] = useState(false);
+  const [rightW, setRightW] = useState(300);
+  const [dockH, setDockH] = useState(260);
   const schema = config?.domains[0]?.schema ?? {};
 
   // Table columns = schema columns ∪ keys present in the rows, so optional
@@ -230,7 +232,8 @@ export function ModelView({ workbook, setWorkbook, config, leftW, setLeftW }: Pr
           )}
         </div>
         {dockOpen && (
-          <div className="editor-dock">
+          <div className="editor-dock" style={{ flex: `0 0 ${dockH}px` }}>
+            <Resizer width={dockH} setWidth={setDockH} side="top" min={80} max={700} />
             <div className="dock-head">
               <strong>{selected ? selected.id : activeSheet}</strong>
               <span className="rail-count">{selected ? "time series" : "table"}</span>
@@ -256,15 +259,22 @@ export function ModelView({ workbook, setWorkbook, config, leftW, setLeftW }: Pr
         )}
       </main>
       {selected && (
-        <aside className="right-rail" aria-label="Static values">
-          <DetailPanel
-            workbook={workbook}
-            selected={selected}
-            schema={schema}
-            onChange={setWorkbook}
-            onClose={() => setSelected(null)}
-          />
-        </aside>
+        <>
+          <Resizer width={rightW} setWidth={setRightW} side="right" min={200} max={600} />
+          <aside
+            className="right-rail"
+            aria-label="Static values"
+            style={{ width: rightW, flex: `0 0 ${rightW}px` }}
+          >
+            <DetailPanel
+              workbook={workbook}
+              selected={selected}
+              schema={schema}
+              onChange={setWorkbook}
+              onClose={() => setSelected(null)}
+            />
+          </aside>
+        </>
       )}
     </div>
   );
