@@ -11,6 +11,7 @@ dependencies = [
     "pandas>=2.1",
     "openpyxl>=3.1",
     "pint>=0.23",
+    "pyportfolioopt>=1.5.5,<2.0",
     "pydantic>=2.6",
     "pydantic-settings>=2.2",
     "fastapi>=0.110",
@@ -54,7 +55,7 @@ warn_unused_ignores = true
 disallow_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["linopy.*", "highspy.*"]
+module = ["linopy.*", "highspy.*", "pypfopt.*", "scipy.*"]
 ignore_missing_imports = true
 
 # pint ships types but its UnitRegistry is generic; we use it untyped at the
