@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     highs_user_bound_scale: int = -8
     highs_user_objective_scale: int = -10
 
+    # ── Portfolio backend (server-controlled; clamps user requests) ───────────
+    max_portfolio_scenarios: int = 50000
+
     # ── Jobs / logging ───────────────────────────────────────────────────────
     max_jobs: int = 4
     log_level: str = "INFO"

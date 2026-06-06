@@ -159,7 +159,7 @@ def build_workbook(src: Path) -> Workbook:
     opex_src: dict[str, str | None] = {}  # new tech → route for opex
 
     def add_inputs(tech: str, route: str, kind: str) -> None:
-        pairs = (fuel_pairs if kind == "fuel" else feed_pairs)
+        pairs = fuel_pairs if kind == "fuel" else feed_pairs
         col = "fuel" if kind == "fuel" else "feedstock"
         for _, fp in pairs[pairs["technology"] == route].iterrows():
             f = str(fp[col])
@@ -183,36 +183,65 @@ def build_workbook(src: Path) -> Workbook:
 
     for route, (iron_tech, steel_tech) in stage.items():
         if iron_tech:  # iron-making: fuels + iron-ore → iron
-            technologies.append({"technology_id": iron_tech, "lifespan": lifespan[route], "actions": avail[route]})
+            technologies.append(
+                {"technology_id": iron_tech, "lifespan": lifespan[route], "actions": avail[route]}
+            )
             add_inputs(iron_tech, route, "fuel")
             add_inputs(iron_tech, route, "feed_ore")
-            io.append({"technology_id": iron_tech, "target": "iron", "role": "output", "coefficient": 1.0})
+            io.append(
+                {"technology_id": iron_tech, "target": "iron", "role": "output", "coefficient": 1.0}
+            )
             capex_src[iron_tech] = route  # capital sits in iron-making
             opex_src[iron_tech] = None
             # steel-making: iron + scrap → steel
-            technologies.append({"technology_id": steel_tech, "lifespan": lifespan[route], "actions": avail[route]})
-            io.append({"technology_id": steel_tech, "target": "iron", "role": "input", "coefficient": 1.0})
+            technologies.append(
+                {"technology_id": steel_tech, "lifespan": lifespan[route], "actions": avail[route]}
+            )
+            io.append(
+                {"technology_id": steel_tech, "target": "iron", "role": "input", "coefficient": 1.0}
+            )
             add_inputs(steel_tech, route, "feed_scrap")
-            io.append({"technology_id": steel_tech, "target": "steel", "role": "output", "coefficient": 1.0, "is_product": True})
+            io.append(
+                {
+                    "technology_id": steel_tech,
+                    "target": "steel",
+                    "role": "output",
+                    "coefficient": 1.0,
+                    "is_product": True,
+                }
+            )
             capex_src[steel_tech] = None
             opex_src[steel_tech] = route  # O&M per tonne steel
         else:  # EAF: electricity + scrap → steel (single stage)
-            technologies.append({"technology_id": steel_tech, "lifespan": lifespan[route], "actions": avail[route]})
+            technologies.append(
+                {"technology_id": steel_tech, "lifespan": lifespan[route], "actions": avail[route]}
+            )
             add_inputs(steel_tech, route, "fuel")
             add_inputs(steel_tech, route, "feed_scrap")
-            io.append({"technology_id": steel_tech, "target": "steel", "role": "output", "coefficient": 1.0, "is_product": True})
+            io.append(
+                {
+                    "technology_id": steel_tech,
+                    "target": "steel",
+                    "role": "output",
+                    "coefficient": 1.0,
+                    "is_product": True,
+                }
+            )
             capex_src[steel_tech] = route
             opex_src[steel_tech] = route
 
     new_techs = [str(t["technology_id"]) for t in technologies]
     capex_rows = [
-        {"year": y, **{t: capex.get(capex_src[t] or "", {}).get(y, 0.0) for t in new_techs}} for y in years
+        {"year": y, **{t: capex.get(capex_src[t] or "", {}).get(y, 0.0) for t in new_techs}}
+        for y in years
     ]
     renew_rows = [
-        {"year": y, **{t: renewal.get(capex_src[t] or "", {}).get(y, 0.0) for t in new_techs}} for y in years
+        {"year": y, **{t: renewal.get(capex_src[t] or "", {}).get(y, 0.0) for t in new_techs}}
+        for y in years
     ]
     opex_rows = [
-        {"year": y, **{t: opex.get(opex_src[t] or "", {}).get(y, 0.0) for t in new_techs}} for y in years
+        {"year": y, **{t: opex.get(opex_src[t] or "", {}).get(y, 0.0) for t in new_techs}}
+        for y in years
     ]
 
     # ── facilities: each plant → iron-making + steel-making facilities ───────
@@ -229,13 +258,33 @@ def build_workbook(src: Path) -> Workbook:
         steel_fac = f"{system} · steel"
         if iron_tech:
             iron_fac = f"{system} · iron"
-            processes.append({"process_id": iron_fac, "company": owner, "group": "Korea steel",
-                              "baseline_technology": iron_tech, "capacity": cap, "introduced_year": int(r["introduced_year"])})
-            edges.append({"from_process": iron_fac, "to_process": steel_fac, "commodity_id": "iron"})
-        processes.append({"process_id": steel_fac, "company": owner, "group": "Korea steel",
-                          "baseline_technology": steel_tech, "capacity": cap, "introduced_year": int(r["introduced_year"])})
+            processes.append(
+                {
+                    "process_id": iron_fac,
+                    "company": owner,
+                    "group": "Korea steel",
+                    "baseline_technology": iron_tech,
+                    "capacity": cap,
+                    "introduced_year": int(r["introduced_year"]),
+                }
+            )
+            edges.append(
+                {"from_process": iron_fac, "to_process": steel_fac, "commodity_id": "iron"}
+            )
+        processes.append(
+            {
+                "process_id": steel_fac,
+                "company": owner,
+                "group": "Korea steel",
+                "baseline_technology": steel_tech,
+                "capacity": cap,
+                "introduced_year": int(r["introduced_year"]),
+            }
+        )
         for y in years:
-            owner_prod.setdefault(owner, {})[y] = owner_prod.get(owner, {}).get(y, 0.0) + prod_by.get(system, {}).get(y, 0.0)
+            owner_prod.setdefault(owner, {})[y] = owner_prod.get(owner, {}).get(
+                y, 0.0
+            ) + prod_by.get(system, {}).get(y, 0.0)
     demand = [
         {"company": owner, "commodity_id": "steel", "year": y, "amount": amt}
         for owner, by_y in owner_prod.items()
@@ -247,12 +296,42 @@ def build_workbook(src: Path) -> Workbook:
         return capex.get(route, {}).get(years[0], 0.0)
 
     transitions = [
-        {"from_technology": "BF", "to_technology": "H2-DRI", "action": "replace", "capex_per_capacity": cx("H2-DRI-ESF")},
-        {"from_technology": "BF-FX", "to_technology": "H2-DRI", "action": "replace", "capex_per_capacity": cx("H2-DRI-ESF")},
-        {"from_technology": "BOF", "to_technology": "ESF", "action": "replace", "capex_per_capacity": cx("H2-DRI-ESF") * 0.3},
-        {"from_technology": "BOF-FX", "to_technology": "ESF", "action": "replace", "capex_per_capacity": cx("H2-DRI-ESF") * 0.3},
-        {"from_technology": "BOF", "to_technology": "EAF", "action": "replace", "capex_per_capacity": cx("EAF")},
-        {"from_technology": "BOF-FX", "to_technology": "EAF", "action": "replace", "capex_per_capacity": cx("EAF")},
+        {
+            "from_technology": "BF",
+            "to_technology": "H2-DRI",
+            "action": "replace",
+            "capex_per_capacity": cx("H2-DRI-ESF"),
+        },
+        {
+            "from_technology": "BF-FX",
+            "to_technology": "H2-DRI",
+            "action": "replace",
+            "capex_per_capacity": cx("H2-DRI-ESF"),
+        },
+        {
+            "from_technology": "BOF",
+            "to_technology": "ESF",
+            "action": "replace",
+            "capex_per_capacity": cx("H2-DRI-ESF") * 0.3,
+        },
+        {
+            "from_technology": "BOF-FX",
+            "to_technology": "ESF",
+            "action": "replace",
+            "capex_per_capacity": cx("H2-DRI-ESF") * 0.3,
+        },
+        {
+            "from_technology": "BOF",
+            "to_technology": "EAF",
+            "action": "replace",
+            "capex_per_capacity": cx("EAF"),
+        },
+        {
+            "from_technology": "BOF-FX",
+            "to_technology": "EAF",
+            "action": "replace",
+            "capex_per_capacity": cx("EAF"),
+        },
     ]
 
     # ── global emission cap (soft target) ────────────────────────────────────

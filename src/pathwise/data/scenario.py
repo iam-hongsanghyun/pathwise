@@ -52,6 +52,37 @@ class Horizon(BaseModel):
     end: int | None = None
 
 
+class PortfolioConfig(BaseModel):
+    """Settings for the ``portfolio`` backend (risk-vs-reward allocation).
+
+    Attributes:
+        method: Allocation algorithm.
+        reward_mode: Whether an asset's reward is profit or cost-reduction.
+        asset_level: Granularity at which candidate transitions become assets.
+        n_scenarios: Monte-Carlo sample size (clamped by the server cap).
+        volatility: Per-category lognormal volatility ``σ`` [—]; empty ⇒ engine
+            defaults.
+        normalize_by_capex: Express rewards as return-on-capital.
+        risk_aversion: MVO/Black-Litterman risk aversion ``δ`` [1/reward unit].
+        target_return: If set (MVO/BL), minimise risk subject to this return.
+        cvar_alpha: CVaR confidence level ``β`` [—].
+        bl_views: Black-Litterman absolute views ``{asset_id: expected reward}``.
+        bl_tau: Black-Litterman prior-uncertainty scalar ``τ`` [—].
+    """
+
+    method: str = Field(default="mvo", pattern="^(mvo|cvar|hrp|black_litterman)$")
+    reward_mode: str = Field(default="cost_reduction", pattern="^(profit|cost_reduction)$")
+    asset_level: str = Field(default="facility", pattern="^(facility|technology|company|economy)$")
+    n_scenarios: int = Field(default=2000, ge=2)
+    volatility: dict[str, float] = Field(default_factory=dict)
+    normalize_by_capex: bool = True
+    risk_aversion: float = Field(default=1.0, ge=0.0)
+    target_return: float | None = None
+    cvar_alpha: float = Field(default=0.95, gt=0.0, lt=1.0)
+    bl_views: dict[str, float] = Field(default_factory=dict)
+    bl_tau: float = Field(default=0.05, gt=0.0)
+
+
 class ScenarioConfig(BaseModel):
     """A complete, validated run definition.
 
@@ -63,6 +94,7 @@ class ScenarioConfig(BaseModel):
         solver: Solver tuning.
         horizon: Modelled horizon bounds.
         slack_penalty: Objective penalty per unit of demand/impact-cap violation.
+        portfolio: Settings for the ``portfolio`` backend (ignored by ``linopy``).
     """
 
     name: str = "scenario"
@@ -72,6 +104,7 @@ class ScenarioConfig(BaseModel):
     solver: SolverConfig = Field(default_factory=SolverConfig)
     horizon: Horizon = Field(default_factory=Horizon)
     slack_penalty: float = Field(default=1.0e9, ge=0.0)
+    portfolio: PortfolioConfig = Field(default_factory=PortfolioConfig)
     # Level the emission targets bind at — sets whether the optimisation minimises
     # cost for the whole economy (one shared cap; companies trade off) or per
     # company / facility (each independent). ``company`` keeps caps as authored.

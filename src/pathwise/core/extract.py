@@ -46,6 +46,31 @@ def empty_result(
     }
 
 
+def portfolio_result(
+    portfolio: dict[str, Any],
+    terminology: dict[str, str] | None = None,
+    validation: dict[str, list[str]] | None = None,
+) -> dict[str, Any]:
+    """Result dict for a portfolio-backend run.
+
+    Emits the full :func:`empty_result` skeleton (so result consumers that read
+    ``outputs.throughput`` etc. never break) plus an ``outputs["portfolio"]``
+    block and the chosen risk-adjusted score as ``objective``.
+
+    Args:
+        portfolio: The portfolio block (weights, frontier, distribution, …).
+        terminology: Domain label overrides.
+        validation: Validation report.
+
+    Returns:
+        pathwise's result dict with ``status="optimal"``.
+    """
+    out = empty_result("optimal", terminology, validation)
+    out["objective"] = portfolio.get("objective")
+    out["outputs"]["portfolio"] = portfolio
+    return out
+
+
 def extract_results(
     result: SolveResult,
     terminology: dict[str, str] | None = None,
