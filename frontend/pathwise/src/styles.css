@@ -690,6 +690,14 @@ td input:focus {
   height: auto;
   resize: horizontal;
 }
+/* Per-stage facility windows share the column height (up = upstream, down =
+   downstream); drag the bottom edge to re-split. */
+.sv-section--stage {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 110px;
+  resize: vertical;
+}
 .sv-head {
   font-family: var(--font-mono);
   font-size: 0.66rem;
@@ -740,17 +748,13 @@ td input:focus {
   font-weight: 600;
 }
 .sv-facility {
-  width: 100%;
-  border-bottom: 1px dashed var(--border);
-  padding-bottom: 5px;
-  margin-bottom: 3px;
-}
-.sv-techs {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
-  margin-top: 3px;
-  padding-left: 10px;
+  width: 100%;
+  padding: 2px 0;
+  border-bottom: 1px dashed var(--border);
 }
 .sv-pill.tech {
   font-size: 0.68rem;

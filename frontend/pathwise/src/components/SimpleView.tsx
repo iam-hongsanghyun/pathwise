@@ -63,10 +63,16 @@ export function SimpleView({ workbook, onSelect }: Props) {
     depthCache.set(i, d);
     return d;
   };
-  const orderedFacilities = facilities
-    .map((f, i) => ({ f, d: depth(i) }))
-    .sort((a, b) => a.d - b.d)
-    .map((x) => x.f);
+  const ordered = facilities.map((f, i) => ({ ...f, depth: depth(i) }));
+  // One window per flow stage (depth): upstream stages on top, downstream below
+  // (e.g. steel: iron-making → steel-making). Label by what the stage produces.
+  const stages = [...new Set(ordered.map((f) => f.depth))]
+    .sort((a, b) => a - b)
+    .map((d) => {
+      const facs = ordered.filter((f) => f.depth === d);
+      const outs = [...new Set(facs.flatMap((f) => f.outputs))].filter(Boolean);
+      return { depth: d, facs, outs };
+    });
 
   const pill = (sheet: string, idCol: string, id: string, cls = "") =>
     id ? (
@@ -79,12 +85,14 @@ export function SimpleView({ workbook, onSelect }: Props) {
     title,
     children,
     full,
+    stage,
   }: {
     title: string;
     children: React.ReactNode;
     full?: boolean;
+    stage?: boolean;
   }) => (
-    <div className={`sv-section${full ? " sv-section--full" : ""}`}>
+    <div className={`sv-section${full ? " sv-section--full" : ""}${stage ? " sv-section--stage" : ""}`}>
       <div className="sv-head">{title}</div>
       <div className="sv-body">{children}</div>
     </div>
@@ -102,22 +110,25 @@ export function SimpleView({ workbook, onSelect }: Props) {
         </Section>
       </div>
 
-      {/* Column 2 — facilities (each with its candidate technologies) */}
+      {/* Column 2 — facilities, one window per flow stage (upstream → downstream) */}
       <div className="sv-col">
-        <Section title="Facilities (upstream → downstream)" full>
-          {orderedFacilities.map((f) => (
-            <div key={f.id} className="sv-facility">
-              <button className="sv-pill facility" onClick={() => onSelect({ sheet: "processes", idCol: "process_id", id: f.id })}>
-                {f.id}
-              </button>
-              <div className="sv-techs">
-                {f.techs.filter(Boolean).map((t) =>
-                  pill("technologies", "technology_id", t, "tech"),
-                )}
+        {stages.map((sgroup) => (
+          <Section
+            key={sgroup.depth}
+            title={sgroup.outs.length ? `Facilities → ${sgroup.outs.join(" / ")}` : "Facilities"}
+            full={stages.length === 1}
+            stage={stages.length > 1}
+          >
+            {sgroup.facs.map((f) => (
+              <div key={f.id} className="sv-facility">
+                <button className="sv-pill facility" onClick={() => onSelect({ sheet: "processes", idCol: "process_id", id: f.id })}>
+                  {f.id}
+                </button>
+                {f.techs.filter(Boolean).map((t) => pill("technologies", "technology_id", t, "tech"))}
               </div>
-            </div>
-          ))}
-        </Section>
+            ))}
+          </Section>
+        ))}
       </div>
 
       {/* Column 3 — outputs: products / by-products / impacts */}
