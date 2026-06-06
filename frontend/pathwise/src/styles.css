@@ -177,6 +177,45 @@
 .blend-row input {
   font-size: 0.7rem;
 }
+.io-line {
+  display: grid;
+  grid-template-columns: 1fr auto auto 24px;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  padding: 2px 0;
+}
+.io-line .io-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.io-line .io-meta {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--muted);
+}
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  padding: 14px;
+  width: 360px;
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 .left-rail,
 .right-rail {
   width: 232px;

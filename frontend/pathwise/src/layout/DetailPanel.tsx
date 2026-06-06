@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { optionsFor } from "../graph/references";
 import type { Cell, Selection, Workbook } from "../types";
 
@@ -93,6 +94,97 @@ function EmissionFactors({
 /** A technology owns its I/O: inputs (streams it consumes), outputs (what it
  *  makes), and impacts (direct emissions). Edited here as part of the technology
  *  — there is no separate I/O table. Stored in the `io` sheet. */
+const num = (v: Cell) => (v == null || v === "" ? "" : String(v));
+
+/** Centered popup to edit one input stream's intensity + blend bounds. */
+function InputModal({
+  row,
+  streams,
+  onSet,
+  onClose,
+}: {
+  row: Record<string, Cell>;
+  streams: string[];
+  onSet: (patch: Record<string, Cell>) => void;
+  onClose: () => void;
+}) {
+  const blended = row.group != null && row.group !== "";
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="detail-head">
+          <strong>Edit input</strong>
+          <button className="ghost" onClick={onClose} title="close">
+            ✕
+          </button>
+        </div>
+        <label className="inspector-field">
+          <span>Fuel / stream</span>
+          <select value={String(row.target ?? "")} onChange={(e) => onSet({ target: e.target.value })}>
+            <option value="">—</option>
+            {streams.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="inspector-field">
+          <span>Intensity (input ÷ output, per unit throughput)</span>
+          <input
+            value={num(row.coefficient)}
+            onChange={(e) => onSet({ coefficient: e.target.value === "" ? null : Number(e.target.value) })}
+          />
+        </label>
+        <label className="inspector-field">
+          <span>Type</span>
+          <select
+            value={blended ? "blend" : "fixed"}
+            onChange={(e) =>
+              onSet(
+                e.target.value === "blend"
+                  ? { group: "blend" }
+                  : { group: null, share_min: null, share_max: null },
+              )
+            }
+          >
+            <option value="fixed">Fixed input (always consumed)</option>
+            <option value="blend">Blended (share of a fuel mix)</option>
+          </select>
+        </label>
+        {blended && (
+          <>
+            <label className="inspector-field">
+              <span>Blend group (same name = mixed together)</span>
+              <input value={String(row.group ?? "")} onChange={(e) => onSet({ group: e.target.value || null })} />
+            </label>
+            <div className="blend-row" style={{ margin: "2px 0" }}>
+              <label className="inspector-field">
+                <span>Min share (0–1)</span>
+                <input
+                  value={num(row.share_min)}
+                  onChange={(e) => onSet({ share_min: e.target.value === "" ? null : Number(e.target.value) })}
+                />
+              </label>
+              <label className="inspector-field">
+                <span>Max share (0–1)</span>
+                <input
+                  value={num(row.share_max)}
+                  onChange={(e) => onSet({ share_max: e.target.value === "" ? null : Number(e.target.value) })}
+                />
+              </label>
+            </div>
+            <p className="muted">
+              Min = max → fixed share; min only → at least; max only → at most. Sum across the group
+              is the total fuel, so the others fill the rest.
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TechnologyIO({
   workbook,
   technology,
@@ -102,6 +194,7 @@ function TechnologyIO({
   technology: string;
   onChange: (wb: Workbook) => void;
 }) {
+  const [editing, setEditing] = useState<number | null>(null);
   const io = workbook.io ?? [];
   const streams = (workbook.commodities ?? []).map((r) => String(r.commodity_id ?? "")).filter(Boolean);
   const impacts = (workbook.impacts ?? []).map((r) => String(r.impact_id ?? "")).filter(Boolean);
@@ -109,15 +202,29 @@ function TechnologyIO({
 
   const set = (idx: number, key: string, val: Cell) =>
     onChange({ ...workbook, io: io.map((r, i) => (i === idx ? { ...r, [key]: val } : r)) });
+  const setMany = (idx: number, patch: Record<string, Cell>) =>
+    onChange({ ...workbook, io: io.map((r, i) => (i === idx ? { ...r, ...patch } : r)) });
   const del = (idx: number) => onChange({ ...workbook, io: io.filter((_, i) => i !== idx) });
-  const add = (role: "input" | "output" | "impact") =>
+  const addInput = () => {
+    const next = [...io, { technology_id: technology, target: "", role: "input", coefficient: 1 }];
+    onChange({ ...workbook, io: next });
+    setEditing(next.length - 1);
+  };
+  const add = (role: "output" | "impact") =>
     onChange({
       ...workbook,
       io: [...io, { technology_id: technology, target: "", role, coefficient: role === "impact" ? 0 : 1 }],
     });
 
-  const num = (v: Cell) => (v == null || v === "" ? "" : String(v));
-  const Section = ({ role, label }: { role: string; label: string }) => {
+  const blendLabel = (r: Record<string, Cell>) => {
+    if (r.group == null || r.group === "") return `fixed ${num(r.coefficient) || 0}`;
+    const lo = num(r.share_min) || "0";
+    const hi = num(r.share_max) === "" ? "1" : num(r.share_max);
+    return `blend ${lo}–${hi}`;
+  };
+
+  // Inline editor for outputs / direct impacts (a stream + a coefficient).
+  const SimpleSection = ({ role, label }: { role: "output" | "impact"; label: string }) => {
     const opts = role === "impact" ? impacts : streams;
     return (
       <>
@@ -125,49 +232,22 @@ function TechnologyIO({
         {mine
           .filter(({ r }) => String(r.role ?? "input") === role)
           .map(({ r, i }) => (
-            <div key={i}>
-              <div className="ef-row">
-                <select value={String(r.target ?? "")} onChange={(e) => set(i, "target", e.target.value)}>
-                  <option value="">—</option>
-                  {opts.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  value={num(r.coefficient)}
-                  title="per unit throughput (intensity = input ÷ output)"
-                  onChange={(e) => set(i, "coefficient", e.target.value === "" ? null : Number(e.target.value))}
-                />
-                <button className="ghost" onClick={() => del(i)} title="remove">
-                  ✕
-                </button>
-              </div>
-              {/* Blend: inputs sharing a group are substitutable; each is bounded
-                  by min/max share of the group total (e.g. LPG 0–50%, VLS IFO 50–100%). */}
-              {role === "input" && (
-                <div className="blend-row">
-                  <input
-                    placeholder="blend group"
-                    value={String(r.group ?? "")}
-                    title="inputs in the same group are blended; leave blank for a fixed input"
-                    onChange={(e) => set(i, "group", e.target.value || null)}
-                  />
-                  <input
-                    placeholder="min %"
-                    value={num(r.share_min)}
-                    title="minimum share of the blend (0–1)"
-                    onChange={(e) => set(i, "share_min", e.target.value === "" ? null : Number(e.target.value))}
-                  />
-                  <input
-                    placeholder="max %"
-                    value={num(r.share_max)}
-                    title="maximum share of the blend (0–1)"
-                    onChange={(e) => set(i, "share_max", e.target.value === "" ? null : Number(e.target.value))}
-                  />
-                </div>
-              )}
+            <div key={i} className="ef-row">
+              <select value={String(r.target ?? "")} onChange={(e) => set(i, "target", e.target.value)}>
+                <option value="">—</option>
+                {opts.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={num(r.coefficient)}
+                onChange={(e) => set(i, "coefficient", e.target.value === "" ? null : Number(e.target.value))}
+              />
+              <button className="ghost" onClick={() => del(i)} title="remove">
+                ✕
+              </button>
             </div>
           ))}
       </>
@@ -177,14 +257,32 @@ function TechnologyIO({
   return (
     <div className="emission-factors">
       <div className="rail-count" style={{ marginTop: 8 }}>TECHNOLOGY I/O (per unit throughput)</div>
-      <Section role="input" label="inputs (consumes)" />
-      <Section role="output" label="outputs (produces)" />
-      <Section role="impact" label="direct impacts (emits)" />
+      <div className="rail-count" style={{ marginTop: 6 }}>inputs (fuels / feedstocks)</div>
+      {mine
+        .filter(({ r }) => String(r.role ?? "input") === "input")
+        .map(({ r, i }) => (
+          <div key={i} className="io-line">
+            <span className="io-name">{String(r.target) || "—"}</span>
+            <span className="io-meta">{blendLabel(r)}</span>
+            <button className="ghost" onClick={() => setEditing(i)}>edit</button>
+            <button className="ghost" onClick={() => del(i)} title="remove">✕</button>
+          </div>
+        ))}
+      <button className="ghost" onClick={addInput}>+ fuel / input</button>
+      <SimpleSection role="output" label="outputs (produces)" />
+      <SimpleSection role="impact" label="direct impacts (emits)" />
       <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
-        <button className="ghost" onClick={() => add("input")}>+ input</button>
         <button className="ghost" onClick={() => add("output")}>+ output</button>
         <button className="ghost" onClick={() => add("impact")}>+ impact</button>
       </div>
+      {editing != null && io[editing] && (
+        <InputModal
+          row={io[editing]}
+          streams={streams}
+          onSet={(patch) => setMany(editing, patch)}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   );
 }
