@@ -917,3 +917,20 @@ section {
   border: 1px solid var(--border);
   padding: 12px;
 }
+
+/* ── Portfolio: Black-Litterman views editor ───────────────────────────────── */
+.bl-views {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0;
+}
+.bl-view-row {
+  display: grid;
+  grid-template-columns: 1fr 90px 28px;
+  gap: 6px;
+  align-items: center;
+}
+.bl-view-row input {
+  width: 100%;
+}

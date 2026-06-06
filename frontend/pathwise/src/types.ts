@@ -23,7 +23,7 @@ export interface ConfigBundle {
   schemaVersion: string;
   version: string;
   domains: DomainCapability[];
-  backends: { name: string; label: string; features?: Record<string, boolean> }[];
+  backends: { name: string; label: string; features?: Record<string, unknown> }[];
   server: { solver: string; maxSolverTimeLimitS: number; defaultMipGap: number };
   buildId: string;
 }
@@ -65,12 +65,66 @@ export interface RunResult {
       by_period: { period: number; bought: number; sold: number }[];
     }[];
     demand_slack: { key: string; value: number }[];
+    portfolio?: PortfolioResultBlock;
   };
   summary: {
     periods: { period: number; cost?: number }[];
     impacts: { period: number; impact: string; total: number }[];
     commodity: { commodity: string; period: number; consumed: number; produced: number }[];
   };
+}
+
+// ── Portfolio backend ────────────────────────────────────────────────────────
+
+export type PortfolioMethod = "mvo" | "cvar" | "hrp" | "black_litterman";
+export type RewardMode = "profit" | "cost_reduction";
+export type AssetLevel = "facility" | "technology" | "company" | "economy";
+
+export interface BlackLittermanView {
+  asset: string;
+  view: number;
+}
+
+/** The run-time config for the portfolio backend (sent inside `scenario`). */
+export interface PortfolioConfig {
+  method: PortfolioMethod;
+  reward_mode: RewardMode;
+  asset_level: AssetLevel;
+  n_scenarios: number;
+  volatility: number; // 0 ⇒ use the engine's per-category defaults
+  risk_aversion: number;
+  target_return: number | null; // null ⇒ optimise by risk aversion
+  cvar_alpha: number;
+  views: BlackLittermanView[];
+}
+
+export interface PortfolioAsset {
+  asset_id: string;
+  label: string;
+  company: string;
+  from_technology: string;
+  to_technology: string;
+  transition_capex: number;
+  weight: number;
+  expected_return: number;
+  std: number;
+}
+
+export interface PortfolioResultBlock {
+  method: string;
+  reward_mode: RewardMode;
+  asset_level: string;
+  normalize_by_capex: boolean;
+  n_scenarios: number;
+  expected_return: number;
+  variance: number;
+  risk: number;
+  cvar: number | null;
+  objective: number;
+  chosen: { return: number; risk: number };
+  frontier: { return: number; risk: number }[];
+  distribution: number[];
+  assets: PortfolioAsset[];
 }
 
 export interface JobState {

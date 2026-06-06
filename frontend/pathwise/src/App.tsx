@@ -4,7 +4,7 @@ import { ActivityBar, type View } from "./layout/ActivityBar";
 import { AnalyticsView } from "./views/AnalyticsView";
 import { ModelView } from "./views/ModelView";
 import { SettingsView } from "./views/SettingsView";
-import type { ConfigBundle, RunResult, Workbook } from "./types";
+import type { ConfigBundle, PortfolioConfig, RunResult, Workbook } from "./types";
 import {
   downloadResult,
   downloadWorkbook,
@@ -21,6 +21,18 @@ export function App() {
   const [view, setView] = useState<View>("model");
   const [discount, setDiscount] = useState(0.08);
   const [objScope, setObjScope] = useState<"system" | "company" | "facility">("company");
+  const [backend, setBackend] = useState("linopy");
+  const [portfolio, setPortfolio] = useState<PortfolioConfig>({
+    method: "mvo",
+    reward_mode: "cost_reduction",
+    asset_level: "facility",
+    n_scenarios: 2000,
+    volatility: 0,
+    risk_aversion: 1,
+    target_return: null,
+    cvar_alpha: 0.95,
+    views: [],
+  });
   const [result, setResult] = useState<RunResult | null>(null);
   const [running, setRunning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -63,12 +75,36 @@ export function App() {
     setError(null);
     setResult(null);
     try {
-      const res = await runToCompletion(
-        workbook,
-        { domain: "process", economics: { discount_rate: discount }, optimisation_scope: objScope },
-        { domain: "process" },
-        setRunning,
-      );
+      const scenario: Record<string, unknown> = {
+        domain: "process",
+        economics: { discount_rate: discount },
+        optimisation_scope: objScope,
+      };
+      if (backend === "portfolio") {
+        const v = portfolio.volatility;
+        scenario.portfolio = {
+          method: portfolio.method,
+          reward_mode: portfolio.reward_mode,
+          asset_level: portfolio.asset_level,
+          n_scenarios: portfolio.n_scenarios,
+          // A single UI volatility applies to every category; 0 ⇒ engine defaults.
+          volatility:
+            v > 0
+              ? {
+                  commodity_price: v,
+                  sale_price: v,
+                  impact_price: v,
+                  opex: v,
+                  capex: v,
+                }
+              : {},
+          risk_aversion: portfolio.risk_aversion,
+          target_return: portfolio.target_return,
+          cvar_alpha: portfolio.cvar_alpha,
+          bl_views: Object.fromEntries(portfolio.views.map((vw) => [vw.asset, vw.view])),
+        };
+      }
+      const res = await runToCompletion(workbook, scenario, { domain: "process", backend }, setRunning);
       setResult(res);
       setView("analytics");
     } catch (e) {
@@ -136,6 +172,11 @@ export function App() {
             onDiscount={setDiscount}
             objScope={objScope}
             onObjScope={setObjScope}
+            config={config}
+            backend={backend}
+            onBackend={setBackend}
+            portfolio={portfolio}
+            onPortfolio={setPortfolio}
             leftW={leftW}
             setLeftW={setLeftW}
           />

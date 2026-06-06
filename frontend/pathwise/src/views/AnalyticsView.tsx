@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { LineChart } from "../components/LineChart";
 import { MaccDesigner } from "../components/MaccDesigner";
+import { PortfolioResult } from "../components/PortfolioResult";
 import { TopologyChart } from "../components/TopologyChart";
 import { RailList, type RailItem } from "../layout/RailList";
 import { Resizer } from "../layout/Resizer";
@@ -22,6 +23,27 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
   const years = [...new Set((result?.summary.periods ?? []).map((p) => p.period))].sort((a, b) => a - b);
   const [year, setYear] = useState<number | null>(null);
   const activeYear = year ?? years[years.length - 1] ?? 0;
+
+  // A portfolio-backend result carries its own block; the MILP timelines are
+  // empty for such runs, so show the dedicated allocation view instead.
+  const pf = result?.outputs.portfolio;
+  if (pf) {
+    return (
+      <div className="body-row">
+        <RailList
+          title="Analytics"
+          items={[{ id: "portfolio", label: "Portfolio" }]}
+          activeId="portfolio"
+          onSelect={() => undefined}
+          width={leftW}
+        />
+        <Resizer width={leftW} setWidth={setLeftW} side="left" />
+        <main className="main-area">
+          <PortfolioResult portfolio={pf} />
+        </main>
+      </div>
+    );
+  }
 
   const items: RailItem[] = [
     { id: "overview", label: "Overview" },
