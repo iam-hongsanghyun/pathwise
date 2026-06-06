@@ -9,11 +9,11 @@ type RNData = NodeData & { active?: string; dim?: boolean };
 function ReadNode({ data }: NodeProps<RNData>) {
   return (
     <div className={`node ${data.kind}${data.dim ? " dim" : ""}`}>
-      <Handle type="target" position={Position.Left} />
+      <Handle type="target" position={Position.Left} className="h-in" title="input (left)" />
       <div className="node-kind">{data.kind}</div>
       <strong>{data.label}</strong>
       {data.kind === "process" && <div className="muted">{data.active ? `▶ ${data.active}` : "idle"}</div>}
-      <Handle type="source" position={Position.Right} />
+      <Handle type="source" position={Position.Right} className="h-out" title="output (right)" />
     </div>
   );
 }

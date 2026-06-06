@@ -59,13 +59,13 @@ function NodeView({ data }: NodeProps<NodeData>) {
   const mainProduct = p?.products[0] ?? p?.energyOut[0] ?? p?.byproducts[0];
   return (
     <div className={`node ${data.kind}`} title={describe(data)}>
-      <Handle type="target" position={Position.Left} />
+      <Handle type="target" position={Position.Left} className="h-in" title="input (left)" />
       <div className="node-kind">{data.kind}</div>
       <strong>{data.label}</strong>
       {data.kind === "process"
         ? mainProduct && <div className="node-main">▸ {mainProduct}</div>
         : data.sub && <div className="muted">{data.sub}</div>}
-      <Handle type="source" position={Position.Right} />
+      <Handle type="source" position={Position.Right} className="h-out" title="output (right)" />
     </div>
   );
 }

@@ -889,6 +889,19 @@ td input:focus {
   gap: 4px;
 }
 
+/* Node handles (dots): left = input (incoming), right = output (outgoing). */
+.react-flow__handle {
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--surface);
+}
+.react-flow__handle.h-in {
+  background: var(--muted);
+}
+.react-flow__handle.h-out {
+  background: var(--brand);
+}
+
 /* ── Designer canvas ────────────────────────────────────────────────────── */
 .canvas {
   flex: 1;
