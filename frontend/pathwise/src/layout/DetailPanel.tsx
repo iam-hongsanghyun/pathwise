@@ -116,6 +116,7 @@ function TechnologyIO({
       io: [...io, { technology_id: technology, target: "", role, coefficient: role === "impact" ? 0 : 1 }],
     });
 
+  const num = (v: Cell) => (v == null || v === "" ? "" : String(v));
   const Section = ({ role, label }: { role: string; label: string }) => {
     const opts = role === "impact" ? impacts : streams;
     return (
@@ -124,23 +125,49 @@ function TechnologyIO({
         {mine
           .filter(({ r }) => String(r.role ?? "input") === role)
           .map(({ r, i }) => (
-            <div key={i} className="ef-row">
-              <select value={String(r.target ?? "")} onChange={(e) => set(i, "target", e.target.value)}>
-                <option value="">—</option>
-                {opts.map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </select>
-              <input
-                value={r.coefficient == null ? "" : String(r.coefficient)}
-                title="per unit throughput (intensity = input ÷ output)"
-                onChange={(e) => set(i, "coefficient", e.target.value === "" ? null : Number(e.target.value))}
-              />
-              <button className="ghost" onClick={() => del(i)} title="remove">
-                ✕
-              </button>
+            <div key={i}>
+              <div className="ef-row">
+                <select value={String(r.target ?? "")} onChange={(e) => set(i, "target", e.target.value)}>
+                  <option value="">—</option>
+                  {opts.map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={num(r.coefficient)}
+                  title="per unit throughput (intensity = input ÷ output)"
+                  onChange={(e) => set(i, "coefficient", e.target.value === "" ? null : Number(e.target.value))}
+                />
+                <button className="ghost" onClick={() => del(i)} title="remove">
+                  ✕
+                </button>
+              </div>
+              {/* Blend: inputs sharing a group are substitutable; each is bounded
+                  by min/max share of the group total (e.g. LPG 0–50%, VLS IFO 50–100%). */}
+              {role === "input" && (
+                <div className="blend-row">
+                  <input
+                    placeholder="blend group"
+                    value={String(r.group ?? "")}
+                    title="inputs in the same group are blended; leave blank for a fixed input"
+                    onChange={(e) => set(i, "group", e.target.value || null)}
+                  />
+                  <input
+                    placeholder="min %"
+                    value={num(r.share_min)}
+                    title="minimum share of the blend (0–1)"
+                    onChange={(e) => set(i, "share_min", e.target.value === "" ? null : Number(e.target.value))}
+                  />
+                  <input
+                    placeholder="max %"
+                    value={num(r.share_max)}
+                    title="maximum share of the blend (0–1)"
+                    onChange={(e) => set(i, "share_max", e.target.value === "" ? null : Number(e.target.value))}
+                  />
+                </div>
+              )}
             </div>
           ))}
       </>

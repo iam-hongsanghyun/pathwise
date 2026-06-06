@@ -3,6 +3,7 @@ import { DetailPanel } from "../layout/DetailPanel";
 import { LeftRail } from "../layout/LeftRail";
 import { Resizer } from "../layout/Resizer";
 import { FlowCanvas } from "../components/designer/FlowCanvas";
+import { SimpleView } from "../components/SimpleView";
 import { WorkbookTable } from "../components/WorkbookTable";
 import type { Cell, ConfigBundle, Row, Selection, Workbook } from "../types";
 
@@ -121,6 +122,7 @@ function ItemTimeSeries({
 export function ModelView({ workbook, setWorkbook, config, leftW, setLeftW }: Props) {
   const [selected, setSelected] = useState<Selection | null>(null);
   const [activeSheet, setActiveSheet] = useState<string | null>(null);
+  const [simple, setSimple] = useState(false);
   const schema = config?.domains[0]?.schema ?? {};
 
   // Table columns = schema columns ∪ keys present in the rows, so optional
@@ -205,11 +207,27 @@ export function ModelView({ workbook, setWorkbook, config, leftW, setLeftW }: Pr
       <Resizer width={leftW} setWidth={setLeftW} side="left" />
       <main className="main-area">
         <div className="model-banner">
-          Drag a component (or a technology → new facility) onto the canvas; drag a node handle to
-          another to connect. Select an item to edit its static values (right) and time series (below).
+          <div className="view-toggle">
+            <button
+              className={`tab${simple ? "" : " active"}`}
+              onClick={() => setSimple(false)}
+            >
+              Canvas
+            </button>
+            <button className={`tab${simple ? " active" : ""}`} onClick={() => setSimple(true)}>
+              Simple
+            </button>
+          </div>
+          {simple
+            ? "Inputs → facilities → outputs. Drag a section's corner to resize; click an item to edit."
+            : "Drag a component onto the canvas; drag a node handle to another to connect. Click an item to edit."}
         </div>
         <div className="canvas-pane">
-          <FlowCanvas workbook={workbook} onChange={setWorkbook} onSelect={openItem} />
+          {simple ? (
+            <SimpleView workbook={workbook} onSelect={openItem} />
+          ) : (
+            <FlowCanvas workbook={workbook} onChange={setWorkbook} onSelect={openItem} />
+          )}
         </div>
         {dockOpen && (
           <div className="editor-dock">
