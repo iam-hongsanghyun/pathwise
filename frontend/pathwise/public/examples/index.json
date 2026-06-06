@@ -16,5 +16,11 @@
     "label": "Petrochemicals — Korea (PLANiT MACC)",
     "file": "petrochemical.xlsx",
     "description": "Process archetypes (Naphtha Cracker / BTX / Utility); naphtha crackers may switch to H2 or electric cracking under a Policy_Target CO2 path."
+  },
+  {
+    "id": "aluminium",
+    "label": "Aluminium — 3-stage chain",
+    "file": "aluminium.xlsx",
+    "description": "Refinery → smelter → caster (3 routed stages); each stage has a lower-carbon transition (H2 refining / RE smelting / electric casting) under a rising carbon price and declining CO2 cap."
   }
 ]

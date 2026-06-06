@@ -50,14 +50,6 @@ export function workbookToGraph(wb: Workbook): { nodes: GraphNode[]; edges: Grap
     (wb.commodities ?? []).map((r) => [s(r.commodity_id), s(r.kind, "material")]),
   );
 
-  const nodes: GraphNode[] = [];
-  let auto = 0;
-  const place = (id: string) => layout.get(id) ?? { x: 60 + (auto % 6) * 210, y: 60 + Math.floor(auto++ / 6) * 150 };
-  const add = (kind: NodeKind, entityId: string, label: string, sub?: string, ports?: FacilityPorts) => {
-    const id = nodeId(kind, entityId);
-    nodes.push({ id, type: kind, position: place(id), data: { kind, entityId, label, sub, ports } });
-  };
-
   // Inputs/outputs come from the unified `io` table (legacy sheets as fallback).
   const inputsOf = (tech: string): string[] => [
     ...(wb.io ?? [])
@@ -88,6 +80,18 @@ export function workbookToGraph(wb: Workbook): { nodes: GraphNode[]; edges: Grap
     return p;
   };
 
+  const layered = layeredLayout(wb, inputsOf, outputsOf);
+  const nodes: GraphNode[] = [];
+  let auto = 0;
+  // Saved position wins; else the layered left→right placement; else a grid.
+  const place = (id: string) =>
+    layout.get(id) ??
+    layered.get(id) ?? { x: 60 + (auto % 6) * 210, y: 60 + Math.floor(auto++ / 6) * 150 };
+  const add = (kind: NodeKind, entityId: string, label: string, sub?: string, ports?: FacilityPorts) => {
+    const id = nodeId(kind, entityId);
+    nodes.push({ id, type: kind, position: place(id), data: { kind, entityId, label, sub, ports } });
+  };
+
   for (const r of wb.commodities ?? []) add("commodity", s(r.commodity_id), s(r.commodity_id), s(r.kind));
   for (const r of wb.processes ?? [])
     add("process", s(r.process_id), s(r.process_id), s(r.baseline_technology), facilityPorts(s(r.process_id)));
@@ -112,6 +116,68 @@ export function workbookToGraph(wb: Workbook): { nodes: GraphNode[]; edges: Grap
   for (const r of wb.storage ?? [])
     edge(nodeId("storage", s(r.storage_id)), nodeId("commodity", s(r.commodity_id)));
   return { nodes, edges };
+}
+
+/** Layered left→right placement for nodes with no saved position.
+ *
+ *  Columns alternate commodity / process by flow depth, so the map reads as
+ *  inputs → stage 1 → intermediate → stage 2 → … → product (left to right),
+ *  matching the input-left / output-right handles. Raw inputs sit in column 0;
+ *  a process at flow depth `d` sits in column `2d+1`; a commodity produced by
+ *  that process in column `2d+2`. Markets sit just left of the commodity they
+ *  supply; storage shares its commodity's column. Within a column, nodes stack
+ *  top-to-bottom. Returns `nodeId → {x, y}`. */
+function layeredLayout(
+  wb: Workbook,
+  inputsOf: (tech: string) => string[],
+  outputsOf: (tech: string) => string[],
+): Map<string, { x: number; y: number }> {
+  const producers = new Map<string, string[]>(); // commodity → producing process ids
+  const procInputs = new Map<string, string[]>();
+  for (const p of wb.processes ?? []) {
+    const pid = s(p.process_id);
+    const tech = s(p.baseline_technology);
+    procInputs.set(pid, inputsOf(tech));
+    for (const c of outputsOf(tech)) producers.set(c, [...(producers.get(c) ?? []), pid]);
+  }
+
+  const depthCache = new Map<string, number>();
+  const depth = (pid: string, seen: Set<string>): number => {
+    const cached = depthCache.get(pid);
+    if (cached !== undefined) return cached;
+    if (seen.has(pid)) return 0; // cycle guard
+    seen.add(pid);
+    let d = 0;
+    for (const c of procInputs.get(pid) ?? [])
+      for (const up of producers.get(c) ?? []) if (up !== pid) d = Math.max(d, depth(up, seen) + 1);
+    depthCache.set(pid, d);
+    return d;
+  };
+  const commodityCol = (c: string): number => {
+    const prod = producers.get(c) ?? [];
+    return prod.length ? Math.max(...prod.map((p) => 2 * depth(p, new Set()) + 2)) : 0;
+  };
+
+  const colOf = new Map<string, number>();
+  for (const p of wb.processes ?? [])
+    colOf.set(nodeId("process", s(p.process_id)), 2 * depth(s(p.process_id), new Set()) + 1);
+  for (const r of wb.commodities ?? [])
+    colOf.set(nodeId("commodity", s(r.commodity_id)), commodityCol(s(r.commodity_id)));
+  for (const r of wb.markets ?? [])
+    colOf.set(nodeId("market", s(r.market_id)), Math.max(0, commodityCol(s(r.target)) - 1));
+  for (const r of wb.storage ?? [])
+    colOf.set(nodeId("storage", s(r.storage_id)), commodityCol(s(r.commodity_id)));
+
+  const byCol = new Map<number, string[]>();
+  for (const [id, col] of colOf) byCol.set(col, [...(byCol.get(col) ?? []), id]);
+  const pos = new Map<string, { x: number; y: number }>();
+  const COL_W = 220;
+  const ROW_H = 108;
+  for (const [col, ids] of byCol) {
+    ids.sort();
+    ids.forEach((id, i) => pos.set(id, { x: 40 + col * COL_W, y: 40 + i * ROW_H }));
+  }
+  return pos;
 }
 
 /** Persist node positions into the workbook's `node_layout` sheet — upserts a
