@@ -75,8 +75,16 @@ export function SimpleView({ workbook, onSelect }: Props) {
       </button>
     ) : null;
 
-  const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <div className="sv-section">
+  const Section = ({
+    title,
+    children,
+    full,
+  }: {
+    title: string;
+    children: React.ReactNode;
+    full?: boolean;
+  }) => (
+    <div className={`sv-section${full ? " sv-section--full" : ""}`}>
       <div className="sv-head">{title}</div>
       <div className="sv-body">{children}</div>
     </div>
@@ -96,7 +104,7 @@ export function SimpleView({ workbook, onSelect }: Props) {
 
       {/* Column 2 — facilities (each with its candidate technologies) */}
       <div className="sv-col">
-        <Section title="Facilities (upstream → downstream)">
+        <Section title="Facilities (upstream → downstream)" full>
           {orderedFacilities.map((f) => (
             <div key={f.id} className="sv-facility">
               <button className="sv-pill facility" onClick={() => onSelect({ sheet: "processes", idCol: "process_id", id: f.id })}>
