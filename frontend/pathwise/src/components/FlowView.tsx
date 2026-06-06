@@ -33,26 +33,35 @@ export function FlowView({ workbook, onSelect }: Props) {
     outputs: ioOf(baseOf(p), "output"),
   }));
 
-  // Flow depth: a facility consuming another's product is downstream.
-  const producers = new Map<string, Set<number>>();
-  procs.forEach((p, i) => p.outputs.forEach((c) => producers.set(c, (producers.get(c) ?? new Set()).add(i))));
+  const products = new Set(
+    (workbook.commodities ?? []).filter((r) => s(r.kind) === "product").map((r) => s(r.commodity_id)),
+  );
+
+  // Stage = distance to the final product (NOT distance from raw inputs), so a
+  // facility that makes the product (e.g. EAF: scrap→steel, single-stage) lands
+  // in the LAST stage with the other steel-makers, and iron-making is stage 1.
+  const consumers = new Map<string, Set<number>>(); // commodity → facilities that consume it
+  procs.forEach((p, i) => p.inputs.forEach((c) => consumers.set(c, (consumers.get(c) ?? new Set()).add(i))));
   const cache = new Map<number, number>();
-  const depth = (i: number, seen = new Set<number>()): number => {
+  const toProduct = (i: number, seen = new Set<number>()): number => {
     if (cache.has(i)) return cache.get(i)!;
+    if (procs[i].outputs.some((o) => products.has(o))) return 0; // makes the product
     if (seen.has(i)) return 0;
     seen.add(i);
     let d = 0;
-    for (const c of procs[i].inputs) for (const j of producers.get(c) ?? []) if (j !== i) d = Math.max(d, depth(j, seen) + 1);
+    for (const o of procs[i].outputs)
+      for (const j of consumers.get(o) ?? []) if (j !== i) d = Math.max(d, toProduct(j, seen) + 1);
     cache.set(i, d);
     return d;
   };
 
-  const levels = uniq(procs.map((_, i) => String(depth(i)))).map(Number).sort((a, b) => a - b);
+  // Highest distance-to-product first (most upstream), product-makers last.
+  const levels = uniq(procs.map((_, i) => String(toProduct(i)))).map(Number).sort((a, b) => b - a);
   const producedAnywhere = new Set(procs.flatMap((p) => p.outputs));
   const stages = levels.map((d) => {
-    const facs = procs.filter((_, i) => depth(i) === d);
+    const facs = procs.filter((_, i) => toProduct(i) === d);
     const baseTechs = uniq(facs.map((f) => f.base));
-    const alts = uniq(baseTechs.flatMap(altsOf));
+    const alts = uniq(baseTechs.flatMap(altsOf)).filter((t) => !baseTechs.includes(t));
     const inputs = uniq(facs.flatMap((f) => f.inputs));
     const outputs = uniq(facs.flatMap((f) => f.outputs));
     return {
@@ -64,10 +73,6 @@ export function FlowView({ workbook, onSelect }: Props) {
       outputs,
     };
   });
-
-  const products = new Set(
-    (workbook.commodities ?? []).filter((r) => s(r.kind) === "product").map((r) => s(r.commodity_id)),
-  );
 
   const tech = (t: string, base: boolean) => (
     <button
@@ -99,7 +104,7 @@ export function FlowView({ workbook, onSelect }: Props) {
           <div className="flow-row" key={st.d}>
             <div className="flow-stage">
               <div className="flow-stage-head">
-                Stage {st.d + 1}
+                Stage {k + 1}
                 {st.outputs.length ? ` → ${st.outputs.join(" / ")}` : ""}
               </div>
               {st.feeds.length > 0 && (
