@@ -83,3 +83,14 @@ def test_blend_min_share_forces_expensive_fuel() -> None:
     comm = {(r["commodity"], r["period"]): r["consumed"] for r in res["summary"]["commodity"]}
     np.testing.assert_allclose(comm[("coal", 2025)], 30.0, rtol=1e-6)
     np.testing.assert_allclose(comm[("h2", 2025)], 70.0, rtol=1e-6)
+
+
+def test_empty_string_numeric_cells_are_tolerated() -> None:
+    # xlsx round-trips can yield '' for blank numeric cells — must not crash.
+    wb = _wb(coal_min=0.0, coal_max=0.8, coal_price=1.0, h2_price=10.0)
+    for r in wb["io"]:
+        if r.get("group") and r["target"] == "h2":
+            r["share_min"] = ""  # blank cell
+            r["share_max"] = ""
+    res = _solve(wb)
+    assert res["status"] == "optimal"  # blanks → defaults (0 / 1), still solves

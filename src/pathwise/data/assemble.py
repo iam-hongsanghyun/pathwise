@@ -43,9 +43,14 @@ def _rows(wb: Workbook, sheet: str) -> Rows:
 def _num(value: Any, default: float | None = None) -> float | None:
     if value is None:
         return default
+    if isinstance(value, str) and value.strip() == "":
+        return default  # empty cell from an xlsx round-trip
     if isinstance(value, float) and math.isnan(value):
         return default
-    return float(value)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _int(value: Any, default: int | None = None) -> int | None:
