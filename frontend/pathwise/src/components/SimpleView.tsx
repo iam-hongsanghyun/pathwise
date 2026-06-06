@@ -28,10 +28,45 @@ export function SimpleView({ workbook, onSelect }: Props) {
     const from = s(t.from_technology);
     (targets.get(from) ?? targets.set(from, []).get(from)!).push(s(t.to_technology));
   }
+  // Inputs / outputs of a technology (from the io table) → used to order
+  // facilities upstream→downstream (a producer sits above its consumer).
+  const ioOf = (tech: string, role: "input" | "output") =>
+    (workbook.io ?? [])
+      .filter((r) => s(r.technology_id) === tech && (s(r.role) || "input") === role)
+      .map((r) => s(r.target));
+
   const facilities = (workbook.processes ?? []).map((p) => {
     const base = s(p.baseline_technology);
-    return { id: s(p.process_id), company: s(p.company), techs: [base, ...(targets.get(base) ?? [])] };
+    return {
+      id: s(p.process_id),
+      company: s(p.company),
+      techs: [base, ...(targets.get(base) ?? [])],
+      inputs: ioOf(base, "input"),
+      outputs: ioOf(base, "output"),
+    };
   });
+
+  // Order by flow depth: a facility that consumes another's product comes lower.
+  const producers = new Map<string, Set<number>>(); // commodity → facility indices
+  facilities.forEach((f, i) =>
+    f.outputs.forEach((c) => producers.set(c, (producers.get(c) ?? new Set()).add(i))),
+  );
+  const depthCache = new Map<number, number>();
+  const depth = (i: number, seen: Set<number> = new Set()): number => {
+    if (depthCache.has(i)) return depthCache.get(i)!;
+    if (seen.has(i)) return 0; // cycle guard
+    seen.add(i);
+    let d = 0;
+    for (const c of facilities[i].inputs)
+      for (const j of producers.get(c) ?? [])
+        if (j !== i) d = Math.max(d, depth(j, seen) + 1);
+    depthCache.set(i, d);
+    return d;
+  };
+  const orderedFacilities = facilities
+    .map((f, i) => ({ f, d: depth(i) }))
+    .sort((a, b) => a.d - b.d)
+    .map((x) => x.f);
 
   const pill = (sheet: string, idCol: string, id: string, cls = "") =>
     id ? (
@@ -61,8 +96,8 @@ export function SimpleView({ workbook, onSelect }: Props) {
 
       {/* Column 2 — facilities (each with its candidate technologies) */}
       <div className="sv-col">
-        <Section title="Facilities">
-          {facilities.map((f) => (
+        <Section title="Facilities (upstream → downstream)">
+          {orderedFacilities.map((f) => (
             <div key={f.id} className="sv-facility">
               <button className="sv-pill facility" onClick={() => onSelect({ sheet: "processes", idCol: "process_id", id: f.id })}>
                 {f.id}
