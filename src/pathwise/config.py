@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     solver_threads: int = 4
     max_solver_time_limit_s: int = 1800
     default_mip_gap: float = 0.01
+    # Stream the HiGHS solver log to the server terminal (so the optimisation is
+    # visible). Set PATHWISE_SOLVER_VERBOSE=false to silence it.
+    solver_verbose: bool = True
     # HiGHS global scaling (log2 exponents). Real workbooks carry energy/material
     # flows that span many orders of magnitude; without scaling HiGHS can hit an
     # internal_solver_error. These are an exact, solution-preserving transform.

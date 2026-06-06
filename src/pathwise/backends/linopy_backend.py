@@ -68,13 +68,23 @@ class LinopyBackend:
         problem = domain.build_problem(model, sc)
         ctx = build(problem)
         time_limit = min(sc.solver.time_limit_s, float(settings.max_solver_time_limit_s))
+        # HiGHS log streams to the server terminal so the optimisation is visible;
+        # `verbose: false` in options (or PATHWISE_SOLVER_VERBOSE=false) silences it.
+        verbose = bool(options.get("verbose", settings.solver_verbose))
         opts = SolverOptions(
             time_limit_s=time_limit,
             mip_rel_gap=sc.solver.mip_gap,
             threads=settings.solver_threads,
-            output_flag=bool(options.get("verbose", False)),
+            output_flag=verbose,
             user_bound_scale=settings.highs_user_bound_scale,
             user_objective_scale=settings.highs_user_objective_scale,
+        )
+        logger.info(
+            "solving: %d facilities × %d techs × %d periods (HiGHS%s)",
+            len(ctx.procs),
+            len(ctx.techs),
+            len(ctx.years),
+            ", log on" if verbose else "",
         )
         result = solve(ctx, opts)
         return extract_results(result, domain.terminology(), report.as_dict())

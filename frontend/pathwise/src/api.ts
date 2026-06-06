@@ -39,6 +39,6 @@ export async function runToCompletion(
     if (state.status === "done" && state.result) return state.result;
     if (state.status === "error") throw new Error(state.error ?? "run failed");
     if (state.status === "cancelled") throw new Error("run cancelled");
-    await new Promise((r) => setTimeout(r, 400));
+    await new Promise((r) => setTimeout(r, 1500));
   }
 }
