@@ -4,6 +4,7 @@ import { LeftRail } from "../layout/LeftRail";
 import { Resizer } from "../layout/Resizer";
 import { FlowCanvas } from "../components/designer/FlowCanvas";
 import { SimpleView } from "../components/SimpleView";
+import { FlowView } from "../components/FlowView";
 import { WorkbookTable } from "../components/WorkbookTable";
 import type { Cell, ConfigBundle, Row, Selection, Workbook } from "../types";
 
@@ -122,7 +123,7 @@ function ItemTimeSeries({
 export function ModelView({ workbook, setWorkbook, config, leftW, setLeftW }: Props) {
   const [selected, setSelected] = useState<Selection | null>(null);
   const [activeSheet, setActiveSheet] = useState<string | null>(null);
-  const [simple, setSimple] = useState(false);
+  const [mode, setMode] = useState<"canvas" | "simple" | "flow">("canvas");
   const [rightW, setRightW] = useState(300);
   const [dockH, setDockH] = useState(260);
   const schema = config?.domains[0]?.schema ?? {};
@@ -210,26 +211,23 @@ export function ModelView({ workbook, setWorkbook, config, leftW, setLeftW }: Pr
       <main className="main-area">
         <div className="model-banner">
           <div className="view-toggle">
-            <button
-              className={`tab${simple ? "" : " active"}`}
-              onClick={() => setSimple(false)}
-            >
-              Canvas
-            </button>
-            <button className={`tab${simple ? " active" : ""}`} onClick={() => setSimple(true)}>
-              Simple
-            </button>
+            {(["canvas", "simple", "flow"] as const).map((m) => (
+              <button key={m} className={`tab${mode === m ? " active" : ""}`} onClick={() => setMode(m)}>
+                {m[0].toUpperCase() + m.slice(1)}
+              </button>
+            ))}
           </div>
-          {simple
-            ? "Inputs → facilities → outputs. Drag a section's corner to resize; click an item to edit."
-            : "Drag a component onto the canvas; drag a node handle to another to connect. Click an item to edit."}
+          {mode === "canvas" &&
+            "Drag a component onto the canvas; drag a node handle to another to connect. Click an item to edit."}
+          {mode === "simple" &&
+            "Inputs → facilities → outputs. Drag a section's corner to resize; click an item to edit."}
+          {mode === "flow" &&
+            "Process route by stage (● current · ○ alternative). Toggle aggregated / per-facility; click a technology to edit."}
         </div>
         <div className="canvas-pane">
-          {simple ? (
-            <SimpleView workbook={workbook} onSelect={openItem} />
-          ) : (
-            <FlowCanvas workbook={workbook} onChange={setWorkbook} onSelect={openItem} />
-          )}
+          {mode === "canvas" && <FlowCanvas workbook={workbook} onChange={setWorkbook} onSelect={openItem} />}
+          {mode === "simple" && <SimpleView workbook={workbook} onSelect={openItem} />}
+          {mode === "flow" && <FlowView workbook={workbook} onSelect={openItem} />}
         </div>
         {dockOpen && (
           <div className="editor-dock" style={{ flex: `0 0 ${dockH}px` }}>
