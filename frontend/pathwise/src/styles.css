@@ -216,6 +216,16 @@
   flex-direction: column;
   gap: 8px;
 }
+.modal-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.modal input,
+.modal select {
+  width: 100%;
+  box-sizing: border-box;
+}
 .left-rail,
 .right-rail {
   width: 232px;

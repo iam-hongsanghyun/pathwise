@@ -158,11 +158,12 @@ function InputModal({
               <span>Blend group (same name = mixed together)</span>
               <input value={String(row.group ?? "")} onChange={(e) => onSet({ group: e.target.value || null })} />
             </label>
-            <div className="blend-row" style={{ margin: "2px 0" }}>
+            <div className="modal-two-col">
               <label className="inspector-field">
                 <span>Min share (0–1)</span>
                 <input
                   value={num(row.share_min)}
+                  placeholder="0"
                   onChange={(e) => onSet({ share_min: e.target.value === "" ? null : Number(e.target.value) })}
                 />
               </label>
@@ -170,6 +171,7 @@ function InputModal({
                 <span>Max share (0–1)</span>
                 <input
                   value={num(row.share_max)}
+                  placeholder="1"
                   onChange={(e) => onSet({ share_max: e.target.value === "" ? null : Number(e.target.value) })}
                 />
               </label>
