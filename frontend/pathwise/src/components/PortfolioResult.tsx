@@ -1,3 +1,4 @@
+import { ChartTip, useTip } from "./charting";
 import type { PortfolioResultBlock } from "../types";
 
 const BRAND = "#0f766e";
@@ -13,11 +14,10 @@ interface Props {
 }
 
 /** Portfolio result: allocation weights, efficient frontier (x = return,
- *  y = risk), and the per-scenario reward distribution. All hand-rolled SVG,
- *  matching the LineChart style (no chart dependency). */
+ *  y = risk), and the per-scenario reward distribution. Hand-rolled SVG (no
+ *  chart dependency); every chart has hover tooltips + highlighting. */
 export function PortfolioResult({ portfolio }: Props) {
-  const rewardLabel =
-    portfolio.reward_mode === "profit" ? "profit" : "cost reduction";
+  const rewardLabel = portfolio.reward_mode === "profit" ? "profit" : "cost reduction";
   const unit = portfolio.normalize_by_capex ? " (per unit capex)" : "";
   return (
     <div className="view">
@@ -36,7 +36,7 @@ export function PortfolioResult({ portfolio }: Props) {
           )}{" "}
           · {portfolio.assets.length} assets · {portfolio.n_scenarios.toLocaleString()} scenarios
         </p>
-        <Allocation portfolio={portfolio} />
+        <Allocation portfolio={portfolio} rewardLabel={rewardLabel} />
       </section>
 
       {portfolio.frontier.length > 0 && (
@@ -56,8 +56,9 @@ export function PortfolioResult({ portfolio }: Props) {
   );
 }
 
-/** Horizontal weight bars, sorted high → low. */
-function Allocation({ portfolio }: Props) {
+/** Horizontal weight bars, sorted high → low; hover a row for its details. */
+function Allocation({ portfolio, rewardLabel }: Props & { rewardLabel: string }) {
+  const { tip, wrapRef, show, hide } = useTip();
   const assets = [...portfolio.assets].sort((a, b) => b.weight - a.weight);
   const rowH = 24;
   const padL = 180;
@@ -65,28 +66,43 @@ function Allocation({ portfolio }: Props) {
   const barW = width - padL - 64;
   const maxW = Math.max(...assets.map((a) => a.weight), 1e-9);
   return (
-    <svg width={width} height={assets.length * rowH + 8} role="img" aria-label="allocation">
-      {assets.map((a, i) => {
-        const y = i * rowH + 4;
-        const w = (a.weight / maxW) * barW;
-        return (
-          <g key={a.asset_id}>
-            <text x={padL - 8} y={y + 13} fontSize="11" fill={AXIS} textAnchor="end">
-              {a.label.length > 26 ? `${a.label.slice(0, 25)}…` : a.label}
-            </text>
-            <rect x={padL} y={y} width={Math.max(w, 0)} height={rowH - 8} fill={BRAND} rx={1} />
-            <text x={padL + Math.max(w, 0) + 6} y={y + 13} fontSize="11" fill={AXIS}>
-              {(a.weight * 100).toFixed(1)}%
-            </text>
-          </g>
-        );
-      })}
-    </svg>
+    <div className="chart-wrap" ref={wrapRef}>
+      <svg width={width} height={assets.length * rowH + 8} role="img" aria-label="allocation">
+        {assets.map((a, i) => {
+          const yy = i * rowH + 4;
+          const w = (a.weight / maxW) * barW;
+          const rows = [
+            `weight: ${(a.weight * 100).toFixed(1)}%`,
+            `expected ${rewardLabel}: ${fmt(a.expected_return)}`,
+            `σ: ${fmt(a.std)}`,
+            `switch capex: ${fmt(a.transition_capex)}`,
+          ];
+          return (
+            <g
+              key={a.asset_id}
+              onMouseMove={(e) => show(e, rows, a.label)}
+              onMouseLeave={hide}
+            >
+              <rect x={0} y={yy - 2} width={width} height={rowH} fill="transparent" />
+              <text x={padL - 8} y={yy + 13} fontSize="11" fill={AXIS} textAnchor="end">
+                {a.label.length > 26 ? `${a.label.slice(0, 25)}…` : a.label}
+              </text>
+              <rect x={padL} y={yy} width={Math.max(w, 0)} height={rowH - 8} fill={BRAND} rx={1} />
+              <text x={padL + Math.max(w, 0) + 6} y={yy + 13} fontSize="11" fill={AXIS}>
+                {(a.weight * 100).toFixed(1)}%
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      <ChartTip tip={tip} />
+    </div>
   );
 }
 
 /** Frontier scatter: x = return, y = risk; chosen portfolio highlighted. */
 function Frontier({ portfolio, rewardLabel }: Props & { rewardLabel: string }) {
+  const { tip, wrapRef, show, hide } = useTip();
   const width = 640;
   const height = 300;
   const padL = 56;
@@ -116,15 +132,38 @@ function Frontier({ portfolio, rewardLabel }: Props & { rewardLabel: string }) {
     .join(" ");
 
   return (
-    <div>
+    <div className="chart-wrap" ref={wrapRef}>
       <svg width={width} height={height} role="img" aria-label="efficient frontier">
         <line x1={padL} y1={padT} x2={padL} y2={padT + plotH} stroke={GRID} />
         <line x1={padL} y1={padT + plotH} x2={width - 16} y2={padT + plotH} stroke={GRID} />
         <path d={path} fill="none" stroke={BRAND} strokeWidth={1.5} />
         {portfolio.frontier.map((p, i) => (
-          <circle key={i} cx={x(p.return)} cy={y(p.risk)} r={2.5} fill={BRAND} />
+          <circle
+            key={i}
+            cx={x(p.return)}
+            cy={y(p.risk)}
+            r={3}
+            fill={BRAND}
+            className="hoverable"
+            onMouseMove={(e) => show(e, [`return: ${fmt(p.return)}`, `risk (σ): ${fmt(p.risk)}`], "frontier point")}
+            onMouseLeave={hide}
+          />
         ))}
-        <circle cx={x(portfolio.chosen.return)} cy={y(portfolio.chosen.risk)} r={5} fill={ACCENT} />
+        <circle
+          cx={x(portfolio.chosen.return)}
+          cy={y(portfolio.chosen.risk)}
+          r={5}
+          fill={ACCENT}
+          className="hoverable"
+          onMouseMove={(e) =>
+            show(
+              e,
+              [`return: ${fmt(portfolio.chosen.return)}`, `risk (σ): ${fmt(portfolio.chosen.risk)}`],
+              "chosen portfolio",
+            )
+          }
+          onMouseLeave={hide}
+        />
         <text x={x(portfolio.chosen.return) + 8} y={y(portfolio.chosen.risk) - 6} fontSize="10" fill={ACCENT}>
           chosen
         </text>
@@ -154,12 +193,14 @@ function Frontier({ portfolio, rewardLabel }: Props & { rewardLabel: string }) {
           risk (σ) →
         </text>
       </svg>
+      <ChartTip tip={tip} />
     </div>
   );
 }
 
-/** Reward distribution histogram, marking the mean and (if any) CVaR cutoff. */
+/** Reward distribution histogram, marking the mean; hover a bar for its range. */
 function Histogram({ portfolio, rewardLabel }: Props & { rewardLabel: string }) {
+  const { tip, wrapRef, show, hide } = useTip();
   const data = portfolio.distribution;
   const width = 640;
   const height = 240;
@@ -183,21 +224,30 @@ function Histogram({ portfolio, rewardLabel }: Props & { rewardLabel: string }) 
   const bw = plotW / bins;
 
   return (
-    <div>
+    <div className="chart-wrap" ref={wrapRef}>
       <svg width={width} height={height} role="img" aria-label="reward distribution">
         <line x1={padL} y1={padT + plotH} x2={width - 16} y2={padT + plotH} stroke={GRID} />
         {counts.map((c, i) => {
           const h = (c / maxCount) * plotH;
+          const binLo = lo + (i / bins) * span;
+          const binHi = lo + ((i + 1) / bins) * span;
+          const pct = ((c / data.length) * 100).toFixed(1);
           return (
-            <rect
+            <g
               key={i}
-              x={padL + i * bw + 0.5}
-              y={padT + plotH - h}
-              width={Math.max(bw - 1, 1)}
-              height={h}
-              fill={BRAND}
-              opacity={0.8}
-            />
+              onMouseMove={(e) => show(e, [`${c} scenarios (${pct}%)`], `${fmt(binLo)} … ${fmt(binHi)}`)}
+              onMouseLeave={hide}
+            >
+              <rect x={padL + i * bw} y={padT} width={bw} height={plotH} fill="transparent" />
+              <rect
+                x={padL + i * bw + 0.5}
+                y={padT + plotH - h}
+                width={Math.max(bw - 1, 1)}
+                height={h}
+                fill={BRAND}
+                opacity={0.8}
+              />
+            </g>
           );
         })}
         <line x1={x(mean)} y1={padT} x2={x(mean)} y2={padT + plotH} stroke={ACCENT} strokeWidth={1.5} />
@@ -214,6 +264,7 @@ function Histogram({ portfolio, rewardLabel }: Props & { rewardLabel: string }) 
           {rewardLabel} per scenario
         </text>
       </svg>
+      <ChartTip tip={tip} />
     </div>
   );
 }

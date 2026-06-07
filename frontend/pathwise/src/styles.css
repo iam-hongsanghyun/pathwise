@@ -899,11 +899,50 @@ td input:focus {
   display: flex;
   align-items: center;
   gap: 4px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  color: var(--text);
+  font-size: inherit;
+  cursor: pointer;
+}
+.legend-item:hover {
+  color: var(--brand);
+}
+.legend-item.is-off {
+  opacity: 0.4;
+  text-decoration: line-through;
 }
 .swatch {
   width: 12px;
   height: 12px;
   display: inline-block;
+}
+
+/* ── Interactive charts (hand-rolled SVG): hover tooltip + highlights ──────── */
+.chart-wrap {
+  position: relative;
+}
+.chart-wrap svg .hoverable {
+  cursor: pointer;
+}
+.chart-tip {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 12px));
+  pointer-events: none;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  padding: 5px 8px;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  z-index: 50;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.16);
+}
+.chart-tip-title {
+  font-weight: 600;
+  margin-bottom: 2px;
 }
 h2,
 h3 {
