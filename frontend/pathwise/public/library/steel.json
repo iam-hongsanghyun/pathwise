@@ -1,0 +1,695 @@
+{
+  "sector": "steel",
+  "label": "Steel",
+  "commodities": [
+    {
+      "commodity_id": "BF gas_BB",
+      "kind": "energy",
+      "unit": "GJ"
+    },
+    {
+      "commodity_id": "BF gas_BX",
+      "kind": "energy",
+      "unit": "GJ"
+    },
+    {
+      "commodity_id": "BOF gas_BB",
+      "kind": "energy",
+      "unit": "GJ"
+    },
+    {
+      "commodity_id": "BOF gas_BB_2030",
+      "kind": "energy",
+      "unit": "GJ"
+    },
+    {
+      "commodity_id": "BOF gas_BX",
+      "kind": "energy",
+      "unit": "GJ"
+    },
+    {
+      "commodity_id": "COG_BB",
+      "kind": "energy",
+      "unit": "GJ"
+    },
+    {
+      "commodity_id": "COG_BB_2030",
+      "kind": "energy",
+      "unit": "GJ"
+    },
+    {
+      "commodity_id": "Coal_BB",
+      "kind": "energy",
+      "unit": "GJ"
+    },
+    {
+      "commodity_id": "Coal_BX",
+      "kind": "energy",
+      "unit": "GJ"
+    },
+    {
+      "commodity_id": "Electricity_EAF",
+      "kind": "energy",
+      "unit": "GJ"
+    },
+    {
+      "commodity_id": "Electricity_H2",
+      "kind": "energy",
+      "unit": "GJ"
+    },
+    {
+      "commodity_id": "HBI_BB",
+      "kind": "material",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "HBI_EAF",
+      "kind": "material",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "Hydrogen_EAF",
+      "kind": "energy",
+      "unit": "GJ"
+    },
+    {
+      "commodity_id": "Hydrogen_H2",
+      "kind": "energy",
+      "unit": "GJ"
+    },
+    {
+      "commodity_id": "Iron ore_BB",
+      "kind": "material",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "Iron ore_BX",
+      "kind": "material",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "Iron ore_H2",
+      "kind": "material",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "Natural gas_BX",
+      "kind": "energy",
+      "unit": "GJ"
+    },
+    {
+      "commodity_id": "Scrap_BB",
+      "kind": "material",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "Scrap_EAF",
+      "kind": "material",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "Scrap_H2",
+      "kind": "material",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "iron",
+      "kind": "material",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "steel",
+      "kind": "product",
+      "unit": "t"
+    }
+  ],
+  "facilities": [
+    {
+      "facility_id": "bf",
+      "label": "BF",
+      "description": "Steel archetype extracted from the example model (baseline of 11 facilities).",
+      "technology": {
+        "technology_id": "BF",
+        "lifespan": 20,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "Coal_BB",
+            "role": "input",
+            "coefficient": 15.779538,
+            "group": "fuel",
+            "share_min": 0.8,
+            "share_max": 0.9
+          },
+          {
+            "target": "BF gas_BB",
+            "role": "input",
+            "coefficient": 1.48092,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 0.07
+          },
+          {
+            "target": "COG_BB",
+            "role": "input",
+            "coefficient": 1.0578,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 0.04
+          },
+          {
+            "target": "COG_BB_2030",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 0.05
+          },
+          {
+            "target": "BOF gas_BB",
+            "role": "input",
+            "coefficient": 0.21156,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 0.05
+          },
+          {
+            "target": "BOF gas_BB_2030",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 0.09
+          },
+          {
+            "target": "Iron ore_BB",
+            "role": "input",
+            "coefficient": 1.485
+          },
+          {
+            "target": "iron",
+            "role": "output",
+            "coefficient": 1.0
+          }
+        ]
+      },
+      "alternatives": [
+        {
+          "technology": {
+            "technology_id": "H2-DRI",
+            "lifespan": 20,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "Hydrogen_H2",
+                "role": "input",
+                "coefficient": 9.395454545454545,
+                "group": "fuel",
+                "share_min": 0.5,
+                "share_max": 0.8
+              },
+              {
+                "target": "Electricity_H2",
+                "role": "input",
+                "coefficient": 6.508636363636362,
+                "group": "fuel",
+                "share_min": 0.3,
+                "share_max": 0.6
+              },
+              {
+                "target": "Iron ore_H2",
+                "role": "input",
+                "coefficient": 1.414285714285714
+              },
+              {
+                "target": "iron",
+                "role": "output",
+                "coefficient": 1.0
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1100000.0
+        }
+      ],
+      "default_capacity": 4000000.0,
+      "source": {
+        "name": "PLANiT MACC steel dataset (Korea), via the pathwise steel converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/steel.py",
+        "year": 2026,
+        "region": "KR",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "bf_fx",
+      "label": "BF-FX",
+      "description": "Steel archetype extracted from the example model (baseline of 2 facilities).",
+      "technology": {
+        "technology_id": "BF-FX",
+        "lifespan": 20,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "Coal_BX",
+            "role": "input",
+            "coefficient": 15.054042,
+            "group": "fuel",
+            "share_min": 0.75,
+            "share_max": 1.0
+          },
+          {
+            "target": "BF gas_BX",
+            "role": "input",
+            "coefficient": 1.90404,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 0.1
+          },
+          {
+            "target": "BOF gas_BX",
+            "role": "input",
+            "coefficient": 0.21156,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 0.1
+          },
+          {
+            "target": "Natural gas_BX",
+            "role": "input",
+            "coefficient": 1.48092,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 0.1
+          },
+          {
+            "target": "Iron ore_BX",
+            "role": "input",
+            "coefficient": 1.65
+          },
+          {
+            "target": "iron",
+            "role": "output",
+            "coefficient": 1.0
+          }
+        ]
+      },
+      "alternatives": [
+        {
+          "technology": {
+            "technology_id": "H2-DRI",
+            "lifespan": 20,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "Hydrogen_H2",
+                "role": "input",
+                "coefficient": 9.395454545454545,
+                "group": "fuel",
+                "share_min": 0.5,
+                "share_max": 0.8
+              },
+              {
+                "target": "Electricity_H2",
+                "role": "input",
+                "coefficient": 6.508636363636362,
+                "group": "fuel",
+                "share_min": 0.3,
+                "share_max": 0.6
+              },
+              {
+                "target": "Iron ore_H2",
+                "role": "input",
+                "coefficient": 1.414285714285714
+              },
+              {
+                "target": "iron",
+                "role": "output",
+                "coefficient": 1.0
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1100000.0
+        }
+      ],
+      "default_capacity": 1597000.0,
+      "source": {
+        "name": "PLANiT MACC steel dataset (Korea), via the pathwise steel converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/steel.py",
+        "year": 2026,
+        "region": "KR",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "bof",
+      "label": "BOF",
+      "description": "Steel archetype extracted from the example model (baseline of 11 facilities).",
+      "technology": {
+        "technology_id": "BOF",
+        "lifespan": 20,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "iron",
+            "role": "input",
+            "coefficient": 1.0
+          },
+          {
+            "target": "Scrap_BB",
+            "role": "input",
+            "coefficient": 0.11,
+            "group": "feed_scrap",
+            "share_min": 0.0,
+            "share_max": 1.0
+          },
+          {
+            "target": "HBI_BB",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "feed_scrap",
+            "share_min": 0.0,
+            "share_max": 1.0
+          },
+          {
+            "target": "steel",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
+        ]
+      },
+      "alternatives": [
+        {
+          "technology": {
+            "technology_id": "ESF",
+            "lifespan": 20,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "iron",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "Scrap_H2",
+                "role": "input",
+                "coefficient": 0.1571428571428571
+              },
+              {
+                "target": "steel",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 330000.0
+        },
+        {
+          "technology": {
+            "technology_id": "EAF",
+            "lifespan": 20,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "Electricity_EAF",
+                "role": "input",
+                "coefficient": 6.0,
+                "group": "fuel",
+                "share_min": 0.4,
+                "share_max": 1.0
+              },
+              {
+                "target": "Hydrogen_EAF",
+                "role": "input",
+                "coefficient": 0.0,
+                "group": "fuel",
+                "share_min": 0.0,
+                "share_max": 0.5
+              },
+              {
+                "target": "Scrap_EAF",
+                "role": "input",
+                "coefficient": 0.55,
+                "group": "feed_scrap",
+                "share_min": 0.0,
+                "share_max": 1.0
+              },
+              {
+                "target": "HBI_EAF",
+                "role": "input",
+                "coefficient": 0.525,
+                "group": "feed_scrap",
+                "share_min": 0.0,
+                "share_max": 1.0
+              },
+              {
+                "target": "steel",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 240000.0
+        }
+      ],
+      "default_capacity": 4000000.0,
+      "source": {
+        "name": "PLANiT MACC steel dataset (Korea), via the pathwise steel converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/steel.py",
+        "year": 2026,
+        "region": "KR",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "bof_fx",
+      "label": "BOF-FX",
+      "description": "Steel archetype extracted from the example model (baseline of 2 facilities).",
+      "technology": {
+        "technology_id": "BOF-FX",
+        "lifespan": 20,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "iron",
+            "role": "input",
+            "coefficient": 1.0
+          },
+          {
+            "target": "steel",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
+        ]
+      },
+      "alternatives": [
+        {
+          "technology": {
+            "technology_id": "ESF",
+            "lifespan": 20,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "iron",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "Scrap_H2",
+                "role": "input",
+                "coefficient": 0.1571428571428571
+              },
+              {
+                "target": "steel",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 330000.0
+        },
+        {
+          "technology": {
+            "technology_id": "EAF",
+            "lifespan": 20,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "Electricity_EAF",
+                "role": "input",
+                "coefficient": 6.0,
+                "group": "fuel",
+                "share_min": 0.4,
+                "share_max": 1.0
+              },
+              {
+                "target": "Hydrogen_EAF",
+                "role": "input",
+                "coefficient": 0.0,
+                "group": "fuel",
+                "share_min": 0.0,
+                "share_max": 0.5
+              },
+              {
+                "target": "Scrap_EAF",
+                "role": "input",
+                "coefficient": 0.55,
+                "group": "feed_scrap",
+                "share_min": 0.0,
+                "share_max": 1.0
+              },
+              {
+                "target": "HBI_EAF",
+                "role": "input",
+                "coefficient": 0.525,
+                "group": "feed_scrap",
+                "share_min": 0.0,
+                "share_max": 1.0
+              },
+              {
+                "target": "steel",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 240000.0
+        }
+      ],
+      "default_capacity": 1597000.0,
+      "source": {
+        "name": "PLANiT MACC steel dataset (Korea), via the pathwise steel converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/steel.py",
+        "year": 2026,
+        "region": "KR",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "eaf",
+      "label": "EAF",
+      "description": "Steel archetype extracted from the example model (baseline of 3 facilities).",
+      "technology": {
+        "technology_id": "EAF",
+        "lifespan": 20,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "Electricity_EAF",
+            "role": "input",
+            "coefficient": 6.0,
+            "group": "fuel",
+            "share_min": 0.4,
+            "share_max": 1.0
+          },
+          {
+            "target": "Hydrogen_EAF",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 0.5
+          },
+          {
+            "target": "Scrap_EAF",
+            "role": "input",
+            "coefficient": 0.55,
+            "group": "feed_scrap",
+            "share_min": 0.0,
+            "share_max": 1.0
+          },
+          {
+            "target": "HBI_EAF",
+            "role": "input",
+            "coefficient": 0.525,
+            "group": "feed_scrap",
+            "share_min": 0.0,
+            "share_max": 1.0
+          },
+          {
+            "target": "steel",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
+        ]
+      },
+      "alternatives": [],
+      "default_capacity": 2500000.0,
+      "source": {
+        "name": "PLANiT MACC steel dataset (Korea), via the pathwise steel converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/steel.py",
+        "year": 2026,
+        "region": "KR",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    }
+  ],
+  "chains": [
+    {
+      "chain_id": "steel_chain",
+      "label": "Steel route (5 stages)",
+      "description": "Representative end-to-end route extracted from the example model.",
+      "stages": [
+        {
+          "facility": "bf",
+          "feeds": []
+        },
+        {
+          "facility": "bf_fx",
+          "feeds": []
+        },
+        {
+          "facility": "eaf",
+          "feeds": []
+        },
+        {
+          "facility": "bof",
+          "feeds": [
+            "bf",
+            "bf_fx"
+          ]
+        },
+        {
+          "facility": "bof_fx",
+          "feeds": [
+            "bf",
+            "bf_fx"
+          ]
+        }
+      ],
+      "source": {
+        "name": "PLANiT MACC steel dataset (Korea), via the pathwise steel converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/steel.py",
+        "year": 2026,
+        "region": "KR",
+        "basis": "sector-model extraction"
+      },
+      "demand_hint": {
+        "commodity_id": "steel",
+        "amount": 798500.0
+      }
+    }
+  ]
+}

@@ -1,0 +1,878 @@
+{
+  "sector": "petrochemical",
+  "label": "Petrochemical",
+  "commodities": [
+    {
+      "commodity_id": "Benzene",
+      "kind": "product",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "Butadiene",
+      "kind": "product",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "Byproduct_Gas",
+      "kind": "energy",
+      "unit": "GJ"
+    },
+    {
+      "commodity_id": "C-H",
+      "kind": "product",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "Electricity",
+      "kind": "energy",
+      "unit": "MWh"
+    },
+    {
+      "commodity_id": "Ethylene",
+      "kind": "material",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "Fuel_Gas",
+      "kind": "energy",
+      "unit": "GJ"
+    },
+    {
+      "commodity_id": "H2",
+      "kind": "energy",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "LNG",
+      "kind": "energy",
+      "unit": "GJ"
+    },
+    {
+      "commodity_id": "M-X",
+      "kind": "product",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "Naphtha",
+      "kind": "energy",
+      "unit": "GJ"
+    },
+    {
+      "commodity_id": "O-X",
+      "kind": "product",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "P-X",
+      "kind": "product",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "Propylene",
+      "kind": "material",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "Toluene",
+      "kind": "product",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "Xylene",
+      "kind": "product",
+      "unit": "t"
+    }
+  ],
+  "facilities": [
+    {
+      "facility_id": "benzene_btx_plant",
+      "label": "Benzene [BTX Plant]",
+      "description": "Petrochemical archetype extracted from the example model (baseline of 1 facility).",
+      "technology": {
+        "technology_id": "Benzene [BTX Plant]",
+        "lifespan": 25,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "Electricity",
+            "role": "input",
+            "coefficient": 0.009346179969062668
+          },
+          {
+            "target": "LNG",
+            "role": "input",
+            "coefficient": 2.540598189866875
+          },
+          {
+            "target": "Fuel_Gas",
+            "role": "input",
+            "coefficient": 3.175747737333592
+          },
+          {
+            "target": "Byproduct_Gas",
+            "role": "input",
+            "coefficient": 0.6351495474667186
+          },
+          {
+            "target": "Benzene",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
+        ]
+      },
+      "alternatives": [],
+      "default_capacity": 7772000.0,
+      "source": {
+        "name": "PLANiT MACC petrochemical dataset (Korea), via the pathwise converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/petrochemical.py",
+        "year": 2026,
+        "region": "KR",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "butadiene_naphtha_cracker",
+      "label": "Butadiene [Naphtha Cracker]",
+      "description": "Petrochemical archetype extracted from the example model (baseline of 1 facility).",
+      "technology": {
+        "technology_id": "Butadiene [Naphtha Cracker]",
+        "lifespan": 25,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "Naphtha",
+            "role": "input",
+            "coefficient": 29.0
+          },
+          {
+            "target": "Electricity",
+            "role": "input",
+            "coefficient": 0.1021589493432003
+          },
+          {
+            "target": "LNG",
+            "role": "input",
+            "coefficient": 4.165522854885694
+          },
+          {
+            "target": "Fuel_Gas",
+            "role": "input",
+            "coefficient": 5.322612536798388
+          },
+          {
+            "target": "Byproduct_Gas",
+            "role": "input",
+            "coefficient": 1.157089681912694
+          },
+          {
+            "target": "Butadiene",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
+        ]
+      },
+      "alternatives": [
+        {
+          "technology": {
+            "technology_id": "Butadiene [NCC-H2]",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "Naphtha",
+                "role": "input",
+                "coefficient": 29.0
+              },
+              {
+                "target": "Electricity",
+                "role": "input",
+                "coefficient": 0.1021589493432003
+              },
+              {
+                "target": "LNG",
+                "role": "input",
+                "coefficient": 4.165522854885694
+              },
+              {
+                "target": "Fuel_Gas",
+                "role": "input",
+                "coefficient": 5.322612536798388
+              },
+              {
+                "target": "Byproduct_Gas",
+                "role": "input",
+                "coefficient": 1.157089681912694
+              },
+              {
+                "target": "H2",
+                "role": "input",
+                "coefficient": 0.56
+              },
+              {
+                "target": "Butadiene",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1550.0
+        },
+        {
+          "technology": {
+            "technology_id": "Butadiene [NCC-Electricity]",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "Naphtha",
+                "role": "input",
+                "coefficient": 29.0
+              },
+              {
+                "target": "Electricity",
+                "role": "input",
+                "coefficient": 0.1021589493432003
+              },
+              {
+                "target": "LNG",
+                "role": "input",
+                "coefficient": 4.165522854885694
+              },
+              {
+                "target": "Fuel_Gas",
+                "role": "input",
+                "coefficient": 5.322612536798388
+              },
+              {
+                "target": "Byproduct_Gas",
+                "role": "input",
+                "coefficient": 1.157089681912694
+              },
+              {
+                "target": "Electricity",
+                "role": "input",
+                "coefficient": 5.0
+              },
+              {
+                "target": "Butadiene",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1500.0
+        }
+      ],
+      "default_capacity": 2190000.0,
+      "source": {
+        "name": "PLANiT MACC petrochemical dataset (Korea), via the pathwise converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/petrochemical.py",
+        "year": 2026,
+        "region": "KR",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "c_h_naphtha_cracker",
+      "label": "C-H [Naphtha Cracker]",
+      "description": "Petrochemical archetype extracted from the example model (baseline of 1 facility).",
+      "technology": {
+        "technology_id": "C-H [Naphtha Cracker]",
+        "lifespan": 25,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "Naphtha",
+            "role": "input",
+            "coefficient": 18.8108108108108
+          },
+          {
+            "target": "Electricity",
+            "role": "input",
+            "coefficient": 0.0008060312167137976
+          },
+          {
+            "target": "C-H",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
+        ]
+      },
+      "alternatives": [
+        {
+          "technology": {
+            "technology_id": "C-H [NCC-H2]",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "Naphtha",
+                "role": "input",
+                "coefficient": 18.8108108108108
+              },
+              {
+                "target": "Electricity",
+                "role": "input",
+                "coefficient": 0.0008060312167137976
+              },
+              {
+                "target": "H2",
+                "role": "input",
+                "coefficient": 0.56
+              },
+              {
+                "target": "C-H",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1550.0
+        },
+        {
+          "technology": {
+            "technology_id": "C-H [NCC-Electricity]",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "Naphtha",
+                "role": "input",
+                "coefficient": 18.8108108108108
+              },
+              {
+                "target": "Electricity",
+                "role": "input",
+                "coefficient": 0.0008060312167137976
+              },
+              {
+                "target": "Electricity",
+                "role": "input",
+                "coefficient": 5.0
+              },
+              {
+                "target": "C-H",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1500.0
+        }
+      ],
+      "default_capacity": 350000.0,
+      "source": {
+        "name": "PLANiT MACC petrochemical dataset (Korea), via the pathwise converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/petrochemical.py",
+        "year": 2026,
+        "region": "KR",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "ethylene_naphtha_cracker",
+      "label": "Ethylene [Naphtha Cracker]",
+      "description": "Petrochemical archetype extracted from the example model (baseline of 1 facility).",
+      "technology": {
+        "technology_id": "Ethylene [Naphtha Cracker]",
+        "lifespan": 25,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "Naphtha",
+            "role": "input",
+            "coefficient": 29.0
+          },
+          {
+            "target": "Electricity",
+            "role": "input",
+            "coefficient": 0.02181394035975392
+          },
+          {
+            "target": "LNG",
+            "role": "input",
+            "coefficient": 4.49223052977869
+          },
+          {
+            "target": "Fuel_Gas",
+            "role": "input",
+            "coefficient": 5.615288162223364
+          },
+          {
+            "target": "Byproduct_Gas",
+            "role": "input",
+            "coefficient": 1.123057632444673
+          },
+          {
+            "target": "Ethylene",
+            "role": "output",
+            "coefficient": 1.0
+          }
+        ]
+      },
+      "alternatives": [
+        {
+          "technology": {
+            "technology_id": "Ethylene [NCC-H2]",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "Naphtha",
+                "role": "input",
+                "coefficient": 29.0
+              },
+              {
+                "target": "Electricity",
+                "role": "input",
+                "coefficient": 0.02181394035975392
+              },
+              {
+                "target": "LNG",
+                "role": "input",
+                "coefficient": 4.49223052977869
+              },
+              {
+                "target": "Fuel_Gas",
+                "role": "input",
+                "coefficient": 5.615288162223364
+              },
+              {
+                "target": "Byproduct_Gas",
+                "role": "input",
+                "coefficient": 1.123057632444673
+              },
+              {
+                "target": "H2",
+                "role": "input",
+                "coefficient": 0.56
+              },
+              {
+                "target": "Ethylene",
+                "role": "output",
+                "coefficient": 1.0
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1550.0
+        },
+        {
+          "technology": {
+            "technology_id": "Ethylene [NCC-Electricity]",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "Naphtha",
+                "role": "input",
+                "coefficient": 29.0
+              },
+              {
+                "target": "Electricity",
+                "role": "input",
+                "coefficient": 0.02181394035975392
+              },
+              {
+                "target": "LNG",
+                "role": "input",
+                "coefficient": 4.49223052977869
+              },
+              {
+                "target": "Fuel_Gas",
+                "role": "input",
+                "coefficient": 5.615288162223364
+              },
+              {
+                "target": "Byproduct_Gas",
+                "role": "input",
+                "coefficient": 1.123057632444673
+              },
+              {
+                "target": "Electricity",
+                "role": "input",
+                "coefficient": 5.0
+              },
+              {
+                "target": "Ethylene",
+                "role": "output",
+                "coefficient": 1.0
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1500.0
+        }
+      ],
+      "default_capacity": 11962000.0,
+      "source": {
+        "name": "PLANiT MACC petrochemical dataset (Korea), via the pathwise converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/petrochemical.py",
+        "year": 2026,
+        "region": "KR",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "m_x_btx_plant",
+      "label": "M-X [BTX Plant]",
+      "description": "Petrochemical archetype extracted from the example model (baseline of 1 facility).",
+      "technology": {
+        "technology_id": "M-X [BTX Plant]",
+        "lifespan": 25,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "Electricity",
+            "role": "input",
+            "coefficient": 0.0009346179969062668
+          },
+          {
+            "target": "M-X",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
+        ]
+      },
+      "alternatives": [],
+      "default_capacity": 360000.0,
+      "source": {
+        "name": "PLANiT MACC petrochemical dataset (Korea), via the pathwise converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/petrochemical.py",
+        "year": 2026,
+        "region": "KR",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "o_x_btx_plant",
+      "label": "O-X [BTX Plant]",
+      "description": "Petrochemical archetype extracted from the example model (baseline of 1 facility).",
+      "technology": {
+        "technology_id": "O-X [BTX Plant]",
+        "lifespan": 25,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "Electricity",
+            "role": "input",
+            "coefficient": 0.0009346179969062668
+          },
+          {
+            "target": "O-X",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
+        ]
+      },
+      "alternatives": [],
+      "default_capacity": 410000.0,
+      "source": {
+        "name": "PLANiT MACC petrochemical dataset (Korea), via the pathwise converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/petrochemical.py",
+        "year": 2026,
+        "region": "KR",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "p_x_btx_plant",
+      "label": "P-X [BTX Plant]",
+      "description": "Petrochemical archetype extracted from the example model (baseline of 1 facility).",
+      "technology": {
+        "technology_id": "P-X [BTX Plant]",
+        "lifespan": 25,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "P-X",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
+        ]
+      },
+      "alternatives": [],
+      "default_capacity": 10790000.0,
+      "source": {
+        "name": "PLANiT MACC petrochemical dataset (Korea), via the pathwise converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/petrochemical.py",
+        "year": 2026,
+        "region": "KR",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "propylene_naphtha_cracker",
+      "label": "Propylene [Naphtha Cracker]",
+      "description": "Petrochemical archetype extracted from the example model (baseline of 1 facility).",
+      "technology": {
+        "technology_id": "Propylene [Naphtha Cracker]",
+        "lifespan": 25,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "Naphtha",
+            "role": "input",
+            "coefficient": 25.39459459459458
+          },
+          {
+            "target": "Electricity",
+            "role": "input",
+            "coefficient": 0.04884474765471761
+          },
+          {
+            "target": "LNG",
+            "role": "input",
+            "coefficient": 3.934104918503158
+          },
+          {
+            "target": "Fuel_Gas",
+            "role": "input",
+            "coefficient": 5.16351270553539
+          },
+          {
+            "target": "Byproduct_Gas",
+            "role": "input",
+            "coefficient": 1.229407787032236
+          },
+          {
+            "target": "Propylene",
+            "role": "output",
+            "coefficient": 1.0
+          }
+        ]
+      },
+      "alternatives": [
+        {
+          "technology": {
+            "technology_id": "Propylene [NCC-H2]",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "Naphtha",
+                "role": "input",
+                "coefficient": 25.39459459459458
+              },
+              {
+                "target": "Electricity",
+                "role": "input",
+                "coefficient": 0.04884474765471761
+              },
+              {
+                "target": "LNG",
+                "role": "input",
+                "coefficient": 3.934104918503158
+              },
+              {
+                "target": "Fuel_Gas",
+                "role": "input",
+                "coefficient": 5.16351270553539
+              },
+              {
+                "target": "Byproduct_Gas",
+                "role": "input",
+                "coefficient": 1.229407787032236
+              },
+              {
+                "target": "H2",
+                "role": "input",
+                "coefficient": 0.56
+              },
+              {
+                "target": "Propylene",
+                "role": "output",
+                "coefficient": 1.0
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1550.0
+        },
+        {
+          "technology": {
+            "technology_id": "Propylene [NCC-Electricity]",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "Naphtha",
+                "role": "input",
+                "coefficient": 25.39459459459458
+              },
+              {
+                "target": "Electricity",
+                "role": "input",
+                "coefficient": 0.04884474765471761
+              },
+              {
+                "target": "LNG",
+                "role": "input",
+                "coefficient": 3.934104918503158
+              },
+              {
+                "target": "Fuel_Gas",
+                "role": "input",
+                "coefficient": 5.16351270553539
+              },
+              {
+                "target": "Byproduct_Gas",
+                "role": "input",
+                "coefficient": 1.229407787032236
+              },
+              {
+                "target": "Electricity",
+                "role": "input",
+                "coefficient": 5.0
+              },
+              {
+                "target": "Propylene",
+                "role": "output",
+                "coefficient": 1.0
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1500.0
+        }
+      ],
+      "default_capacity": 11165000.0,
+      "source": {
+        "name": "PLANiT MACC petrochemical dataset (Korea), via the pathwise converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/petrochemical.py",
+        "year": 2026,
+        "region": "KR",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "toluene_btx_plant",
+      "label": "Toluene [BTX Plant]",
+      "description": "Petrochemical archetype extracted from the example model (baseline of 1 facility).",
+      "technology": {
+        "technology_id": "Toluene [BTX Plant]",
+        "lifespan": 25,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "Electricity",
+            "role": "input",
+            "coefficient": 0.006853865310645958
+          },
+          {
+            "target": "LNG",
+            "role": "input",
+            "coefficient": 3.387464253155832
+          },
+          {
+            "target": "Fuel_Gas",
+            "role": "input",
+            "coefficient": 4.234330316444789
+          },
+          {
+            "target": "Byproduct_Gas",
+            "role": "input",
+            "coefficient": 0.8468660632889579
+          },
+          {
+            "target": "Toluene",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
+        ]
+      },
+      "alternatives": [],
+      "default_capacity": 2928000.0,
+      "source": {
+        "name": "PLANiT MACC petrochemical dataset (Korea), via the pathwise converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/petrochemical.py",
+        "year": 2026,
+        "region": "KR",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "xylene_btx_plant",
+      "label": "Xylene [BTX Plant]",
+      "description": "Petrochemical archetype extracted from the example model (baseline of 1 facility).",
+      "technology": {
+        "technology_id": "Xylene [BTX Plant]",
+        "lifespan": 25,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "Electricity",
+            "role": "input",
+            "coefficient": 0.1948678523549567
+          },
+          {
+            "target": "LNG",
+            "role": "input",
+            "coefficient": 3.810897284800313
+          },
+          {
+            "target": "Fuel_Gas",
+            "role": "input",
+            "coefficient": 4.763621606000386
+          },
+          {
+            "target": "Byproduct_Gas",
+            "role": "input",
+            "coefficient": 0.9527243212000777
+          },
+          {
+            "target": "Xylene",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
+        ]
+      },
+      "alternatives": [],
+      "default_capacity": 3494000.0,
+      "source": {
+        "name": "PLANiT MACC petrochemical dataset (Korea), via the pathwise converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/petrochemical.py",
+        "year": 2026,
+        "region": "KR",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    }
+  ],
+  "chains": []
+}

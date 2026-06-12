@@ -1,0 +1,958 @@
+{
+  "sector": "shipping",
+  "label": "Shipping",
+  "commodities": [
+    {
+      "commodity_id": "Bio-diesel",
+      "kind": "energy",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "Bio-methane",
+      "kind": "energy",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "Bio-methanol",
+      "kind": "energy",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "IFO 180",
+      "kind": "energy",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "IFO 380",
+      "kind": "energy",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "LNG",
+      "kind": "energy",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "LPG",
+      "kind": "energy",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "VLS IFO",
+      "kind": "energy",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "VLS MDO",
+      "kind": "energy",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "VLS MGO",
+      "kind": "energy",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "e-ammonia",
+      "kind": "energy",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "e-hydrogen",
+      "kind": "energy",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "e-methane",
+      "kind": "energy",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "e-methanol",
+      "kind": "energy",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "transport",
+      "kind": "product",
+      "unit": "ship-yr"
+    }
+  ],
+  "facilities": [
+    {
+      "facility_id": "biofuel",
+      "label": "Biofuel",
+      "description": "Shipping archetype extracted from the example model (baseline of 2 facilities).",
+      "technology": {
+        "technology_id": "Biofuel",
+        "lifespan": 25,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "Bio-diesel",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 0.3
+          },
+          {
+            "target": "IFO 380",
+            "role": "input",
+            "coefficient": 1.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 1.0
+          },
+          {
+            "target": "transport",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
+        ]
+      },
+      "alternatives": [
+        {
+          "technology": {
+            "technology_id": "ammonia",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "e-ammonia",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "transport",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1500.0
+        },
+        {
+          "technology": {
+            "technology_id": "hydrogen",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "e-hydrogen",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "transport",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1000.0
+        }
+      ],
+      "default_capacity": 1.5,
+      "source": {
+        "name": "Clarkson fleet data + fuel specs, via the pathwise shipping converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/shipping.py",
+        "year": 2026,
+        "region": "global",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "ifo_180",
+      "label": "IFO 180",
+      "description": "Shipping archetype extracted from the example model (baseline of 2 facilities).",
+      "technology": {
+        "technology_id": "IFO 180",
+        "lifespan": 25,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "IFO 180",
+            "role": "input",
+            "coefficient": 1.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 1.0
+          },
+          {
+            "target": "Bio-diesel",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 0.3
+          },
+          {
+            "target": "transport",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
+        ]
+      },
+      "alternatives": [
+        {
+          "technology": {
+            "technology_id": "ammonia",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "e-ammonia",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "transport",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1500.0
+        },
+        {
+          "technology": {
+            "technology_id": "hydrogen",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "e-hydrogen",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "transport",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1000.0
+        }
+      ],
+      "default_capacity": 1.0,
+      "source": {
+        "name": "Clarkson fleet data + fuel specs, via the pathwise shipping converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/shipping.py",
+        "year": 2026,
+        "region": "global",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "ifo_380",
+      "label": "IFO 380",
+      "description": "Shipping archetype extracted from the example model (baseline of 9 facilities).",
+      "technology": {
+        "technology_id": "IFO 380",
+        "lifespan": 25,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "IFO 380",
+            "role": "input",
+            "coefficient": 1.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 1.0
+          },
+          {
+            "target": "Bio-diesel",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 0.3
+          },
+          {
+            "target": "transport",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
+        ]
+      },
+      "alternatives": [
+        {
+          "technology": {
+            "technology_id": "ammonia",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "e-ammonia",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "transport",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1500.0
+        },
+        {
+          "technology": {
+            "technology_id": "hydrogen",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "e-hydrogen",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "transport",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1000.0
+        }
+      ],
+      "default_capacity": 38.0,
+      "source": {
+        "name": "Clarkson fleet data + fuel specs, via the pathwise shipping converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/shipping.py",
+        "year": 2026,
+        "region": "global",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "ifo_380_methanol",
+      "label": "IFO 380, Methanol",
+      "description": "Shipping archetype extracted from the example model (baseline of 1 facility).",
+      "technology": {
+        "technology_id": "IFO 380, Methanol",
+        "lifespan": 25,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "IFO 180",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 1.0
+          },
+          {
+            "target": "Bio-diesel",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 0.3
+          },
+          {
+            "target": "Bio-methanol",
+            "role": "input",
+            "coefficient": 1.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 1.0
+          },
+          {
+            "target": "e-methanol",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 1.0
+          },
+          {
+            "target": "transport",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
+        ]
+      },
+      "alternatives": [
+        {
+          "technology": {
+            "technology_id": "ammonia",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "e-ammonia",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "transport",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1500.0
+        },
+        {
+          "technology": {
+            "technology_id": "hydrogen",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "e-hydrogen",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "transport",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1000.0
+        }
+      ],
+      "default_capacity": 2.0,
+      "source": {
+        "name": "Clarkson fleet data + fuel specs, via the pathwise shipping converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/shipping.py",
+        "year": 2026,
+        "region": "global",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "lng_vls_ifo",
+      "label": "LNG, VLS IFO",
+      "description": "Shipping archetype extracted from the example model (baseline of 3 facilities).",
+      "technology": {
+        "technology_id": "LNG, VLS IFO",
+        "lifespan": 25,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "VLS IFO",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 0.02
+          },
+          {
+            "target": "LNG",
+            "role": "input",
+            "coefficient": 1.0,
+            "group": "fuel",
+            "share_min": 0.9,
+            "share_max": 1.0
+          },
+          {
+            "target": "Bio-methane",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 1.0
+          },
+          {
+            "target": "e-methane",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 1.0
+          },
+          {
+            "target": "transport",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
+        ]
+      },
+      "alternatives": [
+        {
+          "technology": {
+            "technology_id": "ammonia",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "e-ammonia",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "transport",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1500.0
+        },
+        {
+          "technology": {
+            "technology_id": "hydrogen",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "e-hydrogen",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "transport",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1000.0
+        }
+      ],
+      "default_capacity": 5.0,
+      "source": {
+        "name": "Clarkson fleet data + fuel specs, via the pathwise shipping converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/shipping.py",
+        "year": 2026,
+        "region": "global",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "lng_vls_mgo",
+      "label": "LNG, VLS MGO",
+      "description": "Shipping archetype extracted from the example model (baseline of 1 facility).",
+      "technology": {
+        "technology_id": "LNG, VLS MGO",
+        "lifespan": 25,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "LNG",
+            "role": "input",
+            "coefficient": 1.0,
+            "group": "fuel",
+            "share_min": 0.9,
+            "share_max": 1.0
+          },
+          {
+            "target": "VLS MGO",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 0.02
+          },
+          {
+            "target": "Bio-methane",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 1.0
+          },
+          {
+            "target": "Bio-diesel",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 0.3
+          },
+          {
+            "target": "e-methane",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 1.0
+          },
+          {
+            "target": "transport",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
+        ]
+      },
+      "alternatives": [
+        {
+          "technology": {
+            "technology_id": "ammonia",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "e-ammonia",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "transport",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1500.0
+        },
+        {
+          "technology": {
+            "technology_id": "hydrogen",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "e-hydrogen",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "transport",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1000.0
+        }
+      ],
+      "default_capacity": 1.0,
+      "source": {
+        "name": "Clarkson fleet data + fuel specs, via the pathwise shipping converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/shipping.py",
+        "year": 2026,
+        "region": "global",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "lpg_vls_ifo",
+      "label": "LPG, VLS IFO",
+      "description": "Shipping archetype extracted from the example model (baseline of 2 facilities).",
+      "technology": {
+        "technology_id": "LPG, VLS IFO",
+        "lifespan": 25,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "VLS IFO",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 0.05
+          },
+          {
+            "target": "LPG",
+            "role": "input",
+            "coefficient": 1.0,
+            "group": "fuel",
+            "share_min": 0.9,
+            "share_max": 1.0
+          },
+          {
+            "target": "Bio-methane",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 1.0
+          },
+          {
+            "target": "transport",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
+        ]
+      },
+      "alternatives": [
+        {
+          "technology": {
+            "technology_id": "ammonia",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "e-ammonia",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "transport",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1500.0
+        },
+        {
+          "technology": {
+            "technology_id": "hydrogen",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "e-hydrogen",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "transport",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1000.0
+        }
+      ],
+      "default_capacity": 1.5,
+      "source": {
+        "name": "Clarkson fleet data + fuel specs, via the pathwise shipping converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/shipping.py",
+        "year": 2026,
+        "region": "global",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "vls_ifo",
+      "label": "VLS IFO",
+      "description": "Shipping archetype extracted from the example model (baseline of 9 facilities).",
+      "technology": {
+        "technology_id": "VLS IFO",
+        "lifespan": 25,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "VLS IFO",
+            "role": "input",
+            "coefficient": 1.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 1.0
+          },
+          {
+            "target": "Bio-diesel",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 0.3
+          },
+          {
+            "target": "transport",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
+        ]
+      },
+      "alternatives": [
+        {
+          "technology": {
+            "technology_id": "ammonia",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "e-ammonia",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "transport",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1500.0
+        },
+        {
+          "technology": {
+            "technology_id": "hydrogen",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "e-hydrogen",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "transport",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1000.0
+        }
+      ],
+      "default_capacity": 15.0,
+      "source": {
+        "name": "Clarkson fleet data + fuel specs, via the pathwise shipping converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/shipping.py",
+        "year": 2026,
+        "region": "global",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    },
+    {
+      "facility_id": "vls_mdo",
+      "label": "VLS MDO",
+      "description": "Shipping archetype extracted from the example model (baseline of 1 facility).",
+      "technology": {
+        "technology_id": "VLS MDO",
+        "lifespan": 25,
+        "capex": 0.0,
+        "opex": 0.0,
+        "io": [
+          {
+            "target": "VLS MDO",
+            "role": "input",
+            "coefficient": 1.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 1.0
+          },
+          {
+            "target": "Bio-diesel",
+            "role": "input",
+            "coefficient": 0.0,
+            "group": "fuel",
+            "share_min": 0.0,
+            "share_max": 0.3
+          },
+          {
+            "target": "transport",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
+        ]
+      },
+      "alternatives": [
+        {
+          "technology": {
+            "technology_id": "ammonia",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "e-ammonia",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "transport",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1500.0
+        },
+        {
+          "technology": {
+            "technology_id": "hydrogen",
+            "lifespan": 25,
+            "capex": 0.0,
+            "opex": 0.0,
+            "io": [
+              {
+                "target": "e-hydrogen",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "transport",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
+            ]
+          },
+          "transition_capex_per_capacity": 1000.0
+        }
+      ],
+      "default_capacity": 3.0,
+      "source": {
+        "name": "Clarkson fleet data + fuel specs, via the pathwise shipping converter",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/shipping.py",
+        "year": 2026,
+        "region": "global",
+        "basis": "sector-model extraction",
+        "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
+      }
+    }
+  ],
+  "chains": []
+}

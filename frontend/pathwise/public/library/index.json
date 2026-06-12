@@ -3,6 +3,24 @@
     "sector": "aluminium",
     "label": "Aluminium",
     "file": "aluminium.json",
-    "description": "Primary route: alumina refining → smelting → casting, with a lower-carbon alternative per stage."
+    "description": "3 facility template(s), 1 chain(s)"
+  },
+  {
+    "sector": "petrochemical",
+    "label": "Petrochemical",
+    "file": "petrochemical.json",
+    "description": "10 facility template(s)"
+  },
+  {
+    "sector": "shipping",
+    "label": "Shipping",
+    "file": "shipping.json",
+    "description": "9 facility template(s)"
+  },
+  {
+    "sector": "steel",
+    "label": "Steel",
+    "file": "steel.json",
+    "description": "5 facility template(s), 1 chain(s)"
   }
 ]
