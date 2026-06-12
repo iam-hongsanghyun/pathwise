@@ -260,6 +260,91 @@ def add_facility(
     return wb
 
 
+def add_replacement(
+    workbook: Workbook,
+    library: SectorLibrary,
+    facility_id: str,
+    replace_process: str,
+    *,
+    transition_capex: float | None = None,
+) -> Workbook:
+    """Add a template's technology as a TRANSITION OPTION of an existing facility.
+
+    The mirror of :func:`add_facility` for the *future* system: instead of
+    creating a new (initial) facility instance, the template's baseline
+    technology is merged in (commodities + technology + io) and registered as a
+    transition target of ``replace_process``'s baseline technology.
+
+    Because transitions are TECHNOLOGY-level (``from_technology`` →
+    ``to_technology``), the option automatically becomes available to **every**
+    facility sharing that baseline — replacing "a part of the chain" is just
+    adding a replacement per stage.
+
+    Args:
+        workbook: The model to extend (pure; returns a new dict).
+        library: The sector library.
+        facility_id: The template whose baseline technology becomes the option.
+        replace_process: The existing facility whose baseline it may replace.
+        transition_capex: Switch cost [currency / unit capacity]; defaults to
+            the template technology's replacement ``capex``.
+
+    Raises:
+        KeyError: Unknown template or process.
+    """
+    f = library.facility(facility_id)
+    wb: Workbook = {k: list(v) for k, v in workbook.items()}
+    wb.setdefault("commodities", [])
+    wb.setdefault("technologies", [])
+    wb.setdefault("io", [])
+    wb.setdefault("transitions", [])
+
+    proc = next(
+        (r for r in wb.get("processes", []) if str(r.get("process_id")) == replace_process),
+        None,
+    )
+    if proc is None:
+        raise KeyError(f"unknown facility '{replace_process}'")
+    from_tech = str(proc.get("baseline_technology") or "")
+
+    have_comm = {str(r.get("commodity_id")) for r in wb["commodities"]}
+    referenced = {r.target for r in f.technology.io if r.role != "impact"}
+    for c in library.commodities:
+        if c.commodity_id in referenced and c.commodity_id not in have_comm:
+            row: dict[str, Any] = {
+                "commodity_id": c.commodity_id,
+                "kind": c.kind,
+                "unit": c.unit,
+            }
+            if c.price is not None:
+                row["price"] = c.price
+            if c.sale_price is not None:
+                row["sale_price"] = c.sale_price
+            wb["commodities"].append(row)
+            have_comm.add(c.commodity_id)
+
+    have_tech = {str(r.get("technology_id")) for r in wb["technologies"]}
+    if f.technology.technology_id not in have_tech:
+        wb["technologies"].append(_tech_row(f.technology))
+        wb["io"].extend(_io_rows(f.technology))
+
+    key = (from_tech, f.technology.technology_id)
+    have_trans = {
+        (str(r.get("from_technology")), str(r.get("to_technology"))) for r in wb["transitions"]
+    }
+    if key not in have_trans and key[0] != key[1]:
+        wb["transitions"].append(
+            {
+                "from_technology": key[0],
+                "to_technology": key[1],
+                "action": "replace",
+                "capex_per_capacity": (
+                    transition_capex if transition_capex is not None else f.technology.capex
+                ),
+            }
+        )
+    return wb
+
+
 def add_chain(
     workbook: Workbook,
     library: SectorLibrary,

@@ -1041,3 +1041,19 @@ section {
   border-top: 1px solid var(--border);
   padding-top: 6px;
 }
+
+/* ── Library add-as choice + destructive menu items ────────────────────────── */
+.lib-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.lib-mode select {
+  margin-left: 6px;
+}
+.context-menu .danger {
+  color: var(--danger);
+}

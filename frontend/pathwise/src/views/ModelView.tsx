@@ -162,19 +162,28 @@ export function ModelView({
 
   // Template inserts happen SERVER-side (the session owns the model); the
   // frontend adopts the refreshed model and selects what was created.
-  const insert = async (
-    body: { sector: string; kind: "facility" | "chain"; id: string; x?: number; y?: number },
-  ) => {
+  const insert = async (body: {
+    sector: string;
+    kind: "facility" | "chain";
+    id: string;
+    mode?: "initial" | "replacement";
+    replace_process?: string;
+    x?: number;
+    y?: number;
+  }) => {
     if (!sessionId) return;
     const { model, created } = await insertTemplate(sessionId, body);
     adoptServerModel(model);
     const last = created[created.length - 1];
-    if (last) openItem({ sheet: "processes", idCol: "process_id", id: last });
+    if (!last) return;
+    if (body.mode === "replacement")
+      openItem({ sheet: "technologies", idCol: "technology_id", id: last });
+    else openItem({ sheet: "processes", idCol: "process_id", id: last });
   };
 
-  const addFromLibrary = (pos?: { x: number; y: number }) => {
+  const addFromLibrary = (opts: { mode: "initial" | "replacement"; replaceProcess?: string }) => {
     if (!libPreview) return;
-    void insert({ ...libPreview, x: pos?.x, y: pos?.y });
+    void insert({ ...libPreview, mode: opts.mode, replace_process: opts.replaceProcess });
     setLibPreview(null);
   };
 
@@ -335,7 +344,8 @@ export function ModelView({
         <LibraryPreview
           library={library}
           preview={libPreview}
-          onAdd={() => addFromLibrary()}
+          workbook={workbook}
+          onAdd={addFromLibrary}
           onClose={() => setLibPreview(null)}
         />
       )}
@@ -343,19 +353,26 @@ export function ModelView({
   );
 }
 
-/** Template preview card: what it consumes/produces, its alternatives, and —
- *  always — the reference its coefficients come from. */
+/** Template preview card: what it consumes/produces, its alternatives, the
+ *  reference its coefficients come from — and HOW to add it: as an initial
+ *  (current) facility, or as a replacement OPTION the optimiser may switch an
+ *  existing facility into (a transitions-table entry, no new facility). */
 function LibraryPreview({
   library,
   preview,
+  workbook,
   onAdd,
   onClose,
 }: {
   library: SectorLibrary[];
   preview: { sector: string; kind: "facility" | "chain"; id: string };
-  onAdd: () => void;
+  workbook: Workbook;
+  onAdd: (opts: { mode: "initial" | "replacement"; replaceProcess?: string }) => void;
   onClose: () => void;
 }) {
+  const [mode, setMode] = useState<"initial" | "replacement">("initial");
+  const facilities = (workbook.processes ?? []).map((r) => String(r.process_id ?? ""));
+  const [replaceProcess, setReplaceProcess] = useState<string>("");
   const lib = library.find((l) => l.sector === preview.sector);
   if (!lib) return null;
   const fac =
@@ -415,7 +432,57 @@ function LibraryPreview({
           ({src.year}, {src.region ?? "global"} — {src.basis ?? "indicative"})
         </p>
         {src.notes && <p className="muted">{src.notes}</p>}
-        <button onClick={onAdd}>Add to model</button>
+        {fac && facilities.length > 0 && (
+          <div className="lib-mode">
+            <label>
+              <input
+                type="radio"
+                checked={mode === "initial"}
+                onChange={() => setMode("initial")}
+              />{" "}
+              Add as an <strong>initial facility</strong> (runs from the start)
+            </label>
+            <label>
+              <input
+                type="radio"
+                checked={mode === "replacement"}
+                onChange={() => setMode("replacement")}
+              />{" "}
+              Add as a <strong>replacement option</strong> for
+              <select
+                value={replaceProcess}
+                disabled={mode !== "replacement"}
+                onChange={(e) => setReplaceProcess(e.target.value)}
+              >
+                <option value="">— choose facility —</option>
+                {facilities.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {mode === "replacement" && (
+              <p className="muted">
+                Writes a transitions-table row (its baseline technology → this template). The
+                option applies to <em>every</em> facility sharing that baseline technology; for a
+                multi-stage chain, add one replacement per stage.
+              </p>
+            )}
+          </div>
+        )}
+        <button
+          disabled={mode === "replacement" && !replaceProcess}
+          onClick={() =>
+            onAdd(
+              mode === "replacement"
+                ? { mode, replaceProcess }
+                : { mode: "initial" },
+            )
+          }
+        >
+          {mode === "replacement" ? "Add as replacement option" : "Add to model"}
+        </button>
       </div>
     </div>
   );

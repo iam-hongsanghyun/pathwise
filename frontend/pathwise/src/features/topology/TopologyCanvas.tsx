@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DRAG_MIME,
   addFacilityWithTech,
+  clearLayout,
+  deleteChain,
+  deleteEntity,
   persistLayout,
   placeEntity,
   unplace,
@@ -126,7 +129,7 @@ export function TopologyCanvas({
     | { kind: "node"; id: string; dx: number; dy: number; moved: boolean }
     | null
   >(null);
-  const [menu, setMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; nodeId?: string } | null>(null);
 
   const capture = (el: Element | null, pointerId: number) => {
     try {
@@ -207,6 +210,11 @@ export function TopologyCanvas({
           e.dataTransfer.dropEffect = "copy";
         }}
         onDrop={onDrop}
+        onContextMenu={(e) => {
+          if (!editable) return;
+          e.preventDefault();
+          setMenu({ x: e.clientX, y: e.clientY });
+        }}
         role="img"
         aria-label="process map"
       >
@@ -275,14 +283,47 @@ export function TopologyCanvas({
       </svg>
       {menu && onChange && (
         <div className="context-menu" style={{ left: menu.x, top: menu.y }}>
-          <button
-            onClick={() => {
-              onChange(unplace(workbook, menu.nodeId));
-              setMenu(null);
-            }}
-          >
-            Remove from map
-          </button>
+          {menu.nodeId ? (
+            <>
+              <button
+                onClick={() => {
+                  onChange(unplace(workbook, menu.nodeId!));
+                  setMenu(null);
+                }}
+              >
+                Remove from map (keep data)
+              </button>
+              <button
+                className="danger"
+                onClick={() => {
+                  onChange(deleteEntity(workbook, menu.nodeId!));
+                  setMenu(null);
+                }}
+              >
+                Delete from model
+              </button>
+              {menu.nodeId.startsWith("process:") && (
+                <button
+                  className="danger"
+                  onClick={() => {
+                    onChange(deleteChain(workbook, menu.nodeId!.slice("process:".length)));
+                    setMenu(null);
+                  }}
+                >
+                  Delete connected chain
+                </button>
+              )}
+            </>
+          ) : (
+            <button
+              onClick={() => {
+                onChange(clearLayout(workbook));
+                setMenu(null);
+              }}
+            >
+              Clear map (reset all positions)
+            </button>
+          )}
         </div>
       )}
     </div>

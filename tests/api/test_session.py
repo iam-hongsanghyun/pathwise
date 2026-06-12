@@ -125,3 +125,30 @@ def test_run_by_session_id() -> None:
 def test_unknown_session_404() -> None:
     assert client.get("/api/session/nope/model").status_code == 404
     assert client.get("/api/session/nope/sheet/processes").status_code == 404
+
+
+def test_library_replacement_insert() -> None:
+    sid = _new_session()
+    client.post(
+        f"/api/session/{sid}/library",
+        json={"sector": "aluminium", "kind": "facility", "id": "alumina_refinery"},
+    )
+    model = client.get(f"/api/session/{sid}/model").json()["model"]
+    pid = model["processes"][-1]["process_id"]
+    res = client.post(
+        f"/api/session/{sid}/library",
+        json={
+            "sector": "aluminium",
+            "kind": "facility",
+            "id": "smelter",
+            "mode": "replacement",
+            "replace_process": pid,
+        },
+    ).json()
+    assert res["created"] == ["Smelt_Grid"]
+    model = client.get(f"/api/session/{sid}/model").json()["model"]
+    assert len(model["processes"]) == 1, "no new facility for a replacement"
+    assert any(
+        t["from_technology"] == "Refine_Gas" and t["to_technology"] == "Smelt_Grid"
+        for t in model["transitions"]
+    )

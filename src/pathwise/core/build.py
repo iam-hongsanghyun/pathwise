@@ -74,14 +74,22 @@ def _technology(ctx: BuildContext) -> None:
     avail = {p.process_id: p for p in prob.processes}
     baseline = {p.process_id: p.baseline_technology for p in prob.processes}
 
-    # Infeasible (process, technology) pairs are forbidden in a single vectorised
-    # constraint each — NOT a per-pair Python loop — so the model scales to many
-    # technologies (e.g. one specific technology per facility).
+    # Infeasible (process, technology, period) triples are forbidden in a single
+    # vectorised constraint each — NOT a per-pair Python loop — so the model
+    # scales to many technologies. A transition target additionally respects its
+    # `introduction_year` (not adoptable before it); the BASELINE is exempt —
+    # it is already installed regardless of when the technology became available.
+    def _feas(p: str, k: str, t: int) -> float:
+        if k not in ctx.feasible[p]:
+            return 0.0
+        if k != baseline[p]:
+            intro = prob.technologies[k].introduction_year
+            if intro is not None and t < intro:
+                return 0.0
+        return 1.0
+
     feas_arr = np.array(
-        [
-            [[1.0 if k in ctx.feasible[p] else 0.0 for _t in ctx.years] for k in ctx.techs]
-            for p in ctx.procs
-        ]
+        [[[_feas(p, k, t) for t in ctx.years] for k in ctx.techs] for p in ctx.procs]
     )
     feas = xr.DataArray(
         feas_arr,

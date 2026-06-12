@@ -86,3 +86,36 @@ def test_broken_chain_feed_raises() -> None:
     bad_lib.chains[0] = bad
     with pytest.raises(ValueError, match="share no commodity"):
         instantiate_chain(bad_lib, bad.chain_id)
+
+
+def test_add_replacement_writes_transition_not_facility() -> None:
+    from pathwise.data.library import add_facility, add_replacement
+
+    aluminium = next(p for p in SECTOR_FILES if p.stem == "aluminium")
+    lib = load_sector(aluminium)
+    wb = add_facility({"periods": [{"year": 2025}]}, lib, "alumina_refinery", company="C")
+    pid = str(wb["processes"][-1]["process_id"])
+    n_procs = len(wb["processes"])
+
+    out = add_replacement(wb, lib, "smelter", pid)
+    assert len(out["processes"]) == n_procs, "replacement must not create a facility"
+    techs = {str(r["technology_id"]) for r in out["technologies"]}
+    assert "Smelt_Grid" in techs, "template technology merged in"
+    trans = [
+        t
+        for t in out["transitions"]
+        if str(t["from_technology"]) == "Refine_Gas" and str(t["to_technology"]) == "Smelt_Grid"
+    ]
+    assert len(trans) == 1, "transition row from the facility's baseline to the template"
+    # idempotent: inserting again adds nothing
+    again = add_replacement(out, lib, "smelter", pid)
+    assert len(again["transitions"]) == len(out["transitions"])
+
+
+def test_add_replacement_unknown_process_raises() -> None:
+    aluminium = next(p for p in SECTOR_FILES if p.stem == "aluminium")
+    lib = load_sector(aluminium)
+    from pathwise.data.library import add_replacement
+
+    with pytest.raises(KeyError, match="unknown facility"):
+        add_replacement({"processes": []}, lib, "smelter", "nope")

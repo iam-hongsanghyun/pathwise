@@ -17,7 +17,13 @@ from pydantic import BaseModel, Field
 from pathwise.api.session_store import SessionNotFound, SessionStore
 from pathwise.api.workbook_io import parse_xlsx, result_to_xlsx, write_xlsx
 from pathwise.config import get_settings
-from pathwise.data.library import SectorLibrary, add_chain, add_facility, load_sector
+from pathwise.data.library import (
+    SectorLibrary,
+    add_chain,
+    add_facility,
+    add_replacement,
+    load_sector,
+)
 from pathwise.logger import get_logger
 
 logger = get_logger(__name__)
@@ -65,11 +71,19 @@ class PatchOps(BaseModel):
 
 
 class LibraryInsert(BaseModel):
-    """Body for ``POST /api/session/{sid}/library``."""
+    """Body for ``POST /api/session/{sid}/library``.
+
+    ``mode="initial"`` creates a facility instance running the template today;
+    ``mode="replacement"`` registers the template's technology as a TRANSITION
+    OPTION of ``replace_process``'s baseline (no new facility) — the future
+    system the optimiser may switch into.
+    """
 
     sector: str
     kind: str = Field(pattern="^(facility|chain)$")
     id: str
+    mode: str = Field(default="initial", pattern="^(initial|replacement)$")
+    replace_process: str | None = None
     x: float | None = None
     y: float | None = None
 
@@ -223,6 +237,11 @@ def insert_template(session_id: str, body: LibraryInsert) -> dict[str, Any]:
         if body.kind == "chain":
             model = add_chain(model, lib, body.id)
             created = [str(r["process_id"]) for r in model["processes"][-1:]]
+        elif body.mode == "replacement":
+            if not body.replace_process:
+                raise ValueError("replacement insert needs 'replace_process'")
+            model = add_replacement(model, lib, body.id, body.replace_process)
+            created = [lib.facility(body.id).technology.technology_id]
         else:
             model = add_facility(model, lib, body.id)
             pid = str(model["processes"][-1]["process_id"])

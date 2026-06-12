@@ -222,3 +222,65 @@ export function addFacilityWithTech(wb: Workbook, tech: string, x: number, y: nu
     y,
   );
 }
+
+/** Delete an entity row and everything that directly references it: its
+ *  node_layout placement, edges touching it, and (for a commodity) the io rows
+ *  that consume/produce it. Technology rows are untouched (shared recipes). */
+export function deleteEntity(wb: Workbook, id: string): Workbook {
+  const i = id.indexOf(":");
+  const kind = id.slice(0, i) as NodeKind;
+  const entityId = id.slice(i + 1);
+  const sheetOf: Record<NodeKind, { sheet: string; idCol: string }> = {
+    process: { sheet: "processes", idCol: "process_id" },
+    commodity: { sheet: "commodities", idCol: "commodity_id" },
+    market: { sheet: "markets", idCol: "market_id" },
+    storage: { sheet: "storage", idCol: "storage_id" },
+  };
+  const { sheet, idCol } = sheetOf[kind];
+  const out: Workbook = {
+    ...wb,
+    [sheet]: (wb[sheet] ?? []).filter((r) => s(r[idCol]) !== entityId),
+    node_layout: (wb.node_layout ?? []).filter((r) => s(r.id) !== id),
+  };
+  if (kind === "process") {
+    out.edges = (wb.edges ?? []).filter(
+      (r) => s(r.from_process) !== entityId && s(r.to_process) !== entityId,
+    );
+    out.measures = (wb.measures ?? []).filter((r) => s(r.applies_to) !== entityId);
+  }
+  if (kind === "commodity") {
+    out.io = (wb.io ?? []).filter((r) => s(r.target) !== entityId);
+    out.edges = (wb.edges ?? []).filter((r) => s(r.commodity_id) !== entityId);
+    out.demand = (wb.demand ?? []).filter((r) => s(r.commodity_id) !== entityId);
+  }
+  return out;
+}
+
+/** Delete a facility and every facility connected to it through `edges`
+ *  (the whole chain), including the edges and placements between them. */
+export function deleteChain(wb: Workbook, processId: string): Workbook {
+  const adj = new Map<string, Set<string>>();
+  for (const e of wb.edges ?? []) {
+    const a = s(e.from_process);
+    const b = s(e.to_process);
+    (adj.get(a) ?? adj.set(a, new Set()).get(a)!).add(b);
+    (adj.get(b) ?? adj.set(b, new Set()).get(b)!).add(a);
+  }
+  const doomed = new Set<string>([processId]);
+  const queue = [processId];
+  while (queue.length) {
+    for (const next of adj.get(queue.pop()!) ?? [])
+      if (!doomed.has(next)) {
+        doomed.add(next);
+        queue.push(next);
+      }
+  }
+  let out = wb;
+  for (const pid of doomed) out = deleteEntity(out, nodeId("process", pid));
+  return out;
+}
+
+/** Clear every saved node position — the map falls back to the auto-layout. */
+export function clearLayout(wb: Workbook): Workbook {
+  return { ...wb, node_layout: [] };
+}
