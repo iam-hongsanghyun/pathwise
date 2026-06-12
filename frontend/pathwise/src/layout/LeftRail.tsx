@@ -65,6 +65,14 @@ const HIDDEN = new Set([
   "meta",
 ]);
 
+/** A sector's library entries prepared for the rail (loaded by ModelView). */
+export interface RailLibrarySector {
+  sector: string;
+  label: string;
+  chains: { id: string; label: string }[];
+  facilities: { id: string; label: string }[];
+}
+
 interface Props {
   workbook: Workbook;
   selected: Selection | null;
@@ -75,6 +83,8 @@ interface Props {
   onToggleAll?: (sheet: string, idCol: string, enabled: boolean) => void;
   onToggleIds?: (sheet: string, idCol: string, ids: string[], enabled: boolean) => void;
   onAdd?: (sheet: string) => void;
+  library?: RailLibrarySector[];
+  onLibraryItem?: (sector: string, kind: "facility" | "chain", id: string) => void;
   draggable?: boolean;
   width?: number;
 }
@@ -93,6 +103,8 @@ export function LeftRail({
   onToggleAll,
   onToggleIds,
   onAdd,
+  library,
+  onLibraryItem,
   draggable,
   width,
 }: Props) {
@@ -291,12 +303,74 @@ export function LeftRail({
     );
   };
 
+  // Prebuilt facility / chain templates (sector library) — click an item for a
+  // preview card with its reference link and an "Add to model" action.
+  const renderLibrary = () =>
+    library &&
+    library.length > 0 &&
+    onLibraryItem && (
+      <div className="rail-group rail-library">
+        <div className="rail-head-row">
+          <button className="rail-head" onClick={() => toggleCollapse("library")}>
+            Library{" "}
+            <span className="rail-count">
+              {library.reduce((n, sct) => n + sct.facilities.length + sct.chains.length, 0)}
+            </span>
+          </button>
+        </div>
+        {!collapsed.has("library") &&
+          library.map((sct) => {
+            const key = `lib:${sct.sector}`;
+            const open = !collapsed.has(key);
+            return (
+              <div key={sct.sector}>
+                <button className="rail-grouphead" onClick={() => toggleCollapse(key)}>
+                  {open ? "▾" : "▸"} {sct.label}
+                </button>
+                {open && (
+                  <div className="rail-indent">
+                    {sct.chains.map((c) => (
+                      <button
+                        key={c.id}
+                        className="rail-item"
+                        title={`${c.label} — chain template (adds every stage, wired)`}
+                        onClick={() => onLibraryItem(sct.sector, "chain", c.id)}
+                      >
+                        <span className="dot dot-alt" />
+                        {c.label}
+                      </button>
+                    ))}
+                    {sct.facilities.map((f) => (
+                      <button
+                        key={f.id}
+                        className="rail-item"
+                        draggable
+                        title={`${f.label} — facility template (click to preview, drag onto the canvas)`}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData(DRAG_MIME, `libfac:${sct.sector}/${f.id}`);
+                          e.dataTransfer.effectAllowed = "copy";
+                        }}
+                        onClick={() => onLibraryItem(sct.sector, "facility", f.id)}
+                      >
+                        <span className="dot dot-avail" />
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+      </div>
+    );
+
   return (
     <aside
       className="left-rail"
       aria-label="Model tree"
       style={width ? { width, flex: `0 0 ${width}px` } : undefined}
     >
+      {renderLibrary()}
       {staticSheets.map(renderGroup)}
       {temporalSheets.length > 0 && (
         <>

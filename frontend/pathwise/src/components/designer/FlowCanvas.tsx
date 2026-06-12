@@ -75,12 +75,14 @@ interface Props {
   workbook: Workbook;
   onChange: (wb: Workbook) => void;
   onSelect?: (sel: { sheet: string; idCol: string; id: string }) => void;
+  /** A library facility template dropped on the canvas (`<sector>/<facility_id>`). */
+  onDropLibrary?: (key: string, x: number, y: number) => void;
 }
 
 /** Process-map canvas. Entities are predefined in the Data tables; drag them
  *  from the left-rail tree onto the canvas to place them, then drag handle→
  *  handle to connect. Right-click a node to remove it from the map. */
-export function FlowCanvas({ workbook, onChange, onSelect }: Props) {
+export function FlowCanvas({ workbook, onChange, onSelect, onDropLibrary }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<NodeData>([]);
   const [edges, setEdges] = useEdgesState([]);
   const [menu, setMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
@@ -115,15 +117,18 @@ export function FlowCanvas({ workbook, onChange, onSelect }: Props) {
       const pos = rf.current?.screenToFlowPosition
         ? rf.current.screenToFlowPosition({ x: e.clientX, y: e.clientY })
         : { x: e.clientX - 260, y: e.clientY - 120 };
-      // A technology payload spawns a new facility running it; otherwise the
-      // payload is an existing entity being placed on the map.
-      if (dragId.startsWith("tech:")) {
+      // A technology payload spawns a new facility running it; a library payload
+      // instantiates a prebuilt template; otherwise the payload is an existing
+      // entity being placed on the map.
+      if (dragId.startsWith("libfac:")) {
+        onDropLibrary?.(dragId.slice(7), pos.x, pos.y);
+      } else if (dragId.startsWith("tech:")) {
         onChange(addFacilityWithTech(workbook, dragId.slice(5), pos.x, pos.y));
       } else {
         onChange(placeEntity(workbook, dragId, pos.x, pos.y));
       }
     },
-    [workbook, onChange],
+    [workbook, onChange, onDropLibrary],
   );
 
   return (

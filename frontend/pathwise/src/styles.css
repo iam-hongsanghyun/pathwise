@@ -973,3 +973,25 @@ section {
 .bl-view-row input {
   width: 100%;
 }
+
+/* ── Library (prebuilt facility / chain templates) ─────────────────────────── */
+.rail-library {
+  background: var(--brand-soft);
+}
+.lib-card {
+  width: 420px;
+}
+.lib-io {
+  margin: 4px 0;
+  padding-left: 16px;
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+}
+.lib-io li {
+  list-style: none;
+}
+.lib-source {
+  font-size: 0.78rem;
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+}

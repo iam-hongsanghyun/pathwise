@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DetailPanel } from "../layout/DetailPanel";
-import { LeftRail } from "../layout/LeftRail";
+import { LeftRail, type RailLibrarySector } from "../layout/LeftRail";
 import { Resizer } from "../layout/Resizer";
 import { FlowCanvas } from "../components/designer/FlowCanvas";
 import { FlowView } from "../components/FlowView";
 import { WorkbookTable } from "../components/WorkbookTable";
+import { addChainTemplate, addFacilityTemplate } from "../graph/library";
+import { listLibrary, loadSector, type SectorLibrary } from "../library";
 import type { Cell, ConfigBundle, Row, Selection, Workbook } from "../types";
 
 interface Props {
@@ -127,6 +129,58 @@ export function ModelView({ workbook, setWorkbook, config, leftW, setLeftW }: Pr
   const [dockH, setDockH] = useState(260);
   const schema = config?.domains[0]?.schema ?? {};
 
+  // Prebuilt facility/chain templates (sector library) for the rail.
+  const [library, setLibrary] = useState<SectorLibrary[]>([]);
+  const [libPreview, setLibPreview] = useState<{
+    sector: string;
+    kind: "facility" | "chain";
+    id: string;
+  } | null>(null);
+  useEffect(() => {
+    listLibrary()
+      .then((entries) => Promise.all(entries.map((e) => loadSector(e.file))))
+      .then(setLibrary)
+      .catch(() => setLibrary([]));
+  }, []);
+  const railLibrary: RailLibrarySector[] = library.map((lib) => ({
+    sector: lib.sector,
+    label: lib.label,
+    chains: (lib.chains ?? []).map((c) => ({ id: c.chain_id, label: c.label })),
+    facilities: lib.facilities.map((f) => ({ id: f.facility_id, label: f.label })),
+  }));
+
+  const addFromLibrary = (pos?: { x: number; y: number }) => {
+    if (!libPreview) return;
+    const lib = library.find((l) => l.sector === libPreview.sector);
+    if (!lib) return;
+    if (libPreview.kind === "chain") {
+      const chain = (lib.chains ?? []).find((c) => c.chain_id === libPreview.id);
+      if (!chain) return;
+      const res = addChainTemplate(workbook, lib, chain);
+      setWorkbook(res.wb);
+      const last = res.processIds[res.processIds.length - 1];
+      if (last) openItem({ sheet: "processes", idCol: "process_id", id: last });
+    } else {
+      const fac = lib.facilities.find((f) => f.facility_id === libPreview.id);
+      if (!fac) return;
+      const res = addFacilityTemplate(workbook, lib, fac, pos);
+      setWorkbook(res.wb);
+      openItem({ sheet: "processes", idCol: "process_id", id: res.processId });
+    }
+    setLibPreview(null);
+  };
+
+  // A library facility dragged onto the canvas (payload `libfac:<sector>/<id>`).
+  const dropLibraryFacility = (key: string, x: number, y: number) => {
+    const [sector, fid] = key.split("/", 2);
+    const lib = library.find((l) => l.sector === sector);
+    const fac = lib?.facilities.find((f) => f.facility_id === fid);
+    if (!lib || !fac) return;
+    const res = addFacilityTemplate(workbook, lib, fac, { x, y });
+    setWorkbook(res.wb);
+    openItem({ sheet: "processes", idCol: "process_id", id: res.processId });
+  };
+
   // Table columns = schema columns ∪ keys present in the rows, so optional
   // columns (e.g. impact_caps `intensity` / `soft` / `penalty`) are always
   // editable even when the rows don't yet carry them.
@@ -203,6 +257,8 @@ export function ModelView({ workbook, setWorkbook, config, leftW, setLeftW }: Pr
         onToggleAll={toggleAll}
         onToggleIds={toggleIds}
         onAdd={addRow}
+        library={railLibrary}
+        onLibraryItem={(sector, kind, id) => setLibPreview({ sector, kind, id })}
         draggable
         width={leftW}
       />
@@ -222,7 +278,14 @@ export function ModelView({ workbook, setWorkbook, config, leftW, setLeftW }: Pr
             "Process route by stage (● current · ○ alternative). Toggle aggregated / per-facility; click a technology to edit."}
         </div>
         <div className="canvas-pane">
-          {mode === "canvas" && <FlowCanvas workbook={workbook} onChange={setWorkbook} onSelect={openItem} />}
+          {mode === "canvas" && (
+            <FlowCanvas
+              workbook={workbook}
+              onChange={setWorkbook}
+              onSelect={openItem}
+              onDropLibrary={dropLibraryFacility}
+            />
+          )}
           {mode === "flow" && <FlowView workbook={workbook} onSelect={openItem} />}
         </div>
         {dockOpen && (
@@ -270,6 +333,92 @@ export function ModelView({ workbook, setWorkbook, config, leftW, setLeftW }: Pr
           </aside>
         </>
       )}
+      {libPreview && (
+        <LibraryPreview
+          library={library}
+          preview={libPreview}
+          onAdd={() => addFromLibrary()}
+          onClose={() => setLibPreview(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Template preview card: what it consumes/produces, its alternatives, and —
+ *  always — the reference its coefficients come from. */
+function LibraryPreview({
+  library,
+  preview,
+  onAdd,
+  onClose,
+}: {
+  library: SectorLibrary[];
+  preview: { sector: string; kind: "facility" | "chain"; id: string };
+  onAdd: () => void;
+  onClose: () => void;
+}) {
+  const lib = library.find((l) => l.sector === preview.sector);
+  if (!lib) return null;
+  const fac =
+    preview.kind === "facility"
+      ? lib.facilities.find((f) => f.facility_id === preview.id)
+      : undefined;
+  const chain =
+    preview.kind === "chain"
+      ? (lib.chains ?? []).find((c) => c.chain_id === preview.id)
+      : undefined;
+  const item = fac ?? chain;
+  if (!item) return null;
+  const src = item.source;
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal lib-card" onClick={(e) => e.stopPropagation()}>
+        <div className="dock-head">
+          <strong>{fac ? fac.label : chain!.label}</strong>
+          <span className="rail-count">{fac ? "facility template" : "chain template"}</span>
+          <span className="spacer" />
+          <button className="ghost" onClick={onClose} title="close">
+            ✕
+          </button>
+        </div>
+        {item.description && <p className="muted">{item.description}</p>}
+        {fac && (
+          <>
+            <div className="rail-count">consumes → produces</div>
+            <ul className="lib-io">
+              {fac.technology.io.map((r, i) => (
+                <li key={i}>
+                  {r.role === "input" ? "▸ in" : r.role === "output" ? "◂ out" : "⚠ impact"}{" "}
+                  {r.target} × {r.coefficient}
+                  {r.group ? ` (${r.role === "output" ? "slate" : "blend"} ${r.group})` : ""}
+                </li>
+              ))}
+            </ul>
+            {(fac.alternatives ?? []).length > 0 && (
+              <p className="muted">
+                Alternatives:{" "}
+                {(fac.alternatives ?? []).map((a) => a.technology.technology_id).join(", ")}
+              </p>
+            )}
+          </>
+        )}
+        {chain && (
+          <p className="muted">
+            Stages: {chain.stages.map((st) => st.facility).join(" → ")}. Adding the chain inserts
+            every stage, wires the intermediates, and seeds demand.
+          </p>
+        )}
+        <p className="lib-source">
+          Source:{" "}
+          <a href={src.url} target="_blank" rel="noreferrer">
+            {src.name}
+          </a>{" "}
+          ({src.year}, {src.region ?? "global"} — {src.basis ?? "indicative"})
+        </p>
+        {src.notes && <p className="muted">{src.notes}</p>}
+        <button onClick={onAdd}>Add to model</button>
+      </div>
     </div>
   );
 }
