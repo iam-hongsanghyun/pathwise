@@ -284,3 +284,75 @@ export function deleteChain(wb: Workbook, processId: string): Workbook {
 export function clearLayout(wb: Workbook): Workbook {
   return { ...wb, node_layout: [] };
 }
+
+/** Register `toTech` as a transition option of `fromTech` (deduped). */
+export function addTransitionOption(
+  wb: Workbook,
+  fromTech: string,
+  toTech: string,
+  capexPerCapacity = 0,
+): Workbook {
+  if (!fromTech || !toTech || fromTech === toTech) return wb;
+  const exists = (wb.transitions ?? []).some(
+    (r) => s(r.from_technology) === fromTech && s(r.to_technology) === toTech,
+  );
+  if (exists) return wb;
+  return {
+    ...wb,
+    transitions: [
+      ...(wb.transitions ?? []),
+      {
+        from_technology: fromTech,
+        to_technology: toTech,
+        action: "replace",
+        capex_per_capacity: capexPerCapacity,
+      },
+    ],
+  };
+}
+
+/** Create a technology row if it does not exist yet (a blank recipe to edit). */
+export function ensureTechnology(wb: Workbook, techId: string): Workbook {
+  if (!techId || (wb.technologies ?? []).some((r) => s(r.technology_id) === techId)) return wb;
+  return {
+    ...wb,
+    technologies: [
+      ...(wb.technologies ?? []),
+      { technology_id: techId, lifespan: 20, actions: "continue,replace,renew" },
+    ],
+  };
+}
+
+/** Add a MACC measure (one starter block) on a facility. */
+export function addMeasure(
+  wb: Workbook,
+  opts: {
+    processId: string;
+    type: "energy_efficiency" | "emission_reduction" | "environmental";
+    target: string;
+    lifetime?: number;
+    reduction: number;
+    capex: number;
+  },
+): Workbook {
+  const taken = new Set((wb.measures ?? []).map((r) => s(r.measure_id)));
+  let mid = `${opts.processId} · ${opts.target} measure`;
+  for (let i = 2; taken.has(mid); i += 1) mid = `${opts.processId} · ${opts.target} measure ${i}`;
+  return {
+    ...wb,
+    measures: [
+      ...(wb.measures ?? []),
+      {
+        measure_id: mid,
+        type: opts.type,
+        applies_to: opts.processId,
+        target: opts.target,
+        lifetime: opts.lifetime ?? 15,
+      },
+    ],
+    measure_blocks: [
+      ...(wb.measure_blocks ?? []),
+      { measure_id: mid, block: 0, reduction: opts.reduction, capex: opts.capex },
+    ],
+  };
+}
