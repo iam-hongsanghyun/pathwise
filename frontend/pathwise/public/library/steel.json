@@ -241,7 +241,26 @@
         "region": "KR",
         "basis": "sector-model extraction",
         "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
-      }
+      },
+      "measures": [
+        {
+          "measure_id": "bf_heat_recovery",
+          "label": "BF stove heat recovery + PCI optimisation (indicative)",
+          "type": "energy_efficiency",
+          "target": "Coal_BB",
+          "lifetime": 15,
+          "blocks": [
+            {
+              "reduction": 0.04,
+              "capex_per_capacity": 20.0
+            },
+            {
+              "reduction": 0.03,
+              "capex_per_capacity": 45.0
+            }
+          ]
+        }
+      ]
     },
     {
       "facility_id": "bf_fx",
@@ -643,7 +662,26 @@
         "region": "KR",
         "basis": "sector-model extraction",
         "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
-      }
+      },
+      "measures": [
+        {
+          "measure_id": "scrap_preheating",
+          "label": "Scrap preheating (Consteel-type) + bottom stirring (indicative)",
+          "type": "energy_efficiency",
+          "target": "Electricity_EAF",
+          "lifetime": 12,
+          "blocks": [
+            {
+              "reduction": 0.08,
+              "capex_per_capacity": 15.0
+            },
+            {
+              "reduction": 0.05,
+              "capex_per_capacity": 35.0
+            }
+          ]
+        }
+      ]
     }
   ],
   "chains": [

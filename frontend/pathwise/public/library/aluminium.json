@@ -2,14 +2,51 @@
   "sector": "aluminium",
   "label": "Aluminium",
   "commodities": [
-    { "commodity_id": "bauxite", "kind": "material", "unit": "t", "price": 45.0 },
-    { "commodity_id": "alumina", "kind": "material", "unit": "t" },
-    { "commodity_id": "liquid_aluminium", "kind": "material", "unit": "t" },
-    { "commodity_id": "aluminium", "kind": "product", "unit": "t" },
-    { "commodity_id": "gas", "kind": "energy", "unit": "MWh", "price": 28.0 },
-    { "commodity_id": "grid_elec", "kind": "energy", "unit": "MWh", "price": 75.0 },
-    { "commodity_id": "re_elec", "kind": "energy", "unit": "MWh", "price": 95.0 },
-    { "commodity_id": "hydrogen", "kind": "energy", "unit": "MWh", "price": 120.0 }
+    {
+      "commodity_id": "bauxite",
+      "kind": "material",
+      "unit": "t",
+      "price": 45.0
+    },
+    {
+      "commodity_id": "alumina",
+      "kind": "material",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "liquid_aluminium",
+      "kind": "material",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "aluminium",
+      "kind": "product",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "gas",
+      "kind": "energy",
+      "unit": "MWh",
+      "price": 28.0
+    },
+    {
+      "commodity_id": "grid_elec",
+      "kind": "energy",
+      "unit": "MWh",
+      "price": 75.0
+    },
+    {
+      "commodity_id": "re_elec",
+      "kind": "energy",
+      "unit": "MWh",
+      "price": 95.0
+    },
+    {
+      "commodity_id": "hydrogen",
+      "kind": "energy",
+      "unit": "MWh",
+      "price": 120.0
+    }
   ],
   "facilities": [
     {
@@ -21,9 +58,21 @@
         "lifespan": 25,
         "opex": 16.0,
         "io": [
-          { "target": "bauxite", "role": "input", "coefficient": 1.9 },
-          { "target": "gas", "role": "input", "coefficient": 3.0 },
-          { "target": "alumina", "role": "output", "coefficient": 1.0 }
+          {
+            "target": "bauxite",
+            "role": "input",
+            "coefficient": 1.9
+          },
+          {
+            "target": "gas",
+            "role": "input",
+            "coefficient": 3.0
+          },
+          {
+            "target": "alumina",
+            "role": "output",
+            "coefficient": 1.0
+          }
         ]
       },
       "alternatives": [
@@ -33,9 +82,21 @@
             "lifespan": 25,
             "opex": 24.0,
             "io": [
-              { "target": "bauxite", "role": "input", "coefficient": 1.9 },
-              { "target": "hydrogen", "role": "input", "coefficient": 3.2 },
-              { "target": "alumina", "role": "output", "coefficient": 1.0 }
+              {
+                "target": "bauxite",
+                "role": "input",
+                "coefficient": 1.9
+              },
+              {
+                "target": "hydrogen",
+                "role": "input",
+                "coefficient": 3.2
+              },
+              {
+                "target": "alumina",
+                "role": "output",
+                "coefficient": 1.0
+              }
             ]
           },
           "transition_capex_per_capacity": 320.0
@@ -49,7 +110,26 @@
         "region": "generic",
         "basis": "illustrative",
         "notes": "Synthetic teaching values; replace with audited plant data before real studies."
-      }
+      },
+      "measures": [
+        {
+          "measure_id": "refinery_heat_integration",
+          "label": "Calciner waste-heat recovery + digester heat integration (IEA aluminium roadmap, indicative)",
+          "type": "energy_efficiency",
+          "target": "gas",
+          "lifetime": 15,
+          "blocks": [
+            {
+              "reduction": 0.06,
+              "capex_per_capacity": 40.0
+            },
+            {
+              "reduction": 0.04,
+              "capex_per_capacity": 70.0
+            }
+          ]
+        }
+      ]
     },
     {
       "facility_id": "smelter",
@@ -60,9 +140,21 @@
         "lifespan": 30,
         "opex": 30.0,
         "io": [
-          { "target": "alumina", "role": "input", "coefficient": 1.9 },
-          { "target": "grid_elec", "role": "input", "coefficient": 14.0 },
-          { "target": "liquid_aluminium", "role": "output", "coefficient": 1.0 }
+          {
+            "target": "alumina",
+            "role": "input",
+            "coefficient": 1.9
+          },
+          {
+            "target": "grid_elec",
+            "role": "input",
+            "coefficient": 14.0
+          },
+          {
+            "target": "liquid_aluminium",
+            "role": "output",
+            "coefficient": 1.0
+          }
         ]
       },
       "alternatives": [
@@ -72,9 +164,21 @@
             "lifespan": 30,
             "opex": 34.0,
             "io": [
-              { "target": "alumina", "role": "input", "coefficient": 1.9 },
-              { "target": "re_elec", "role": "input", "coefficient": 14.0 },
-              { "target": "liquid_aluminium", "role": "output", "coefficient": 1.0 }
+              {
+                "target": "alumina",
+                "role": "input",
+                "coefficient": 1.9
+              },
+              {
+                "target": "re_elec",
+                "role": "input",
+                "coefficient": 14.0
+              },
+              {
+                "target": "liquid_aluminium",
+                "role": "output",
+                "coefficient": 1.0
+              }
             ]
           },
           "transition_capex_per_capacity": 260.0
@@ -88,7 +192,26 @@
         "region": "generic",
         "basis": "illustrative",
         "notes": "Synthetic teaching values; replace with audited plant data before real studies."
-      }
+      },
+      "measures": [
+        {
+          "measure_id": "cell_retrofit",
+          "label": "Pot cell retrofit: slotted anodes + advanced process control (indicative)",
+          "type": "energy_efficiency",
+          "target": "grid_elec",
+          "lifetime": 12,
+          "blocks": [
+            {
+              "reduction": 0.03,
+              "capex_per_capacity": 25.0
+            },
+            {
+              "reduction": 0.02,
+              "capex_per_capacity": 45.0
+            }
+          ]
+        }
+      ]
     },
     {
       "facility_id": "caster",
@@ -99,9 +222,22 @@
         "lifespan": 20,
         "opex": 8.0,
         "io": [
-          { "target": "liquid_aluminium", "role": "input", "coefficient": 1.02 },
-          { "target": "gas", "role": "input", "coefficient": 1.5 },
-          { "target": "aluminium", "role": "output", "coefficient": 1.0, "is_product": true }
+          {
+            "target": "liquid_aluminium",
+            "role": "input",
+            "coefficient": 1.02
+          },
+          {
+            "target": "gas",
+            "role": "input",
+            "coefficient": 1.5
+          },
+          {
+            "target": "aluminium",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          }
         ]
       },
       "alternatives": [
@@ -111,9 +247,22 @@
             "lifespan": 20,
             "opex": 9.0,
             "io": [
-              { "target": "liquid_aluminium", "role": "input", "coefficient": 1.02 },
-              { "target": "grid_elec", "role": "input", "coefficient": 2.0 },
-              { "target": "aluminium", "role": "output", "coefficient": 1.0, "is_product": true }
+              {
+                "target": "liquid_aluminium",
+                "role": "input",
+                "coefficient": 1.02
+              },
+              {
+                "target": "grid_elec",
+                "role": "input",
+                "coefficient": 2.0
+              },
+              {
+                "target": "aluminium",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
             ]
           },
           "transition_capex_per_capacity": 120.0
@@ -136,11 +285,27 @@
       "label": "Refining → smelting → casting",
       "description": "The full primary-aluminium route: bauxite to cast product, with a lower-carbon alternative at every stage.",
       "stages": [
-        { "facility": "alumina_refinery", "feeds": [] },
-        { "facility": "smelter", "feeds": ["alumina_refinery"] },
-        { "facility": "caster", "feeds": ["smelter"] }
+        {
+          "facility": "alumina_refinery",
+          "feeds": []
+        },
+        {
+          "facility": "smelter",
+          "feeds": [
+            "alumina_refinery"
+          ]
+        },
+        {
+          "facility": "caster",
+          "feeds": [
+            "smelter"
+          ]
+        }
       ],
-      "demand_hint": { "commodity_id": "aluminium", "amount": 150.0 },
+      "demand_hint": {
+        "commodity_id": "aluminium",
+        "amount": 150.0
+      },
       "source": {
         "name": "pathwise aluminium teaching example (synthetic, repo-curated)",
         "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/aluminium.py",

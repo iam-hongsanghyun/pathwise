@@ -131,7 +131,22 @@
         "region": "KR",
         "basis": "sector-model extraction",
         "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
-      }
+      },
+      "measures": [
+        {
+          "measure_id": "dividing_wall_column",
+          "label": "Distillation heat integration (dividing-wall column, indicative)",
+          "type": "energy_efficiency",
+          "target": "Fuel_Gas",
+          "lifetime": 20,
+          "blocks": [
+            {
+              "reduction": 0.1,
+              "capex_per_capacity": 25.0
+            }
+          ]
+        }
+      ]
     },
     {
       "facility_id": "butadiene_naphtha_cracker",
@@ -530,7 +545,26 @@
         "region": "KR",
         "basis": "sector-model extraction",
         "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
-      }
+      },
+      "measures": [
+        {
+          "measure_id": "furnace_revamp",
+          "label": "Cracking furnace revamp: air preheat + advanced coil design (indicative)",
+          "type": "energy_efficiency",
+          "target": "Fuel_Gas",
+          "lifetime": 15,
+          "blocks": [
+            {
+              "reduction": 0.07,
+              "capex_per_capacity": 35.0
+            },
+            {
+              "reduction": 0.05,
+              "capex_per_capacity": 70.0
+            }
+          ]
+        }
+      ]
     },
     {
       "facility_id": "m_x_btx_plant",

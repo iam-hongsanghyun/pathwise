@@ -308,26 +308,35 @@ export function LeftRail({
 
   // Prebuilt facility / chain templates (sector library) — click an item for a
   // preview card with its reference link and an "Add to model" action.
+  // The library starts fully collapsed (top group and every sector).
+  const [libExpanded, setLibExpanded] = useState<Set<string>>(new Set());
+  const toggleLib = (key: string) =>
+    setLibExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+
   const renderLibrary = () =>
     library &&
     library.length > 0 &&
     onLibraryItem && (
       <div className="rail-group rail-library">
         <div className="rail-head-row">
-          <button className="rail-head" onClick={() => toggleCollapse("library")}>
+          <button className="rail-head" onClick={() => toggleLib("library")}>
             Library{" "}
             <span className="rail-count">
               {library.reduce((n, sct) => n + sct.facilities.length + sct.chains.length, 0)}
             </span>
           </button>
         </div>
-        {!collapsed.has("library") &&
+        {libExpanded.has("library") &&
           library.map((sct) => {
             const key = `lib:${sct.sector}`;
-            const open = !collapsed.has(key);
+            const open = libExpanded.has(key);
             return (
               <div key={sct.sector}>
-                <button className="rail-grouphead" onClick={() => toggleCollapse(key)}>
+                <button className="rail-grouphead" onClick={() => toggleLib(key)}>
                   {open ? "▾" : "▸"} {sct.label}
                 </button>
                 {open && (

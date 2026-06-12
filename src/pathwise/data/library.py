@@ -341,7 +341,9 @@ def add_replacement(
         workbook: The model to extend (pure; returns a new dict).
         library: The sector library.
         facility_id: The template whose baseline technology becomes the option.
-        replace_process: The existing facility whose baseline it may replace.
+        replace_process: The facility whose baseline it may replace, or a
+            technology id directly (same effect — transitions are
+            technology-level).
         transition_capex: Switch cost [currency / unit capacity]; defaults to
             the template technology's replacement ``capex``.
 
@@ -355,13 +357,21 @@ def add_replacement(
     wb.setdefault("io", [])
     wb.setdefault("transitions", [])
 
+    # The replace target may be a FACILITY (→ its baseline technology) or a
+    # TECHNOLOGY id directly — transitions are technology-level either way,
+    # so the option covers every facility running that baseline.
     proc = next(
         (r for r in wb.get("processes", []) if str(r.get("process_id")) == replace_process),
         None,
     )
-    if proc is None:
+    if proc is not None:
+        from_tech = str(proc.get("baseline_technology") or "")
+    elif any(
+        str(r.get("technology_id")) == replace_process for r in wb.get("technologies", [])
+    ):
+        from_tech = replace_process
+    else:
         raise KeyError(f"unknown facility '{replace_process}'")
-    from_tech = str(proc.get("baseline_technology") or "")
 
     have_comm = {str(r.get("commodity_id")) for r in wb["commodities"]}
     referenced = {r.target for r in f.technology.io if r.role != "impact"}

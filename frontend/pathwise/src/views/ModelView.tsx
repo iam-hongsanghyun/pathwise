@@ -5,7 +5,7 @@ import { Resizer } from "../layout/Resizer";
 import { TopologyCanvas } from "../features/topology/TopologyCanvas";
 import { FlowView } from "../features/flow/FlowView";
 import { MaccDesigner } from "../features/macc/MaccDesigner";
-import { WorkbookTable } from "../features/tables/WorkbookTable";
+import { WorkbookTable, type ColumnMeta } from "../features/tables/WorkbookTable";
 import {
   addFacilityWithTech,
   addMeasure,
@@ -372,6 +372,13 @@ export function ModelView({
                   <WorkbookTable
                     rows={workbook[activeSheet] ?? []}
                     columns={columnsFor(activeSheet)}
+                    workbook={workbook}
+                    sheet={activeSheet}
+                    columnMeta={
+                      (schema as Record<string, { columns?: Record<string, ColumnMeta> }>)[
+                        activeSheet
+                      ]?.columns
+                    }
                     onChange={(rows) => setWorkbook({ ...workbook, [activeSheet]: rows })}
                   />
                 )
@@ -480,7 +487,14 @@ function LibraryPreview({
   onClose: () => void;
 }) {
   const [mode, setMode] = useState<"initial" | "replacement">("initial");
-  const facilities = (workbook.processes ?? []).map((r) => String(r.process_id ?? ""));
+  // Replacement targets are TECHNOLOGIES (the option covers every facility
+  // running that baseline) — shown with their facility counts.
+  const counts = new Map<string, number>();
+  for (const r of workbook.processes ?? []) {
+    const t = String(r.baseline_technology ?? "");
+    if (t) counts.set(t, (counts.get(t) ?? 0) + 1);
+  }
+  const replaceables = [...counts.entries()].sort();
   const [replaceProcess, setReplaceProcess] = useState<string>("");
   const lib = library.find((l) => l.sector === preview.sector);
   if (!lib) return null;
@@ -554,7 +568,7 @@ function LibraryPreview({
           ({src.year}, {src.region ?? "global"} — {src.basis ?? "indicative"})
         </p>
         {src.notes && <p className="muted">{src.notes}</p>}
-        {fac && facilities.length > 0 && (
+        {fac && replaceables.length > 0 && (
           <div className="lib-mode">
             <label>
               <input
@@ -570,25 +584,25 @@ function LibraryPreview({
                 checked={mode === "replacement"}
                 onChange={() => setMode("replacement")}
               />{" "}
-              Add as a <strong>replacement option</strong> for
+              Add as a <strong>replacement option</strong> for technology
               <select
                 value={replaceProcess}
                 disabled={mode !== "replacement"}
                 onChange={(e) => setReplaceProcess(e.target.value)}
               >
-                <option value="">— choose facility —</option>
-                {facilities.map((f) => (
-                  <option key={f} value={f}>
-                    {f}
+                <option value="">— choose technology —</option>
+                {replaceables.map(([t, n]) => (
+                  <option key={t} value={t}>
+                    {t} ({n} facilit{n === 1 ? "y" : "ies"})
                   </option>
                 ))}
               </select>
             </label>
             {mode === "replacement" && (
               <p className="muted">
-                Writes a transitions-table row (its baseline technology → this template). The
-                option applies to <em>every</em> facility sharing that baseline technology; for a
-                multi-stage chain, add one replacement per stage.
+                Writes a transitions-table row (chosen technology → this template). The option
+                applies to <em>every</em> facility running that technology; for a multi-stage
+                chain, add one replacement per stage.
               </p>
             )}
           </div>
@@ -627,13 +641,19 @@ function TechAddModal({
     id: String(r.process_id ?? ""),
     baseline: String(r.baseline_technology ?? ""),
   }));
+  // Transitions are TECHNOLOGY-level: pick the technology being replaced; the
+  // option then applies to every facility running it.
+  const baselineCounts = new Map<string, number>();
+  for (const f of facilities)
+    baselineCounts.set(f.baseline, (baselineCounts.get(f.baseline) ?? 0) + 1);
+  const replaceables = [...baselineCounts.entries()].sort();
   const techs = (workbook.technologies ?? []).map((r) => String(r.technology_id ?? ""));
   const [mode, setMode] = useState<"initial" | "transition">(seed.process ? "transition" : "initial");
-  const [facility, setFacility] = useState(seed.process ?? "");
+  const seedBaseline = facilities.find((f) => f.id === seed.process)?.baseline ?? "";
+  const [fromTech, setFromTech] = useState(seedBaseline);
   const [tech, setTech] = useState(seed.tech ?? "");
   const [newTech, setNewTech] = useState("");
   const chosenTech = seed.tech ?? (tech === "__new__" ? newTech.trim() : tech);
-  const fromTech = facilities.find((f) => f.id === facility)?.baseline ?? "";
   const ready = mode === "initial" ? Boolean(chosenTech) : Boolean(chosenTech && fromTech);
 
   return (
@@ -685,12 +705,16 @@ function TechAddModal({
         )}
         {mode === "transition" && (
           <label className="inspector-field">
-            <span>May replace (facility on the map)</span>
-            <select value={facility} onChange={(e) => setFacility(e.target.value)} disabled={Boolean(seed.process)}>
-              <option value="">— choose facility —</option>
-              {facilities.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.id} (runs {f.baseline})
+            <span>Replaces technology (in the topology)</span>
+            <select
+              value={fromTech}
+              onChange={(e) => setFromTech(e.target.value)}
+              disabled={Boolean(seed.process)}
+            >
+              <option value="">— choose technology —</option>
+              {replaceables.map(([t, n]) => (
+                <option key={t} value={t}>
+                  {t} ({n} facilit{n === 1 ? "y" : "ies"})
                 </option>
               ))}
             </select>

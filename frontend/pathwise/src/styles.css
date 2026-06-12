@@ -1057,3 +1057,26 @@ section {
 .context-menu .danger {
   color: var(--danger);
 }
+
+/* ── Required vs optional fields/columns ───────────────────────────────────── */
+.inspector-field.field-required > span {
+  color: var(--text);
+  font-weight: 700;
+}
+.inspector-field.field-optional > span {
+  color: var(--muted);
+  font-weight: 400;
+}
+th.col-required {
+  color: var(--text);
+  font-weight: 700;
+}
+th.col-optional {
+  color: var(--muted);
+  font-weight: 400;
+}
+.col-info {
+  cursor: help;
+  font-size: 0.85em;
+  opacity: 0.7;
+}
