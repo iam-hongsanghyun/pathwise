@@ -347,7 +347,22 @@
         "region": "global",
         "basis": "sector-model extraction",
         "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
-      }
+      },
+      "measures": [
+        {
+          "measure_id": "voyage_optimisation",
+          "label": "Weather routing + slow-steaming optimisation software (indicative)",
+          "type": "energy_efficiency",
+          "target": "IFO 380",
+          "lifetime": 8,
+          "blocks": [
+            {
+              "reduction": 0.05,
+              "capex_per_capacity": 5.0
+            }
+          ]
+        }
+      ]
     },
     {
       "facility_id": "ifo_380_methanol",
@@ -861,7 +876,26 @@
         "region": "global",
         "basis": "sector-model extraction",
         "notes": "Extracted from the pathwise example workbook; see the converter for provenance."
-      }
+      },
+      "measures": [
+        {
+          "measure_id": "hull_propeller_package",
+          "label": "Hull & propeller package: air lubrication + coating + propeller upgrade (IMO EEXI retrofit studies, indicative)",
+          "type": "energy_efficiency",
+          "target": "VLS IFO",
+          "lifetime": 10,
+          "blocks": [
+            {
+              "reduction": 0.08,
+              "capex_per_capacity": 20.0
+            },
+            {
+              "reduction": 0.07,
+              "capex_per_capacity": 45.0
+            }
+          ]
+        }
+      ]
     },
     {
       "facility_id": "vls_mdo",

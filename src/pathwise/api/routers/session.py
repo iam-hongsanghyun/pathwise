@@ -17,7 +17,13 @@ from pydantic import BaseModel, Field
 from pathwise.api.session_store import SessionNotFound, SessionStore
 from pathwise.api.workbook_io import parse_xlsx, result_to_xlsx, write_xlsx
 from pathwise.config import get_settings
-from pathwise.data.library import SectorLibrary, add_chain, add_facility, load_sector
+from pathwise.data.library import (
+    SectorLibrary,
+    add_chain,
+    add_facility,
+    add_replacement,
+    load_sector,
+)
 from pathwise.logger import get_logger
 
 logger = get_logger(__name__)
@@ -37,6 +43,11 @@ CORE_SHEETS = [
     "markets",
     "storage",
     "demand",
+    "transitions",
+    "measures",
+    "measure_blocks",
+    "measure_links",
+    "edges",
 ]
 
 
@@ -65,11 +76,19 @@ class PatchOps(BaseModel):
 
 
 class LibraryInsert(BaseModel):
-    """Body for ``POST /api/session/{sid}/library``."""
+    """Body for ``POST /api/session/{sid}/library``.
+
+    ``mode="initial"`` creates a facility instance running the template today;
+    ``mode="replacement"`` registers the template's technology as a TRANSITION
+    OPTION of ``replace_process``'s baseline (no new facility) — the future
+    system the optimiser may switch into.
+    """
 
     sector: str
     kind: str = Field(pattern="^(facility|chain)$")
     id: str
+    mode: str = Field(default="initial", pattern="^(initial|replacement)$")
+    replace_process: str | None = None
     x: float | None = None
     y: float | None = None
 
@@ -80,6 +99,16 @@ def create_session() -> dict[str, Any]:
     store = _store()
     session_id = store.create({name: [] for name in CORE_SHEETS})
     return {"sessionId": session_id}
+
+
+@router.post("/session/{session_id}/clear")
+def clear_session(session_id: str) -> dict[str, Any]:
+    """Reset the session to an empty model (the core sheets, no rows)."""
+    store = _store()
+    if not store.exists(session_id):
+        raise HTTPException(status_code=404, detail=f"unknown session '{session_id}'")
+    counts = store.put_model(session_id, {name: [] for name in CORE_SHEETS})
+    return {"sessionId": session_id, "sheets": counts}
 
 
 @router.post("/session/model")
@@ -223,6 +252,11 @@ def insert_template(session_id: str, body: LibraryInsert) -> dict[str, Any]:
         if body.kind == "chain":
             model = add_chain(model, lib, body.id)
             created = [str(r["process_id"]) for r in model["processes"][-1:]]
+        elif body.mode == "replacement":
+            if not body.replace_process:
+                raise ValueError("replacement insert needs 'replace_process'")
+            model = add_replacement(model, lib, body.id, body.replace_process)
+            created = [lib.facility(body.id).technology.technology_id]
         else:
             model = add_facility(model, lib, body.id)
             pid = str(model["processes"][-1]["process_id"])

@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DRAG_MIME,
   addFacilityWithTech,
+  clearLayout,
+  deleteChain,
+  deleteEntity,
   persistLayout,
   placeEntity,
   unplace,
@@ -32,6 +35,13 @@ interface Props {
   onSelect?: (sel: Selection) => void;
   onChange?: (wb: Workbook) => void;
   onDropLibrary?: (key: string, x: number, y: number) => void;
+  /** A technology dragged onto the canvas — the host decides Initial vs Transition. */
+  onDropTech?: (techId: string, x: number, y: number) => void;
+  /** Right-click shortcuts: add a transition option / a MACC measure. */
+  onAddTransition?: (processId: string) => void;
+  onAddMeasure?: (kind: NodeKind, entityId: string) => void;
+  /** Link an existing named MACC set to this facility (undefined → hidden). */
+  onApplySet?: (processId: string) => void;
 }
 
 interface ViewBox {
@@ -53,6 +63,10 @@ export function TopologyCanvas({
   onSelect,
   onChange,
   onDropLibrary,
+  onDropTech,
+  onAddTransition,
+  onAddMeasure,
+  onApplySet,
 }: Props) {
   const { nodes: baseNodes, edges } = useMemo(() => workbookToGraph(workbook), [workbook]);
 
@@ -126,7 +140,7 @@ export function TopologyCanvas({
     | { kind: "node"; id: string; dx: number; dy: number; moved: boolean }
     | null
   >(null);
-  const [menu, setMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; nodeId?: string } | null>(null);
 
   const capture = (el: Element | null, pointerId: number) => {
     try {
@@ -175,8 +189,11 @@ export function TopologyCanvas({
     if (!dragId || !editable || !onChange) return;
     const at = toWorld(e.clientX, e.clientY);
     if (dragId.startsWith("libfac:")) onDropLibrary?.(dragId.slice(7), at.x, at.y);
-    else if (dragId.startsWith("tech:")) onChange(addFacilityWithTech(workbook, dragId.slice(5), at.x, at.y));
-    else onChange(placeEntity(workbook, dragId, at.x, at.y));
+    else if (dragId.startsWith("tech:")) {
+      const tech = dragId.slice(5);
+      if (onDropTech) onDropTech(tech, at.x, at.y);
+      else onChange(addFacilityWithTech(workbook, tech, at.x, at.y));
+    } else onChange(placeEntity(workbook, dragId, at.x, at.y));
   };
 
   const click = (nd: GraphNode) => {
@@ -207,6 +224,11 @@ export function TopologyCanvas({
           e.dataTransfer.dropEffect = "copy";
         }}
         onDrop={onDrop}
+        onContextMenu={(e) => {
+          if (!editable) return;
+          e.preventDefault();
+          setMenu({ x: e.clientX, y: e.clientY });
+        }}
         role="img"
         aria-label="process map"
       >
@@ -275,14 +297,82 @@ export function TopologyCanvas({
       </svg>
       {menu && onChange && (
         <div className="context-menu" style={{ left: menu.x, top: menu.y }}>
-          <button
-            onClick={() => {
-              onChange(unplace(workbook, menu.nodeId));
-              setMenu(null);
-            }}
-          >
-            Remove from map
-          </button>
+          {menu.nodeId ? (
+            <>
+              <button
+                onClick={() => {
+                  onChange(unplace(workbook, menu.nodeId!));
+                  setMenu(null);
+                }}
+              >
+                Remove from map (keep data)
+              </button>
+              <button
+                className="danger"
+                onClick={() => {
+                  onChange(deleteEntity(workbook, menu.nodeId!));
+                  setMenu(null);
+                }}
+              >
+                Delete from model
+              </button>
+              {menu.nodeId.startsWith("process:") && onAddTransition && (
+                <button
+                  onClick={() => {
+                    onAddTransition(menu.nodeId!.slice("process:".length));
+                    setMenu(null);
+                  }}
+                >
+                  Add transition technology…
+                </button>
+              )}
+              {(menu.nodeId.startsWith("process:") || menu.nodeId.startsWith("commodity:")) &&
+                onAddMeasure && (
+                  <button
+                    onClick={() => {
+                      const i = menu.nodeId!.indexOf(":");
+                      onAddMeasure(
+                        menu.nodeId!.slice(0, i) as NodeKind,
+                        menu.nodeId!.slice(i + 1),
+                      );
+                      setMenu(null);
+                    }}
+                  >
+                    Add MACC measure…
+                  </button>
+                )}
+              {menu.nodeId.startsWith("process:") && onApplySet && (
+                <button
+                  onClick={() => {
+                    onApplySet(menu.nodeId!.slice("process:".length));
+                    setMenu(null);
+                  }}
+                >
+                  Apply MACC set…
+                </button>
+              )}
+              {menu.nodeId.startsWith("process:") && (
+                <button
+                  className="danger"
+                  onClick={() => {
+                    onChange(deleteChain(workbook, menu.nodeId!.slice("process:".length)));
+                    setMenu(null);
+                  }}
+                >
+                  Delete connected chain
+                </button>
+              )}
+            </>
+          ) : (
+            <button
+              onClick={() => {
+                onChange(clearLayout(workbook));
+                setMenu(null);
+              }}
+            >
+              Clear map (reset all positions)
+            </button>
+          )}
         </div>
       )}
     </div>

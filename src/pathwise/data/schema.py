@@ -40,13 +40,15 @@ SCHEMA: dict[str, Any] = {
     "commodities": {
         "label": "Streams",
         "columns": {
-            "commodity_id": {"label": "Stream", "type": "string", "required": True},
-            "kind": {"label": "Kind", "type": "string", "required": True},
+            "commodity_id": {"label": "Stream", "type": "string", "required": True, "desc": "Unique name of the energy/material stream."},
+            "kind": {"label": "Kind", "type": "string", "required": True, "desc": "Role: energy / material / indirect input, product (meets demand) or byproduct."},
             "unit": {"label": "Unit", "type": "string"},
-            "price": {"label": "Purchase price (/unit)", "type": "number"},
-            "sale_price": {"label": "Sale price (/unit)", "type": "number"},
+            "price": {"label": "Purchase price (/unit)", "type": "number", "desc": "Cost when bought externally."},
+            "sale_price": {"label": "Sale price (/unit)", "type": "number", "desc": "Revenue when surplus is sold (0 = free disposal; negative = disposal cost)."},
             "sellable": {"label": "Sellable", "type": "boolean"},
-            "purchasable": {"label": "Purchasable", "type": "boolean"},
+            "purchasable": {"label": "Purchasable", "type": "boolean", "desc": "May it be bought externally? Default: raw inputs yes, produced intermediates no."},
+            "available_from": {"label": "Available from (yr)", "type": "integer"},
+            "available_to": {"label": "Available until (yr)", "type": "integer"},
         },
     },
     "impacts": {
@@ -59,13 +61,14 @@ SCHEMA: dict[str, Any] = {
     "technologies": {
         "label": "Technologies",
         "columns": {
-            "technology_id": {"label": "Technology", "type": "string", "required": True},
+            "technology_id": {"label": "Technology", "type": "string", "required": True, "desc": "Unique name of the recipe (what a facility runs)."},
             "lifespan": {"label": "Lifespan (yr)", "type": "integer"},
-            "introduction_year": {"label": "Available from", "type": "integer"},
+            "introduction_year": {"label": "Available from (yr)", "type": "integer", "desc": "First year it may be adopted (the installed baseline is exempt)."},
+            "phase_out_year": {"label": "Available until (phase-out yr)", "type": "integer", "desc": "Last year it may operate — afterwards facilities must transition or switch off."},
             "actions": {"label": "Actions (replace,renew,continue)", "type": "string"},
-            "capex": {"label": "Replace CAPEX (/cap)", "type": "number"},
+            "capex": {"label": "Replace CAPEX (/cap)", "type": "number", "desc": "Capital cost per unit capacity when switching INTO this technology."},
             "renewal": {"label": "Renewal cost (/cap)", "type": "number"},
-            "opex": {"label": "Fixed O&M (/throughput)", "type": "number"},
+            "opex": {"label": "Fixed O&M (/throughput)", "type": "number", "desc": "Operating cost per unit of throughput."},
             "min_capacity_factor": {"label": "Min capacity factor (0-1)", "type": "number"},
             "enabled": {"label": "Included in model", "type": "boolean"},
         },
@@ -73,16 +76,17 @@ SCHEMA: dict[str, Any] = {
     "processes": {
         "label": "Facilities",
         "columns": {
-            "process_id": {"label": "Facility", "type": "string", "required": True},
-            "company": {"label": "Company (demand scope)", "type": "string", "required": True},
+            "process_id": {"label": "Facility", "type": "string", "required": True, "desc": "Unique name of the plant/machine instance."},
+            "company": {"label": "Company (demand scope)", "type": "string", "required": True, "desc": "Owner — demand rows for this company are served by its facilities."},
             "group": {"label": "Group (cap scope, opt.)", "type": "string"},
-            "baseline_technology": {"label": "Baseline tech", "type": "string", "required": True},
-            "capacity": {"label": "Capacity (throughput/yr)", "type": "number"},
+            "baseline_technology": {"label": "Baseline tech", "type": "string", "required": True, "desc": "The technology it runs at the start of the horizon."},
+            "capacity": {"label": "Capacity (throughput/yr)", "type": "number", "desc": "Nameplate throughput per year."},
             "introduced_year": {"label": "Installed", "type": "integer"},
             "capex": {"label": "Build CAPEX", "type": "number"},
             "fixed_opex": {"label": "Fixed O&M (/yr)", "type": "number"},
             "failure_rate": {"label": "Failure rate (0-1)", "type": "number"},
             "replaceable": {"label": "Replaceable", "type": "boolean"},
+            "decommission_year": {"label": "Decommission (yr)", "type": "integer", "desc": "Last year the facility may operate; forced off afterwards."},
             "enabled": {"label": "Included in model", "type": "boolean"},
         },
     },
@@ -100,7 +104,7 @@ SCHEMA: dict[str, Any] = {
     "process_inputs": {
         "label": "Technology inputs",
         "columns": {
-            "technology_id": {"label": "Technology", "type": "string", "required": True},
+            "technology_id": {"label": "Technology", "type": "string", "required": True, "desc": "Unique name of the recipe (what a facility runs)."},
             "commodity_id": {"label": "Input stream", "type": "string", "required": True},
             "intensity": {"label": "Use per throughput", "type": "number", "required": True},
         },
@@ -108,7 +112,7 @@ SCHEMA: dict[str, Any] = {
     "process_outputs": {
         "label": "Technology outputs",
         "columns": {
-            "technology_id": {"label": "Technology", "type": "string", "required": True},
+            "technology_id": {"label": "Technology", "type": "string", "required": True, "desc": "Unique name of the recipe (what a facility runs)."},
             "commodity_id": {"label": "Output stream", "type": "string", "required": True},
             "yield": {"label": "Yield per throughput", "type": "number", "required": True},
             "is_product": {"label": "Is product", "type": "boolean"},
@@ -129,7 +133,7 @@ SCHEMA: dict[str, Any] = {
     "io": {
         "label": "Technology I/O (unified)",
         "columns": {
-            "technology_id": {"label": "Technology", "type": "string", "required": True},
+            "technology_id": {"label": "Technology", "type": "string", "required": True, "desc": "Unique name of the recipe (what a facility runs)."},
             "target": {"label": "Stream / impact", "type": "string", "required": True},
             "role": {"label": "Role (input|output|impact)", "type": "string", "required": True},
             "coefficient": {"label": "Per throughput", "type": "number", "required": True},
@@ -166,7 +170,7 @@ SCHEMA: dict[str, Any] = {
     "tech_impacts": {
         "label": "Direct (process) impacts",
         "columns": {
-            "technology_id": {"label": "Technology", "type": "string", "required": True},
+            "technology_id": {"label": "Technology", "type": "string", "required": True, "desc": "Unique name of the recipe (what a facility runs)."},
             "impact_id": {"label": "Impact", "type": "string", "required": True},
             "factor": {"label": "Impact per throughput", "type": "number", "required": True},
         },
@@ -174,7 +178,7 @@ SCHEMA: dict[str, Any] = {
     "commodity_impacts": {
         "label": "Stream impact factors",
         "columns": {
-            "commodity_id": {"label": "Stream", "type": "string", "required": True},
+            "commodity_id": {"label": "Stream", "type": "string", "required": True, "desc": "Unique name of the energy/material stream."},
             "impact_id": {"label": "Impact", "type": "string", "required": True},
             "factor": {"label": "Impact per unit", "type": "number", "required": True},
         },
@@ -184,36 +188,44 @@ SCHEMA: dict[str, Any] = {
         "columns": {
             "from_process": {"label": "From facility", "type": "string", "required": True},
             "to_process": {"label": "To facility", "type": "string", "required": True},
-            "commodity_id": {"label": "Stream", "type": "string", "required": True},
+            "commodity_id": {"label": "Stream", "type": "string", "required": True, "desc": "Unique name of the energy/material stream."},
             "max_flow": {"label": "Max flow (/yr)", "type": "number"},
         },
     },
     "measures": {
         "label": "Measures (MACC)",
         "columns": {
-            "measure_id": {"label": "Measure", "type": "string", "required": True},
-            "type": {"label": "Type", "type": "string", "required": True},
-            "applies_to": {"label": "On facility", "type": "string", "required": True},
-            "target": {"label": "Target stream/impact", "type": "string", "required": True},
+            "measure_id": {"label": "Measure", "type": "string", "required": True, "desc": "Unique name of this retrofit measure."},
+            "type": {"label": "Type", "type": "string", "required": True, "desc": "Lever it pulls: energy_efficiency cuts an input stream; emission_reduction cuts CO2; environmental cuts another impact."},
+            "applies_to": {"label": "On facility / technology", "type": "string", "desc": "Where it can be installed: a facility (that plant only) or a technology (every facility running it — each adopts independently). Leave empty when linking via a MACC set."},
+            "target": {"label": "Target stream/impact", "type": "string", "required": True, "desc": "What it reduces: an input stream (energy_efficiency) or an impact (other types)."},
             "lifetime": {"label": "Lifetime (yr)", "type": "integer"},
+            "set": {"label": "MACC set (named table)", "type": "string", "desc": "Optional name grouping measures into a reusable MACC table — link it to facilities/technologies in measure_links."},
+        },
+    },
+    "measure_links": {
+        "label": "MACC set links",
+        "columns": {
+            "set": {"label": "MACC set", "type": "string", "required": True, "desc": "Named MACC table to apply (defined on measure rows)."},
+            "applies_to": {"label": "Facility / technology", "type": "string", "required": True, "desc": "Link target: a facility, or a technology = every facility running it (each adopts independently)."},
         },
     },
     "measure_blocks": {
         "label": "Measure cost curve",
         "columns": {
-            "measure_id": {"label": "Measure", "type": "string", "required": True},
-            "block": {"label": "Block", "type": "integer", "required": True},
-            "reduction": {"label": "Reduction (frac)", "type": "number", "required": True},
-            "capex": {"label": "CAPEX", "type": "number", "required": True},
+            "measure_id": {"label": "Measure", "type": "string", "required": True, "desc": "Unique name of this retrofit measure."},
+            "block": {"label": "Block", "type": "integer", "required": True, "desc": "Cost-curve step order (0,1,2,…); blocks must be adopted in order."},
+            "reduction": {"label": "Reduction (frac)", "type": "number", "required": True, "desc": "Fraction of the target cut at full adoption of this block (0-1)."},
+            "capex": {"label": "CAPEX", "type": "number", "required": True, "desc": "Capital cost of this block (may be negative, e.g. subsidised)."},
         },
     },
     "transitions": {
         "label": "Technology transitions",
         "columns": {
-            "from_technology": {"label": "From tech", "type": "string", "required": True},
-            "to_technology": {"label": "To tech", "type": "string", "required": True},
+            "from_technology": {"label": "From tech", "type": "string", "required": True, "desc": "Current technology — the option applies to every facility running it."},
+            "to_technology": {"label": "To tech", "type": "string", "required": True, "desc": "Technology the facility may switch into."},
             "action": {"label": "Action", "type": "string"},
-            "capex_per_capacity": {"label": "CAPEX (/cap)", "type": "number"},
+            "capex_per_capacity": {"label": "CAPEX (/cap)", "type": "number", "desc": "One-off capital cost of the switch per unit capacity."},
             "compatible": {"label": "Reusable (compatible)", "type": "boolean"},
         },
     },
@@ -221,7 +233,7 @@ SCHEMA: dict[str, Any] = {
         "label": "Storage",
         "columns": {
             "storage_id": {"label": "Store", "type": "string", "required": True},
-            "commodity_id": {"label": "Stream", "type": "string", "required": True},
+            "commodity_id": {"label": "Stream", "type": "string", "required": True, "desc": "Unique name of the energy/material stream."},
             "company": {"label": "Company (or all)", "type": "string"},
             "max_capacity": {"label": "Max capacity", "type": "number"},
             "capex_per_capacity": {"label": "CAPEX (/capacity)", "type": "number"},
@@ -246,6 +258,8 @@ SCHEMA: dict[str, Any] = {
             "max_sell": {"label": "Max sell (/yr)", "type": "number"},
             "allocation": {"label": "ETS allocation (/yr)", "type": "number"},
             "tag": {"label": "Tag (e.g. RE100)", "type": "string"},
+            "available_from": {"label": "Available from (yr)", "type": "integer"},
+            "available_to": {"label": "Available until (yr)", "type": "integer"},
             "enabled": {"label": "Included in model", "type": "boolean"},
         },
     },
@@ -293,7 +307,7 @@ SCHEMA: dict[str, Any] = {
             "company": {"label": "Company", "type": "string", "required": True},
             "commodity_id": {"label": "Product", "type": "string", "required": True},
             "year": {"label": "Year (legacy)", "type": "integer"},
-            "amount": {"label": "Demand (legacy /yr)", "type": "number"},
+            "amount": {"label": "Demand (/yr)", "type": "number", "desc": "Required delivery of the product that year (soft floor, slack-penalised)."},
         },
     },
     "demand_t__amount": {
@@ -328,7 +342,7 @@ SCHEMA: dict[str, Any] = {
     "commodity_prices": {
         "label": "Stream price trajectory",
         "columns": {
-            "commodity_id": {"label": "Stream", "type": "string", "required": True},
+            "commodity_id": {"label": "Stream", "type": "string", "required": True, "desc": "Unique name of the energy/material stream."},
             "year": {"label": "Year", "type": "integer", "required": True},
             "price": {"label": "Purchase price", "type": "number"},
             "sale_price": {"label": "Sale price", "type": "number"},

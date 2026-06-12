@@ -2,10 +2,29 @@
   "sector": "ammonia",
   "label": "Ammonia",
   "commodities": [
-    { "commodity_id": "natural_gas", "kind": "energy", "unit": "GJ", "price": 8.0 },
-    { "commodity_id": "electricity", "kind": "energy", "unit": "MWh", "price": 75.0 },
-    { "commodity_id": "re_electricity", "kind": "energy", "unit": "MWh", "price": 55.0 },
-    { "commodity_id": "ammonia", "kind": "product", "unit": "t" }
+    {
+      "commodity_id": "natural_gas",
+      "kind": "energy",
+      "unit": "GJ",
+      "price": 8.0
+    },
+    {
+      "commodity_id": "electricity",
+      "kind": "energy",
+      "unit": "MWh",
+      "price": 75.0
+    },
+    {
+      "commodity_id": "re_electricity",
+      "kind": "energy",
+      "unit": "MWh",
+      "price": 55.0
+    },
+    {
+      "commodity_id": "ammonia",
+      "kind": "product",
+      "unit": "t"
+    }
   ],
   "facilities": [
     {
@@ -18,10 +37,27 @@
         "capex": 370.0,
         "opex": 15.0,
         "io": [
-          { "target": "natural_gas", "role": "input", "coefficient": 36.0 },
-          { "target": "electricity", "role": "input", "coefficient": 0.15 },
-          { "target": "ammonia", "role": "output", "coefficient": 1.0, "is_product": true },
-          { "target": "CO2", "role": "impact", "coefficient": 1.8 }
+          {
+            "target": "natural_gas",
+            "role": "input",
+            "coefficient": 36.0
+          },
+          {
+            "target": "electricity",
+            "role": "input",
+            "coefficient": 0.15
+          },
+          {
+            "target": "ammonia",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          },
+          {
+            "target": "CO2",
+            "role": "impact",
+            "coefficient": 1.8
+          }
         ]
       },
       "alternatives": [
@@ -32,10 +68,27 @@
             "capex": 450.0,
             "opex": 19.0,
             "io": [
-              { "target": "natural_gas", "role": "input", "coefficient": 37.0 },
-              { "target": "electricity", "role": "input", "coefficient": 0.3 },
-              { "target": "ammonia", "role": "output", "coefficient": 1.0, "is_product": true },
-              { "target": "CO2", "role": "impact", "coefficient": 0.16 }
+              {
+                "target": "natural_gas",
+                "role": "input",
+                "coefficient": 37.0
+              },
+              {
+                "target": "electricity",
+                "role": "input",
+                "coefficient": 0.3
+              },
+              {
+                "target": "ammonia",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              },
+              {
+                "target": "CO2",
+                "role": "impact",
+                "coefficient": 0.16
+              }
             ]
           },
           "transition_capex_per_capacity": 90.0
@@ -47,8 +100,17 @@
             "capex": 850.0,
             "opex": 20.0,
             "io": [
-              { "target": "re_electricity", "role": "input", "coefficient": 10.5 },
-              { "target": "ammonia", "role": "output", "coefficient": 1.0, "is_product": true }
+              {
+                "target": "re_electricity",
+                "role": "input",
+                "coefficient": 10.5
+              },
+              {
+                "target": "ammonia",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              }
             ]
           },
           "transition_capex_per_capacity": 850.0
@@ -62,7 +124,26 @@
         "region": "global",
         "basis": "modern plant; world averages noted in description",
         "notes": "IEAGHG: https://ieaghg.org/insights/low-carbon-ammonia-roadmap-2023-03/ ; Frontiers: https://www.frontiersin.org/journals/energy-research/articles/10.3389/fenrg.2021.580808/full ; RSC: https://pubs.rsc.org/en/content/articlehtml/2020/ee/c9ee02873k"
-      }
+      },
+      "measures": [
+        {
+          "measure_id": "smr_revamp",
+          "label": "SMR revamp package (waste-heat + synthesis-loop upgrades)",
+          "type": "energy_efficiency",
+          "target": "natural_gas",
+          "lifetime": 15,
+          "blocks": [
+            {
+              "reduction": 0.05,
+              "capex_per_capacity": 30.0
+            },
+            {
+              "reduction": 0.05,
+              "capex_per_capacity": 55.0
+            }
+          ]
+        }
+      ]
     }
   ],
   "chains": []

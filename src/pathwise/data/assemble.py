@@ -228,6 +228,8 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             sale_price_by_year=sales,
             sellable=_bool(r.get("sellable"), True),
             purchasable=purchasable,
+            available_from=_int(r.get("available_from")),
+            available_to=_int(r.get("available_to")),
         )
 
     # ── Impacts (+ price trajectory) ─────────────────────────────────────────
@@ -326,6 +328,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             technology_id=k,
             lifespan=_int(r.get("lifespan"), 20) or 20,
             introduction_year=_int(r.get("introduction_year")),
+            phase_out_year=_int(r.get("phase_out_year")),
             actions=_actions(r.get("actions")),
             capex_by_year=_attr_by_year(k, _num(r.get("capex"), 0.0) or 0.0, tech_capex_t),
             renewal_by_year=_attr_by_year(k, _num(r.get("renewal"), 0.0) or 0.0, tech_renewal_t),
@@ -367,6 +370,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 fixed_opex=_num(r.get("fixed_opex"), 0.0) or 0.0,
                 failure_rate=min(max(_num(r.get("failure_rate"), 0.0) or 0.0, 0.0), 1.0),
                 replaceable=False if fixed else _bool(r.get("replaceable"), True),
+                decommission_year=_int(r.get("decommission_year")),
                 group=_str(r.get("group")) or "",
                 capacity_by_year=interpolate(cap_t[pid], years) if pid in cap_t else {},
             )
@@ -407,6 +411,29 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 ),
             )
         )
+    # A measure definition may belong to a named SET (`set` column) and be
+    # LINKED to targets via `measure_links` rows {set, applies_to}; its own
+    # `applies_to` (if any) is a direct link. Each link target may be a
+    # FACILITY id (that one plant) or a TECHNOLOGY id (every facility whose
+    # baseline runs it). Every (measure, facility) pair becomes its OWN
+    # independent Measure instance — adoption is per facility, never grouped.
+    links_by_set: dict[str, list[str]] = {}
+    for r in _rows(workbook, "measure_links"):
+        set_id, target = _str(r.get("set")), _str(r.get("applies_to"))
+        if set_id and target:
+            links_by_set.setdefault(set_id, []).append(target)
+
+    proc_ids = {proc.process_id for proc in processes}
+    by_baseline: dict[str, list[str]] = {}
+    for proc in processes:
+        by_baseline.setdefault(proc.baseline_technology, []).append(proc.process_id)
+
+    def _resolve(target: str) -> list[str]:
+        """A link target → the facility ids it covers (facility OR technology)."""
+        if target in proc_ids:
+            return [target]
+        return by_baseline.get(target, [])
+
     measures: list[Measure] = []
     for r in _rows(workbook, "measures"):
         mid = _str(r.get("measure_id"))
@@ -414,16 +441,26 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         if mid is None or mtype_s not in {m.value for m in MeasureType}:
             continue
         ordered = [b for _, b in sorted(blocks_by_measure.get(mid, []), key=lambda t: t[0])]
-        measures.append(
-            Measure(
-                measure_id=mid,
-                measure_type=MeasureType(mtype_s),
-                applies_to=_str(r.get("applies_to")) or "",
-                target=_str(r.get("target")) or "",
-                lifetime=_int(r.get("lifetime"), 15) or 15,
-                blocks=ordered,
+        targets: list[str] = []
+        if direct_link := _str(r.get("applies_to")):
+            targets.extend(_resolve(direct_link))
+        if set_id := _str(r.get("set")):
+            for link in links_by_set.get(set_id, []):
+                targets.extend(_resolve(link))
+        unique = list(dict.fromkeys(targets))
+        for pid in unique:
+            measures.append(
+                Measure(
+                    # Keep the plain id for the simple 1:1 case (backwards
+                    # compatible); suffix with the facility when expanded.
+                    measure_id=mid if len(unique) == 1 else f"{mid} @ {pid}",
+                    measure_type=MeasureType(mtype_s),
+                    applies_to=pid,
+                    target=_str(r.get("target")) or "",
+                    lifetime=_int(r.get("lifetime"), 15) or 15,
+                    blocks=ordered,
+                )
             )
-        )
 
     # ── Transitions (replace/renew + compatibility) ──────────────────────────
     transitions: list[Transition] = []
@@ -520,6 +557,8 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 sell_price_by_year=interpolate(sells, years) if sells else {},
                 max_buy=_num(r.get("max_buy")),
                 max_sell=_num(r.get("max_sell")),
+                available_from=_int(r.get("available_from")),
+                available_to=_int(r.get("available_to")),
                 allocation_by_year=interpolate(allocs, years) if allocs else {},
                 tag=_str(r.get("tag")),
             )

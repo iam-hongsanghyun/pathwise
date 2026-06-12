@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { optionsFor } from "../../lib/references";
+import { emptyHint, optionsFor } from "../../lib/references";
 import type { Cell, Selection, Workbook } from "../../types";
 
 type SchemaMap = Record<
@@ -295,9 +295,20 @@ export function DetailPanel({ workbook, selected, schema, onChange, onClose, flo
   const rows = workbook[selected.sheet] ?? [];
   const idx = rows.findIndex((r) => String(r[selected.idCol] ?? "") === selected.id);
   const row = idx >= 0 ? rows[idx] : undefined;
-  const cols = Object.keys(schema[selected.sheet]?.columns ?? {});
-  const allCols = [...new Set([...cols, ...(row ? Object.keys(row) : [])])];
-  const labelOf = (c: string) => schema[selected.sheet]?.columns?.[c]?.label ?? c;
+  const colMeta = (schema[selected.sheet]?.columns ?? {}) as Record<
+    string,
+    { label?: string; required?: boolean; desc?: string; type?: string }
+  >;
+  const cols = Object.keys(colMeta);
+  const merged = [...new Set([...cols, ...(row ? Object.keys(row) : [])])];
+  // Required fields first (bold black), optional after (grey) — schema order.
+  const allCols = [
+    ...merged.filter((c) => colMeta[c]?.required),
+    ...merged.filter((c) => !colMeta[c]?.required),
+  ];
+  const labelOf = (c: string) => colMeta[c]?.label ?? c;
+  const isRequired = (c: string) => Boolean(colMeta[c]?.required);
+  const descOf = (c: string) => colMeta[c]?.desc;
 
   const edit = (col: string, value: string) =>
     onChange({
@@ -348,9 +359,15 @@ export function DetailPanel({ workbook, selected, schema, onChange, onClose, flo
             const opts = c === selected.idCol ? null : optionsFor(workbook, selected.sheet, c, row);
             const value = row[c] == null ? "" : String(row[c]);
             return (
-              <label key={c} className="inspector-field">
-                <span>
+              <label
+                key={c}
+                className={`inspector-field ${isRequired(c) ? "field-required" : "field-optional"}`}
+              >
+                <span title={[descOf(c), isRequired(c) ? "(required)" : "(optional)"]
+                  .filter(Boolean)
+                  .join(" — ")}>
                   {labelOf(c)}
+                  {descOf(c) ? <span className="col-info"> ⓘ</span> : null}
                   {canTemporal(c) && (
                     <button
                       className="make-temporal"
@@ -365,14 +382,23 @@ export function DetailPanel({ workbook, selected, schema, onChange, onClose, flo
                   )}
                 </span>
                 {opts ? (
-                  <select value={value} onChange={(e) => edit(c, e.target.value)}>
-                    <option value="">—</option>
-                    {opts.map((o) => (
-                      <option key={o} value={o}>
-                        {o}
-                      </option>
-                    ))}
-                  </select>
+                  opts.length ? (
+                    <select value={value} onChange={(e) => edit(c, e.target.value)}>
+                      <option value="">—</option>
+                      {value && !opts.includes(value) && (
+                        <option value={value}>{value} (unknown)</option>
+                      )}
+                      {opts.map((o) => (
+                        <option key={o} value={o}>
+                          {o}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <select disabled title={emptyHint(selected.sheet, c)}>
+                      <option>— {emptyHint(selected.sheet, c)} —</option>
+                    </select>
+                  )
                 ) : (
                   <input value={value} onChange={(e) => edit(c, e.target.value)} />
                 )}

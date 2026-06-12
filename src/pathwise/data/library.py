@@ -91,6 +91,35 @@ class CommodityTemplate(BaseModel):
     sale_price: float | None = None
 
 
+class MeasureBlockTemplate(BaseModel):
+    """One piecewise step of a measure's cost curve.
+
+    ``capex_per_capacity`` scales with the facility instance it is stamped onto
+    (block capex = value × instance capacity), so one template serves plants of
+    any size.
+    """
+
+    reduction: float = Field(gt=0.0, le=1.0)
+    capex_per_capacity: float = Field(ge=0.0)
+
+
+class MeasureTemplate(BaseModel):
+    """A MACC measure: a small retrofit of the SAME system (no tech switch).
+
+    The other decarbonisation lever next to ``alternatives`` (full technology
+    transitions): efficiency or abatement upgrades applied to the facility's
+    existing technology, with a piecewise cost curve the optimiser may adopt
+    fractionally and cumulatively.
+    """
+
+    measure_id: str
+    label: str = ""
+    type: str = Field(pattern="^(energy_efficiency|emission_reduction|environmental)$")
+    target: str  # commodity id (energy_efficiency) or impact id (otherwise)
+    lifetime: int = Field(default=15, ge=1)
+    blocks: list[MeasureBlockTemplate] = Field(min_length=1)
+
+
 class FacilityTemplate(BaseModel):
     """A prebuilt facility archetype: baseline technology + alternatives."""
 
@@ -99,6 +128,7 @@ class FacilityTemplate(BaseModel):
     description: str = ""
     technology: TechnologyTemplate
     alternatives: list[Alternative] = Field(default_factory=list)
+    measures: list[MeasureTemplate] = Field(default_factory=list)
     default_capacity: float = Field(default=1000.0, gt=0.0)
     source: SourceRef
 
@@ -192,7 +222,9 @@ def add_facility(
 
     Commodities are merged by id (existing rows win); a technology that already
     exists is reused (recipe/instance separation — many facilities may share an
-    archetype); the process instance id is uniquified.
+    archetype); the process instance id is uniquified. MACC measure templates
+    are stamped onto the created instance (``applies_to`` = the new process id;
+    block capex scales with the instance capacity).
     """
     f = library.facility(facility_id)
     wb: Workbook = {k: list(v) for k, v in workbook.items()}
@@ -201,6 +233,9 @@ def add_facility(
     wb.setdefault("io", [])
     wb.setdefault("processes", [])
     wb.setdefault("transitions", [])
+    if f.measures:
+        wb.setdefault("measures", [])
+        wb.setdefault("measure_blocks", [])
 
     have_comm = {str(r.get("commodity_id")) for r in wb["commodities"]}
     referenced = {r.target for r in f.technology.io if r.role != "impact"}
@@ -257,6 +292,123 @@ def add_facility(
             "capacity": f.default_capacity,
         }
     )
+
+    # MACC measures: small retrofits of the SAME system, stamped per instance.
+    for m in f.measures:
+        mid = f"{pid} · {m.measure_id}"
+        wb["measures"].append(
+            {
+                "measure_id": mid,
+                "type": m.type,
+                "applies_to": pid,
+                "target": m.target,
+                "lifetime": m.lifetime,
+            }
+        )
+        for i, blk in enumerate(m.blocks):
+            wb["measure_blocks"].append(
+                {
+                    "measure_id": mid,
+                    "block": i,
+                    "reduction": blk.reduction,
+                    "capex": blk.capex_per_capacity * f.default_capacity,
+                }
+            )
+    return wb
+
+
+def add_replacement(
+    workbook: Workbook,
+    library: SectorLibrary,
+    facility_id: str,
+    replace_process: str,
+    *,
+    transition_capex: float | None = None,
+) -> Workbook:
+    """Add a template's technology as a TRANSITION OPTION of an existing facility.
+
+    The mirror of :func:`add_facility` for the *future* system: instead of
+    creating a new (initial) facility instance, the template's baseline
+    technology is merged in (commodities + technology + io) and registered as a
+    transition target of ``replace_process``'s baseline technology.
+
+    Because transitions are TECHNOLOGY-level (``from_technology`` →
+    ``to_technology``), the option automatically becomes available to **every**
+    facility sharing that baseline — replacing "a part of the chain" is just
+    adding a replacement per stage.
+
+    Args:
+        workbook: The model to extend (pure; returns a new dict).
+        library: The sector library.
+        facility_id: The template whose baseline technology becomes the option.
+        replace_process: The facility whose baseline it may replace, or a
+            technology id directly (same effect — transitions are
+            technology-level).
+        transition_capex: Switch cost [currency / unit capacity]; defaults to
+            the template technology's replacement ``capex``.
+
+    Raises:
+        KeyError: Unknown template or process.
+    """
+    f = library.facility(facility_id)
+    wb: Workbook = {k: list(v) for k, v in workbook.items()}
+    wb.setdefault("commodities", [])
+    wb.setdefault("technologies", [])
+    wb.setdefault("io", [])
+    wb.setdefault("transitions", [])
+
+    # The replace target may be a FACILITY (→ its baseline technology) or a
+    # TECHNOLOGY id directly — transitions are technology-level either way,
+    # so the option covers every facility running that baseline.
+    proc = next(
+        (r for r in wb.get("processes", []) if str(r.get("process_id")) == replace_process),
+        None,
+    )
+    if proc is not None:
+        from_tech = str(proc.get("baseline_technology") or "")
+    elif any(
+        str(r.get("technology_id")) == replace_process for r in wb.get("technologies", [])
+    ):
+        from_tech = replace_process
+    else:
+        raise KeyError(f"unknown facility '{replace_process}'")
+
+    have_comm = {str(r.get("commodity_id")) for r in wb["commodities"]}
+    referenced = {r.target for r in f.technology.io if r.role != "impact"}
+    for c in library.commodities:
+        if c.commodity_id in referenced and c.commodity_id not in have_comm:
+            row: dict[str, Any] = {
+                "commodity_id": c.commodity_id,
+                "kind": c.kind,
+                "unit": c.unit,
+            }
+            if c.price is not None:
+                row["price"] = c.price
+            if c.sale_price is not None:
+                row["sale_price"] = c.sale_price
+            wb["commodities"].append(row)
+            have_comm.add(c.commodity_id)
+
+    have_tech = {str(r.get("technology_id")) for r in wb["technologies"]}
+    if f.technology.technology_id not in have_tech:
+        wb["technologies"].append(_tech_row(f.technology))
+        wb["io"].extend(_io_rows(f.technology))
+
+    key = (from_tech, f.technology.technology_id)
+    have_trans = {
+        (str(r.get("from_technology")), str(r.get("to_technology"))) for r in wb["transitions"]
+    }
+    if key not in have_trans and key[0] != key[1]:
+        wb["transitions"].append(
+            {
+                "from_technology": key[0],
+                "to_technology": key[1],
+                "action": "replace",
+                "capex_per_capacity": (
+                    transition_capex if transition_capex is not None else f.technology.capex
+                ),
+            }
+        )
     return wb
 
 

@@ -4,7 +4,16 @@ import { LeftRail, type RailLibrarySector } from "../layout/LeftRail";
 import { Resizer } from "../layout/Resizer";
 import { TopologyCanvas } from "../features/topology/TopologyCanvas";
 import { FlowView } from "../features/flow/FlowView";
-import { WorkbookTable } from "../features/tables/WorkbookTable";
+import { MaccDesigner } from "../features/macc/MaccDesigner";
+import { WorkbookTable, type ColumnMeta } from "../features/tables/WorkbookTable";
+import {
+  addFacilityWithTech,
+  addMeasure,
+  addTransitionOption,
+  applyMeasureSet,
+  ensureTechnology,
+  measureSets,
+} from "../lib/graph";
 import { insertTemplate } from "../lib/api/session";
 import { listLibrary, loadSector, type SectorLibrary } from "../lib/api/library";
 import type { Cell, ConfigBundle, Row, Selection, Workbook } from "../types";
@@ -160,21 +169,48 @@ export function ModelView({
     facilities: lib.facilities.map((f) => ({ id: f.facility_id, label: f.label })),
   }));
 
+  // "Add technology as…" dialog: from a tech drag (tech known, choose mode +
+  // facility) or from a facility's context menu (facility known, choose tech).
+  const [techAdd, setTechAdd] = useState<{
+    tech?: string;
+    process?: string;
+    x?: number;
+    y?: number;
+  } | null>(null);
+  // "Add MACC measure" dialog, opened from a facility or stream context menu.
+  const [measureAdd, setMeasureAdd] = useState<{
+    kind: "process" | "commodity";
+    entityId: string;
+  } | null>(null);
+  // Bottom-dock tab: measures context offers a MACC chart beside the table.
+  const [dockTab, setDockTab] = useState<"table" | "macc">("table");
+  // "Apply MACC set" picker (right-click a facility; only when sets exist).
+  const [setApply, setSetApply] = useState<string | null>(null);
+
   // Template inserts happen SERVER-side (the session owns the model); the
   // frontend adopts the refreshed model and selects what was created.
-  const insert = async (
-    body: { sector: string; kind: "facility" | "chain"; id: string; x?: number; y?: number },
-  ) => {
+  const insert = async (body: {
+    sector: string;
+    kind: "facility" | "chain";
+    id: string;
+    mode?: "initial" | "replacement";
+    replace_process?: string;
+    x?: number;
+    y?: number;
+  }) => {
     if (!sessionId) return;
     const { model, created } = await insertTemplate(sessionId, body);
     adoptServerModel(model);
     const last = created[created.length - 1];
-    if (last) openItem({ sheet: "processes", idCol: "process_id", id: last });
+    if (!last) return;
+    if (body.mode === "replacement")
+      openItem({ sheet: "technologies", idCol: "technology_id", id: last });
+    else openItem({ sheet: "processes", idCol: "process_id", id: last });
   };
 
-  const addFromLibrary = (pos?: { x: number; y: number }) => {
+  const addFromLibrary = (opts: { mode: "initial" | "replacement"; replaceProcess?: string }) => {
     if (!libPreview) return;
-    void insert({ ...libPreview, x: pos?.x, y: pos?.y });
+    void insert({ ...libPreview, mode: opts.mode, replace_process: opts.replaceProcess });
     setLibPreview(null);
   };
 
@@ -247,6 +283,10 @@ export function ModelView({
   };
 
   const dockOpen = selected != null || activeSheet != null;
+  const measureContext =
+    selected?.sheet === "measures" ||
+    activeSheet === "measures" ||
+    activeSheet === "measure_blocks";
 
   return (
     <div className="body-row">
@@ -282,7 +322,19 @@ export function ModelView({
         </div>
         <div className="canvas-pane">
           {mode === "canvas" && (
-            <TopologyCanvas workbook={workbook} editable onChange={setWorkbook} onSelect={openItem} onDropLibrary={dropLibraryFacility} />
+            <TopologyCanvas
+              workbook={workbook}
+              editable
+              onChange={setWorkbook}
+              onSelect={openItem}
+              onDropLibrary={dropLibraryFacility}
+              onDropTech={(tech, x, y) => setTechAdd({ tech, x, y })}
+              onAddTransition={(pid) => setTechAdd({ process: pid })}
+              onAddMeasure={(kind, entityId) => {
+                if (kind === "process" || kind === "commodity") setMeasureAdd({ kind, entityId });
+              }}
+              onApplySet={measureSets(workbook).length ? (pid) => setSetApply(pid) : undefined}
+            />
           )}
           {mode === "flow" && <FlowView workbook={workbook} onSelect={openItem} />}
         </div>
@@ -292,19 +344,41 @@ export function ModelView({
             <div className="dock-head">
               <strong>{selected ? selected.id : activeSheet}</strong>
               <span className="rail-count">{selected ? "time series" : "table"}</span>
+              {measureContext && (
+                <span className="view-toggle">
+                  {(["table", "macc"] as const).map((t) => (
+                    <button
+                      key={t}
+                      className={`tab${dockTab === t ? " active" : ""}`}
+                      onClick={() => setDockTab(t)}
+                    >
+                      {t === "macc" ? "MACC" : "Table"}
+                    </button>
+                  ))}
+                </span>
+              )}
               <span className="spacer" />
               <button className="ghost" onClick={closeDock} title="close editor">
                 ✕
               </button>
             </div>
             <div className="dock-body">
-              {selected ? (
+              {measureContext && dockTab === "macc" ? (
+                <MaccDesigner workbook={workbook} />
+              ) : selected ? (
                 <ItemTimeSeries workbook={workbook} selected={selected} onChange={setWorkbook} />
               ) : (
                 activeSheet && (
                   <WorkbookTable
                     rows={workbook[activeSheet] ?? []}
                     columns={columnsFor(activeSheet)}
+                    workbook={workbook}
+                    sheet={activeSheet}
+                    columnMeta={
+                      (schema as Record<string, { columns?: Record<string, ColumnMeta> }>)[
+                        activeSheet
+                      ]?.columns
+                    }
                     onChange={(rows) => setWorkbook({ ...workbook, [activeSheet]: rows })}
                   />
                 )
@@ -331,11 +405,63 @@ export function ModelView({
           </aside>
         </>
       )}
+      {techAdd && (
+        <TechAddModal
+          workbook={workbook}
+          seed={techAdd}
+          onClose={() => setTechAdd(null)}
+          onApply={(r) => {
+            setTechAdd(null);
+            if (r.mode === "initial" && r.tech) {
+              setWorkbook(
+                addFacilityWithTech(workbook, r.tech, techAdd.x ?? 260, techAdd.y ?? 200),
+              );
+            } else if (r.mode === "transition" && r.tech && r.fromTech) {
+              setWorkbook(
+                addTransitionOption(ensureTechnology(workbook, r.tech), r.fromTech, r.tech),
+              );
+              openItem({ sheet: "technologies", idCol: "technology_id", id: r.tech });
+            }
+          }}
+        />
+      )}
+      {measureAdd && (
+        <MeasureModal
+          workbook={workbook}
+          seed={measureAdd}
+          onClose={() => setMeasureAdd(null)}
+          onApply={({ scope, processId, ...opts }) => {
+            setMeasureAdd(null);
+            const baseline = String(
+              (workbook.processes ?? []).find((r) => String(r.process_id) === processId)
+                ?.baseline_technology ?? "",
+            );
+            const appliesTo = scope === "technology" && baseline ? baseline : processId;
+            setWorkbook(addMeasure(workbook, { ...opts, appliesTo }));
+            setDockTab("macc");
+            openGroup("measures");
+          }}
+        />
+      )}
+      {setApply && (
+        <ApplySetModal
+          workbook={workbook}
+          processId={setApply}
+          onClose={() => setSetApply(null)}
+          onApply={(setId, appliesTo) => {
+            setSetApply(null);
+            setWorkbook(applyMeasureSet(workbook, setId, appliesTo));
+            setDockTab("macc");
+            openGroup("measures");
+          }}
+        />
+      )}
       {libPreview && (
         <LibraryPreview
           library={library}
           preview={libPreview}
-          onAdd={() => addFromLibrary()}
+          workbook={workbook}
+          onAdd={addFromLibrary}
           onClose={() => setLibPreview(null)}
         />
       )}
@@ -343,19 +469,33 @@ export function ModelView({
   );
 }
 
-/** Template preview card: what it consumes/produces, its alternatives, and —
- *  always — the reference its coefficients come from. */
+/** Template preview card: what it consumes/produces, its alternatives, the
+ *  reference its coefficients come from — and HOW to add it: as an initial
+ *  (current) facility, or as a replacement OPTION the optimiser may switch an
+ *  existing facility into (a transitions-table entry, no new facility). */
 function LibraryPreview({
   library,
   preview,
+  workbook,
   onAdd,
   onClose,
 }: {
   library: SectorLibrary[];
   preview: { sector: string; kind: "facility" | "chain"; id: string };
-  onAdd: () => void;
+  workbook: Workbook;
+  onAdd: (opts: { mode: "initial" | "replacement"; replaceProcess?: string }) => void;
   onClose: () => void;
 }) {
+  const [mode, setMode] = useState<"initial" | "replacement">("initial");
+  // Replacement targets are TECHNOLOGIES (the option covers every facility
+  // running that baseline) — shown with their facility counts.
+  const counts = new Map<string, number>();
+  for (const r of workbook.processes ?? []) {
+    const t = String(r.baseline_technology ?? "");
+    if (t) counts.set(t, (counts.get(t) ?? 0) + 1);
+  }
+  const replaceables = [...counts.entries()].sort();
+  const [replaceProcess, setReplaceProcess] = useState<string>("");
   const lib = library.find((l) => l.sector === preview.sector);
   if (!lib) return null;
   const fac =
@@ -395,8 +535,21 @@ function LibraryPreview({
             </ul>
             {(fac.alternatives ?? []).length > 0 && (
               <p className="muted">
-                Alternatives:{" "}
+                Alternatives (transitions):{" "}
                 {(fac.alternatives ?? []).map((a) => a.technology.technology_id).join(", ")}
+              </p>
+            )}
+            {(fac.measures ?? []).length > 0 && (
+              <p className="muted">
+                MACC measures (same-system retrofits):{" "}
+                {(fac.measures ?? [])
+                  .map(
+                    (m) =>
+                      `${m.label || m.measure_id} (−${Math.round(
+                        m.blocks.reduce((s, b) => s + b.reduction, 0) * 100,
+                      )}% ${m.target})`,
+                  )
+                  .join("; ")}
               </p>
             )}
           </>
@@ -415,7 +568,417 @@ function LibraryPreview({
           ({src.year}, {src.region ?? "global"} — {src.basis ?? "indicative"})
         </p>
         {src.notes && <p className="muted">{src.notes}</p>}
-        <button onClick={onAdd}>Add to model</button>
+        {fac && replaceables.length > 0 && (
+          <div className="lib-mode">
+            <label>
+              <input
+                type="radio"
+                checked={mode === "initial"}
+                onChange={() => setMode("initial")}
+              />{" "}
+              Add as an <strong>initial facility</strong> (runs from the start)
+            </label>
+            <label>
+              <input
+                type="radio"
+                checked={mode === "replacement"}
+                onChange={() => setMode("replacement")}
+              />{" "}
+              Add as a <strong>replacement option</strong> for technology
+              <select
+                value={replaceProcess}
+                disabled={mode !== "replacement"}
+                onChange={(e) => setReplaceProcess(e.target.value)}
+              >
+                <option value="">— choose technology —</option>
+                {replaceables.map(([t, n]) => (
+                  <option key={t} value={t}>
+                    {t} ({n} facilit{n === 1 ? "y" : "ies"})
+                  </option>
+                ))}
+              </select>
+            </label>
+            {mode === "replacement" && (
+              <p className="muted">
+                Writes a transitions-table row (chosen technology → this template). The option
+                applies to <em>every</em> facility running that technology; for a multi-stage
+                chain, add one replacement per stage.
+              </p>
+            )}
+          </div>
+        )}
+        <button
+          disabled={mode === "replacement" && !replaceProcess}
+          onClick={() =>
+            onAdd(
+              mode === "replacement"
+                ? { mode, replaceProcess }
+                : { mode: "initial" },
+            )
+          }
+        >
+          {mode === "replacement" ? "Add as replacement option" : "Add to model"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** "Add technology as…" — from a tech drag (choose Initial vs Transition + the
+ *  facility it may replace) or from a facility's menu (choose the technology). */
+function TechAddModal({
+  workbook,
+  seed,
+  onApply,
+  onClose,
+}: {
+  workbook: Workbook;
+  seed: { tech?: string; process?: string };
+  onApply: (r: { mode: "initial" | "transition"; tech?: string; fromTech?: string }) => void;
+  onClose: () => void;
+}) {
+  const facilities = (workbook.processes ?? []).map((r) => ({
+    id: String(r.process_id ?? ""),
+    baseline: String(r.baseline_technology ?? ""),
+  }));
+  // Transitions are TECHNOLOGY-level: pick the technology being replaced; the
+  // option then applies to every facility running it.
+  const baselineCounts = new Map<string, number>();
+  for (const f of facilities)
+    baselineCounts.set(f.baseline, (baselineCounts.get(f.baseline) ?? 0) + 1);
+  const replaceables = [...baselineCounts.entries()].sort();
+  const techs = (workbook.technologies ?? []).map((r) => String(r.technology_id ?? ""));
+  const [mode, setMode] = useState<"initial" | "transition">(seed.process ? "transition" : "initial");
+  const seedBaseline = facilities.find((f) => f.id === seed.process)?.baseline ?? "";
+  const [fromTech, setFromTech] = useState(seedBaseline);
+  const [tech, setTech] = useState(seed.tech ?? "");
+  const [newTech, setNewTech] = useState("");
+  const chosenTech = seed.tech ?? (tech === "__new__" ? newTech.trim() : tech);
+  const ready = mode === "initial" ? Boolean(chosenTech) : Boolean(chosenTech && fromTech);
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="dock-head">
+          <strong>Add technology{seed.tech ? ` · ${seed.tech}` : ""}</strong>
+          <span className="spacer" />
+          <button className="ghost" onClick={onClose} title="close">
+            ✕
+          </button>
+        </div>
+        {!seed.process && (
+          <div className="lib-mode">
+            <label>
+              <input type="radio" checked={mode === "initial"} onChange={() => setMode("initial")} />{" "}
+              <strong>Initial</strong> — new facility running it from the start (shown on the map)
+            </label>
+            <label>
+              <input
+                type="radio"
+                checked={mode === "transition"}
+                onChange={() => setMode("transition")}
+              />{" "}
+              <strong>Transition</strong> — future option a facility may switch into (○ in the
+              tree, not on the map)
+            </label>
+          </div>
+        )}
+        {!seed.tech && (
+          <label className="inspector-field">
+            <span>Technology</span>
+            <select value={tech} onChange={(e) => setTech(e.target.value)}>
+              <option value="">— choose —</option>
+              {techs.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+              <option value="__new__">+ new technology…</option>
+            </select>
+          </label>
+        )}
+        {tech === "__new__" && (
+          <label className="inspector-field">
+            <span>New technology id</span>
+            <input value={newTech} onChange={(e) => setNewTech(e.target.value)} />
+          </label>
+        )}
+        {mode === "transition" && (
+          <label className="inspector-field">
+            <span>Replaces technology (in the topology)</span>
+            <select
+              value={fromTech}
+              onChange={(e) => setFromTech(e.target.value)}
+              disabled={Boolean(seed.process)}
+            >
+              <option value="">— choose technology —</option>
+              {replaceables.map(([t, n]) => (
+                <option key={t} value={t}>
+                  {t} ({n} facilit{n === 1 ? "y" : "ies"})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {mode === "transition" && fromTech && (
+          <p className="muted">
+            Writes a transitions row {fromTech} → {chosenTech || "…"}; the option applies to every
+            facility running {fromTech}. Set its switch cost and "Available from" year in the
+            technology's detail panel.
+          </p>
+        )}
+        <button disabled={!ready} onClick={() => onApply({ mode, tech: chosenTech, fromTech })}>
+          {mode === "initial" ? "Add as initial facility" : "Add as transition option"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** "Add MACC measure" — a small retrofit on a facility's existing technology:
+ *  pick the lever (efficiency / abatement), the target, and one starter block. */
+function MeasureModal({
+  workbook,
+  seed,
+  onApply,
+  onClose,
+}: {
+  workbook: Workbook;
+  seed: { kind: "process" | "commodity"; entityId: string };
+  onApply: (opts: {
+    processId: string;
+    type: "energy_efficiency" | "emission_reduction" | "environmental";
+    target: string;
+    lifetime?: number;
+    reduction: number;
+    capex: number;
+    set?: string;
+    scope: "facility" | "technology";
+  }) => void;
+  onClose: () => void;
+}) {
+  const baselineOf = (pid: string) =>
+    String(
+      (workbook.processes ?? []).find((r) => String(r.process_id) === pid)?.baseline_technology ??
+        "",
+    );
+  const inputsOf = (tech: string) =>
+    (workbook.io ?? [])
+      .filter((r) => String(r.technology_id) === tech && String(r.role ?? "input") === "input")
+      .map((r) => String(r.target));
+  const impacts = (workbook.impacts ?? []).map((r) => String(r.impact_id ?? ""));
+  const consumers = (workbook.processes ?? [])
+    .map((r) => String(r.process_id ?? ""))
+    .filter((pid) => inputsOf(baselineOf(pid)).includes(seed.entityId));
+
+  const [processId, setProcessId] = useState(
+    seed.kind === "process" ? seed.entityId : (consumers[0] ?? ""),
+  );
+  const [type, setType] = useState<"energy_efficiency" | "emission_reduction" | "environmental">(
+    seed.kind === "commodity" ? "energy_efficiency" : "energy_efficiency",
+  );
+  const [target, setTarget] = useState(seed.kind === "commodity" ? seed.entityId : "");
+  const [reduction, setReduction] = useState(0.1);
+  const [capex, setCapex] = useState(0);
+  const [lifetime, setLifetime] = useState(15);
+  const [scope, setScope] = useState<"facility" | "technology">("facility");
+  const [setName, setSetName] = useState("");
+  const targets = type === "energy_efficiency" ? inputsOf(baselineOf(processId)) : impacts;
+  const ready = Boolean(processId && target && reduction > 0);
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="dock-head">
+          <strong>Add MACC measure</strong>
+          <span className="rail-count">retrofit of the same system</span>
+          <span className="spacer" />
+          <button className="ghost" onClick={onClose} title="close">
+            ✕
+          </button>
+        </div>
+        <label className="inspector-field">
+          <span>Applies to (facility)</span>
+          <select
+            value={processId}
+            disabled={seed.kind === "process"}
+            onChange={(e) => setProcessId(e.target.value)}
+          >
+            {(seed.kind === "process"
+              ? [seed.entityId]
+              : consumers
+            ).map((pid) => (
+              <option key={pid} value={pid}>
+                {pid}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="inspector-field">
+          <span>Lever</span>
+          <select
+            value={type}
+            disabled={seed.kind === "commodity"}
+            onChange={(e) => {
+              setType(e.target.value as typeof type);
+              setTarget("");
+            }}
+          >
+            <option value="energy_efficiency">Energy efficiency (cuts an input)</option>
+            <option value="emission_reduction">Emission reduction (cuts an impact)</option>
+            <option value="environmental">Environmental (non-CO2 impact)</option>
+          </select>
+        </label>
+        <label className="inspector-field">
+          <span>{type === "energy_efficiency" ? "Input it cuts" : "Impact it cuts"}</span>
+          <select
+            value={target}
+            disabled={seed.kind === "commodity"}
+            onChange={(e) => setTarget(e.target.value)}
+          >
+            <option value="">— choose —</option>
+            {targets.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="modal-two-col">
+          <label className="inspector-field">
+            <span>Reduction (0–1)</span>
+            <input
+              type="number"
+              min={0.01}
+              max={1}
+              step={0.01}
+              value={reduction}
+              onChange={(e) => setReduction(Number(e.target.value))}
+            />
+          </label>
+          <label className="inspector-field">
+            <span>Block capex</span>
+            <input type="number" value={capex} onChange={(e) => setCapex(Number(e.target.value))} />
+          </label>
+        </div>
+        <label className="inspector-field">
+          <span>Lifetime (yr)</span>
+          <input type="number" min={1} value={lifetime} onChange={(e) => setLifetime(Number(e.target.value))} />
+        </label>
+        <div className="lib-mode">
+          <label>
+            <input
+              type="radio"
+              checked={scope === "facility"}
+              onChange={() => setScope("facility")}
+            />{" "}
+            This facility only ({processId || "…"})
+          </label>
+          <label>
+            <input
+              type="radio"
+              checked={scope === "technology"}
+              onChange={() => setScope("technology")}
+            />{" "}
+            Every facility running <strong>{baselineOf(processId) || "…"}</strong> (each adopts
+            independently)
+          </label>
+        </div>
+        <label className="inspector-field">
+          <span>MACC set name (optional — for reuse via "Apply MACC set")</span>
+          <input value={setName} onChange={(e) => setSetName(e.target.value)} placeholder="e.g. EAF retrofits" />
+        </label>
+        <p className="muted">
+          Creates one cost-curve block (capex may be negative, e.g. subsidised); add more blocks in
+          the measure_blocks table. The MACC tab in the bottom panel shows the curve. Adoption is
+          always per facility — a shared set never decides as a group.
+        </p>
+        <button
+          disabled={!ready}
+          onClick={() =>
+            onApply({
+              processId,
+              type,
+              target,
+              lifetime,
+              reduction,
+              capex,
+              set: setName.trim() || undefined,
+              scope,
+            })
+          }
+        >
+          Add measure
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Link an existing named MACC set to a facility (or to its whole technology).
+ *  Each linked facility still adopts independently. */
+function ApplySetModal({
+  workbook,
+  processId,
+  onApply,
+  onClose,
+}: {
+  workbook: Workbook;
+  processId: string;
+  onApply: (setId: string, appliesTo: string) => void;
+  onClose: () => void;
+}) {
+  const sets = measureSets(workbook);
+  const baseline = String(
+    (workbook.processes ?? []).find((r) => String(r.process_id) === processId)
+      ?.baseline_technology ?? "",
+  );
+  const [setId, setSetId] = useState(sets[0] ?? "");
+  const [scope, setScope] = useState<"facility" | "technology">("facility");
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="dock-head">
+          <strong>Apply MACC set · {processId}</strong>
+          <span className="spacer" />
+          <button className="ghost" onClick={onClose} title="close">
+            ✕
+          </button>
+        </div>
+        <label className="inspector-field">
+          <span>MACC set</span>
+          <select value={setId} onChange={(e) => setSetId(e.target.value)}>
+            {sets.map((s2) => (
+              <option key={s2} value={s2}>
+                {s2}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="lib-mode">
+          <label>
+            <input type="radio" checked={scope === "facility"} onChange={() => setScope("facility")} />{" "}
+            This facility only
+          </label>
+          <label>
+            <input
+              type="radio"
+              checked={scope === "technology"}
+              onChange={() => setScope("technology")}
+            />{" "}
+            Every facility running <strong>{baseline}</strong>
+          </label>
+        </div>
+        <p className="muted">
+          Writes a measure_links row. Each linked facility receives its own copy of the set's
+          measures and adopts them independently.
+        </p>
+        <button
+          disabled={!setId}
+          onClick={() => onApply(setId, scope === "technology" && baseline ? baseline : processId)}
+        >
+          Apply set
+        </button>
       </div>
     </div>
   );

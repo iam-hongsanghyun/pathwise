@@ -121,8 +121,11 @@ export function LeftRail({
   );
   const targetTechs = new Set((workbook.transitions ?? []).map((r) => String(r.to_technology ?? "")));
   const all = Object.keys(workbook).filter((s) => !HIDDEN.has(s));
+  // Key editing groups stay visible even before their sheet exists (the first
+  // `+` creates it) — measures/transitions are how alternatives are authored.
+  const ALWAYS = ["measures", "transitions"];
   const staticSheets = [
-    ...ORDER.filter((s) => s in workbook && !HIDDEN.has(s)),
+    ...ORDER.filter((s) => (s in workbook || ALWAYS.includes(s)) && !HIDDEN.has(s)),
     ...all.filter((s) => !ORDER.includes(s) && !s.includes("_t__")),
   ];
   const temporalSheets = all.filter((s) => s.includes("_t__"));
@@ -305,26 +308,35 @@ export function LeftRail({
 
   // Prebuilt facility / chain templates (sector library) — click an item for a
   // preview card with its reference link and an "Add to model" action.
+  // The library starts fully collapsed (top group and every sector).
+  const [libExpanded, setLibExpanded] = useState<Set<string>>(new Set());
+  const toggleLib = (key: string) =>
+    setLibExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+
   const renderLibrary = () =>
     library &&
     library.length > 0 &&
     onLibraryItem && (
       <div className="rail-group rail-library">
         <div className="rail-head-row">
-          <button className="rail-head" onClick={() => toggleCollapse("library")}>
+          <button className="rail-head" onClick={() => toggleLib("library")}>
             Library{" "}
             <span className="rail-count">
               {library.reduce((n, sct) => n + sct.facilities.length + sct.chains.length, 0)}
             </span>
           </button>
         </div>
-        {!collapsed.has("library") &&
+        {libExpanded.has("library") &&
           library.map((sct) => {
             const key = `lib:${sct.sector}`;
-            const open = !collapsed.has(key);
+            const open = libExpanded.has(key);
             return (
               <div key={sct.sector}>
-                <button className="rail-grouphead" onClick={() => toggleCollapse(key)}>
+                <button className="rail-grouphead" onClick={() => toggleLib(key)}>
                   {open ? "▾" : "▸"} {sct.label}
                 </button>
                 {open && (

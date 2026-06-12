@@ -66,6 +66,12 @@ export async function replaceSheet(
   );
 }
 
+/** Reset the session to an empty model; returns the refreshed (blank) model. */
+export async function clearModel(sessionId: string): Promise<Workbook> {
+  await json(await fetch(`/api/session/${sessionId}/clear`, { method: "POST" }));
+  return getFullModel(sessionId);
+}
+
 /** Upload an .xlsx — parsed SERVER-side; returns the refreshed model. */
 export async function uploadWorkbook(sessionId: string, file: File): Promise<Workbook> {
   const form = new FormData();
@@ -121,7 +127,17 @@ export async function loadExample(sessionId: string, exampleId: string): Promise
 /** Backend inserts a facility/chain template; returns refreshed model + ids. */
 export async function insertTemplate(
   sessionId: string,
-  body: { sector: string; kind: "facility" | "chain"; id: string; x?: number; y?: number },
+  body: {
+    sector: string;
+    kind: "facility" | "chain";
+    id: string;
+    /** "initial" creates a facility running the template today; "replacement"
+     *  registers it as a transition OPTION of `replace_process`'s baseline. */
+    mode?: "initial" | "replacement";
+    replace_process?: string;
+    x?: number;
+    y?: number;
+  },
 ): Promise<{ model: Workbook; created: string[] }> {
   const res = await json<{ created: string[] }>(
     await fetch(`/api/session/${sessionId}/library`, {

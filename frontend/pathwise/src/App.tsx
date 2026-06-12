@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getConfig, runToCompletion } from "./lib/api/run";
 import {
+  clearModel,
   downloadResultXlsx,
   ensureSession,
   exportModelUrl,
@@ -62,8 +63,42 @@ export function App() {
       .catch((e) => setError(String(e)));
   }, []);
 
+  // Bounded undo history of workbook states (model edits + server-side ops).
+  const history = useRef<Workbook[]>([]);
+  const pushHistory = (state: Workbook) => {
+    if (Object.keys(state).length === 0) return; // skip the pre-boot blank
+    history.current = [...history.current.slice(-19), state];
+  };
+
+  /** The single edit entry point: records undo history, then updates state
+   *  (the debounced effect syncs the change to the backend session). */
+  const updateWorkbook = (wb: Workbook) => {
+    pushHistory(workbook);
+    setWorkbook(wb);
+  };
+
+  const undo = () => {
+    const prev = history.current.pop();
+    if (prev) setWorkbook(prev); // sync effect pushes the restored state
+  };
+
+  // Ctrl/Cmd+Z anywhere outside a text field.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.key === "z" && (e.metaKey || e.ctrlKey) && !e.shiftKey)) return;
+      const tag = (e.target as HTMLElement | null)?.tagName ?? "";
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(tag)) return;
+      e.preventDefault();
+      undo();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /** Adopt a model the BACKEND already holds (upload / example / template). */
   const adoptServerModel = (model: Workbook) => {
+    pushHistory(workbook); // server-side ops are undoable too
     synced.current = model;
     setWorkbook(model);
     setResult(null);
@@ -162,7 +197,25 @@ export function App() {
     }
   }
 
-  const shared = { workbook, setWorkbook, config, sessionId, adoptServerModel, leftW, setLeftW };
+  async function onNewModel() {
+    if (!sessionId) return;
+    setError(null);
+    try {
+      adoptServerModel(await clearModel(sessionId)); // undoable: history is pushed
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  const shared = {
+    workbook,
+    setWorkbook: updateWorkbook,
+    config,
+    sessionId,
+    adoptServerModel,
+    leftW,
+    setLeftW,
+  };
 
   return (
     <div className="studio-shell">
@@ -176,6 +229,21 @@ export function App() {
             <div className="eyebrow">facility transition optimiser</div>
             <h1>pathwise{config ? ` · build ${config.buildId}` : ""}</h1>
           </div>
+          <button
+            className="ghost"
+            onClick={undo}
+            title="undo the last model change (Ctrl/Cmd+Z)"
+          >
+            ↩ Undo
+          </button>
+          <button
+            className="ghost"
+            onClick={onNewModel}
+            disabled={!sessionId}
+            title="clear the session and start from an empty model (undoable)"
+          >
+            ✕ New model
+          </button>
           <span className="spacer" />
           <label>
             Example library

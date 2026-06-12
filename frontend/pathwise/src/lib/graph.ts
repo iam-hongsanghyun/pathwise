@@ -2,7 +2,7 @@
 // Node id = `${kind}:${entityId}`; the workbook stays the single source of
 // truth. Pure-logic layer: no React / no chart library types.
 
-import type { Workbook } from "../types";
+import type { Row, Workbook } from "../types";
 
 export type NodeKind = "process" | "commodity" | "market" | "storage";
 export interface FacilityPorts {
@@ -221,4 +221,198 @@ export function addFacilityWithTech(wb: Workbook, tech: string, x: number, y: nu
     x,
     y,
   );
+}
+
+/** Delete an entity row and everything that directly references it: its
+ *  node_layout placement, edges touching it, and (for a commodity) the io rows
+ *  that consume/produce it. Technology rows are untouched (shared recipes). */
+export function deleteEntity(wb: Workbook, id: string): Workbook {
+  const i = id.indexOf(":");
+  const kind = id.slice(0, i) as NodeKind;
+  const entityId = id.slice(i + 1);
+  const sheetOf: Record<NodeKind, { sheet: string; idCol: string }> = {
+    process: { sheet: "processes", idCol: "process_id" },
+    commodity: { sheet: "commodities", idCol: "commodity_id" },
+    market: { sheet: "markets", idCol: "market_id" },
+    storage: { sheet: "storage", idCol: "storage_id" },
+  };
+  const { sheet, idCol } = sheetOf[kind];
+  const out: Workbook = {
+    ...wb,
+    [sheet]: (wb[sheet] ?? []).filter((r) => s(r[idCol]) !== entityId),
+    node_layout: (wb.node_layout ?? []).filter((r) => s(r.id) !== id),
+  };
+  if (kind === "process") {
+    out.edges = (wb.edges ?? []).filter(
+      (r) => s(r.from_process) !== entityId && s(r.to_process) !== entityId,
+    );
+    out.measures = (wb.measures ?? []).filter((r) => s(r.applies_to) !== entityId);
+  }
+  if (kind === "commodity") {
+    out.io = (wb.io ?? []).filter((r) => s(r.target) !== entityId);
+    out.edges = (wb.edges ?? []).filter((r) => s(r.commodity_id) !== entityId);
+    out.demand = (wb.demand ?? []).filter((r) => s(r.commodity_id) !== entityId);
+  }
+  return out;
+}
+
+/** Delete a facility and every facility connected to it through `edges`
+ *  (the whole chain), including the edges and placements between them. */
+export function deleteChain(wb: Workbook, processId: string): Workbook {
+  const adj = new Map<string, Set<string>>();
+  for (const e of wb.edges ?? []) {
+    const a = s(e.from_process);
+    const b = s(e.to_process);
+    (adj.get(a) ?? adj.set(a, new Set()).get(a)!).add(b);
+    (adj.get(b) ?? adj.set(b, new Set()).get(b)!).add(a);
+  }
+  const doomed = new Set<string>([processId]);
+  const queue = [processId];
+  while (queue.length) {
+    for (const next of adj.get(queue.pop()!) ?? [])
+      if (!doomed.has(next)) {
+        doomed.add(next);
+        queue.push(next);
+      }
+  }
+  let out = wb;
+  for (const pid of doomed) out = deleteEntity(out, nodeId("process", pid));
+  return out;
+}
+
+/** Clear every saved node position — the map falls back to the auto-layout. */
+export function clearLayout(wb: Workbook): Workbook {
+  return { ...wb, node_layout: [] };
+}
+
+/** Register `toTech` as a transition option of `fromTech` (deduped). */
+export function addTransitionOption(
+  wb: Workbook,
+  fromTech: string,
+  toTech: string,
+  capexPerCapacity = 0,
+): Workbook {
+  if (!fromTech || !toTech || fromTech === toTech) return wb;
+  const exists = (wb.transitions ?? []).some(
+    (r) => s(r.from_technology) === fromTech && s(r.to_technology) === toTech,
+  );
+  if (exists) return wb;
+  return {
+    ...wb,
+    transitions: [
+      ...(wb.transitions ?? []),
+      {
+        from_technology: fromTech,
+        to_technology: toTech,
+        action: "replace",
+        capex_per_capacity: capexPerCapacity,
+      },
+    ],
+  };
+}
+
+/** Create a technology row if it does not exist yet (a blank recipe to edit). */
+export function ensureTechnology(wb: Workbook, techId: string): Workbook {
+  if (!techId || (wb.technologies ?? []).some((r) => s(r.technology_id) === techId)) return wb;
+  return {
+    ...wb,
+    technologies: [
+      ...(wb.technologies ?? []),
+      { technology_id: techId, lifespan: 20, actions: "continue,replace,renew" },
+    ],
+  };
+}
+
+/** Add a MACC measure (one starter block). `appliesTo` may be a facility id
+ *  (that plant only) or a technology id (every facility running it — each
+ *  still adopts independently); `set` names the MACC table for reuse. */
+export function addMeasure(
+  wb: Workbook,
+  opts: {
+    appliesTo: string;
+    type: "energy_efficiency" | "emission_reduction" | "environmental";
+    target: string;
+    lifetime?: number;
+    reduction: number;
+    capex: number;
+    set?: string;
+  },
+): Workbook {
+  const taken = new Set((wb.measures ?? []).map((r) => s(r.measure_id)));
+  let mid = `${opts.appliesTo} · ${opts.target} measure`;
+  for (let i = 2; taken.has(mid); i += 1) mid = `${opts.appliesTo} · ${opts.target} measure ${i}`;
+  const row: Row = {
+    measure_id: mid,
+    type: opts.type,
+    applies_to: opts.appliesTo,
+    target: opts.target,
+    lifetime: opts.lifetime ?? 15,
+  };
+  if (opts.set) row.set = opts.set;
+  return {
+    ...wb,
+    measures: [...(wb.measures ?? []), row],
+    measure_blocks: [
+      ...(wb.measure_blocks ?? []),
+      { measure_id: mid, block: 0, reduction: opts.reduction, capex: opts.capex },
+    ],
+  };
+}
+
+/** Expand measure definitions into per-facility instances — the TS mirror of
+ *  the assembler: a measure's own `applies_to` (facility OR technology id)
+ *  plus every `measure_links` row of its `set`, each technology resolving to
+ *  all facilities running it as baseline. One row per (measure, facility). */
+export function resolveMeasures(
+  wb: Workbook,
+): { measure_id: string; base_id: string; applies_to: string; type: string; target: string }[] {
+  const procIds = new Set((wb.processes ?? []).map((r) => s(r.process_id)));
+  const byBaseline = new Map<string, string[]>();
+  for (const p of wb.processes ?? []) {
+    const tech = s(p.baseline_technology);
+    byBaseline.set(tech, [...(byBaseline.get(tech) ?? []), s(p.process_id)]);
+  }
+  const resolve = (target: string): string[] =>
+    procIds.has(target) ? [target] : (byBaseline.get(target) ?? []);
+  const linksBySet = new Map<string, string[]>();
+  for (const r of wb.measure_links ?? []) {
+    const set = s(r.set);
+    if (set && s(r.applies_to))
+      linksBySet.set(set, [...(linksBySet.get(set) ?? []), s(r.applies_to)]);
+  }
+  const out: { measure_id: string; base_id: string; applies_to: string; type: string; target: string }[] = [];
+  for (const m of wb.measures ?? []) {
+    const mid = s(m.measure_id);
+    const targets: string[] = [];
+    if (s(m.applies_to)) targets.push(...resolve(s(m.applies_to)));
+    for (const link of linksBySet.get(s(m.set)) ?? []) targets.push(...resolve(link));
+    const unique = [...new Set(targets)];
+    for (const pid of unique)
+      out.push({
+        measure_id: unique.length === 1 ? mid : `${mid} @ ${pid}`,
+        base_id: mid,
+        applies_to: pid,
+        type: s(m.type, "energy_efficiency"),
+        target: s(m.target),
+      });
+  }
+  return out;
+}
+
+/** Link a named MACC set to a facility or technology (deduped). */
+export function applyMeasureSet(wb: Workbook, setId: string, appliesTo: string): Workbook {
+  if (!setId || !appliesTo) return wb;
+  const exists = (wb.measure_links ?? []).some(
+    (r) => s(r.set) === setId && s(r.applies_to) === appliesTo,
+  );
+  if (exists) return wb;
+  return {
+    ...wb,
+    measure_links: [...(wb.measure_links ?? []), { set: setId, applies_to: appliesTo }],
+  };
+}
+
+/** Distinct MACC set names defined in the measures sheet. */
+export function measureSets(wb: Workbook): string[] {
+  return [...new Set((wb.measures ?? []).map((r) => s(r.set)).filter(Boolean))];
 }

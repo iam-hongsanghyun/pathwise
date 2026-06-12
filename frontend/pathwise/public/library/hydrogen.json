@@ -2,11 +2,35 @@
   "sector": "hydrogen",
   "label": "Hydrogen",
   "commodities": [
-    { "commodity_id": "natural_gas", "kind": "energy", "unit": "GJ", "price": 8.0 },
-    { "commodity_id": "electricity", "kind": "energy", "unit": "MWh", "price": 75.0 },
-    { "commodity_id": "re_electricity", "kind": "energy", "unit": "MWh", "price": 55.0 },
-    { "commodity_id": "hydrogen_product", "kind": "product", "unit": "t" },
-    { "commodity_id": "oxygen", "kind": "byproduct", "unit": "t", "sale_price": 30.0 }
+    {
+      "commodity_id": "natural_gas",
+      "kind": "energy",
+      "unit": "GJ",
+      "price": 8.0
+    },
+    {
+      "commodity_id": "electricity",
+      "kind": "energy",
+      "unit": "MWh",
+      "price": 75.0
+    },
+    {
+      "commodity_id": "re_electricity",
+      "kind": "energy",
+      "unit": "MWh",
+      "price": 55.0
+    },
+    {
+      "commodity_id": "hydrogen_product",
+      "kind": "product",
+      "unit": "t"
+    },
+    {
+      "commodity_id": "oxygen",
+      "kind": "byproduct",
+      "unit": "t",
+      "sale_price": 30.0
+    }
   ],
   "facilities": [
     {
@@ -19,9 +43,22 @@
         "capex": 3400.0,
         "opex": 120.0,
         "io": [
-          { "target": "natural_gas", "role": "input", "coefficient": 170.0 },
-          { "target": "hydrogen_product", "role": "output", "coefficient": 1.0, "is_product": true },
-          { "target": "CO2", "role": "impact", "coefficient": 9.0 }
+          {
+            "target": "natural_gas",
+            "role": "input",
+            "coefficient": 170.0
+          },
+          {
+            "target": "hydrogen_product",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": true
+          },
+          {
+            "target": "CO2",
+            "role": "impact",
+            "coefficient": 9.0
+          }
         ]
       },
       "alternatives": [
@@ -32,10 +69,27 @@
             "capex": 4900.0,
             "opex": 160.0,
             "io": [
-              { "target": "natural_gas", "role": "input", "coefficient": 187.0 },
-              { "target": "electricity", "role": "input", "coefficient": 1.0 },
-              { "target": "hydrogen_product", "role": "output", "coefficient": 1.0, "is_product": true },
-              { "target": "CO2", "role": "impact", "coefficient": 0.9 }
+              {
+                "target": "natural_gas",
+                "role": "input",
+                "coefficient": 187.0
+              },
+              {
+                "target": "electricity",
+                "role": "input",
+                "coefficient": 1.0
+              },
+              {
+                "target": "hydrogen_product",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              },
+              {
+                "target": "CO2",
+                "role": "impact",
+                "coefficient": 0.9
+              }
             ]
           },
           "transition_capex_per_capacity": 1600.0
@@ -47,9 +101,22 @@
             "capex": 7000.0,
             "opex": 200.0,
             "io": [
-              { "target": "re_electricity", "role": "input", "coefficient": 57.5 },
-              { "target": "hydrogen_product", "role": "output", "coefficient": 1.0, "is_product": true },
-              { "target": "oxygen", "role": "output", "coefficient": 8.0 }
+              {
+                "target": "re_electricity",
+                "role": "input",
+                "coefficient": 57.5
+              },
+              {
+                "target": "hydrogen_product",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              },
+              {
+                "target": "oxygen",
+                "role": "output",
+                "coefficient": 8.0
+              }
             ]
           },
           "transition_capex_per_capacity": 7000.0
@@ -61,9 +128,22 @@
             "capex": 5500.0,
             "opex": 180.0,
             "io": [
-              { "target": "re_electricity", "role": "input", "coefficient": 60.0 },
-              { "target": "hydrogen_product", "role": "output", "coefficient": 1.0, "is_product": true },
-              { "target": "oxygen", "role": "output", "coefficient": 8.0 }
+              {
+                "target": "re_electricity",
+                "role": "input",
+                "coefficient": 60.0
+              },
+              {
+                "target": "hydrogen_product",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": true
+              },
+              {
+                "target": "oxygen",
+                "role": "output",
+                "coefficient": 8.0
+              }
             ]
           },
           "transition_capex_per_capacity": 5500.0
@@ -77,7 +157,26 @@
         "region": "global",
         "basis": "capex converted from $/kW to $/(t/yr) at ~90% utilisation — indicative",
         "notes": "DOE 24005: https://www.hydrogen.energy.gov/docs/hydrogenprogramlibraries/pdfs/24005-clean-hydrogen-production-cost-pem-electrolyzer.pdf ; IEAGHG: https://ieaghg.org/publications/low-carbon-hydrogen-from-natural-gas-global-roadmap/ ; Nature Comms: https://pmc.ncbi.nlm.nih.gov/articles/PMC11227542/"
-      }
+      },
+      "measures": [
+        {
+          "measure_id": "smr_heat_integration",
+          "label": "SMR pre-reformer + waste-heat integration revamp (IEA hydrogen reports, indicative)",
+          "type": "energy_efficiency",
+          "target": "natural_gas",
+          "lifetime": 15,
+          "blocks": [
+            {
+              "reduction": 0.05,
+              "capex_per_capacity": 30.0
+            },
+            {
+              "reduction": 0.03,
+              "capex_per_capacity": 60.0
+            }
+          ]
+        }
+      ]
     }
   ],
   "chains": []
