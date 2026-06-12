@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { DRAG_MIME, nodeId, type NodeKind } from "../lib/graph";
-import type { Selection, Workbook } from "../types";
+import { rowProblems } from "../lib/references";
+import type { Cell, Selection, Workbook } from "../types";
 
 /** Entity sheets (id column) expand into clickable items; the placeable ones
  *  are draggable onto the Model canvas. */
@@ -115,7 +116,6 @@ export function LeftRail({
       next.has(key) ? next.delete(key) : next.add(key);
       return next;
     });
-  const placed = new Set((workbook.node_layout ?? []).map((r) => String(r.id)));
   const baselineTechs = new Set(
     (workbook.processes ?? []).map((r) => String(r.baseline_technology ?? "")),
   );
@@ -141,13 +141,15 @@ export function LeftRail({
     const payload = ent.kind ? nodeId(ent.kind, id) : `tech:${id}`;
     const toggleable = TOGGLEABLE.has(sheet) && Boolean(onToggle);
     const enabled = isEnabled(r);
-    // Status dot: ● active (placed / baseline tech), ○ alternative (transition
-    // target, not baseline). Excluded items are dimmed.
+    // Status dot: ● red = a reference doesn't resolve (fix it), ● green =
+    // ok and part of the initial system, ○ hollow = ok, transition option.
+    // Excluded items are dimmed.
+    const problems = rowProblems(workbook, sheet, r as Record<string, Cell>);
     let dot = "";
-    if (ent.kind && placed.has(nodeId(ent.kind, id))) dot = "dot-active";
-    else if (isTech && baselineTechs.has(id)) dot = "dot-active";
-    else if (isTech && targetTechs.has(id)) dot = "dot-alt";
-    else if (canDrag) dot = "dot-avail";
+    if (problems.length) dot = "dot-bad";
+    else if (isTech && targetTechs.has(id) && !baselineTechs.has(id)) dot = "dot-alt";
+    else if (isTech && !baselineTechs.has(id)) dot = "dot-avail";
+    else dot = "dot-active";
     // Temporal series are NOT nested here — selecting the item shows them in the
     // bottom panel, and they also live in the "Temporal datasets" group below.
     return (
@@ -174,7 +176,13 @@ export function LeftRail({
           }
           onClick={() => onItem({ sheet, idCol: ent.idCol, id })}
           title={
-            dot === "dot-alt" ? `${id} — alternative technology` : canDrag ? `${id} — drag onto the canvas` : id
+            problems.length
+              ? `${id} — unresolved reference${problems.length > 1 ? "s" : ""}: ${problems.join(", ")}`
+              : dot === "dot-alt"
+                ? `${id} — alternative technology`
+                : canDrag
+                  ? `${id} — drag onto the canvas`
+                  : id
           }
         >
           {dot && <span className={`dot ${dot}`} />}

@@ -1,10 +1,15 @@
 import { useState } from "react";
-import { emptyHint, optionsFor } from "../../lib/references";
+import { emptyHint, optionsFor, refTargets, type RefTarget } from "../../lib/references";
 import type { Cell, Selection, Workbook } from "../../types";
+import { CreateComponentModal } from "../controls/CreateComponentModal";
+import { SearchableSelect } from "../controls/SearchableSelect";
 
 type SchemaMap = Record<
   string,
-  { label?: string; columns?: Record<string, { label?: string; type?: string }> }
+  {
+    label?: string;
+    columns?: Record<string, { label?: string; type?: string; required?: boolean; desc?: string }>;
+  }
 >;
 
 interface Props {
@@ -292,6 +297,9 @@ function TechnologyIO({
 /** Detail editor for one entity — rendered in the main panel (Data) or as a
  *  floating card on the canvas (Model). Replaces the old right-rail inspector. */
 export function DetailPanel({ workbook, selected, schema, onChange, onClose, floating }: Props) {
+  const [creating, setCreating] = useState<{ c: string; name: string; targets: RefTarget[] } | null>(
+    null,
+  );
   const rows = workbook[selected.sheet] ?? [];
   const idx = rows.findIndex((r) => String(r[selected.idCol] ?? "") === selected.id);
   const row = idx >= 0 ? rows[idx] : undefined;
@@ -363,11 +371,17 @@ export function DetailPanel({ workbook, selected, schema, onChange, onClose, flo
                 key={c}
                 className={`inspector-field ${isRequired(c) ? "field-required" : "field-optional"}`}
               >
-                <span title={[descOf(c), isRequired(c) ? "(required)" : "(optional)"]
-                  .filter(Boolean)
-                  .join(" — ")}>
+                <span>
                   {labelOf(c)}
-                  {descOf(c) ? <span className="col-info"> ⓘ</span> : null}
+                  {descOf(c) ? (
+                    <span
+                      className="col-info"
+                      data-tip={`${descOf(c)} ${isRequired(c) ? "(required)" : "(optional)"}`}
+                    >
+                      {" "}
+                      ⓘ
+                    </span>
+                  ) : null}
                   {canTemporal(c) && (
                     <button
                       className="make-temporal"
@@ -382,29 +396,47 @@ export function DetailPanel({ workbook, selected, schema, onChange, onClose, flo
                   )}
                 </span>
                 {opts ? (
-                  opts.length ? (
-                    <select value={value} onChange={(e) => edit(c, e.target.value)}>
-                      <option value="">—</option>
-                      {value && !opts.includes(value) && (
-                        <option value={value}>{value} (unknown)</option>
-                      )}
-                      {opts.map((o) => (
-                        <option key={o} value={o}>
-                          {o}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <select disabled title={emptyHint(selected.sheet, c)}>
-                      <option>— {emptyHint(selected.sheet, c)} —</option>
-                    </select>
-                  )
+                  <SearchableSelect
+                    value={value}
+                    options={opts}
+                    broken={value !== "" && !opts.includes(value)}
+                    hint={emptyHint(selected.sheet, c)}
+                    onChange={(v) => edit(c, v)}
+                    onCreate={(() => {
+                      const targets = row ? refTargets(selected.sheet, c, row) : [];
+                      return targets.length
+                        ? (name: string) => setCreating({ c, name, targets })
+                        : undefined;
+                    })()}
+                  />
                 ) : (
                   <input value={value} onChange={(e) => edit(c, e.target.value)} />
                 )}
               </label>
             );
           })}
+          {creating && row && (
+            <CreateComponentModal
+              name={creating.name}
+              targets={creating.targets}
+              schema={schema}
+              workbook={workbook}
+              onSave={(tsheet, newRow) => {
+                onChange({
+                  ...workbook,
+                  [tsheet]: [...(workbook[tsheet] ?? []), newRow],
+                  [selected.sheet]: rows.map((r, i) =>
+                    i === idx ? { ...r, [creating.c]: creating.name } : r,
+                  ),
+                });
+                setCreating(null);
+              }}
+              onCancel={() => {
+                edit(creating.c, creating.name);
+                setCreating(null);
+              }}
+            />
+          )}
           {selected.sheet === "commodities" && (
             <EmissionFactors workbook={workbook} commodity={selected.id} onChange={onChange} />
           )}
