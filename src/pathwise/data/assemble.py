@@ -411,17 +411,36 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 ),
             )
         )
-    # A measure definition may belong to a named SET (`set` column) and be
-    # LINKED to targets via `measure_links` rows {set, applies_to}; its own
-    # `applies_to` (if any) is a direct link. Each link target may be a
-    # FACILITY id (that one plant) or a TECHNOLOGY id (every facility whose
-    # baseline runs it). Every (measure, facility) pair becomes its OWN
-    # independent Measure instance — adoption is per facility, never grouped.
+    # Measures are a CATALOGUE of individual retrofits. A measure reaches
+    # facilities three ways, all optional and combinable:
+    #   1. direct `facility` (that one plant) / `technology` (every facility
+    #      whose baseline runs it) columns on the measure row;
+    #   2. membership in a named MACC (`maccs` rows {macc, measure_id} — the
+    #      same measure may sit in several MACCs) deployed via `macc_links`
+    #      rows {macc, facility|technology};
+    #   3. legacy `applies_to` / `set` + `measure_links` columns (older files).
+    # Every (measure, facility) pair becomes its OWN independent Measure
+    # instance — adoption is per facility, never grouped.
     links_by_set: dict[str, list[str]] = {}
-    for r in _rows(workbook, "measure_links"):
+    for r in _rows(workbook, "measure_links"):  # legacy sheet
         set_id, target = _str(r.get("set")), _str(r.get("applies_to"))
         if set_id and target:
             links_by_set.setdefault(set_id, []).append(target)
+
+    maccs_by_measure: dict[str, list[str]] = {}
+    for r in _rows(workbook, "maccs"):
+        macc, member = _str(r.get("macc")), _str(r.get("measure_id"))
+        if macc and member:
+            maccs_by_measure.setdefault(member, []).append(macc)
+
+    macc_targets: dict[str, list[str]] = {}
+    for r in _rows(workbook, "macc_links"):
+        macc = _str(r.get("macc"))
+        if not macc:
+            continue
+        for target in (_str(r.get("facility")), _str(r.get("technology"))):
+            if target:
+                macc_targets.setdefault(macc, []).append(target)
 
     proc_ids = {proc.process_id for proc in processes}
     by_baseline: dict[str, list[str]] = {}
@@ -442,9 +461,16 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             continue
         ordered = [b for _, b in sorted(blocks_by_measure.get(mid, []), key=lambda t: t[0])]
         targets: list[str] = []
-        if direct_link := _str(r.get("applies_to")):
+        if direct_fac := _str(r.get("facility")):
+            targets.extend(_resolve(direct_fac))
+        if direct_tech := _str(r.get("technology")):
+            targets.extend(_resolve(direct_tech))
+        for macc in maccs_by_measure.get(mid, []):
+            for link in macc_targets.get(macc, []):
+                targets.extend(_resolve(link))
+        if direct_link := _str(r.get("applies_to")):  # legacy column
             targets.extend(_resolve(direct_link))
-        if set_id := _str(r.get("set")):
+        if set_id := _str(r.get("set")):  # legacy named set
             for link in links_by_set.get(set_id, []):
                 targets.extend(_resolve(link))
         unique = list(dict.fromkeys(targets))

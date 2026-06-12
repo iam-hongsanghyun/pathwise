@@ -46,7 +46,8 @@ CORE_SHEETS = [
     "transitions",
     "measures",
     "measure_blocks",
-    "measure_links",
+    "maccs",
+    "macc_links",
     "edges",
 ]
 

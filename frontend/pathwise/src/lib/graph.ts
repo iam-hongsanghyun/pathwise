@@ -246,7 +246,10 @@ export function deleteEntity(wb: Workbook, id: string): Workbook {
     out.edges = (wb.edges ?? []).filter(
       (r) => s(r.from_process) !== entityId && s(r.to_process) !== entityId,
     );
-    out.measures = (wb.measures ?? []).filter((r) => s(r.applies_to) !== entityId);
+    out.measures = (wb.measures ?? []).filter(
+      (r) => s(r.facility) !== entityId && s(r.applies_to) !== entityId,
+    );
+    out.macc_links = (wb.macc_links ?? []).filter((r) => s(r.facility) !== entityId);
   }
   if (kind === "commodity") {
     out.io = (wb.io ?? []).filter((r) => s(r.target) !== entityId);
@@ -323,33 +326,36 @@ export function ensureTechnology(wb: Workbook, techId: string): Workbook {
   };
 }
 
-/** Add a MACC measure (one starter block). `appliesTo` may be a facility id
- *  (that plant only) or a technology id (every facility running it — each
- *  still adopts independently); `set` names the MACC table for reuse. */
+/** Add a measure (one starter block). Install it directly on a `facility`
+ *  (that plant only) or a `technology` (every facility running it — each
+ *  still adopts independently) — or NEITHER: a catalogue measure, deployed
+ *  later by bundling it into a MACC. `macc` adds it to that bundle. */
 export function addMeasure(
   wb: Workbook,
   opts: {
-    appliesTo: string;
+    facility?: string;
+    technology?: string;
     type: "energy_efficiency" | "emission_reduction" | "environmental";
     target: string;
     lifetime?: number;
     reduction: number;
     capex: number;
-    set?: string;
+    macc?: string;
   },
 ): Workbook {
+  const where = opts.facility || opts.technology || "catalogue";
   const taken = new Set((wb.measures ?? []).map((r) => s(r.measure_id)));
-  let mid = `${opts.appliesTo} · ${opts.target} measure`;
-  for (let i = 2; taken.has(mid); i += 1) mid = `${opts.appliesTo} · ${opts.target} measure ${i}`;
+  let mid = `${where} · ${opts.target} measure`;
+  for (let i = 2; taken.has(mid); i += 1) mid = `${where} · ${opts.target} measure ${i}`;
   const row: Row = {
     measure_id: mid,
     type: opts.type,
-    applies_to: opts.appliesTo,
     target: opts.target,
     lifetime: opts.lifetime ?? 15,
   };
-  if (opts.set) row.set = opts.set;
-  return {
+  if (opts.facility) row.facility = opts.facility;
+  if (opts.technology) row.technology = opts.technology;
+  const out: Workbook = {
     ...wb,
     measures: [...(wb.measures ?? []), row],
     measure_blocks: [
@@ -357,12 +363,14 @@ export function addMeasure(
       { measure_id: mid, block: 0, reduction: opts.reduction, capex: opts.capex },
     ],
   };
+  if (opts.macc) out.maccs = [...(wb.maccs ?? []), { macc: opts.macc, measure_id: mid }];
+  return out;
 }
 
 /** Expand measure definitions into per-facility instances — the TS mirror of
- *  the assembler: a measure's own `applies_to` (facility OR technology id)
- *  plus every `measure_links` row of its `set`, each technology resolving to
- *  all facilities running it as baseline. One row per (measure, facility). */
+ *  the assembler: direct `facility` / `technology` columns, plus every MACC
+ *  the measure belongs to (`maccs`) that is deployed (`macc_links`), plus the
+ *  legacy `applies_to` / `set` columns. One row per (measure, facility). */
 export function resolveMeasures(
   wb: Workbook,
 ): { measure_id: string; base_id: string; applies_to: string; type: string; target: string }[] {
@@ -380,12 +388,28 @@ export function resolveMeasures(
     if (set && s(r.applies_to))
       linksBySet.set(set, [...(linksBySet.get(set) ?? []), s(r.applies_to)]);
   }
+  const maccsByMeasure = new Map<string, string[]>();
+  for (const r of wb.maccs ?? []) {
+    const mid = s(r.measure_id);
+    if (mid && s(r.macc)) maccsByMeasure.set(mid, [...(maccsByMeasure.get(mid) ?? []), s(r.macc)]);
+  }
+  const maccTargets = new Map<string, string[]>();
+  for (const r of wb.macc_links ?? []) {
+    const macc = s(r.macc);
+    if (!macc) continue;
+    for (const t of [s(r.facility), s(r.technology)])
+      if (t) maccTargets.set(macc, [...(maccTargets.get(macc) ?? []), t]);
+  }
   const out: { measure_id: string; base_id: string; applies_to: string; type: string; target: string }[] = [];
   for (const m of wb.measures ?? []) {
     const mid = s(m.measure_id);
     const targets: string[] = [];
-    if (s(m.applies_to)) targets.push(...resolve(s(m.applies_to)));
-    for (const link of linksBySet.get(s(m.set)) ?? []) targets.push(...resolve(link));
+    if (s(m.facility)) targets.push(...resolve(s(m.facility)));
+    if (s(m.technology)) targets.push(...resolve(s(m.technology)));
+    for (const macc of maccsByMeasure.get(mid) ?? [])
+      for (const link of maccTargets.get(macc) ?? []) targets.push(...resolve(link));
+    if (s(m.applies_to)) targets.push(...resolve(s(m.applies_to))); // legacy
+    for (const link of linksBySet.get(s(m.set)) ?? []) targets.push(...resolve(link)); // legacy
     const unique = [...new Set(targets)];
     for (const pid of unique)
       out.push({
@@ -399,20 +423,30 @@ export function resolveMeasures(
   return out;
 }
 
-/** Link a named MACC set to a facility or technology (deduped). */
-export function applyMeasureSet(wb: Workbook, setId: string, appliesTo: string): Workbook {
-  if (!setId || !appliesTo) return wb;
-  const exists = (wb.measure_links ?? []).some(
-    (r) => s(r.set) === setId && s(r.applies_to) === appliesTo,
+/** Deploy a named MACC on a facility or technology (deduped). */
+export function applyMacc(
+  wb: Workbook,
+  macc: string,
+  target: { facility?: string; technology?: string },
+): Workbook {
+  if (!macc || (!target.facility && !target.technology)) return wb;
+  const exists = (wb.macc_links ?? []).some(
+    (r) =>
+      s(r.macc) === macc &&
+      s(r.facility) === (target.facility ?? "") &&
+      s(r.technology) === (target.technology ?? ""),
   );
   if (exists) return wb;
   return {
     ...wb,
-    measure_links: [...(wb.measure_links ?? []), { set: setId, applies_to: appliesTo }],
+    macc_links: [
+      ...(wb.macc_links ?? []),
+      { macc, facility: target.facility ?? null, technology: target.technology ?? null },
+    ],
   };
 }
 
-/** Distinct MACC set names defined in the measures sheet. */
-export function measureSets(wb: Workbook): string[] {
-  return [...new Set((wb.measures ?? []).map((r) => s(r.set)).filter(Boolean))];
+/** Distinct MACC names with members (built in the maccs sheet). */
+export function maccNames(wb: Workbook): string[] {
+  return [...new Set((wb.maccs ?? []).map((r) => s(r.macc)).filter(Boolean))];
 }

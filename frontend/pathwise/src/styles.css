@@ -1208,3 +1208,34 @@ th.col-optional {
   gap: 8px;
   margin-top: 10px;
 }
+
+/* Required attribute not filled → red-tinted row in the model tree (the red
+ * DOT is reserved for references that point at something that doesn't exist). */
+.rail-item-row.has-missing {
+  background: rgba(220, 38, 38, 0.1);
+}
+.rail-item-row.has-missing:hover {
+  background: rgba(220, 38, 38, 0.18);
+}
+
+/* ── MACC editor (one MACC: members + deployment + curve) ─────────────────── */
+.macc-panel {
+  display: flex;
+  gap: 16px;
+  height: 100%;
+  min-height: 0;
+}
+.macc-side {
+  flex: 0 0 280px;
+  overflow: auto;
+  padding-right: 8px;
+  border-right: 1px solid var(--border);
+}
+.macc-side .combo {
+  margin-top: 4px;
+}
+.macc-chart {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}

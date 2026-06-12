@@ -1,13 +1,6 @@
 import { useState } from "react";
-import {
-  emptyHint,
-  measureLinkedViaSet,
-  optionsFor,
-  refTargets,
-  type RefTarget,
-} from "../../lib/references";
+import { emptyHint, isFreeName, optionsFor, refTargets, type RefTarget } from "../../lib/references";
 import type { Cell, Selection, Workbook } from "../../types";
-import { AppliesToPicker } from "../controls/AppliesToPicker";
 import { CreateComponentModal } from "../controls/CreateComponentModal";
 import { InfoTip } from "../controls/InfoTip";
 import { SearchableSelect } from "../controls/SearchableSelect";
@@ -397,38 +390,17 @@ export function DetailPanel({ workbook, selected, schema, onChange, onClose, flo
                     </button>
                   )}
                 </span>
-                {(selected.sheet === "measures" || selected.sheet === "measure_links") &&
-                c === "applies_to" ? (
-                  <AppliesToPicker
-                    value={value}
-                    workbook={workbook}
-                    onChange={(v) => edit(c, v)}
-                    missingIsOk={selected.sheet === "measures" && measureLinkedViaSet(workbook, row)}
-                    onCreateFacility={(name) =>
-                      setCreating({
-                        c,
-                        name,
-                        targets: [{ sheet: "processes", idCol: "process_id", label: "facility" }],
-                      })
-                    }
-                    onCreateTechnology={(name) =>
-                      setCreating({
-                        c,
-                        name,
-                        targets: [
-                          { sheet: "technologies", idCol: "technology_id", label: "technology" },
-                        ],
-                      })
-                    }
-                  />
-                ) : opts ? (
+                {opts ? (
                   <SearchableSelect
                     value={value}
                     options={opts}
-                    broken={value !== "" && !opts.includes(value)}
+                    broken={
+                      !isFreeName(selected.sheet, c) && value !== "" && !opts.includes(value)
+                    }
                     hint={emptyHint(selected.sheet, c)}
                     onChange={(v) => edit(c, v)}
                     onCreate={(() => {
+                      if (isFreeName(selected.sheet, c)) return (name: string) => edit(c, name);
                       const targets = row ? refTargets(selected.sheet, c, row) : [];
                       return targets.length
                         ? (name: string) => setCreating({ c, name, targets })

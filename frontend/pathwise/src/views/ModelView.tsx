@@ -4,7 +4,7 @@ import { LeftRail, type RailLibrarySector } from "../layout/LeftRail";
 import { Resizer } from "../layout/Resizer";
 import { TopologyCanvas } from "../features/topology/TopologyCanvas";
 import { FlowView } from "../features/flow/FlowView";
-import { MaccDesigner } from "../features/macc/MaccDesigner";
+import { MaccPanel } from "../features/macc/MaccPanel";
 import { WorkbookTable, type ColumnMeta } from "../features/tables/WorkbookTable";
 import { SearchableSelect } from "../features/controls/SearchableSelect";
 import type { SchemaMap } from "../features/controls/CreateComponentModal";
@@ -12,9 +12,9 @@ import {
   addFacilityWithTech,
   addMeasure,
   addTransitionOption,
-  applyMeasureSet,
+  applyMacc,
   ensureTechnology,
-  measureSets,
+  maccNames,
 } from "../lib/graph";
 import { insertTemplate } from "../lib/api/session";
 import { listLibrary, loadSector, type SectorLibrary } from "../lib/api/library";
@@ -184,9 +184,7 @@ export function ModelView({
     kind: "process" | "commodity";
     entityId: string;
   } | null>(null);
-  // Bottom-dock tab: measures context offers a MACC chart beside the table.
-  const [dockTab, setDockTab] = useState<"table" | "macc">("table");
-  // "Apply MACC set" picker (right-click a facility; only when sets exist).
+  // "Deploy MACC" picker (right-click a facility; only when MACCs exist).
   const [setApply, setSetApply] = useState<string | null>(null);
 
   // Template inserts happen SERVER-side (the session owns the model); the
@@ -272,6 +270,14 @@ export function ModelView({
   };
 
   const addRow = (sheet: string) => {
+    if (sheet === "maccs") {
+      const taken = new Set(maccNames(workbook));
+      let k = 1;
+      let name = "MACC 1";
+      while (taken.has(name)) name = `MACC ${++k}`;
+      openItem({ sheet: "maccs", idCol: "macc", id: name });
+      return;
+    }
     const idCol = ID_COL[sheet] ?? "id";
     const rows = workbook[sheet] ?? [];
     const base = `new_${sheet.replace(/s$/, "")}`;
@@ -285,10 +291,7 @@ export function ModelView({
   };
 
   const dockOpen = selected != null || activeSheet != null;
-  const measureContext =
-    selected?.sheet === "measures" ||
-    activeSheet === "measures" ||
-    activeSheet === "measure_blocks";
+  const maccSelected = selected?.sheet === "maccs" ? selected.id : null;
 
   return (
     <div className="body-row">
@@ -336,7 +339,7 @@ export function ModelView({
               onAddMeasure={(kind, entityId) => {
                 if (kind === "process" || kind === "commodity") setMeasureAdd({ kind, entityId });
               }}
-              onApplySet={measureSets(workbook).length ? (pid) => setSetApply(pid) : undefined}
+              onApplySet={maccNames(workbook).length ? (pid) => setSetApply(pid) : undefined}
             />
           )}
           {mode === "flow" && <FlowView workbook={workbook} onSelect={openItem} />}
@@ -346,28 +349,17 @@ export function ModelView({
             <Resizer width={dockH} setWidth={setDockH} side="top" min={80} max={700} />
             <div className="dock-head">
               <strong>{selected ? selected.id : activeSheet}</strong>
-              <span className="rail-count">{selected ? "time series" : "table"}</span>
-              {measureContext && (
-                <span className="view-toggle">
-                  {(["table", "macc"] as const).map((t) => (
-                    <button
-                      key={t}
-                      className={`tab${dockTab === t ? " active" : ""}`}
-                      onClick={() => setDockTab(t)}
-                    >
-                      {t === "macc" ? "MACC" : "Table"}
-                    </button>
-                  ))}
-                </span>
-              )}
+              <span className="rail-count">
+                {maccSelected ? "MACC — measures, deployment, curve" : selected ? "time series" : "table"}
+              </span>
               <span className="spacer" />
               <button className="ghost" onClick={closeDock} title="close editor">
                 ✕
               </button>
             </div>
             <div className="dock-body">
-              {measureContext && dockTab === "macc" ? (
-                <MaccDesigner workbook={workbook} />
+              {maccSelected ? (
+                <MaccPanel workbook={workbook} macc={maccSelected} onChange={setWorkbook} />
               ) : selected ? (
                 <ItemTimeSeries workbook={workbook} selected={selected} onChange={setWorkbook} />
               ) : (
@@ -392,7 +384,7 @@ export function ModelView({
           </div>
         )}
       </main>
-      {selected && (
+      {selected && !maccSelected && (
         <>
           <Resizer width={rightW} setWidth={setRightW} side="right" min={200} max={600} />
           <aside
@@ -441,10 +433,15 @@ export function ModelView({
               (workbook.processes ?? []).find((r) => String(r.process_id) === processId)
                 ?.baseline_technology ?? "",
             );
-            const appliesTo = scope === "technology" && baseline ? baseline : processId;
-            setWorkbook(addMeasure(workbook, { ...opts, appliesTo }));
-            setDockTab("macc");
-            openGroup("measures");
+            setWorkbook(
+              addMeasure(workbook, {
+                ...opts,
+                facility: scope === "facility" ? processId : undefined,
+                technology: scope === "technology" && baseline ? baseline : undefined,
+              }),
+            );
+            if (opts.macc) openItem({ sheet: "maccs", idCol: "macc", id: opts.macc });
+            else openGroup("measures");
           }}
         />
       )}
@@ -453,11 +450,10 @@ export function ModelView({
           workbook={workbook}
           processId={setApply}
           onClose={() => setSetApply(null)}
-          onApply={(setId, appliesTo) => {
+          onApply={(macc, target) => {
             setSetApply(null);
-            setWorkbook(applyMeasureSet(workbook, setId, appliesTo));
-            setDockTab("macc");
-            openGroup("measures");
+            setWorkbook(applyMacc(workbook, macc, target));
+            openItem({ sheet: "maccs", idCol: "macc", id: macc });
           }}
         />
       )}
@@ -753,8 +749,8 @@ function MeasureModal({
     lifetime?: number;
     reduction: number;
     capex: number;
-    set?: string;
-    scope: "facility" | "technology";
+    macc?: string;
+    scope: "facility" | "technology" | "none";
   }) => void;
   onClose: () => void;
 }) {
@@ -782,10 +778,10 @@ function MeasureModal({
   const [reduction, setReduction] = useState(0.1);
   const [capex, setCapex] = useState(0);
   const [lifetime, setLifetime] = useState(15);
-  const [scope, setScope] = useState<"facility" | "technology">("facility");
-  const [setName, setSetName] = useState("");
+  const [scope, setScope] = useState<"facility" | "technology" | "none">("facility");
+  const [maccName, setMaccName] = useState("");
   const targets = type === "energy_efficiency" ? inputsOf(baselineOf(processId)) : impacts;
-  const ready = Boolean(processId && target && reduction > 0);
+  const ready = Boolean(target && reduction > 0 && (scope === "none" || processId));
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -884,15 +880,23 @@ function MeasureModal({
             Every facility running <strong>{baselineOf(processId) || "…"}</strong> (each adopts
             independently)
           </label>
+          <label>
+            <input type="radio" checked={scope === "none"} onChange={() => setScope("none")} />{" "}
+            Catalogue only — deploy later by bundling it into a MACC
+          </label>
         </div>
         <label className="inspector-field">
-          <span>MACC set name (optional — for reuse via "Apply MACC set")</span>
-          <input value={setName} onChange={(e) => setSetName(e.target.value)} placeholder="e.g. EAF retrofits" />
+          <span>Add to MACC (optional bundle — deploy it in macc_links)</span>
+          <input
+            value={maccName}
+            onChange={(e) => setMaccName(e.target.value)}
+            placeholder="e.g. EAF retrofits"
+          />
         </label>
         <p className="muted">
           Creates one cost-curve block (capex may be negative, e.g. subsidised); add more blocks in
           the measure_blocks table. The MACC tab in the bottom panel shows the curve. Adoption is
-          always per facility — a shared set never decides as a group.
+          always per facility — a bundle never decides as a group.
         </p>
         <button
           disabled={!ready}
@@ -904,7 +908,7 @@ function MeasureModal({
               lifetime,
               reduction,
               capex,
-              set: setName.trim() || undefined,
+              macc: maccName.trim() || undefined,
               scope,
             })
           }
@@ -916,8 +920,8 @@ function MeasureModal({
   );
 }
 
-/** Link an existing named MACC set to a facility (or to its whole technology).
- *  Each linked facility still adopts independently. */
+/** Deploy an existing MACC (bundle of measures) on a facility or on its whole
+ *  technology. Each linked facility still adopts independently. */
 function ApplySetModal({
   workbook,
   processId,
@@ -926,35 +930,29 @@ function ApplySetModal({
 }: {
   workbook: Workbook;
   processId: string;
-  onApply: (setId: string, appliesTo: string) => void;
+  onApply: (macc: string, target: { facility?: string; technology?: string }) => void;
   onClose: () => void;
 }) {
-  const sets = measureSets(workbook);
+  const names = maccNames(workbook);
   const baseline = String(
     (workbook.processes ?? []).find((r) => String(r.process_id) === processId)
       ?.baseline_technology ?? "",
   );
-  const [setId, setSetId] = useState(sets[0] ?? "");
+  const [macc, setMacc] = useState(names[0] ?? "");
   const [scope, setScope] = useState<"facility" | "technology">("facility");
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="dock-head">
-          <strong>Apply MACC set · {processId}</strong>
+          <strong>Deploy MACC · {processId}</strong>
           <span className="spacer" />
           <button className="ghost" onClick={onClose} title="close">
             ✕
           </button>
         </div>
         <label className="inspector-field">
-          <span>MACC set</span>
-          <select value={setId} onChange={(e) => setSetId(e.target.value)}>
-            {sets.map((s2) => (
-              <option key={s2} value={s2}>
-                {s2}
-              </option>
-            ))}
-          </select>
+          <span>MACC (bundle of measures)</span>
+          <SearchableSelect value={macc} options={names} onChange={setMacc} />
         </label>
         <div className="lib-mode">
           <label>
@@ -971,14 +969,19 @@ function ApplySetModal({
           </label>
         </div>
         <p className="muted">
-          Writes a measure_links row. Each linked facility receives its own copy of the set's
+          Writes a macc_links row. Each linked facility receives its own copy of the MACC's
           measures and adopts them independently.
         </p>
         <button
-          disabled={!setId}
-          onClick={() => onApply(setId, scope === "technology" && baseline ? baseline : processId)}
+          disabled={!macc}
+          onClick={() =>
+            onApply(
+              macc,
+              scope === "technology" && baseline ? { technology: baseline } : { facility: processId },
+            )
+          }
         >
-          Apply set
+          Deploy MACC
         </button>
       </div>
     </div>
