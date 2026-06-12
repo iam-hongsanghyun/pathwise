@@ -419,10 +419,10 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         if set_id and target:
             links_by_set.setdefault(set_id, []).append(target)
 
-    proc_ids = {p.process_id for p in processes}
+    proc_ids = {proc.process_id for proc in processes}
     by_baseline: dict[str, list[str]] = {}
-    for p in processes:
-        by_baseline.setdefault(p.baseline_technology, []).append(p.process_id)
+    for proc in processes:
+        by_baseline.setdefault(proc.baseline_technology, []).append(proc.process_id)
 
     def _resolve(target: str) -> list[str]:
         """A link target → the facility ids it covers (facility OR technology)."""
@@ -438,8 +438,8 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             continue
         ordered = [b for _, b in sorted(blocks_by_measure.get(mid, []), key=lambda t: t[0])]
         targets: list[str] = []
-        if direct := _str(r.get("applies_to")):
-            targets.extend(_resolve(direct))
+        if direct_link := _str(r.get("applies_to")):
+            targets.extend(_resolve(direct_link))
         if set_id := _str(r.get("set")):
             for link in links_by_set.get(set_id, []):
                 targets.extend(_resolve(link))
