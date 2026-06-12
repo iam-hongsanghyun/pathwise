@@ -66,6 +66,12 @@ export async function replaceSheet(
   );
 }
 
+/** Reset the session to an empty model; returns the refreshed (blank) model. */
+export async function clearModel(sessionId: string): Promise<Workbook> {
+  await json(await fetch(`/api/session/${sessionId}/clear`, { method: "POST" }));
+  return getFullModel(sessionId);
+}
+
 /** Upload an .xlsx — parsed SERVER-side; returns the refreshed model. */
 export async function uploadWorkbook(sessionId: string, file: File): Promise<Workbook> {
   const form = new FormData();

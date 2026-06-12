@@ -96,6 +96,16 @@ def create_session() -> dict[str, Any]:
     return {"sessionId": session_id}
 
 
+@router.post("/session/{session_id}/clear")
+def clear_session(session_id: str) -> dict[str, Any]:
+    """Reset the session to an empty model (the core sheets, no rows)."""
+    store = _store()
+    if not store.exists(session_id):
+        raise HTTPException(status_code=404, detail=f"unknown session '{session_id}'")
+    counts = store.put_model(session_id, {name: [] for name in CORE_SHEETS})
+    return {"sessionId": session_id, "sheets": counts}
+
+
 @router.post("/session/model")
 def ingest_model(body: ModelIngest) -> dict[str, Any]:
     """Ingest a full model into a (new or existing) session."""

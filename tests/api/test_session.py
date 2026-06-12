@@ -152,3 +152,13 @@ def test_library_replacement_insert() -> None:
         t["from_technology"] == "Refine_Gas" and t["to_technology"] == "Smelt_Grid"
         for t in model["transitions"]
     )
+
+
+def test_clear_session_resets_to_core_sheets() -> None:
+    res = client.post("/api/session/model", json={"model": example_workbook()}).json()
+    sid = res["sessionId"]
+    out = client.post(f"/api/session/{sid}/clear").json()
+    assert all(n == 0 for n in out["sheets"].values())
+    model = client.get(f"/api/session/{sid}/model").json()["model"]
+    assert model["processes"] == [] and "periods" in model
+    assert client.post("/api/session/nope/clear").status_code == 404

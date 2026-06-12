@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getConfig, runToCompletion } from "./lib/api/run";
 import {
+  clearModel,
   downloadResultXlsx,
   ensureSession,
   exportModelUrl,
@@ -196,6 +197,16 @@ export function App() {
     }
   }
 
+  async function onNewModel() {
+    if (!sessionId) return;
+    setError(null);
+    try {
+      adoptServerModel(await clearModel(sessionId)); // undoable: history is pushed
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
   const shared = {
     workbook,
     setWorkbook: updateWorkbook,
@@ -224,6 +235,14 @@ export function App() {
             title="undo the last model change (Ctrl/Cmd+Z)"
           >
             ↩ Undo
+          </button>
+          <button
+            className="ghost"
+            onClick={onNewModel}
+            disabled={!sessionId}
+            title="clear the session and start from an empty model (undoable)"
+          >
+            ✕ New model
           </button>
           <span className="spacer" />
           <label>
