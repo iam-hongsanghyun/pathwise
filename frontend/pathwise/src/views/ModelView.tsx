@@ -10,7 +10,9 @@ import {
   addFacilityWithTech,
   addMeasure,
   addTransitionOption,
+  applyMeasureSet,
   ensureTechnology,
+  measureSets,
 } from "../lib/graph";
 import { insertTemplate } from "../lib/api/session";
 import { listLibrary, loadSector, type SectorLibrary } from "../lib/api/library";
@@ -182,6 +184,8 @@ export function ModelView({
   } | null>(null);
   // Bottom-dock tab: measures context offers a MACC chart beside the table.
   const [dockTab, setDockTab] = useState<"table" | "macc">("table");
+  // "Apply MACC set" picker (right-click a facility; only when sets exist).
+  const [setApply, setSetApply] = useState<string | null>(null);
 
   // Template inserts happen SERVER-side (the session owns the model); the
   // frontend adopts the refreshed model and selects what was created.
@@ -329,6 +333,7 @@ export function ModelView({
               onAddMeasure={(kind, entityId) => {
                 if (kind === "process" || kind === "commodity") setMeasureAdd({ kind, entityId });
               }}
+              onApplySet={measureSets(workbook).length ? (pid) => setSetApply(pid) : undefined}
             />
           )}
           {mode === "flow" && <FlowView workbook={workbook} onSelect={openItem} />}
@@ -418,9 +423,27 @@ export function ModelView({
           workbook={workbook}
           seed={measureAdd}
           onClose={() => setMeasureAdd(null)}
-          onApply={(opts) => {
+          onApply={({ scope, processId, ...opts }) => {
             setMeasureAdd(null);
-            setWorkbook(addMeasure(workbook, opts));
+            const baseline = String(
+              (workbook.processes ?? []).find((r) => String(r.process_id) === processId)
+                ?.baseline_technology ?? "",
+            );
+            const appliesTo = scope === "technology" && baseline ? baseline : processId;
+            setWorkbook(addMeasure(workbook, { ...opts, appliesTo }));
+            setDockTab("macc");
+            openGroup("measures");
+          }}
+        />
+      )}
+      {setApply && (
+        <ApplySetModal
+          workbook={workbook}
+          processId={setApply}
+          onClose={() => setSetApply(null)}
+          onApply={(setId, appliesTo) => {
+            setSetApply(null);
+            setWorkbook(applyMeasureSet(workbook, setId, appliesTo));
             setDockTab("macc");
             openGroup("measures");
           }}
@@ -692,6 +715,8 @@ function MeasureModal({
     lifetime?: number;
     reduction: number;
     capex: number;
+    set?: string;
+    scope: "facility" | "technology";
   }) => void;
   onClose: () => void;
 }) {
@@ -719,6 +744,8 @@ function MeasureModal({
   const [reduction, setReduction] = useState(0.1);
   const [capex, setCapex] = useState(0);
   const [lifetime, setLifetime] = useState(15);
+  const [scope, setScope] = useState<"facility" | "technology">("facility");
+  const [setName, setSetName] = useState("");
   const targets = type === "energy_efficiency" ? inputsOf(baselineOf(processId)) : impacts;
   const ready = Boolean(processId && target && reduction > 0);
 
@@ -794,22 +821,126 @@ function MeasureModal({
           </label>
           <label className="inspector-field">
             <span>Block capex</span>
-            <input type="number" min={0} value={capex} onChange={(e) => setCapex(Number(e.target.value))} />
+            <input type="number" value={capex} onChange={(e) => setCapex(Number(e.target.value))} />
           </label>
         </div>
         <label className="inspector-field">
           <span>Lifetime (yr)</span>
           <input type="number" min={1} value={lifetime} onChange={(e) => setLifetime(Number(e.target.value))} />
         </label>
+        <div className="lib-mode">
+          <label>
+            <input
+              type="radio"
+              checked={scope === "facility"}
+              onChange={() => setScope("facility")}
+            />{" "}
+            This facility only ({processId || "…"})
+          </label>
+          <label>
+            <input
+              type="radio"
+              checked={scope === "technology"}
+              onChange={() => setScope("technology")}
+            />{" "}
+            Every facility running <strong>{baselineOf(processId) || "…"}</strong> (each adopts
+            independently)
+          </label>
+        </div>
+        <label className="inspector-field">
+          <span>MACC set name (optional — for reuse via "Apply MACC set")</span>
+          <input value={setName} onChange={(e) => setSetName(e.target.value)} placeholder="e.g. EAF retrofits" />
+        </label>
         <p className="muted">
-          Creates one cost-curve block; add more blocks in the measure_blocks table. The MACC tab in
-          the bottom panel shows the curve.
+          Creates one cost-curve block (capex may be negative, e.g. subsidised); add more blocks in
+          the measure_blocks table. The MACC tab in the bottom panel shows the curve. Adoption is
+          always per facility — a shared set never decides as a group.
         </p>
         <button
           disabled={!ready}
-          onClick={() => onApply({ processId, type, target, lifetime, reduction, capex })}
+          onClick={() =>
+            onApply({
+              processId,
+              type,
+              target,
+              lifetime,
+              reduction,
+              capex,
+              set: setName.trim() || undefined,
+              scope,
+            })
+          }
         >
           Add measure
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Link an existing named MACC set to a facility (or to its whole technology).
+ *  Each linked facility still adopts independently. */
+function ApplySetModal({
+  workbook,
+  processId,
+  onApply,
+  onClose,
+}: {
+  workbook: Workbook;
+  processId: string;
+  onApply: (setId: string, appliesTo: string) => void;
+  onClose: () => void;
+}) {
+  const sets = measureSets(workbook);
+  const baseline = String(
+    (workbook.processes ?? []).find((r) => String(r.process_id) === processId)
+      ?.baseline_technology ?? "",
+  );
+  const [setId, setSetId] = useState(sets[0] ?? "");
+  const [scope, setScope] = useState<"facility" | "technology">("facility");
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="dock-head">
+          <strong>Apply MACC set · {processId}</strong>
+          <span className="spacer" />
+          <button className="ghost" onClick={onClose} title="close">
+            ✕
+          </button>
+        </div>
+        <label className="inspector-field">
+          <span>MACC set</span>
+          <select value={setId} onChange={(e) => setSetId(e.target.value)}>
+            {sets.map((s2) => (
+              <option key={s2} value={s2}>
+                {s2}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="lib-mode">
+          <label>
+            <input type="radio" checked={scope === "facility"} onChange={() => setScope("facility")} />{" "}
+            This facility only
+          </label>
+          <label>
+            <input
+              type="radio"
+              checked={scope === "technology"}
+              onChange={() => setScope("technology")}
+            />{" "}
+            Every facility running <strong>{baseline}</strong>
+          </label>
+        </div>
+        <p className="muted">
+          Writes a measure_links row. Each linked facility receives its own copy of the set's
+          measures and adopts them independently.
+        </p>
+        <button
+          disabled={!setId}
+          onClick={() => onApply(setId, scope === "technology" && baseline ? baseline : processId)}
+        >
+          Apply set
         </button>
       </div>
     </div>

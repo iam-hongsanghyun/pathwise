@@ -407,6 +407,29 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 ),
             )
         )
+    # A measure definition may belong to a named SET (`set` column) and be
+    # LINKED to targets via `measure_links` rows {set, applies_to}; its own
+    # `applies_to` (if any) is a direct link. Each link target may be a
+    # FACILITY id (that one plant) or a TECHNOLOGY id (every facility whose
+    # baseline runs it). Every (measure, facility) pair becomes its OWN
+    # independent Measure instance — adoption is per facility, never grouped.
+    links_by_set: dict[str, list[str]] = {}
+    for r in _rows(workbook, "measure_links"):
+        set_id, target = _str(r.get("set")), _str(r.get("applies_to"))
+        if set_id and target:
+            links_by_set.setdefault(set_id, []).append(target)
+
+    proc_ids = {p.process_id for p in processes}
+    by_baseline: dict[str, list[str]] = {}
+    for p in processes:
+        by_baseline.setdefault(p.baseline_technology, []).append(p.process_id)
+
+    def _resolve(target: str) -> list[str]:
+        """A link target → the facility ids it covers (facility OR technology)."""
+        if target in proc_ids:
+            return [target]
+        return by_baseline.get(target, [])
+
     measures: list[Measure] = []
     for r in _rows(workbook, "measures"):
         mid = _str(r.get("measure_id"))
@@ -414,16 +437,26 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         if mid is None or mtype_s not in {m.value for m in MeasureType}:
             continue
         ordered = [b for _, b in sorted(blocks_by_measure.get(mid, []), key=lambda t: t[0])]
-        measures.append(
-            Measure(
-                measure_id=mid,
-                measure_type=MeasureType(mtype_s),
-                applies_to=_str(r.get("applies_to")) or "",
-                target=_str(r.get("target")) or "",
-                lifetime=_int(r.get("lifetime"), 15) or 15,
-                blocks=ordered,
+        targets: list[str] = []
+        if direct := _str(r.get("applies_to")):
+            targets.extend(_resolve(direct))
+        if set_id := _str(r.get("set")):
+            for link in links_by_set.get(set_id, []):
+                targets.extend(_resolve(link))
+        unique = list(dict.fromkeys(targets))
+        for pid in unique:
+            measures.append(
+                Measure(
+                    # Keep the plain id for the simple 1:1 case (backwards
+                    # compatible); suffix with the facility when expanded.
+                    measure_id=mid if len(unique) == 1 else f"{mid} @ {pid}",
+                    measure_type=MeasureType(mtype_s),
+                    applies_to=pid,
+                    target=_str(r.get("target")) or "",
+                    lifetime=_int(r.get("lifetime"), 15) or 15,
+                    blocks=ordered,
+                )
             )
-        )
 
     # ── Transitions (replace/renew + compatibility) ──────────────────────────
     transitions: list[Transition] = []

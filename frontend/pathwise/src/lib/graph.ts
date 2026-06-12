@@ -2,7 +2,7 @@
 // Node id = `${kind}:${entityId}`; the workbook stays the single source of
 // truth. Pure-logic layer: no React / no chart library types.
 
-import type { Workbook } from "../types";
+import type { Row, Workbook } from "../types";
 
 export type NodeKind = "process" | "commodity" | "market" | "storage";
 export interface FacilityPorts {
@@ -323,36 +323,96 @@ export function ensureTechnology(wb: Workbook, techId: string): Workbook {
   };
 }
 
-/** Add a MACC measure (one starter block) on a facility. */
+/** Add a MACC measure (one starter block). `appliesTo` may be a facility id
+ *  (that plant only) or a technology id (every facility running it — each
+ *  still adopts independently); `set` names the MACC table for reuse. */
 export function addMeasure(
   wb: Workbook,
   opts: {
-    processId: string;
+    appliesTo: string;
     type: "energy_efficiency" | "emission_reduction" | "environmental";
     target: string;
     lifetime?: number;
     reduction: number;
     capex: number;
+    set?: string;
   },
 ): Workbook {
   const taken = new Set((wb.measures ?? []).map((r) => s(r.measure_id)));
-  let mid = `${opts.processId} · ${opts.target} measure`;
-  for (let i = 2; taken.has(mid); i += 1) mid = `${opts.processId} · ${opts.target} measure ${i}`;
+  let mid = `${opts.appliesTo} · ${opts.target} measure`;
+  for (let i = 2; taken.has(mid); i += 1) mid = `${opts.appliesTo} · ${opts.target} measure ${i}`;
+  const row: Row = {
+    measure_id: mid,
+    type: opts.type,
+    applies_to: opts.appliesTo,
+    target: opts.target,
+    lifetime: opts.lifetime ?? 15,
+  };
+  if (opts.set) row.set = opts.set;
   return {
     ...wb,
-    measures: [
-      ...(wb.measures ?? []),
-      {
-        measure_id: mid,
-        type: opts.type,
-        applies_to: opts.processId,
-        target: opts.target,
-        lifetime: opts.lifetime ?? 15,
-      },
-    ],
+    measures: [...(wb.measures ?? []), row],
     measure_blocks: [
       ...(wb.measure_blocks ?? []),
       { measure_id: mid, block: 0, reduction: opts.reduction, capex: opts.capex },
     ],
   };
+}
+
+/** Expand measure definitions into per-facility instances — the TS mirror of
+ *  the assembler: a measure's own `applies_to` (facility OR technology id)
+ *  plus every `measure_links` row of its `set`, each technology resolving to
+ *  all facilities running it as baseline. One row per (measure, facility). */
+export function resolveMeasures(
+  wb: Workbook,
+): { measure_id: string; base_id: string; applies_to: string; type: string; target: string }[] {
+  const procIds = new Set((wb.processes ?? []).map((r) => s(r.process_id)));
+  const byBaseline = new Map<string, string[]>();
+  for (const p of wb.processes ?? []) {
+    const tech = s(p.baseline_technology);
+    byBaseline.set(tech, [...(byBaseline.get(tech) ?? []), s(p.process_id)]);
+  }
+  const resolve = (target: string): string[] =>
+    procIds.has(target) ? [target] : (byBaseline.get(target) ?? []);
+  const linksBySet = new Map<string, string[]>();
+  for (const r of wb.measure_links ?? []) {
+    const set = s(r.set);
+    if (set && s(r.applies_to))
+      linksBySet.set(set, [...(linksBySet.get(set) ?? []), s(r.applies_to)]);
+  }
+  const out: { measure_id: string; base_id: string; applies_to: string; type: string; target: string }[] = [];
+  for (const m of wb.measures ?? []) {
+    const mid = s(m.measure_id);
+    const targets: string[] = [];
+    if (s(m.applies_to)) targets.push(...resolve(s(m.applies_to)));
+    for (const link of linksBySet.get(s(m.set)) ?? []) targets.push(...resolve(link));
+    const unique = [...new Set(targets)];
+    for (const pid of unique)
+      out.push({
+        measure_id: unique.length === 1 ? mid : `${mid} @ ${pid}`,
+        base_id: mid,
+        applies_to: pid,
+        type: s(m.type, "energy_efficiency"),
+        target: s(m.target),
+      });
+  }
+  return out;
+}
+
+/** Link a named MACC set to a facility or technology (deduped). */
+export function applyMeasureSet(wb: Workbook, setId: string, appliesTo: string): Workbook {
+  if (!setId || !appliesTo) return wb;
+  const exists = (wb.measure_links ?? []).some(
+    (r) => s(r.set) === setId && s(r.applies_to) === appliesTo,
+  );
+  if (exists) return wb;
+  return {
+    ...wb,
+    measure_links: [...(wb.measure_links ?? []), { set: setId, applies_to: appliesTo }],
+  };
+}
+
+/** Distinct MACC set names defined in the measures sheet. */
+export function measureSets(wb: Workbook): string[] {
+  return [...new Set((wb.measures ?? []).map((r) => s(r.set)).filter(Boolean))];
 }

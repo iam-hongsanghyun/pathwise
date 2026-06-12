@@ -40,6 +40,8 @@ interface Props {
   /** Right-click shortcuts: add a transition option / a MACC measure. */
   onAddTransition?: (processId: string) => void;
   onAddMeasure?: (kind: NodeKind, entityId: string) => void;
+  /** Link an existing named MACC set to this facility (undefined → hidden). */
+  onApplySet?: (processId: string) => void;
 }
 
 interface ViewBox {
@@ -64,6 +66,7 @@ export function TopologyCanvas({
   onDropTech,
   onAddTransition,
   onAddMeasure,
+  onApplySet,
 }: Props) {
   const { nodes: baseNodes, edges } = useMemo(() => workbookToGraph(workbook), [workbook]);
 
@@ -338,6 +341,16 @@ export function TopologyCanvas({
                     Add MACC measure…
                   </button>
                 )}
+              {menu.nodeId.startsWith("process:") && onApplySet && (
+                <button
+                  onClick={() => {
+                    onApplySet(menu.nodeId!.slice("process:".length));
+                    setMenu(null);
+                  }}
+                >
+                  Apply MACC set…
+                </button>
+              )}
               {menu.nodeId.startsWith("process:") && (
                 <button
                   className="danger"

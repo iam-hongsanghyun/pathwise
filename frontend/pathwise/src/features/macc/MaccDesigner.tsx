@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { resolveMeasures } from "../../lib/graph";
 import type { Row, Workbook } from "../../types";
 
 const str = (v: unknown, d = ""): string => (v == null ? d : String(v));
@@ -69,13 +70,14 @@ function bars(wb: Workbook): Bar[] {
     (blocks.get(str(b.measure_id)) ?? blocks.set(str(b.measure_id), []).get(str(b.measure_id))!).push(b);
 
   const out: Bar[] = [];
-  for (const m of wb.measures ?? []) {
-    const id = str(m.measure_id);
-    const p = str(m.applies_to);
-    const type = str(m.type);
-    const target = str(m.target);
+  // Expanded per-facility instances (named sets + technology links included).
+  for (const m of resolveMeasures(wb)) {
+    const id = m.measure_id;
+    const p = m.applies_to;
+    const type = m.type;
+    const target = m.target;
     const ref = type === "energy_efficiency" ? refConsumption(p, target) : refImpact(p, target);
-    for (const blk of blocks.get(id) ?? []) {
+    for (const blk of blocks.get(m.base_id) ?? []) {
       const reduction = num(blk.reduction);
       const capex = num(blk.capex);
       const potential = reduction * ref;
