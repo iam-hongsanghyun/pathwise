@@ -86,6 +86,10 @@ class Commodity:
             the default rule (raw energy/material/indirect inputs that no
             technology produces are purchasable; products/by-products/intermediates
             are not — they must be made or routed).
+        available_from: First year the stream may be bought externally [yr]
+            (e.g. hydrogen infrastructure arriving in 2030).
+        available_to: Last year the stream may be bought externally [yr]
+            (e.g. a coal-purchase ban after 2040).
     """
 
     commodity_id: str
@@ -95,6 +99,8 @@ class Commodity:
     sale_price_by_year: dict[int, float] = field(default_factory=dict)
     sellable: bool = True
     purchasable: bool | None = None
+    available_from: int | None = None
+    available_to: int | None = None
 
     def price(self, year: int) -> float:
         """Purchase price [currency/unit] in ``year`` (0 if unpriced)."""
@@ -103,6 +109,12 @@ class Commodity:
     def sale_price(self, year: int) -> float:
         """Sale/disposal price [currency/unit] in ``year`` (0 if unset)."""
         return self.sale_price_by_year.get(year, 0.0)
+
+    def available(self, year: int) -> bool:
+        """Whether external purchase is allowed in ``year``."""
+        if self.available_from is not None and year < self.available_from:
+            return False
+        return not (self.available_to is not None and year > self.available_to)
 
 
 @dataclass(slots=True, frozen=True)
@@ -137,6 +149,8 @@ class Technology:
         technology_id: Unique id.
         lifespan: Economic lifetime [yr].
         introduction_year: First year the technology may be adopted [yr].
+        phase_out_year: Last year the technology may operate [yr] — after it,
+            every facility running it must transition or switch off.
         actions: Allowed transition actions for this technology.
         capex_by_year: Replacement capital cost [currency / unit capacity] by year.
         renewal_by_year: Renewal cost [currency / unit capacity] by year.
@@ -186,6 +200,7 @@ class Technology:
     technology_id: str
     lifespan: int = 20
     introduction_year: int | None = None
+    phase_out_year: int | None = None
     actions: frozenset[TransitionAction] = field(
         default_factory=lambda: frozenset(TransitionAction)
     )
@@ -256,6 +271,8 @@ class Process:
             available throughput is ``capacity · (1 − failure_rate)``.
         replaceable: If ``False`` the facility may not transition technologies
             (feasible set = baseline only) — the user marks it fixed.
+        decommission_year: Last year the facility may operate [yr]; after it the
+            facility is forced off (its output must be sourced elsewhere).
     """
 
     process_id: str
@@ -269,6 +286,7 @@ class Process:
     replaceable: bool = True
     capacity_by_year: dict[int, float] = field(default_factory=dict)
     group: str = ""
+    decommission_year: int | None = None
 
     def in_scope(self, scope: str) -> bool:
         """Whether this facility is covered by a constraint ``scope``.
@@ -409,6 +427,8 @@ class Market:
     target: str
     target_kind: MarketTarget = MarketTarget.COMMODITY
     company: str = "all"
+    available_from: int | None = None
+    available_to: int | None = None
     price_by_year: dict[int, float] = field(default_factory=dict)
     sell_price_by_year: dict[int, float] = field(default_factory=dict)
     max_buy: float | None = None
@@ -427,6 +447,12 @@ class Market:
     def allocation(self, year: int) -> float:
         """Free allowance [impact unit] in ``year`` (0 if unset)."""
         return self.allocation_by_year.get(year, 0.0)
+
+    def available_in(self, year: int) -> bool:
+        """Whether the market may trade in ``year``."""
+        if self.available_from is not None and year < self.available_from:
+            return False
+        return not (self.available_to is not None and year > self.available_to)
 
 
 @dataclass(slots=True, frozen=True)

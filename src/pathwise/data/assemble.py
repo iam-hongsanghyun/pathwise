@@ -228,6 +228,8 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             sale_price_by_year=sales,
             sellable=_bool(r.get("sellable"), True),
             purchasable=purchasable,
+            available_from=_int(r.get("available_from")),
+            available_to=_int(r.get("available_to")),
         )
 
     # ── Impacts (+ price trajectory) ─────────────────────────────────────────
@@ -326,6 +328,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             technology_id=k,
             lifespan=_int(r.get("lifespan"), 20) or 20,
             introduction_year=_int(r.get("introduction_year")),
+            phase_out_year=_int(r.get("phase_out_year")),
             actions=_actions(r.get("actions")),
             capex_by_year=_attr_by_year(k, _num(r.get("capex"), 0.0) or 0.0, tech_capex_t),
             renewal_by_year=_attr_by_year(k, _num(r.get("renewal"), 0.0) or 0.0, tech_renewal_t),
@@ -367,6 +370,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 fixed_opex=_num(r.get("fixed_opex"), 0.0) or 0.0,
                 failure_rate=min(max(_num(r.get("failure_rate"), 0.0) or 0.0, 0.0), 1.0),
                 replaceable=False if fixed else _bool(r.get("replaceable"), True),
+                decommission_year=_int(r.get("decommission_year")),
                 group=_str(r.get("group")) or "",
                 capacity_by_year=interpolate(cap_t[pid], years) if pid in cap_t else {},
             )
@@ -553,6 +557,8 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 sell_price_by_year=interpolate(sells, years) if sells else {},
                 max_buy=_num(r.get("max_buy")),
                 max_sell=_num(r.get("max_sell")),
+                available_from=_int(r.get("available_from")),
+                available_to=_int(r.get("available_to")),
                 allocation_by_year=interpolate(allocs, years) if allocs else {},
                 tag=_str(r.get("tag")),
             )

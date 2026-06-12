@@ -121,8 +121,11 @@ export function LeftRail({
   );
   const targetTechs = new Set((workbook.transitions ?? []).map((r) => String(r.to_technology ?? "")));
   const all = Object.keys(workbook).filter((s) => !HIDDEN.has(s));
+  // Key editing groups stay visible even before their sheet exists (the first
+  // `+` creates it) — measures/transitions are how alternatives are authored.
+  const ALWAYS = ["measures", "transitions"];
   const staticSheets = [
-    ...ORDER.filter((s) => s in workbook && !HIDDEN.has(s)),
+    ...ORDER.filter((s) => (s in workbook || ALWAYS.includes(s)) && !HIDDEN.has(s)),
     ...all.filter((s) => !ORDER.includes(s) && !s.includes("_t__")),
   ];
   const temporalSheets = all.filter((s) => s.includes("_t__"));

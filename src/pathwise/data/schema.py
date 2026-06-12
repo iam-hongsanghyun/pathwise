@@ -47,6 +47,8 @@ SCHEMA: dict[str, Any] = {
             "sale_price": {"label": "Sale price (/unit)", "type": "number"},
             "sellable": {"label": "Sellable", "type": "boolean"},
             "purchasable": {"label": "Purchasable", "type": "boolean"},
+            "available_from": {"label": "Available from (yr)", "type": "integer"},
+            "available_to": {"label": "Available until (yr)", "type": "integer"},
         },
     },
     "impacts": {
@@ -61,7 +63,8 @@ SCHEMA: dict[str, Any] = {
         "columns": {
             "technology_id": {"label": "Technology", "type": "string", "required": True},
             "lifespan": {"label": "Lifespan (yr)", "type": "integer"},
-            "introduction_year": {"label": "Available from", "type": "integer"},
+            "introduction_year": {"label": "Available from (yr)", "type": "integer"},
+            "phase_out_year": {"label": "Available until (phase-out yr)", "type": "integer"},
             "actions": {"label": "Actions (replace,renew,continue)", "type": "string"},
             "capex": {"label": "Replace CAPEX (/cap)", "type": "number"},
             "renewal": {"label": "Renewal cost (/cap)", "type": "number"},
@@ -83,6 +86,7 @@ SCHEMA: dict[str, Any] = {
             "fixed_opex": {"label": "Fixed O&M (/yr)", "type": "number"},
             "failure_rate": {"label": "Failure rate (0-1)", "type": "number"},
             "replaceable": {"label": "Replaceable", "type": "boolean"},
+            "decommission_year": {"label": "Decommission (yr)", "type": "integer"},
             "enabled": {"label": "Included in model", "type": "boolean"},
         },
     },
@@ -193,9 +197,17 @@ SCHEMA: dict[str, Any] = {
         "columns": {
             "measure_id": {"label": "Measure", "type": "string", "required": True},
             "type": {"label": "Type", "type": "string", "required": True},
-            "applies_to": {"label": "On facility", "type": "string", "required": True},
+            "applies_to": {"label": "On facility / technology", "type": "string"},
             "target": {"label": "Target stream/impact", "type": "string", "required": True},
             "lifetime": {"label": "Lifetime (yr)", "type": "integer"},
+            "set": {"label": "MACC set (named table)", "type": "string"},
+        },
+    },
+    "measure_links": {
+        "label": "MACC set links",
+        "columns": {
+            "set": {"label": "MACC set", "type": "string", "required": True},
+            "applies_to": {"label": "Facility / technology", "type": "string", "required": True},
         },
     },
     "measure_blocks": {
@@ -246,6 +258,8 @@ SCHEMA: dict[str, Any] = {
             "max_sell": {"label": "Max sell (/yr)", "type": "number"},
             "allocation": {"label": "ETS allocation (/yr)", "type": "number"},
             "tag": {"label": "Tag (e.g. RE100)", "type": "string"},
+            "available_from": {"label": "Available from (yr)", "type": "integer"},
+            "available_to": {"label": "Available until (yr)", "type": "integer"},
             "enabled": {"label": "Included in model", "type": "boolean"},
         },
     },

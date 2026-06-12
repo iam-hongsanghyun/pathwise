@@ -86,6 +86,11 @@ def _technology(ctx: BuildContext) -> None:
             intro = prob.technologies[k].introduction_year
             if intro is not None and t < intro:
                 return 0.0
+        # Phase-out binds EVERY technology, the installed baseline included —
+        # after it the facility must transition or switch off.
+        out = prob.technologies[k].phase_out_year
+        if out is not None and t > out:
+            return 0.0
         return 1.0
 
     feas_arr = np.array(
@@ -124,6 +129,12 @@ def _technology(ctx: BuildContext) -> None:
                         >= min_cf * cap_pt * ctx.u.sel(process=p, tech=k, period=t),
                         name=f"mincf[{p},{k},{t}]",
                     )
+        # Decommission: the facility may not operate past its last year.
+        dec = avail[p].decommission_year
+        if dec is not None:
+            for t in ctx.years:
+                if t > dec:
+                    m.add_constraints(ctx.on.sel(process=p, period=t) == 0, name=f"decomm[{p},{t}]")
         # If operating in the first period, it runs the baseline (no prior switch).
         t0 = ctx.years[0]
         m.add_constraints(
@@ -401,7 +412,9 @@ def _flow_balance(ctx: BuildContext) -> None:
                         ctx.sell.sel(process=p, commodity=r, period=t) == 0,
                         name=f"nosell[{p},{r},{t}]",
                     )
-                if not _purchasable(r):
+                if not _purchasable(r) or not comm.available(t):
+                    # Not purchasable, or outside the stream's availability
+                    # window (available_from/available_to).
                     m.add_constraints(
                         ctx.buy.sel(process=p, commodity=r, period=t) == 0,
                         name=f"nobuy[{p},{r},{t}]",
@@ -631,6 +644,16 @@ def _markets(ctx: BuildContext) -> None:
             m.add_constraints(net == rhs, name=f"mclear[{r},{t}]")
         for mk in mkts:
             for t in ctx.years:
+                if not mk.available_in(t):
+                    m.add_constraints(
+                        ctx.mbuy.sel(cmarket=mk.market_id, period=t) == 0,
+                        name=f"mclosedb[{mk.market_id},{t}]",
+                    )
+                    m.add_constraints(
+                        ctx.msell.sel(cmarket=mk.market_id, period=t) == 0,
+                        name=f"mcloseds[{mk.market_id},{t}]",
+                    )
+                    continue
                 if mk.max_buy is not None:
                     m.add_constraints(
                         ctx.mbuy.sel(cmarket=mk.market_id, period=t) <= mk.max_buy,

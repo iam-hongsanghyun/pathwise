@@ -43,6 +43,11 @@ CORE_SHEETS = [
     "markets",
     "storage",
     "demand",
+    "transitions",
+    "measures",
+    "measure_blocks",
+    "measure_links",
+    "edges",
 ]
 
 
