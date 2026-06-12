@@ -116,15 +116,44 @@ export function refTargets(sheet: string, col: string, row: Row): RefTarget[] {
 }
 
 /** Reference columns of one row whose value does not resolve to an existing
- *  component — shown red in editors and as a red dot in the model tree. */
-export function rowProblems(wb: Workbook, sheet: string, row: Row): string[] {
+ *  component, plus REQUIRED reference columns left empty — shown red in
+ *  editors and as a red dot in the model tree (a problem marker, not an
+ *  error that blocks editing). `requiredCols` comes from the domain schema. */
+export function rowProblems(
+  wb: Workbook,
+  sheet: string,
+  row: Row,
+  requiredCols?: string[],
+): string[] {
   const bad: string[] = [];
   for (const [col, v] of Object.entries(row)) {
     if (v == null || v === "" || typeof v === "boolean") continue;
     const opts = optionsFor(wb, sheet, col, row);
     if (opts && !opts.includes(String(v))) bad.push(col);
   }
+  for (const col of requiredCols ?? []) {
+    const v = row[col];
+    if ((v == null || v === "") && refTargets(sheet, col, row).length) bad.push(`${col} missing`);
+  }
+  // A measure must reach a facility or technology — either directly via
+  // applies_to or through a named MACC set linked in measure_links.
+  if (sheet === "measures" && (row.applies_to == null || row.applies_to === "")) {
+    const set = String(row.set ?? "");
+    const linked =
+      set !== "" &&
+      (wb.measure_links ?? []).some((l) => String(l.set ?? "") === set && l.applies_to);
+    if (!linked) bad.push("applies_to missing (pick a facility or technology, or link a MACC set)");
+  }
   return bad;
+}
+
+/** True when a measure row may leave applies_to empty (it is reached through
+ *  a linked MACC set instead). */
+export function measureLinkedViaSet(wb: Workbook, row: Row): boolean {
+  const set = String(row.set ?? "");
+  return (
+    set !== "" && (wb.measure_links ?? []).some((l) => String(l.set ?? "") === set && l.applies_to)
+  );
 }
 
 /** What to add first when a reference dropdown has no options yet. */

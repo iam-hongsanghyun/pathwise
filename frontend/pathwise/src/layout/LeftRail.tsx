@@ -88,6 +88,8 @@ interface Props {
   onLibraryItem?: (sector: string, kind: "facility" | "chain", id: string) => void;
   draggable?: boolean;
   width?: number;
+  /** Domain schema — used to flag REQUIRED references left empty (red dot). */
+  schema?: Record<string, { columns?: Record<string, { required?: boolean }> }>;
 }
 
 /** Left rail — the single navigator: every sheet is a group (click → table in
@@ -108,6 +110,7 @@ export function LeftRail({
   onLibraryItem,
   draggable,
   width,
+  schema,
 }: Props) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const toggleCollapse = (key: string) =>
@@ -144,7 +147,10 @@ export function LeftRail({
     // Status dot: ● red = a reference doesn't resolve (fix it), ● green =
     // ok and part of the initial system, ○ hollow = ok, transition option.
     // Excluded items are dimmed.
-    const problems = rowProblems(workbook, sheet, r as Record<string, Cell>);
+    const requiredCols = Object.entries(schema?.[sheet]?.columns ?? {})
+      .filter(([, m]) => m.required)
+      .map(([c]) => c);
+    const problems = rowProblems(workbook, sheet, r as Record<string, Cell>, requiredCols);
     let dot = "";
     if (problems.length) dot = "dot-bad";
     else if (isTech && targetTechs.has(id) && !baselineTechs.has(id)) dot = "dot-alt";
@@ -177,7 +183,7 @@ export function LeftRail({
           onClick={() => onItem({ sheet, idCol: ent.idCol, id })}
           title={
             problems.length
-              ? `${id} — unresolved reference${problems.length > 1 ? "s" : ""}: ${problems.join(", ")}`
+              ? `${id} — fix: ${problems.join("; ")}`
               : dot === "dot-alt"
                 ? `${id} — alternative technology`
                 : canDrag

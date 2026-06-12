@@ -1153,17 +1153,13 @@ th.col-optional {
   font-size: 0.72rem;
 }
 
-/* ── (i) hover popup — explains every field/column ─────────────────────────── */
+/* ── (i) hover popup — explains every field/column. Rendered into body at a
+ *  fixed position (InfoTip component) so it always sits on top of everything. */
 .col-info {
-  position: relative;
   cursor: help;
 }
-.col-info:hover::after {
-  content: attr(data-tip);
-  position: absolute;
-  left: 0;
-  top: 100%;
-  margin-top: 6px;
+.tip-popup {
+  position: fixed;
   width: 240px;
   padding: 8px 10px;
   background: var(--surface);
@@ -1177,7 +1173,34 @@ th.col-optional {
   text-transform: none;
   white-space: normal;
   text-align: left;
-  z-index: 80;
+  z-index: 5000;
+  pointer-events: none;
+}
+
+/* ── applies_to: explicit facility + technology pickers (choose one) ──────── */
+.applies-pair {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 150px;
+}
+.applies-row {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  align-items: center;
+  gap: 4px;
+}
+.applies-tag {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  text-align: right;
+}
+.applies-pair.is-missing .combo input {
+  border: 1px solid #dc2626;
+  border-radius: 3px;
 }
 
 .modal-actions {

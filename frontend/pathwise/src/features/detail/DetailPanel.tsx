@@ -1,7 +1,15 @@
 import { useState } from "react";
-import { emptyHint, optionsFor, refTargets, type RefTarget } from "../../lib/references";
+import {
+  emptyHint,
+  measureLinkedViaSet,
+  optionsFor,
+  refTargets,
+  type RefTarget,
+} from "../../lib/references";
 import type { Cell, Selection, Workbook } from "../../types";
+import { AppliesToPicker } from "../controls/AppliesToPicker";
 import { CreateComponentModal } from "../controls/CreateComponentModal";
+import { InfoTip } from "../controls/InfoTip";
 import { SearchableSelect } from "../controls/SearchableSelect";
 
 type SchemaMap = Record<
@@ -374,13 +382,7 @@ export function DetailPanel({ workbook, selected, schema, onChange, onClose, flo
                 <span>
                   {labelOf(c)}
                   {descOf(c) ? (
-                    <span
-                      className="col-info"
-                      data-tip={`${descOf(c)} ${isRequired(c) ? "(required)" : "(optional)"}`}
-                    >
-                      {" "}
-                      ⓘ
-                    </span>
+                    <InfoTip tip={`${descOf(c)} ${isRequired(c) ? "(required)" : "(optional)"}`} />
                   ) : null}
                   {canTemporal(c) && (
                     <button
@@ -395,7 +397,31 @@ export function DetailPanel({ workbook, selected, schema, onChange, onClose, flo
                     </button>
                   )}
                 </span>
-                {opts ? (
+                {(selected.sheet === "measures" || selected.sheet === "measure_links") &&
+                c === "applies_to" ? (
+                  <AppliesToPicker
+                    value={value}
+                    workbook={workbook}
+                    onChange={(v) => edit(c, v)}
+                    missingIsOk={selected.sheet === "measures" && measureLinkedViaSet(workbook, row)}
+                    onCreateFacility={(name) =>
+                      setCreating({
+                        c,
+                        name,
+                        targets: [{ sheet: "processes", idCol: "process_id", label: "facility" }],
+                      })
+                    }
+                    onCreateTechnology={(name) =>
+                      setCreating({
+                        c,
+                        name,
+                        targets: [
+                          { sheet: "technologies", idCol: "technology_id", label: "technology" },
+                        ],
+                      })
+                    }
+                  />
+                ) : opts ? (
                   <SearchableSelect
                     value={value}
                     options={opts}
