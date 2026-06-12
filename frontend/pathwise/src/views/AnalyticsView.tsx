@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { LineChart } from "../components/LineChart";
-import { MaccDesigner } from "../components/MaccDesigner";
-import { PortfolioResult } from "../components/PortfolioResult";
-import { TopologyChart } from "../components/TopologyChart";
+import { LineChart } from "../features/charts/LineChart";
+import { MaccDesigner } from "../features/macc/MaccDesigner";
+import { PortfolioResult } from "../features/charts/PortfolioResult";
+import { TopologyCanvas } from "../features/topology/TopologyCanvas";
 import { RailList, type RailItem } from "../layout/RailList";
 import { Resizer } from "../layout/Resizer";
 import type { RunResult, Workbook } from "../types";
@@ -72,7 +72,7 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
         ) : cat === "map" ? (
           <>
             <div className="topology-wrap">
-              <TopologyChart workbook={workbook} result={result} year={activeYear} />
+              <TopologyCanvas workbook={workbook} result={result} year={activeYear} />
             </div>
             <div className="year-slider">
               <span className="muted">Year</span>

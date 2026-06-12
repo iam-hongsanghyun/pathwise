@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { optionsFor } from "../graph/references";
-import type { Cell, Selection, Workbook } from "../types";
+import { optionsFor } from "../../lib/references";
+import type { Cell, Selection, Workbook } from "../../types";
 
 type SchemaMap = Record<
   string,

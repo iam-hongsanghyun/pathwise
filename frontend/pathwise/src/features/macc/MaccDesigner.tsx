@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { Row, Workbook } from "../types";
+import type { Row, Workbook } from "../../types";
 
 const str = (v: unknown, d = ""): string => (v == null ? d : String(v));
 const num = (v: unknown, d = 0): number => (v == null || v === "" ? d : Number(v));

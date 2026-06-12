@@ -1,7 +1,7 @@
-// Pure, round-trip bridge between the React Flow graph and the workbook.
-// Node id = `${kind}:${entityId}`; the workbook stays the single source of truth.
+// Pure, round-trip bridge between the topology graph and the workbook.
+// Node id = `${kind}:${entityId}`; the workbook stays the single source of
+// truth. Pure-logic layer: no React / no chart library types.
 
-import type { Edge, Node } from "reactflow";
 import type { Workbook } from "../types";
 
 export type NodeKind = "process" | "commodity" | "market" | "storage";
@@ -19,23 +19,21 @@ export interface NodeData {
   sub?: string;
   ports?: FacilityPorts;
 }
-export type GraphNode = Node<NodeData>;
-export type GraphEdge = Edge;
+export interface GraphNode {
+  id: string;
+  position: { x: number; y: number };
+  data: NodeData;
+}
+export interface GraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  label?: string;
+}
 
 const s = (v: unknown, d = ""): string => (v == null ? d : String(v));
 const n = (v: unknown, d = 0): number => (v == null || v === "" ? d : Number(v));
 export const nodeId = (kind: NodeKind, id: string): string => `${kind}:${id}`;
-const parse = (id: string): { kind: NodeKind; entityId: string } => {
-  const i = id.indexOf(":");
-  return { kind: id.slice(0, i) as NodeKind, entityId: id.slice(i + 1) };
-};
-
-function baselineOf(wb: Workbook, process: string): string {
-  return s(
-    (wb.processes ?? []).find((p) => s(p.process_id) === process)?.baseline_technology,
-  );
-}
-
 /** dataTransfer MIME type for dragging a tree item onto the canvas. */
 export const DRAG_MIME = "application/pathwise-node";
 
@@ -89,7 +87,7 @@ export function workbookToGraph(wb: Workbook): { nodes: GraphNode[]; edges: Grap
     layered.get(id) ?? { x: 60 + (auto % 6) * 210, y: 60 + Math.floor(auto++ / 6) * 150 };
   const add = (kind: NodeKind, entityId: string, label: string, sub?: string, ports?: FacilityPorts) => {
     const id = nodeId(kind, entityId);
-    nodes.push({ id, type: kind, position: place(id), data: { kind, entityId, label, sub, ports } });
+    nodes.push({ id, position: place(id), data: { kind, entityId, label, sub, ports } });
   };
 
   for (const r of wb.commodities ?? []) add("commodity", s(r.commodity_id), s(r.commodity_id), s(r.kind));
@@ -223,44 +221,4 @@ export function addFacilityWithTech(wb: Workbook, tech: string, x: number, y: nu
     x,
     y,
   );
-}
-
-/** Wire a connection: writes the appropriate sheet based on endpoint kinds. */
-export function connect(wb: Workbook, sourceId: string, targetId: string): Workbook {
-  const a = parse(sourceId);
-  const b = parse(targetId);
-  const out: Workbook = { ...wb };
-  // market → commodity : set the market's traded commodity.
-  if (a.kind === "market" && b.kind === "commodity") {
-    out.markets = (wb.markets ?? []).map((r) =>
-      s(r.market_id) === a.entityId ? { ...r, target: b.entityId, target_kind: "commodity" } : r,
-    );
-    return out;
-  }
-  // storage → commodity : set the stored commodity.
-  if (a.kind === "storage" && b.kind === "commodity") {
-    out.storage = (wb.storage ?? []).map((r) =>
-      s(r.storage_id) === a.entityId ? { ...r, commodity_id: b.entityId } : r,
-    );
-    return out;
-  }
-  // commodity → process (input) / process → commodity (output): add an `io` row
-  // on the process's baseline technology.
-  const ioLink = (tech: string, target: string, role: "input" | "output") => {
-    if (!tech) return;
-    const exists = (wb.io ?? []).some(
-      (r) => s(r.technology_id) === tech && s(r.target) === target && s(r.role, "input") === role,
-    );
-    if (!exists)
-      out.io = [...(wb.io ?? []), { technology_id: tech, target, role, coefficient: 1 }];
-  };
-  if (a.kind === "commodity" && b.kind === "process") {
-    ioLink(baselineOf(wb, b.entityId), a.entityId, "input");
-    return out;
-  }
-  if (a.kind === "process" && b.kind === "commodity") {
-    ioLink(baselineOf(wb, a.entityId), b.entityId, "output");
-    return out;
-  }
-  return out;
 }

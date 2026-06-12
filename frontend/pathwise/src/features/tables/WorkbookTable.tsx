@@ -1,4 +1,4 @@
-import type { Cell, Row } from "../types";
+import type { Cell, Row } from "../../types";
 
 interface Props {
   rows: Row[];

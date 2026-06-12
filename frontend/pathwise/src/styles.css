@@ -783,17 +783,63 @@ td input:focus {
   gap: 4px;
 }
 
-/* Node handles (dots): left = input (incoming), right = output (outgoing). */
-.react-flow__handle {
-  width: 9px;
-  height: 9px;
-  border: 1px solid var(--surface);
+/* ── Topology canvas (hand-rolled SVG; no graph library) ──────────────────── */
+.topo-canvas {
+  background: var(--bg);
+  overflow: hidden;
 }
-.react-flow__handle.h-in {
-  background: var(--muted);
+.topo-canvas svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  touch-action: none;
 }
-.react-flow__handle.h-out {
-  background: var(--brand);
+.topo-node {
+  cursor: pointer;
+}
+.topo-node rect {
+  fill: var(--surface);
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+.topo-process rect {
+  stroke: var(--brand);
+}
+.topo-market rect {
+  stroke: var(--warn);
+}
+.topo-storage rect {
+  stroke: #7c3aed;
+}
+.topo-node.is-dim {
+  opacity: 0.45;
+}
+.topo-kind {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  fill: var(--muted);
+}
+.topo-label {
+  font-size: 12px;
+  font-weight: 600;
+  fill: var(--text);
+}
+.topo-sub {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  fill: var(--muted);
+}
+/* dots: left = input (incoming), right = output (outgoing) */
+.topo-in {
+  fill: var(--muted);
+  stroke: var(--surface);
+}
+.topo-out {
+  fill: var(--brand);
+  stroke: var(--surface);
 }
 
 /* ── Designer canvas ────────────────────────────────────────────────────── */

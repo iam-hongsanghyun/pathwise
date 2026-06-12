@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { DetailPanel } from "../layout/DetailPanel";
+import { DetailPanel } from "../features/detail/DetailPanel";
 import { LeftRail, type RailLibrarySector } from "../layout/LeftRail";
 import { Resizer } from "../layout/Resizer";
-import { FlowCanvas } from "../components/designer/FlowCanvas";
-import { FlowView } from "../components/FlowView";
-import { WorkbookTable } from "../components/WorkbookTable";
+import { TopologyCanvas } from "../features/topology/TopologyCanvas";
+import { FlowView } from "../features/flow/FlowView";
+import { WorkbookTable } from "../features/tables/WorkbookTable";
 import { insertTemplate } from "../lib/api/session";
-import { listLibrary, loadSector, type SectorLibrary } from "../library";
+import { listLibrary, loadSector, type SectorLibrary } from "../lib/api/library";
 import type { Cell, ConfigBundle, Row, Selection, Workbook } from "../types";
 
 interface Props {
@@ -276,18 +276,13 @@ export function ModelView({
             ))}
           </div>
           {mode === "canvas" &&
-            "Drag a component onto the canvas; drag a node handle to another to connect. Click an item to edit."}
+            "Drag a component onto the canvas to place it; drag a node to move it. Click an item to edit (inputs/outputs in the detail panel)."}
           {mode === "flow" &&
             "Process route by stage (● current · ○ alternative). Toggle aggregated / per-facility; click a technology to edit."}
         </div>
         <div className="canvas-pane">
           {mode === "canvas" && (
-            <FlowCanvas
-              workbook={workbook}
-              onChange={setWorkbook}
-              onSelect={openItem}
-              onDropLibrary={dropLibraryFacility}
-            />
+            <TopologyCanvas workbook={workbook} editable onChange={setWorkbook} onSelect={openItem} onDropLibrary={dropLibraryFacility} />
           )}
           {mode === "flow" && <FlowView workbook={workbook} onSelect={openItem} />}
         </div>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DRAG_MIME, nodeId, type NodeKind } from "../graph/model";
+import { DRAG_MIME, nodeId, type NodeKind } from "../lib/graph";
 import type { Selection, Workbook } from "../types";
 
 /** Entity sheets (id column) expand into clickable items; the placeable ones

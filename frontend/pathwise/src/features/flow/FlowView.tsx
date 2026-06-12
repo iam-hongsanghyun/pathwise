@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Selection, Workbook } from "../types";
+import type { Selection, Workbook } from "../../types";
 
 interface Props {
   workbook: Workbook;

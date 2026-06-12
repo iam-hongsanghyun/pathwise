@@ -1,5 +1,5 @@
 import { ChartTip, useTip } from "./charting";
-import type { PortfolioResultBlock } from "../types";
+import type { PortfolioResultBlock } from "../../types";
 
 const BRAND = "#0f766e";
 const ACCENT = "#db2777";
