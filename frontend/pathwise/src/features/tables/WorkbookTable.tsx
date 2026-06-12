@@ -1,7 +1,15 @@
 import { useState } from "react";
-import { emptyHint, optionsFor, refTargets, type RefTarget } from "../../lib/references";
+import {
+  emptyHint,
+  measureLinkedViaSet,
+  optionsFor,
+  refTargets,
+  type RefTarget,
+} from "../../lib/references";
 import type { Cell, Row, Workbook } from "../../types";
+import { AppliesToPicker } from "../controls/AppliesToPicker";
 import { CreateComponentModal, type SchemaMap } from "../controls/CreateComponentModal";
+import { InfoTip } from "../controls/InfoTip";
 import { SearchableSelect } from "../controls/SearchableSelect";
 
 /** Per-column metadata from the domain schema (label, required, description). */
@@ -66,6 +74,41 @@ export function WorkbookTable({
 
   const cell = (row: Row, i: number, c: string) => {
     const value = row[c] == null ? "" : String(row[c]);
+    // applies_to gets explicit facility + technology pickers (one must be
+    // chosen unless a measure is reached through a linked MACC set).
+    if (workbook && sheet && (sheet === "measures" || sheet === "measure_links") && c === "applies_to") {
+      const canCreate = Boolean(schema && onWorkbook);
+      return (
+        <AppliesToPicker
+          value={value}
+          workbook={workbook}
+          onChange={(v) => edit(i, c, v)}
+          missingIsOk={sheet === "measures" && measureLinkedViaSet(workbook, row)}
+          onCreateFacility={
+            canCreate
+              ? (name) =>
+                  setCreating({
+                    i,
+                    c,
+                    name,
+                    targets: [{ sheet: "processes", idCol: "process_id", label: "facility" }],
+                  })
+              : undefined
+          }
+          onCreateTechnology={
+            canCreate
+              ? (name) =>
+                  setCreating({
+                    i,
+                    c,
+                    name,
+                    targets: [{ sheet: "technologies", idCol: "technology_id", label: "technology" }],
+                  })
+              : undefined
+          }
+        />
+      );
+    }
     const opts = workbook && sheet ? optionsFor(workbook, sheet, c, row) : null;
     if (opts) {
       const targets = workbook && sheet ? refTargets(sheet, c, row) : [];
@@ -99,13 +142,9 @@ export function WorkbookTable({
                 >
                   {meta(c).label ?? c}
                   {meta(c).desc ? (
-                    <span
-                      className="col-info"
-                      data-tip={`${meta(c).desc} ${meta(c).required ? "(required)" : "(optional)"}`}
-                    >
-                      {" "}
-                      ⓘ
-                    </span>
+                    <InfoTip
+                      tip={`${meta(c).desc} ${meta(c).required ? "(required)" : "(optional)"}`}
+                    />
                   ) : null}
                 </th>
               ))}

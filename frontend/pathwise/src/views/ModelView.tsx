@@ -306,6 +306,7 @@ export function ModelView({
         onLibraryItem={(sector, kind, id) => setLibPreview({ sector, kind, id })}
         draggable
         width={leftW}
+        schema={schema as SchemaMap}
       />
       <Resizer width={leftW} setWidth={setLeftW} side="left" />
       <main className="main-area">

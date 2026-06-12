@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { optionsFor, type RefTarget } from "../../lib/references";
+import { InfoTip } from "./InfoTip";
 import type { Cell, Row, Workbook } from "../../types";
 import { SearchableSelect } from "./SearchableSelect";
 
@@ -80,11 +81,7 @@ export function CreateComponentModal({ name, targets, schema, workbook, onSave, 
               >
                 <span>
                   {m.label ?? c}
-                  {m.desc ? (
-                    <span className="col-info" data-tip={m.desc}>
-                      ⓘ
-                    </span>
-                  ) : null}
+                  {m.desc ? <InfoTip tip={m.desc} /> : null}
                 </span>
                 {opts ? (
                   <SearchableSelect value={value} options={opts} onChange={(v) => set(c, v)} />
