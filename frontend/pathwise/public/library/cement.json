@@ -1,0 +1,122 @@
+{
+  "sector": "cement",
+  "label": "Cement",
+  "commodities": [
+    { "commodity_id": "limestone", "kind": "material", "unit": "t", "price": 10.0 },
+    { "commodity_id": "coal_fuel", "kind": "energy", "unit": "GJ", "price": 3.0 },
+    { "commodity_id": "alt_fuel", "kind": "energy", "unit": "GJ", "price": 1.5 },
+    { "commodity_id": "electricity", "kind": "energy", "unit": "MWh", "price": 75.0 },
+    { "commodity_id": "clinker", "kind": "material", "unit": "t" },
+    { "commodity_id": "ggbs", "kind": "material", "unit": "t", "price": 40.0 },
+    { "commodity_id": "cement", "kind": "product", "unit": "t" }
+  ],
+  "facilities": [
+    {
+      "facility_id": "clinker_kiln",
+      "label": "Clinker kiln (dry, preheater/precalciner)",
+      "description": "5-stage cyclone preheater + precalciner rotary kiln. Thermal 3.6 GJ/t clinker (world avg; BAT 2.9-3.3); process CO2 from calcination 0.53 t/t plus fuel CO2 (total direct ~0.83 t/t). Alternative: 30% waste/biomass fuel substitution cuts the fossil-fuel CO2 share.",
+      "technology": {
+        "technology_id": "Kiln_Dry",
+        "lifespan": 40,
+        "capex": 250.0,
+        "opex": 8.0,
+        "io": [
+          { "target": "limestone", "role": "input", "coefficient": 1.55 },
+          { "target": "coal_fuel", "role": "input", "coefficient": 3.6 },
+          { "target": "electricity", "role": "input", "coefficient": 0.105 },
+          { "target": "clinker", "role": "output", "coefficient": 1.0 },
+          { "target": "CO2", "role": "impact", "coefficient": 0.83 }
+        ]
+      },
+      "alternatives": [
+        {
+          "technology": {
+            "technology_id": "Kiln_AltFuel",
+            "lifespan": 40,
+            "capex": 270.0,
+            "opex": 8.5,
+            "io": [
+              { "target": "limestone", "role": "input", "coefficient": 1.55 },
+              { "target": "coal_fuel", "role": "input", "coefficient": 2.52 },
+              { "target": "alt_fuel", "role": "input", "coefficient": 1.08 },
+              { "target": "electricity", "role": "input", "coefficient": 0.105 },
+              { "target": "clinker", "role": "output", "coefficient": 1.0 },
+              { "target": "CO2", "role": "impact", "coefficient": 0.74 }
+            ]
+          },
+          "transition_capex_per_capacity": 40.0
+        }
+      ],
+      "default_capacity": 1000.0,
+      "source": {
+        "name": "IEA cement sector profile + Technology Roadmap: Low-Carbon Transition in the Cement Industry; IEAGHG calcination CO2",
+        "url": "https://www.iea.org/energy-system/industry/cement",
+        "year": 2023,
+        "region": "global",
+        "basis": "world-average plant; BAT range 2.9-3.3 GJ/t in notes",
+        "notes": "Roadmap PDF: https://iea.blob.core.windows.net/assets/cbaa3da1-fd61-4c2a-8719-31538f59b54f/TechnologyRoadmapLowCarbonTransitionintheCementIndustry.pdf ; calcination CO2 0.53 t/t: https://ieaghg.org/publications/2008-03%20CO2%20Capture%20in%20the%20Cement%20Industry.pdf"
+      }
+    },
+    {
+      "facility_id": "cement_mill",
+      "label": "Cement mill (grinding & blending)",
+      "description": "Grinds clinker with gypsum/SCMs to cement. Baseline uses the 2022 global clinker-to-cement ratio (0.71); the blended alternative substitutes GGBS down to a 0.50 ratio, cutting upstream clinker demand ~30%.",
+      "technology": {
+        "technology_id": "Mill_OPC",
+        "lifespan": 30,
+        "capex": 60.0,
+        "opex": 4.0,
+        "io": [
+          { "target": "clinker", "role": "input", "coefficient": 0.71 },
+          { "target": "electricity", "role": "input", "coefficient": 0.04 },
+          { "target": "cement", "role": "output", "coefficient": 1.0, "is_product": true }
+        ]
+      },
+      "alternatives": [
+        {
+          "technology": {
+            "technology_id": "Mill_Blended_GGBS",
+            "lifespan": 30,
+            "capex": 70.0,
+            "opex": 4.5,
+            "io": [
+              { "target": "clinker", "role": "input", "coefficient": 0.5 },
+              { "target": "ggbs", "role": "input", "coefficient": 0.21 },
+              { "target": "electricity", "role": "input", "coefficient": 0.05 },
+              { "target": "cement", "role": "output", "coefficient": 1.0, "is_product": true },
+              { "target": "CO2", "role": "impact", "coefficient": 0.011 }
+            ]
+          },
+          "transition_capex_per_capacity": 25.0
+        }
+      ],
+      "default_capacity": 1400.0,
+      "source": {
+        "name": "IEA Technology Roadmap: Low-Carbon Transition in the Cement Industry (clinker ratio 0.71 global 2022; GGBS substitution 30-70%, ~0.05 tCO2/t GGBS)",
+        "url": "https://iea.blob.core.windows.net/assets/cbaa3da1-fd61-4c2a-8719-31538f59b54f/TechnologyRoadmapLowCarbonTransitionintheCementIndustry.pdf",
+        "year": 2018,
+        "region": "global",
+        "basis": "indicative blend; clinker ratio is region-specific (US 0.89, CN 0.65)"
+      }
+    }
+  ],
+  "chains": [
+    {
+      "chain_id": "cement_chain",
+      "label": "Clinker kiln → cement mill",
+      "description": "The cement route: limestone calcined to clinker, then ground/blended to cement. Decarbonisation levers at both stages (alt fuels upstream, clinker substitution downstream).",
+      "stages": [
+        { "facility": "clinker_kiln", "feeds": [] },
+        { "facility": "cement_mill", "feeds": ["clinker_kiln"] }
+      ],
+      "demand_hint": { "commodity_id": "cement", "amount": 700.0 },
+      "source": {
+        "name": "IEA cement sector profile",
+        "url": "https://www.iea.org/energy-system/industry/cement",
+        "year": 2023,
+        "region": "global",
+        "basis": "representative route"
+      }
+    }
+  ]
+}

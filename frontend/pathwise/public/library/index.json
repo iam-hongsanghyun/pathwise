@@ -6,10 +6,34 @@
     "description": "3 facility template(s), 1 chain(s)"
   },
   {
+    "sector": "ammonia",
+    "label": "Ammonia",
+    "file": "ammonia.json",
+    "description": "1 facility template(s)"
+  },
+  {
+    "sector": "cement",
+    "label": "Cement",
+    "file": "cement.json",
+    "description": "2 facility template(s), 1 chain(s)"
+  },
+  {
+    "sector": "hydrogen",
+    "label": "Hydrogen",
+    "file": "hydrogen.json",
+    "description": "1 facility template(s)"
+  },
+  {
     "sector": "petrochemical",
     "label": "Petrochemical",
     "file": "petrochemical.json",
     "description": "10 facility template(s)"
+  },
+  {
+    "sector": "power",
+    "label": "Power generation",
+    "file": "power.json",
+    "description": "1 facility template(s)"
   },
   {
     "sector": "shipping",
@@ -18,9 +42,21 @@
     "description": "9 facility template(s)"
   },
   {
+    "sector": "steam_cracking",
+    "label": "Steam cracking (product slates)",
+    "file": "steam_cracking.json",
+    "description": "1 facility template(s)"
+  },
+  {
     "sector": "steel",
     "label": "Steel",
     "file": "steel.json",
     "description": "5 facility template(s), 1 chain(s)"
+  },
+  {
+    "sector": "steel_processing",
+    "label": "Steel — pre/post processing",
+    "file": "steel_processing.json",
+    "description": "4 facility template(s), 1 chain(s)"
   }
 ]
