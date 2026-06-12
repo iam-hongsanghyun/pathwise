@@ -47,6 +47,16 @@ class Settings(BaseSettings):
     # ── Portfolio backend (server-controlled; clamps user requests) ───────────
     max_portfolio_scenarios: int = 50000
 
+    # ── Server-side data (ragnarok pattern: the backend owns the model) ───────
+    # Working sessions (one SQLite file each) live under <data_dir>/sessions.
+    data_dir: str = "data"
+    # Bundled example workbooks + the facility-template library (static assets,
+    # read by the backend so the frontend never parses files itself).
+    examples_dir: str = "frontend/pathwise/public/examples"
+    library_dir: str = "frontend/pathwise/public/library"
+    # Paging cap for session sheet reads.
+    max_sheet_page: int = 1000
+
     # ── Jobs / logging ───────────────────────────────────────────────────────
     max_jobs: int = 4
     log_level: str = "INFO"

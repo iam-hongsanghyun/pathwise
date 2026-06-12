@@ -139,8 +139,7 @@ def build_sector(spec: dict[str, Any]) -> dict[str, Any]:
         }
 
     baselines = sorted(
-        {str(p.get("baseline_technology")) for p in procs}
-        & {k for k in techs if spec["keep"](k)}
+        {str(p.get("baseline_technology")) for p in procs} & {k for k in techs if spec["keep"](k)}
     )
     facilities: list[dict[str, Any]] = []
     referenced: set[str] = set()
@@ -221,9 +220,7 @@ def _derive_chain(spec: dict[str, Any], facilities: list[dict[str, Any]]) -> lis
     def depth(fid: str, seen: frozenset[str] = frozenset()) -> int:
         if fid in seen:
             return 0
-        ups = [
-            u for u in outs if u != fid and (outs[u] & ins[fid])
-        ]
+        ups = [u for u in outs if u != fid and (outs[u] & ins[fid])]
         return max((depth(u, seen | {fid}) + 1 for u in ups), default=0)
 
     by_depth: dict[int, list[str]] = {}
@@ -236,10 +233,7 @@ def _derive_chain(spec: dict[str, Any], facilities: list[dict[str, Any]]) -> lis
     for d in sorted(by_depth):
         for fid in sorted(by_depth[d]):
             feeds = sorted(
-                u
-                for prev_d in range(d)
-                for u in by_depth.get(prev_d, [])
-                if outs[u] & ins[fid]
+                u for prev_d in range(d) for u in by_depth.get(prev_d, []) if outs[u] & ins[fid]
             )
             stages.append({"facility": fid, "feeds": feeds})
 

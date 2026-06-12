@@ -260,6 +260,98 @@ def add_facility(
     return wb
 
 
+def add_chain(
+    workbook: Workbook,
+    library: SectorLibrary,
+    chain_id: str,
+    *,
+    company: str = "",
+) -> Workbook:
+    """Merge one chain template into an existing workbook (pure).
+
+    Inserts every stage via :func:`add_facility`, derives ``edges`` from each
+    stage's ``feeds`` (the commodity the upstream produces and the downstream
+    consumes), places the stages left→right in ``node_layout``, ensures the
+    referenced impacts and at least one period exist, and seeds demand from the
+    chain's ``demand_hint`` for every horizon year.
+
+    Raises:
+        ValueError: If a feed pair shares no commodity (a broken chain).
+    """
+    chain = next((c for c in library.chains if c.chain_id == chain_id), None)
+    if chain is None:
+        raise KeyError(f"unknown chain '{chain_id}'")
+
+    wb: Workbook = {k: list(v) for k, v in workbook.items()}
+    wb.setdefault("periods", [])
+    wb.setdefault("impacts", [])
+    wb.setdefault("edges", [])
+    wb.setdefault("demand", [])
+    wb.setdefault("node_layout", [])
+    if not wb["periods"]:
+        wb["periods"] = [{"year": 2025, "duration_years": 1}]
+
+    base_y = 60 + len(wb.get("processes", [])) * 40
+    pid_of: dict[str, str] = {}
+    impacts: set[str] = set()
+    for i, stage in enumerate(chain.stages):
+        f = library.facility(stage.facility)
+        wb = add_facility(wb, library, stage.facility, company=company)
+        pid = str(wb["processes"][-1]["process_id"])
+        pid_of[stage.facility] = pid
+        wb["node_layout"] = [
+            r for r in wb["node_layout"] if str(r.get("id")) != f"process:{pid}"
+        ] + [{"id": f"process:{pid}", "x": 260 + i * 440, "y": base_y}]
+        for tech in [f.technology, *(a.technology for a in f.alternatives)]:
+            impacts |= {r.target for r in tech.io if r.role == "impact"}
+    have_imp = {str(r.get("impact_id")) for r in wb["impacts"]}
+    wb["impacts"] += [{"impact_id": i, "unit": "t"} for i in sorted(impacts - have_imp)]
+
+    outputs_of = {
+        f.facility_id: {r.target for r in f.technology.io if r.role == "output"}
+        for f in library.facilities
+    }
+    inputs_of = {
+        f.facility_id: {r.target for r in f.technology.io if r.role == "input"}
+        for f in library.facilities
+    }
+    for stage in chain.stages:
+        for feed in stage.feeds:
+            shared = outputs_of.get(feed, set()) & inputs_of.get(stage.facility, set())
+            if not shared:
+                raise ValueError(
+                    f"chain '{chain_id}': stage '{stage.facility}' feeds from "
+                    f"'{feed}' but they share no commodity"
+                )
+            for commodity in sorted(shared):
+                wb["edges"].append(
+                    {
+                        "from_process": pid_of[feed],
+                        "to_process": pid_of[stage.facility],
+                        "commodity_id": commodity,
+                    }
+                )
+
+    if chain.demand_hint is not None:
+        years = [int(p["year"]) for p in wb["periods"] if p.get("year") is not None]
+        for y in years:
+            exists = any(
+                str(d.get("commodity_id")) == chain.demand_hint.commodity_id
+                and int(d.get("year") or 0) == y
+                for d in wb["demand"]
+            )
+            if not exists:
+                wb["demand"].append(
+                    {
+                        "company": company,
+                        "commodity_id": chain.demand_hint.commodity_id,
+                        "year": y,
+                        "amount": chain.demand_hint.amount,
+                    }
+                )
+    return wb
+
+
 def instantiate_chain(
     library: SectorLibrary,
     chain_id: str,

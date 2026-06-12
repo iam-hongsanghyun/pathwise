@@ -22,3 +22,4 @@ output/*.parquet
 
 # OS / editor
 .DS_Store
+data/

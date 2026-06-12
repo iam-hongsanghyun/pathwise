@@ -1,20 +1,21 @@
 """FastAPI application for pathwise.
 
-A deliberately minimal, **stateless** HTTP surface — the sole coupling between any
-frontend and any backend:
+The backend is the single source of truth (the ragnarok pattern): the working
+model lives in a server-side **session**, files are parsed/written here, and a
+run is submitted by ``sessionId`` — the model never has to travel from the
+browser.
 
-* ``GET  /api/health``      — liveness for the launcher/ops.
-* ``GET  /api/config``      — handshake: server-side config + domain/backend caps.
-* ``POST /api/run``         — send the entire model + scenario; get a job id.
-* ``GET  /api/run/{id}``    — poll until done to receive the entire result.
-* ``DELETE /api/run/{id}``  — cancel.
-
-The backend reads no files and owns no data: everything arrives in the request and
-the whole result returns in the response.
+* ``GET  /api/health``                — liveness for the launcher/ops.
+* ``GET  /api/config``                — handshake: config + domain/backend caps.
+* ``/api/session/*``                  — server-held working model (ingest, page,
+  patch, upload/export xlsx, load example, insert library template).
+* ``POST /api/run``                   — run by ``sessionId`` (or inline model).
+* ``GET/DELETE /api/run/{id}``        — poll / cancel.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -25,7 +26,10 @@ from pathwise import __version__
 from pathwise.api.config_provider import get_config_bundle
 from pathwise.api.jobs import JobStore
 from pathwise.api.models import RunPayload
+from pathwise.api.routers.session import router as session_router
+from pathwise.api.session_store import SessionStore
 from pathwise.backends.registry import get_backend
+from pathwise.config import get_settings
 from pathwise.logger import get_logger
 
 logger = get_logger(__name__)
@@ -37,15 +41,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(session_router)
 
 _jobs = JobStore()
 
 
 def _solve(payload: dict[str, Any]) -> dict[str, Any]:
-    """Job body: resolve the backend and run one case (validation included)."""
+    """Job body: resolve the model (session or inline) and run one case."""
     options = payload.get("options") or {}
+    model = payload.get("model") or {}
+    session_id = payload.get("sessionId")
+    if session_id and not model:
+        store = SessionStore(Path(get_settings().data_dir) / "sessions")
+        model = store.get_model(session_id)
     backend = get_backend(options.get("backend"))
-    return backend.run(payload["model"], payload.get("scenario", {}), options)
+    return backend.run(model, payload.get("scenario", {}), options)
 
 
 @app.get("/api/health")
