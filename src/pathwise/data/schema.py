@@ -197,17 +197,25 @@ SCHEMA: dict[str, Any] = {
         "columns": {
             "measure_id": {"label": "Measure", "type": "string", "required": True, "desc": "Unique name of this retrofit measure."},
             "type": {"label": "Type", "type": "string", "required": True, "desc": "Lever it pulls: energy_efficiency cuts an input stream; emission_reduction cuts CO2; environmental cuts another impact."},
-            "applies_to": {"label": "On facility / technology", "type": "string", "desc": "Where it can be installed: a facility (that plant only) or a technology (every facility running it — each adopts independently). Leave empty when linking via a MACC set."},
             "target": {"label": "Target stream/impact", "type": "string", "required": True, "desc": "What it reduces: an input stream (energy_efficiency) or an impact (other types)."},
+            "facility": {"label": "Facility (direct)", "type": "string", "desc": "Optional direct install on one facility (that plant only). Leave empty for a catalogue measure deployed through a MACC."},
+            "technology": {"label": "Technology (direct)", "type": "string", "desc": "Optional direct install on a technology — every facility running it, each adopting independently. Leave empty for a catalogue measure deployed through a MACC."},
             "lifetime": {"label": "Lifetime (yr)", "type": "integer"},
-            "set": {"label": "MACC set (named table)", "type": "string", "desc": "Optional name grouping measures into a reusable MACC table — link it to facilities/technologies in measure_links."},
         },
     },
-    "measure_links": {
-        "label": "MACC set links",
+    "maccs": {
+        "label": "MACC sets (measure bundles)",
         "columns": {
-            "set": {"label": "MACC set", "type": "string", "required": True, "desc": "Named MACC table to apply (defined on measure rows)."},
-            "applies_to": {"label": "Facility / technology", "type": "string", "required": True, "desc": "Link target: a facility, or a technology = every facility running it (each adopts independently)."},
+            "macc": {"label": "MACC", "type": "string", "required": True, "desc": "Name of the MACC table this row adds a measure to. The same measure may appear in several MACCs."},
+            "measure_id": {"label": "Measure", "type": "string", "required": True, "desc": "A measure from the measures sheet to include in this MACC."},
+        },
+    },
+    "macc_links": {
+        "label": "MACC deployment",
+        "columns": {
+            "macc": {"label": "MACC", "type": "string", "required": True, "desc": "MACC table to deploy (built in the maccs sheet)."},
+            "facility": {"label": "Facility", "type": "string", "desc": "Deploy on one facility. Fill this OR technology."},
+            "technology": {"label": "Technology", "type": "string", "desc": "Deploy on every facility running this technology (each adopts independently). Fill this OR facility."},
         },
     },
     "measure_blocks": {

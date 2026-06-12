@@ -39,6 +39,12 @@ const ID_COL: Record<string, string> = {
   impacts: "impact_id",
 };
 
+/** Columns holding a user-invented NAME (not a component id): existing names
+ *  are offered for reuse, but typing a new one is always valid. */
+export function isFreeName(sheet: string, col: string): boolean {
+  return (sheet === "maccs" || sheet === "macc_links") && col === "macc";
+}
+
 /** Options for a (sheet, column) cell, or ``null`` for a free-text field. */
 export function optionsFor(wb: Workbook, sheet: string, col: string, row: Row): string[] | null {
   if (ID_COL[sheet] === col) return null; // defining the id, not referencing one
@@ -59,31 +65,26 @@ export function optionsFor(wb: Workbook, sheet: string, col: string, row: Row): 
       : distinct(wb, "impacts", "impact_id");
   }
 
-  // measures / measure_links may target a FACILITY or a TECHNOLOGY (= every
-  // facility running it as baseline).
-  if ((sheet === "measures" || sheet === "measure_links") && col === "applies_to")
-    return [
-      ...distinct(wb, "processes", "process_id"),
-      ...distinct(wb, "technologies", "technology_id"),
-    ];
-  // Linking picks an EXISTING named MACC set (define sets on measure rows).
-  if (sheet === "measure_links" && col === "set") return distinct(wb, "measures", "set");
-  if (sheet === "measure_blocks" && col === "measure_id")
+  // MACC names: offer existing ones, but new names are fine (free-name col).
+  if (isFreeName(sheet, col)) return distinct(wb, "maccs", "macc");
+  if ((sheet === "measure_blocks" || sheet === "maccs") && col === "measure_id")
     return distinct(wb, "measures", "measure_id");
 
   if (col === "company") return companies(wb);
   if (col === "commodity_id") return distinct(wb, "commodities", "commodity_id");
   if (col === "impact_id") return distinct(wb, "impacts", "impact_id");
-  if (["technology_id", "baseline_technology", "from_technology", "to_technology"].includes(col))
+  if (
+    ["technology_id", "baseline_technology", "from_technology", "to_technology", "technology"].includes(col)
+  )
     return distinct(wb, "technologies", "technology_id");
-  if (["from_process", "to_process", "applies_to"].includes(col))
+  if (["from_process", "to_process", "applies_to", "facility"].includes(col))
     return distinct(wb, "processes", "process_id");
   return null;
 }
 
 /** Where a reference column points — the sheet(s) a missing component could
  *  be created on. Empty array = not a creatable component (enums, booleans,
- *  free names like MACC set labels). */
+ *  free names like MACC labels). */
 export interface RefTarget {
   sheet: string;
   idCol: string;
@@ -99,57 +100,73 @@ const MEASURE: RefTarget = { sheet: "measures", idCol: "measure_id", label: "mea
 export function refTargets(sheet: string, col: string, row: Row): RefTarget[] {
   if (ID_COL[sheet] === col) return [];
   if (`${sheet}.${col}` in ENUMS || BOOLEAN_COLS.has(col)) return [];
-  if ((sheet === "measures" || sheet === "measure_links") && col === "applies_to")
-    return [FACILITY, TECH];
-  if (sheet === "measure_links" && col === "set") return []; // named on measure rows
-  if (sheet === "measure_blocks" && col === "measure_id") return [MEASURE];
+  if (isFreeName(sheet, col)) return []; // a name, not a component
+  if ((sheet === "measure_blocks" || sheet === "maccs") && col === "measure_id") return [MEASURE];
   if (sheet === "markets" && col === "target")
     return String(row.target_kind ?? "commodity") === "impact" ? [IMPACT] : [COMMODITY];
   if (sheet === "measures" && col === "target")
     return String(row.type ?? "") === "energy_efficiency" ? [COMMODITY] : [IMPACT];
   if (col === "commodity_id") return [COMMODITY];
   if (col === "impact_id") return [IMPACT];
-  if (["technology_id", "baseline_technology", "from_technology", "to_technology"].includes(col))
+  if (
+    ["technology_id", "baseline_technology", "from_technology", "to_technology", "technology"].includes(col)
+  )
     return [TECH];
-  if (["from_process", "to_process", "applies_to"].includes(col)) return [FACILITY];
+  if (["from_process", "to_process", "applies_to", "facility"].includes(col)) return [FACILITY];
   return [];
 }
 
-/** Reference columns of one row whose value does not resolve to an existing
- *  component, plus REQUIRED reference columns left empty — shown red in
- *  editors and as a red dot in the model tree (a problem marker, not an
- *  error that blocks editing). `requiredCols` comes from the domain schema. */
-export function rowProblems(
-  wb: Workbook,
-  sheet: string,
-  row: Row,
-  requiredCols?: string[],
-): string[] {
+/** BROKEN references: a filled value that does not resolve to an existing
+ *  component — shown red in editors and as a red DOT in the model tree. */
+export function rowProblems(wb: Workbook, sheet: string, row: Row): string[] {
   const bad: string[] = [];
   for (const [col, v] of Object.entries(row)) {
     if (v == null || v === "" || typeof v === "boolean") continue;
+    if (isFreeName(sheet, col)) continue; // new names are always valid
     const opts = optionsFor(wb, sheet, col, row);
     if (opts && !opts.includes(String(v))) bad.push(col);
-  }
-  for (const col of requiredCols ?? []) {
-    const v = row[col];
-    if ((v == null || v === "") && refTargets(sheet, col, row).length) bad.push(`${col} missing`);
-  }
-  // A measure must reach a facility or technology — either directly via
-  // applies_to or through a named MACC set linked in measure_links.
-  if (sheet === "measures" && (row.applies_to == null || row.applies_to === "")) {
-    const set = String(row.set ?? "");
-    const linked =
-      set !== "" &&
-      (wb.measure_links ?? []).some((l) => String(l.set ?? "") === set && l.applies_to);
-    if (!linked) bad.push("applies_to missing (pick a facility or technology, or link a MACC set)");
   }
   return bad;
 }
 
-/** True when a measure row may leave applies_to empty (it is reached through
- *  a linked MACC set instead). */
-export function measureLinkedViaSet(wb: Workbook, row: Row): boolean {
+/** MISSING requirements: required columns left empty (any type, schema-driven)
+ *  plus one-of rules — shown as a red BACKGROUND in the model tree.
+ *  Distinct from rowProblems (broken links → red dot). */
+export function rowMissing(sheet: string, row: Row, requiredCols?: string[]): string[] {
+  const out: string[] = [];
+  for (const col of requiredCols ?? []) {
+    const v = row[col];
+    if (v == null || v === "") out.push(col);
+  }
+  // A MACC deployment must name a facility OR a technology.
+  if (
+    sheet === "macc_links" &&
+    (row.facility == null || row.facility === "") &&
+    (row.technology == null || row.technology === "")
+  )
+    out.push("facility or technology");
+  return out;
+}
+
+/** True when a measure reaches at least one facility: a direct facility /
+ *  technology column, membership in a MACC that is deployed somewhere, or the
+ *  legacy applies_to / set columns. Catalogue-only measures are fine — they
+ *  are simply inert until deployed. */
+export function measureDeployed(wb: Workbook, row: Row): boolean {
+  if (row.facility || row.technology || row.applies_to) return true;
+  const mid = String(row.measure_id ?? "");
+  const myMaccs = new Set(
+    (wb.maccs ?? [])
+      .filter((r) => String(r.measure_id ?? "") === mid && r.macc)
+      .map((r) => String(r.macc)),
+  );
+  if (
+    (wb.macc_links ?? []).some(
+      (l) => myMaccs.has(String(l.macc ?? "")) && (l.facility || l.technology),
+    )
+  )
+    return true;
+  // legacy named set
   const set = String(row.set ?? "");
   return (
     set !== "" && (wb.measure_links ?? []).some((l) => String(l.set ?? "") === set && l.applies_to)
@@ -158,16 +175,17 @@ export function measureLinkedViaSet(wb: Workbook, row: Row): boolean {
 
 /** What to add first when a reference dropdown has no options yet. */
 export function emptyHint(sheet: string, col: string): string {
-  if ((sheet === "measures" || sheet === "measure_links") && col === "applies_to")
-    return "add a facility or technology first";
-  if (sheet === "measure_links" && col === "set")
-    return "name a MACC set on a measure row first";
-  if (sheet === "measure_blocks" && col === "measure_id") return "add a measure first";
+  if (isFreeName(sheet, col)) return "type a name for a new MACC";
+  if ((sheet === "measure_blocks" || sheet === "maccs") && col === "measure_id")
+    return "add a measure first";
   if (col === "commodity_id") return "add a stream first";
   if (col === "impact_id") return "add an impact first";
-  if (["technology_id", "baseline_technology", "from_technology", "to_technology"].includes(col))
+  if (
+    ["technology_id", "baseline_technology", "from_technology", "to_technology", "technology"].includes(col)
+  )
     return "add a technology first";
-  if (["from_process", "to_process", "applies_to"].includes(col)) return "add a facility first";
+  if (["from_process", "to_process", "applies_to", "facility"].includes(col))
+    return "add a facility first";
   if (col === "company") return "set a company on a facility first";
   return "add the referenced component first";
 }

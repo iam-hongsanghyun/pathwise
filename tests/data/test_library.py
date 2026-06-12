@@ -83,7 +83,7 @@ def test_measures_stamped_on_insert() -> None:
     assert fac.measures, "cement kiln template should carry a MACC measure"
     wb = add_facility({"periods": [{"year": 2025}]}, lib, "clinker_kiln", company="C")
     pid = str(wb["processes"][-1]["process_id"])
-    rows = [m for m in wb["measures"] if m["applies_to"] == pid]
+    rows = [m for m in wb["measures"] if m["facility"] == pid]
     assert len(rows) == len(fac.measures)
     blocks = [b for b in wb["measure_blocks"] if b["measure_id"] == rows[0]["measure_id"]]
     assert len(blocks) == len(fac.measures[0].blocks)

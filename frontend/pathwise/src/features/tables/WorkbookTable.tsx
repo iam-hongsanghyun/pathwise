@@ -1,13 +1,6 @@
 import { useState } from "react";
-import {
-  emptyHint,
-  measureLinkedViaSet,
-  optionsFor,
-  refTargets,
-  type RefTarget,
-} from "../../lib/references";
+import { emptyHint, isFreeName, optionsFor, refTargets, type RefTarget } from "../../lib/references";
 import type { Cell, Row, Workbook } from "../../types";
-import { AppliesToPicker } from "../controls/AppliesToPicker";
 import { CreateComponentModal, type SchemaMap } from "../controls/CreateComponentModal";
 import { InfoTip } from "../controls/InfoTip";
 import { SearchableSelect } from "../controls/SearchableSelect";
@@ -74,53 +67,26 @@ export function WorkbookTable({
 
   const cell = (row: Row, i: number, c: string) => {
     const value = row[c] == null ? "" : String(row[c]);
-    // applies_to gets explicit facility + technology pickers (one must be
-    // chosen unless a measure is reached through a linked MACC set).
-    if (workbook && sheet && (sheet === "measures" || sheet === "measure_links") && c === "applies_to") {
-      const canCreate = Boolean(schema && onWorkbook);
-      return (
-        <AppliesToPicker
-          value={value}
-          workbook={workbook}
-          onChange={(v) => edit(i, c, v)}
-          missingIsOk={sheet === "measures" && measureLinkedViaSet(workbook, row)}
-          onCreateFacility={
-            canCreate
-              ? (name) =>
-                  setCreating({
-                    i,
-                    c,
-                    name,
-                    targets: [{ sheet: "processes", idCol: "process_id", label: "facility" }],
-                  })
-              : undefined
-          }
-          onCreateTechnology={
-            canCreate
-              ? (name) =>
-                  setCreating({
-                    i,
-                    c,
-                    name,
-                    targets: [{ sheet: "technologies", idCol: "technology_id", label: "technology" }],
-                  })
-              : undefined
-          }
-        />
-      );
-    }
     const opts = workbook && sheet ? optionsFor(workbook, sheet, c, row) : null;
     if (opts) {
       const targets = workbook && sheet ? refTargets(sheet, c, row) : [];
       const canCreate = targets.length > 0 && Boolean(schema && onWorkbook);
+      // Free-name columns (MACC labels): typing a new name just uses it.
+      const freeName = Boolean(sheet && isFreeName(sheet, c));
       return (
         <SearchableSelect
           value={value}
           options={opts}
-          broken={value !== "" && !opts.includes(value)}
+          broken={!freeName && value !== "" && !opts.includes(value)}
           hint={sheet ? emptyHint(sheet, c) : undefined}
           onChange={(v) => edit(i, c, v)}
-          onCreate={canCreate ? (name) => setCreating({ i, c, name, targets }) : undefined}
+          onCreate={
+            freeName
+              ? (name) => edit(i, c, name)
+              : canCreate
+                ? (name) => setCreating({ i, c, name, targets })
+                : undefined
+          }
         />
       );
     }

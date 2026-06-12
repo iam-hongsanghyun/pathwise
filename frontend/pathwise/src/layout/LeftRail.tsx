@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { DRAG_MIME, nodeId, type NodeKind } from "../lib/graph";
-import { rowProblems } from "../lib/references";
+import { measureDeployed, rowMissing, rowProblems } from "../lib/references";
 import type { Cell, Selection, Workbook } from "../types";
 
 /** Entity sheets (id column) expand into clickable items; the placeable ones
@@ -64,6 +64,9 @@ const HIDDEN = new Set([
   "tech_impacts",
   "node_layout",
   "meta",
+  // Authored through the MACCs group (one editor: members + deployment + curve)
+  "maccs",
+  "macc_links",
 ]);
 
 /** A sector's library entries prepared for the rail (loaded by ModelView). */
@@ -150,16 +153,22 @@ export function LeftRail({
     const requiredCols = Object.entries(schema?.[sheet]?.columns ?? {})
       .filter(([, m]) => m.required)
       .map(([c]) => c);
-    const problems = rowProblems(workbook, sheet, r as Record<string, Cell>, requiredCols);
+    const problems = rowProblems(workbook, sheet, r as Record<string, Cell>);
+    const missing = rowMissing(sheet, r as Record<string, Cell>, requiredCols);
     let dot = "";
     if (problems.length) dot = "dot-bad";
     else if (isTech && targetTechs.has(id) && !baselineTechs.has(id)) dot = "dot-alt";
     else if (isTech && !baselineTechs.has(id)) dot = "dot-avail";
+    else if (sheet === "measures" && !measureDeployed(workbook, r as Record<string, Cell>))
+      dot = "dot-avail"; // catalogue measure — fine, inert until deployed
     else dot = "dot-active";
     // Temporal series are NOT nested here — selecting the item shows them in the
     // bottom panel, and they also live in the "Temporal datasets" group below.
     return (
-      <div className={`rail-item-row${enabled ? "" : " is-excluded"}`} key={`${id}-${i}`}>
+      <div
+        className={`rail-item-row${enabled ? "" : " is-excluded"}${missing.length ? " has-missing" : ""}`}
+        key={`${id}-${i}`}
+      >
         {toggleable && (
           <input
             type="checkbox"
@@ -182,8 +191,11 @@ export function LeftRail({
           }
           onClick={() => onItem({ sheet, idCol: ent.idCol, id })}
           title={
-            problems.length
-              ? `${id} — fix: ${problems.join("; ")}`
+            problems.length || missing.length
+              ? `${id} — fix: ${[
+                  ...problems.map((c) => `${c} does not exist`),
+                  ...missing.map((c) => `${c} required`),
+                ].join("; ")}`
               : dot === "dot-alt"
                 ? `${id} — alternative technology`
                 : canDrag
@@ -331,6 +343,59 @@ export function LeftRail({
       return next;
     });
 
+  const renderMaccs = () => {
+    const names = [
+      ...new Set(
+        [...(workbook.maccs ?? []), ...(workbook.macc_links ?? [])]
+          .map((r) => String(r.macc ?? ""))
+          .filter(Boolean),
+      ),
+    ].sort();
+    const memberCount = (name: string) =>
+      (workbook.maccs ?? []).filter((r) => String(r.macc ?? "") === name).length;
+    const deployed = (name: string) =>
+      (workbook.macc_links ?? []).some(
+        (r) => String(r.macc ?? "") === name && (r.facility || r.technology),
+      );
+    return (
+      <div className="rail-group" key="maccs">
+        <div className="rail-head-row">
+          <button
+            className={`rail-head${selected?.sheet === "maccs" ? " is-active" : ""}`}
+            title="MACCs — bundles of measures with their own abatement curve, deployed on facilities or technologies"
+          >
+            MACCs <span className="rail-count">{names.length}</span>
+          </button>
+          {onAdd && (
+            <button className="rail-add" title="new MACC" onClick={() => onAdd("maccs")}>
+              +
+            </button>
+          )}
+        </div>
+        {names.map((name) => {
+          const ok = memberCount(name) > 0 && deployed(name);
+          const sel = selected?.sheet === "maccs" && selected.id === name ? " is-active" : "";
+          return (
+            <div className="rail-item-row" key={name}>
+              <button
+                className={`rail-item${sel}`}
+                title={
+                  ok
+                    ? `${name} — ${memberCount(name)} measure(s), deployed`
+                    : `${name} — incomplete: ${memberCount(name) ? "not deployed yet" : "no measures yet"}`
+                }
+                onClick={() => onItem({ sheet: "maccs", idCol: "macc", id: name })}
+              >
+                <span className={`dot ${ok ? "dot-active" : "dot-avail"}`} />
+                {name}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   const renderLibrary = () =>
     library &&
     library.length > 0 &&
@@ -397,7 +462,9 @@ export function LeftRail({
       style={width ? { width, flex: `0 0 ${width}px` } : undefined}
     >
       {renderLibrary()}
-      {staticSheets.map(renderGroup)}
+      {staticSheets.flatMap((sh) =>
+        sh === "measures" ? [renderGroup(sh), renderMaccs()] : [renderGroup(sh)],
+      )}
       {temporalSheets.length > 0 && (
         <>
           <div className="rail-section">Temporal datasets</div>

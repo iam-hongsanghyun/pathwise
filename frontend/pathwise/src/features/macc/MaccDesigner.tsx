@@ -63,15 +63,24 @@ function references(wb: Workbook) {
   return { refConsumption, refImpact };
 }
 
-function bars(wb: Workbook): Bar[] {
+function bars(wb: Workbook, macc?: string): Bar[] {
   const { refConsumption, refImpact } = references(wb);
   const blocks = new Map<string, Row[]>();
   for (const b of wb.measure_blocks ?? [])
     (blocks.get(str(b.measure_id)) ?? blocks.set(str(b.measure_id), []).get(str(b.measure_id))!).push(b);
 
+  // Restricted to one MACC's member measures when given.
+  const members = macc
+    ? new Set(
+        (wb.maccs ?? [])
+          .filter((r) => str(r.macc) === macc)
+          .map((r) => str(r.measure_id)),
+      )
+    : null;
   const out: Bar[] = [];
-  // Expanded per-facility instances (named sets + technology links included).
+  // Expanded per-facility instances (MACC deployments + direct links included).
   for (const m of resolveMeasures(wb)) {
+    if (members && !members.has(m.base_id)) continue;
     const id = m.measure_id;
     const p = m.applies_to;
     const type = m.type;
@@ -159,11 +168,14 @@ function MaccChart({ data, width = 720, height = 280 }: { data: Bar[]; width?: n
 
 interface Props {
   workbook: Workbook;
+  /** Restrict the chart to one MACC's member measures. */
+  macc?: string;
 }
 
-/** Per-machine MACC summary + the whole process's aggregate MACC curve. */
-export function MaccDesigner({ workbook }: Props) {
-  const data = useMemo(() => bars(workbook), [workbook]);
+/** Per-machine MACC summary + the aggregate MACC curve (whole model, or one
+ *  MACC's members when `macc` is given). */
+export function MaccDesigner({ workbook, macc }: Props) {
+  const data = useMemo(() => bars(workbook, macc), [workbook, macc]);
   const byMachine = useMemo(() => {
     const m = new Map<string, Bar[]>();
     for (const b of data) (m.get(b.machine) ?? m.set(b.machine, []).get(b.machine)!).push(b);

@@ -223,7 +223,7 @@ def add_facility(
     Commodities are merged by id (existing rows win); a technology that already
     exists is reused (recipe/instance separation — many facilities may share an
     archetype); the process instance id is uniquified. MACC measure templates
-    are stamped onto the created instance (``applies_to`` = the new process id;
+    are stamped onto the created instance (``facility`` = the new process id;
     block capex scales with the instance capacity).
     """
     f = library.facility(facility_id)
@@ -300,7 +300,7 @@ def add_facility(
             {
                 "measure_id": mid,
                 "type": m.type,
-                "applies_to": pid,
+                "facility": pid,
                 "target": m.target,
                 "lifetime": m.lifetime,
             }
