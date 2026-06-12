@@ -43,6 +43,18 @@ def test_sector_file_is_valid_and_referenced(path: Path) -> None:
             )
             for feed in stage.feeds:
                 assert feed in facility_ids
+    # MACC measures must target something the baseline system actually uses:
+    # an input commodity (energy_efficiency) or an emitted impact (otherwise).
+    for f in lib.facilities:
+        inputs = {r.target for r in f.technology.io if r.role == "input"}
+        impacts = {r.target for r in f.technology.io if r.role == "impact"}
+        for m in f.measures:
+            pool = inputs if m.type == "energy_efficiency" else impacts
+            assert m.target in pool, (
+                f"{path.name}: '{f.facility_id}' measure '{m.measure_id}' targets "
+                f"'{m.target}' which the baseline technology does not "
+                f"{'consume' if m.type == 'energy_efficiency' else 'emit'}"
+            )
 
 
 @pytest.mark.parametrize("path", SECTOR_FILES, ids=lambda p: p.stem)
@@ -58,6 +70,35 @@ def test_every_chain_solves_optimal(path: Path) -> None:
         assert not res["outputs"]["demand_slack"], (
             f"{path.name}/{chain.chain_id}: unmet demand {res['outputs']['demand_slack']}"
         )
+
+
+def test_measures_stamped_on_insert() -> None:
+    # add_facility writes measures + blocks onto the created instance, with the
+    # block capex scaled by the instance capacity.
+    from pathwise.data.library import add_facility
+
+    cement = next(p for p in SECTOR_FILES if p.stem == "cement")
+    lib = load_sector(cement)
+    fac = lib.facility("clinker_kiln")
+    assert fac.measures, "cement kiln template should carry a MACC measure"
+    wb = add_facility({"periods": [{"year": 2025}]}, lib, "clinker_kiln", company="C")
+    pid = str(wb["processes"][-1]["process_id"])
+    rows = [m for m in wb["measures"] if m["applies_to"] == pid]
+    assert len(rows) == len(fac.measures)
+    blocks = [b for b in wb["measure_blocks"] if b["measure_id"] == rows[0]["measure_id"]]
+    assert len(blocks) == len(fac.measures[0].blocks)
+    expected = fac.measures[0].blocks[0].capex_per_capacity * fac.default_capacity
+    assert blocks[0]["capex"] == pytest.approx(expected)
+
+
+def test_chain_with_measures_still_solves() -> None:
+    cement = next(p for p in SECTOR_FILES if p.stem == "cement")
+    lib = load_sector(cement)
+    wb = instantiate_chain(lib, "cement_chain")
+    assert any(wb.get("measures", [])), "chain instance should inherit kiln measures"
+    sc = ScenarioConfig.from_dict({"economics": {"base_year": 2025, "discount_rate": 0.0}})
+    res = extract_results(solve(build(assemble_problem(wb, sc))))
+    assert res["status"] == "optimal"
 
 
 def test_missing_reference_is_rejected() -> None:

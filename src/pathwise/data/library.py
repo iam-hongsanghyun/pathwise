@@ -91,6 +91,35 @@ class CommodityTemplate(BaseModel):
     sale_price: float | None = None
 
 
+class MeasureBlockTemplate(BaseModel):
+    """One piecewise step of a measure's cost curve.
+
+    ``capex_per_capacity`` scales with the facility instance it is stamped onto
+    (block capex = value × instance capacity), so one template serves plants of
+    any size.
+    """
+
+    reduction: float = Field(gt=0.0, le=1.0)
+    capex_per_capacity: float = Field(ge=0.0)
+
+
+class MeasureTemplate(BaseModel):
+    """A MACC measure: a small retrofit of the SAME system (no tech switch).
+
+    The other decarbonisation lever next to ``alternatives`` (full technology
+    transitions): efficiency or abatement upgrades applied to the facility's
+    existing technology, with a piecewise cost curve the optimiser may adopt
+    fractionally and cumulatively.
+    """
+
+    measure_id: str
+    label: str = ""
+    type: str = Field(pattern="^(energy_efficiency|emission_reduction|environmental)$")
+    target: str  # commodity id (energy_efficiency) or impact id (otherwise)
+    lifetime: int = Field(default=15, ge=1)
+    blocks: list[MeasureBlockTemplate] = Field(min_length=1)
+
+
 class FacilityTemplate(BaseModel):
     """A prebuilt facility archetype: baseline technology + alternatives."""
 
@@ -99,6 +128,7 @@ class FacilityTemplate(BaseModel):
     description: str = ""
     technology: TechnologyTemplate
     alternatives: list[Alternative] = Field(default_factory=list)
+    measures: list[MeasureTemplate] = Field(default_factory=list)
     default_capacity: float = Field(default=1000.0, gt=0.0)
     source: SourceRef
 
@@ -192,7 +222,9 @@ def add_facility(
 
     Commodities are merged by id (existing rows win); a technology that already
     exists is reused (recipe/instance separation — many facilities may share an
-    archetype); the process instance id is uniquified.
+    archetype); the process instance id is uniquified. MACC measure templates
+    are stamped onto the created instance (``applies_to`` = the new process id;
+    block capex scales with the instance capacity).
     """
     f = library.facility(facility_id)
     wb: Workbook = {k: list(v) for k, v in workbook.items()}
@@ -201,6 +233,9 @@ def add_facility(
     wb.setdefault("io", [])
     wb.setdefault("processes", [])
     wb.setdefault("transitions", [])
+    if f.measures:
+        wb.setdefault("measures", [])
+        wb.setdefault("measure_blocks", [])
 
     have_comm = {str(r.get("commodity_id")) for r in wb["commodities"]}
     referenced = {r.target for r in f.technology.io if r.role != "impact"}
@@ -257,6 +292,28 @@ def add_facility(
             "capacity": f.default_capacity,
         }
     )
+
+    # MACC measures: small retrofits of the SAME system, stamped per instance.
+    for m in f.measures:
+        mid = f"{pid} · {m.measure_id}"
+        wb["measures"].append(
+            {
+                "measure_id": mid,
+                "type": m.type,
+                "applies_to": pid,
+                "target": m.target,
+                "lifetime": m.lifetime,
+            }
+        )
+        for i, blk in enumerate(m.blocks):
+            wb["measure_blocks"].append(
+                {
+                    "measure_id": mid,
+                    "block": i,
+                    "reduction": blk.reduction,
+                    "capex": blk.capex_per_capacity * f.default_capacity,
+                }
+            )
     return wb
 
 
