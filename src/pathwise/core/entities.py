@@ -153,6 +153,13 @@ class Technology:
             consumption sums to the group requirement; each member's share of
             that sum is bounded ``[min, max]`` [dimensionless, 0–1]. The optimiser
             picks the mix per period (so a fuel blend can shift coal→H2 over time).
+        output_share_groups: Output slate groups ``{group: {commodity: (min,
+            max)}}`` — the mirror of ``share_groups`` for co-products. Members
+            are joint outputs (e.g. a cracker's ethylene / propylene / C4 slate)
+            whose production sums to the group requirement; each member's share
+            is bounded ``[min, max]`` [dimensionless, 0–1]. The optimiser picks
+            the slate per period (so the product mix follows prices within the
+            unit's physical flexibility). Non-grouped outputs keep fixed yields.
 
     Algorithm:
         For each blend group ``g`` of members ``C_g`` with requirement
@@ -164,7 +171,16 @@ class Technology:
             sum_c f_c = R_g * x ;  s_min_c * R_g * x <= f_c <= s_max_c * R_g * x
 
         where ``f_c`` [input unit] is member ``c``'s consumption. Non-grouped
-        inputs keep the fixed form ``f_c = intensity_c · x``.
+        inputs keep the fixed form ``f_c = intensity_c · x``. Output slate
+        groups apply the same form on the production side: for slate ``G`` with
+        requirement ``R_G = Σ_{c∈G} yield_c``::
+
+            $$\\sum_{c\\in G} \\tilde f_c = R_G\\,x,\\qquad
+              \\underline{s}_c R_G\\,x \\le \\tilde f_c \\le \\overline{s}_c R_G\\,x$$
+
+            sum_c fout_c = R_G * x ;  s_min_c * R_G * x <= fout_c <= s_max_c * R_G * x
+
+        where ``fout_c`` [output unit] is member ``c``'s production.
     """
 
     technology_id: str
@@ -181,6 +197,7 @@ class Technology:
     direct_impact: dict[str, float] = field(default_factory=dict)
     min_capacity_factor: float = 0.0
     share_groups: dict[str, dict[str, tuple[float, float]]] = field(default_factory=dict)
+    output_share_groups: dict[str, dict[str, tuple[float, float]]] = field(default_factory=dict)
 
     def grouped_inputs(self) -> set[str]:
         """Input commodities that belong to a blend (share) group."""
@@ -193,6 +210,18 @@ class Technology:
         stays equal to this requirement — i.e. the baseline total intensity.
         """
         return sum(self.input_intensity.get(c, 0.0) for c in self.share_groups.get(group, {}))
+
+    def grouped_outputs(self) -> set[str]:
+        """Output commodities that belong to a slate (output share) group."""
+        return {c for members in self.output_share_groups.values() for c in members}
+
+    def output_group_requirement(self, group: str) -> float:
+        """Total production of a slate group [output unit / throughput].
+
+        The slate's members reallocate within their share bounds while the sum
+        stays equal to this requirement — i.e. the baseline total yield.
+        """
+        return sum(self.output_yield.get(c, 0.0) for c in self.output_share_groups.get(group, {}))
 
     def capex(self, year: int) -> float:
         """Replacement capex [currency/unit capacity] in ``year``."""

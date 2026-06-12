@@ -66,6 +66,10 @@ def validate(workbook: Workbook) -> ValidationReport:
     processes = _ids(workbook, "processes", "process_id")
     impacts = _ids(workbook, "impacts", "impact_id")
 
+    # Blend / slate share bounds must admit a feasible mix: per (technology,
+    # role, group), each share_min ≤ share_max and Σ share_min ≤ 1 ≤ Σ share_max.
+    group_lo: dict[tuple[str, str, str], float] = {}
+    group_hi: dict[tuple[str, str, str], float] = {}
     for r in workbook.get("io", []):
         k = str(r.get("technology_id", ""))
         if k and k not in techs:
@@ -74,6 +78,33 @@ def validate(workbook: Workbook) -> ValidationReport:
         pool = impacts if role == "impact" else commodities
         if tgt and tgt not in pool:
             report.errors.append(f"io: unknown target '{tgt}' for role '{role}'")
+        g = r.get("group")
+        if g not in (None, "") and role in ("input", "output"):
+            lo_raw, hi_raw = r.get("share_min"), r.get("share_max")
+            try:
+                lo = float(str(lo_raw)) if lo_raw not in (None, "") else 0.0
+                hi = float(str(hi_raw)) if hi_raw not in (None, "") else 1.0
+            except (TypeError, ValueError):
+                continue
+            if lo > hi:
+                report.errors.append(
+                    f"io: '{k}' group '{g}' member '{tgt}': share_min {lo} > share_max {hi}"
+                )
+            key = (k, role, str(g))
+            group_lo[key] = group_lo.get(key, 0.0) + max(lo, 0.0)
+            group_hi[key] = group_hi.get(key, 0.0) + min(hi, 1.0)
+    for (k, role, g), lo_sum in group_lo.items():
+        if lo_sum > 1.0 + 1e-9:
+            report.errors.append(
+                f"io: '{k}' {role} group '{g}': share_min values sum to {lo_sum:.3f} > 1 "
+                "(no feasible mix)"
+            )
+    for (k, role, g), hi_sum in group_hi.items():
+        if hi_sum < 1.0 - 1e-9:
+            report.errors.append(
+                f"io: '{k}' {role} group '{g}': share_max values sum to {hi_sum:.3f} < 1 "
+                "(no feasible mix)"
+            )
 
     for r in workbook.get("processes", []):
         bt = str(r.get("baseline_technology", ""))

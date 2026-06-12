@@ -51,6 +51,7 @@ def build(problem: Problem) -> BuildContext:
     )
     _technology(ctx)
     _blend(ctx)
+    _output_blend(ctx)
     _flow_balance(ctx)
     _storage(ctx)
     _markets(ctx)
@@ -139,13 +140,21 @@ def _technology(ctx: BuildContext) -> None:
 
 
 def _produced(ctx: BuildContext, p: str, r: str, t: int) -> Any:
-    """Output of commodity ``r`` at process ``p`` in ``t`` (expression or None)."""
-    terms = [
-        ctx.problem.technologies[k].output_yield.get(r, 0.0)
-        * ctx.x.sel(process=p, tech=k, period=t)
-        for k in ctx.feasible[p]
-        if ctx.problem.technologies[k].output_yield.get(r, 0.0) != 0.0
-    ]
+    """Output of commodity ``r`` at process ``p`` in ``t`` (expression or None).
+
+    A commodity in a technology's output slate group is produced via the slate
+    flow variable ``fout`` (so the optimiser picks its share within bounds);
+    other outputs keep the fixed form ``yield · throughput``.
+    """
+    terms = []
+    for k in ctx.feasible[p]:
+        tech = ctx.problem.technologies[k]
+        if r in tech.grouped_outputs():
+            terms.append(ctx.fout.sel(process=p, tech=k, commodity=r, period=t))
+        else:
+            coef = tech.output_yield.get(r, 0.0)
+            if coef != 0.0:
+                terms.append(coef * ctx.x.sel(process=p, tech=k, period=t))
     return _lin_sum(terms)
 
 
@@ -227,6 +236,74 @@ def _blend(ctx: BuildContext) -> None:
                             m.add_constraints(f >= lo * req * xpkt, name=f"mixlo[{p},{k},{c},{t}]")
                         if hi < 1.0:
                             m.add_constraints(f <= hi * req * xpkt, name=f"mixhi[{p},{k},{c},{t}]")
+
+
+def _output_blend(ctx: BuildContext) -> None:
+    """Output slate mix: members sum to the slate requirement; shares bounded.
+
+    The production-side mirror of :func:`_blend`. For each technology output
+    slate group ``G`` (members, requirement ``R_G = Σ yield_c``) and throughput
+    ``x``::
+
+        Σ_{c∈G} fout_c = R_G · x ;   s_min_c·R_G·x ≤ fout_c ≤ s_max_c·R_G·x
+
+    so a multi-product unit (e.g. a naphtha cracker) can shift its co-product
+    slate toward the most valuable mix within its physical flexibility. Slate
+    commodities not produced by a technology are pinned to zero.
+    """
+    if not ctx.grouped_out_comms:
+        return
+    m, prob = ctx.model, ctx.problem
+    go = ctx.grouped_out_comms
+    # The slate flow is non-zero only for (process, feasible tech, member
+    # commodity); everything else is killed by ONE vectorised bound.
+    member = np.zeros((len(ctx.procs), len(ctx.techs), len(go)))
+    for i, p in enumerate(ctx.procs):
+        fset = set(ctx.feasible[p])
+        for j, k in enumerate(ctx.techs):
+            if k not in fset:
+                continue
+            member_set = prob.technologies[k].grouped_outputs()
+            for li, c in enumerate(go):
+                if c in member_set:
+                    member[i, j, li] = 1.0
+    big = (max((p.capacity for p in prob.processes), default=1.0) or 1.0) * 1.0e3 + 1.0e6
+    member_da = xr.DataArray(
+        member,
+        coords={"process": ctx.procs, "tech": ctx.techs, "commodity": go},
+        dims=["process", "tech", "commodity"],
+    )
+    m.add_constraints(ctx.fout <= big * member_da, name="foutmask")
+
+    for p in ctx.procs:
+        for k in ctx.feasible[p]:
+            tech = prob.technologies[k]
+            if not tech.output_share_groups:
+                continue
+            for t in ctx.years:
+                xpkt = ctx.x.sel(process=p, tech=k, period=t)
+                for g, members in tech.output_share_groups.items():
+                    req = tech.output_group_requirement(g)
+                    m.add_constraints(
+                        _lin_sum(
+                            [
+                                ctx.fout.sel(process=p, tech=k, commodity=c, period=t)
+                                for c in members
+                            ]
+                        )
+                        == req * xpkt,
+                        name=f"slate[{p},{k},{g},{t}]",
+                    )
+                    for c, (lo, hi) in members.items():
+                        f = ctx.fout.sel(process=p, tech=k, commodity=c, period=t)
+                        if lo > 0.0:
+                            m.add_constraints(
+                                f >= lo * req * xpkt, name=f"slatelo[{p},{k},{c},{t}]"
+                            )
+                        if hi < 1.0:
+                            m.add_constraints(
+                                f <= hi * req * xpkt, name=f"slatehi[{p},{k},{c},{t}]"
+                            )
 
 
 def _efficiency_savings(ctx: BuildContext, p: str, r: str, t: int) -> Any:

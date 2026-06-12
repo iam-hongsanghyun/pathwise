@@ -47,12 +47,42 @@ def build_workbook() -> Workbook:
 
     # Per-unit-throughput coefficients (throughput unit = output tonne).
     technologies = [
-        {"technology_id": "Refine_Gas", "lifespan": 25, "actions": "continue,replace,renew", "opex": 16.0},
-        {"technology_id": "Refine_H2", "lifespan": 25, "actions": "continue,replace,renew", "opex": 24.0},
-        {"technology_id": "Smelt_Grid", "lifespan": 30, "actions": "continue,replace,renew", "opex": 30.0},
-        {"technology_id": "Smelt_RE", "lifespan": 30, "actions": "continue,replace,renew", "opex": 34.0},
-        {"technology_id": "Cast_Gas", "lifespan": 20, "actions": "continue,replace,renew", "opex": 8.0},
-        {"technology_id": "Cast_Elec", "lifespan": 20, "actions": "continue,replace,renew", "opex": 9.0},
+        {
+            "technology_id": "Refine_Gas",
+            "lifespan": 25,
+            "actions": "continue,replace,renew",
+            "opex": 16.0,
+        },
+        {
+            "technology_id": "Refine_H2",
+            "lifespan": 25,
+            "actions": "continue,replace,renew",
+            "opex": 24.0,
+        },
+        {
+            "technology_id": "Smelt_Grid",
+            "lifespan": 30,
+            "actions": "continue,replace,renew",
+            "opex": 30.0,
+        },
+        {
+            "technology_id": "Smelt_RE",
+            "lifespan": 30,
+            "actions": "continue,replace,renew",
+            "opex": 34.0,
+        },
+        {
+            "technology_id": "Cast_Gas",
+            "lifespan": 20,
+            "actions": "continue,replace,renew",
+            "opex": 8.0,
+        },
+        {
+            "technology_id": "Cast_Elec",
+            "lifespan": 20,
+            "actions": "continue,replace,renew",
+            "opex": 9.0,
+        },
     ]
     io = [
         # Stage 1 — refining: bauxite + fuel → alumina
@@ -64,32 +94,99 @@ def build_workbook() -> Workbook:
         {"technology_id": "Refine_H2", "target": "alumina", "role": "output", "coefficient": 1.0},
         # Stage 2 — smelting: alumina + electricity → liquid aluminium
         {"technology_id": "Smelt_Grid", "target": "alumina", "role": "input", "coefficient": 1.9},
-        {"technology_id": "Smelt_Grid", "target": "grid_elec", "role": "input", "coefficient": 14.0},
-        {"technology_id": "Smelt_Grid", "target": "liquid_aluminium", "role": "output", "coefficient": 1.0},
+        {
+            "technology_id": "Smelt_Grid",
+            "target": "grid_elec",
+            "role": "input",
+            "coefficient": 14.0,
+        },
+        {
+            "technology_id": "Smelt_Grid",
+            "target": "liquid_aluminium",
+            "role": "output",
+            "coefficient": 1.0,
+        },
         {"technology_id": "Smelt_RE", "target": "alumina", "role": "input", "coefficient": 1.9},
         {"technology_id": "Smelt_RE", "target": "re_elec", "role": "input", "coefficient": 14.0},
-        {"technology_id": "Smelt_RE", "target": "liquid_aluminium", "role": "output", "coefficient": 1.0},
+        {
+            "technology_id": "Smelt_RE",
+            "target": "liquid_aluminium",
+            "role": "output",
+            "coefficient": 1.0,
+        },
         # Stage 3 — casting: liquid aluminium + fuel → aluminium (product)
-        {"technology_id": "Cast_Gas", "target": "liquid_aluminium", "role": "input", "coefficient": 1.02},
+        {
+            "technology_id": "Cast_Gas",
+            "target": "liquid_aluminium",
+            "role": "input",
+            "coefficient": 1.02,
+        },
         {"technology_id": "Cast_Gas", "target": "gas", "role": "input", "coefficient": 1.5},
-        {"technology_id": "Cast_Gas", "target": "aluminium", "role": "output", "coefficient": 1.0, "is_product": True},
-        {"technology_id": "Cast_Elec", "target": "liquid_aluminium", "role": "input", "coefficient": 1.02},
+        {
+            "technology_id": "Cast_Gas",
+            "target": "aluminium",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": True,
+        },
+        {
+            "technology_id": "Cast_Elec",
+            "target": "liquid_aluminium",
+            "role": "input",
+            "coefficient": 1.02,
+        },
         {"technology_id": "Cast_Elec", "target": "grid_elec", "role": "input", "coefficient": 2.0},
-        {"technology_id": "Cast_Elec", "target": "aluminium", "role": "output", "coefficient": 1.0, "is_product": True},
+        {
+            "technology_id": "Cast_Elec",
+            "target": "aluminium",
+            "role": "output",
+            "coefficient": 1.0,
+            "is_product": True,
+        },
     ]
     processes = [
-        {"process_id": "Refinery", "company": "AluCo", "baseline_technology": "Refine_Gas", "capacity": 350.0},
-        {"process_id": "Smelter", "company": "AluCo", "baseline_technology": "Smelt_Grid", "capacity": 220.0},
-        {"process_id": "Caster", "company": "AluCo", "baseline_technology": "Cast_Gas", "capacity": 200.0},
+        {
+            "process_id": "Refinery",
+            "company": "AluCo",
+            "baseline_technology": "Refine_Gas",
+            "capacity": 350.0,
+        },
+        {
+            "process_id": "Smelter",
+            "company": "AluCo",
+            "baseline_technology": "Smelt_Grid",
+            "capacity": 220.0,
+        },
+        {
+            "process_id": "Caster",
+            "company": "AluCo",
+            "baseline_technology": "Cast_Gas",
+            "capacity": 200.0,
+        },
     ]
     edges = [
         {"from_process": "Refinery", "to_process": "Smelter", "commodity_id": "alumina"},
         {"from_process": "Smelter", "to_process": "Caster", "commodity_id": "liquid_aluminium"},
     ]
     transitions = [
-        {"from_technology": "Refine_Gas", "to_technology": "Refine_H2", "action": "replace", "capex_per_capacity": 320.0},
-        {"from_technology": "Smelt_Grid", "to_technology": "Smelt_RE", "action": "replace", "capex_per_capacity": 260.0},
-        {"from_technology": "Cast_Gas", "to_technology": "Cast_Elec", "action": "replace", "capex_per_capacity": 120.0},
+        {
+            "from_technology": "Refine_Gas",
+            "to_technology": "Refine_H2",
+            "action": "replace",
+            "capex_per_capacity": 320.0,
+        },
+        {
+            "from_technology": "Smelt_Grid",
+            "to_technology": "Smelt_RE",
+            "action": "replace",
+            "capex_per_capacity": 260.0,
+        },
+        {
+            "from_technology": "Cast_Gas",
+            "to_technology": "Cast_Elec",
+            "action": "replace",
+            "capex_per_capacity": 120.0,
+        },
     ]
     demand = [
         {"company": "AluCo", "commodity_id": "aluminium", "year": y, "amount": 150.0} for y in YEARS
@@ -101,8 +198,22 @@ def build_workbook() -> Workbook:
         {"impact_id": "CO2", "year": 2035, "price": 110.0},
     ]
     impact_caps = [
-        {"company": "all", "impact_id": "CO2", "year": 2030, "limit": 2400.0, "soft": True, "penalty": 5.0e3},
-        {"company": "all", "impact_id": "CO2", "year": 2035, "limit": 1600.0, "soft": True, "penalty": 5.0e3},
+        {
+            "company": "all",
+            "impact_id": "CO2",
+            "year": 2030,
+            "limit": 2400.0,
+            "soft": True,
+            "penalty": 5.0e3,
+        },
+        {
+            "company": "all",
+            "impact_id": "CO2",
+            "year": 2035,
+            "limit": 1600.0,
+            "soft": True,
+            "penalty": 5.0e3,
+        },
     ]
 
     return {

@@ -64,6 +64,17 @@ discounted lump at the event year (annuity convention is a later refinement).
   `emit ≥ 0`; caps `Σ_{p∈c} emit ≤ CAP_{c,i,t}+ξ^{cap}`.
 - **MACC** (LP-safe): efficiency savings `= Σ reduction·ref_consumption·z`; abatement
   `= Σ reduction·ref_impact·z`; blocks cumulative (`z_a≥z_b`) and persistent (`z_t≥z_{prev}`).
+- **Input blend groups** (fuel mixes): per technology group `g` with members `C_g`
+  and requirement `R_g = Σ_{c∈C_g} int_{k,c}`:
+  `Σ_{c∈C_g} fin_c = R_g·x` and `s̲_c·R_g·x ≤ fin_c ≤ s̄_c·R_g·x` — the optimiser
+  picks each member's share within `[s̲, s̄]`. Grouped inputs are consumed via
+  `fin`; others keep the fixed form `int·x`.
+- **Output slate groups** (co-product slates, e.g. a naphtha cracker): the
+  production-side mirror. Per slate `G` with requirement `R_G = Σ_{c∈G} yield_{k,c}`:
+  `Σ_{c∈G} fout_c = R_G·x` and `s̲_c·R_G·x ≤ fout_c ≤ s̄_c·R_G·x` — the product
+  mix follows prices within the unit's physical flexibility. Grouped outputs are
+  produced via `fout`; others keep the fixed form `yield·x`. Declared on `io`
+  output rows via the same `group`/`share_min`/`share_max` columns.
 - **Replacement coupling** (incompatible swap forces neighbours): planned;
   edges currently model pure flow.
 

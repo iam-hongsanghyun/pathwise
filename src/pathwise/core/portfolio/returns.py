@@ -32,6 +32,10 @@ Algorithm:
     where ``m`` ranges over the asset's member candidates. With
     ``normalize_by_capex`` the asset reward is divided by ``Σ_m K_m`` (a
     return-on-capital), making rewards scale-comparable across assets.
+
+    Output slate groups (``Technology.output_share_groups``) are valued at their
+    **nominal** declared yields here: slate optimisation is a dispatch decision
+    made inside the MILP, outside this portfolio approximation.
 """
 
 from __future__ import annotations
