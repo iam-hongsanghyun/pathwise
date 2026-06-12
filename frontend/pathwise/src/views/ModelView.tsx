@@ -5,7 +5,7 @@ import { Resizer } from "../layout/Resizer";
 import { FlowCanvas } from "../components/designer/FlowCanvas";
 import { FlowView } from "../components/FlowView";
 import { WorkbookTable } from "../components/WorkbookTable";
-import { addChainTemplate, addFacilityTemplate } from "../graph/library";
+import { insertTemplate } from "../lib/api/session";
 import { listLibrary, loadSector, type SectorLibrary } from "../library";
 import type { Cell, ConfigBundle, Row, Selection, Workbook } from "../types";
 
@@ -13,6 +13,9 @@ interface Props {
   workbook: Workbook;
   setWorkbook: (wb: Workbook) => void;
   config: ConfigBundle | null;
+  sessionId: string | null;
+  /** Adopt a model the backend already holds (no re-sync needed). */
+  adoptServerModel: (wb: Workbook) => void;
   leftW: number;
   setLeftW: (w: number) => void;
 }
@@ -121,7 +124,15 @@ function ItemTimeSeries({
 /** Model view — the single editing surface. Canvas (top) + the selected item's
  *  STATIC values in the right rail and its TIME SERIES in the bottom dock, shown
  *  together; selecting a group/temporal in the tree shows its table in the dock. */
-export function ModelView({ workbook, setWorkbook, config, leftW, setLeftW }: Props) {
+export function ModelView({
+  workbook,
+  setWorkbook,
+  config,
+  sessionId,
+  adoptServerModel,
+  leftW,
+  setLeftW,
+}: Props) {
   const [selected, setSelected] = useState<Selection | null>(null);
   const [activeSheet, setActiveSheet] = useState<string | null>(null);
   const [mode, setMode] = useState<"canvas" | "flow">("canvas");
@@ -138,7 +149,7 @@ export function ModelView({ workbook, setWorkbook, config, leftW, setLeftW }: Pr
   } | null>(null);
   useEffect(() => {
     listLibrary()
-      .then((entries) => Promise.all(entries.map((e) => loadSector(e.file))))
+      .then((entries) => Promise.all(entries.map((e) => loadSector(e.sector))))
       .then(setLibrary)
       .catch(() => setLibrary([]));
   }, []);
@@ -149,36 +160,28 @@ export function ModelView({ workbook, setWorkbook, config, leftW, setLeftW }: Pr
     facilities: lib.facilities.map((f) => ({ id: f.facility_id, label: f.label })),
   }));
 
+  // Template inserts happen SERVER-side (the session owns the model); the
+  // frontend adopts the refreshed model and selects what was created.
+  const insert = async (
+    body: { sector: string; kind: "facility" | "chain"; id: string; x?: number; y?: number },
+  ) => {
+    if (!sessionId) return;
+    const { model, created } = await insertTemplate(sessionId, body);
+    adoptServerModel(model);
+    const last = created[created.length - 1];
+    if (last) openItem({ sheet: "processes", idCol: "process_id", id: last });
+  };
+
   const addFromLibrary = (pos?: { x: number; y: number }) => {
     if (!libPreview) return;
-    const lib = library.find((l) => l.sector === libPreview.sector);
-    if (!lib) return;
-    if (libPreview.kind === "chain") {
-      const chain = (lib.chains ?? []).find((c) => c.chain_id === libPreview.id);
-      if (!chain) return;
-      const res = addChainTemplate(workbook, lib, chain);
-      setWorkbook(res.wb);
-      const last = res.processIds[res.processIds.length - 1];
-      if (last) openItem({ sheet: "processes", idCol: "process_id", id: last });
-    } else {
-      const fac = lib.facilities.find((f) => f.facility_id === libPreview.id);
-      if (!fac) return;
-      const res = addFacilityTemplate(workbook, lib, fac, pos);
-      setWorkbook(res.wb);
-      openItem({ sheet: "processes", idCol: "process_id", id: res.processId });
-    }
+    void insert({ ...libPreview, x: pos?.x, y: pos?.y });
     setLibPreview(null);
   };
 
   // A library facility dragged onto the canvas (payload `libfac:<sector>/<id>`).
   const dropLibraryFacility = (key: string, x: number, y: number) => {
     const [sector, fid] = key.split("/", 2);
-    const lib = library.find((l) => l.sector === sector);
-    const fac = lib?.facilities.find((f) => f.facility_id === fid);
-    if (!lib || !fac) return;
-    const res = addFacilityTemplate(workbook, lib, fac, { x, y });
-    setWorkbook(res.wb);
-    openItem({ sheet: "processes", idCol: "process_id", id: res.processId });
+    if (sector && fid) void insert({ sector, kind: "facility", id: fid, x, y });
   };
 
   // Table columns = schema columns ∪ keys present in the rows, so optional

@@ -1,6 +1,7 @@
-// Typed client for the stateless pathwise contract: config handshake + run.
+// Run client: submit by sessionId (the model never travels from the browser),
+// then poll until the result is ready. Pure logic layer: no React.
 
-import type { ConfigBundle, JobState, RunResult, Workbook } from "./types";
+import type { ConfigBundle, JobState, RunResult } from "../../types";
 
 async function json<T>(resp: Response): Promise<T> {
   if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}: ${await resp.text()}`);
@@ -11,28 +12,19 @@ export async function getConfig(): Promise<ConfigBundle> {
   return json<ConfigBundle>(await fetch("/api/config"));
 }
 
-async function startRun(
-  model: Workbook,
-  scenario: Record<string, unknown>,
-  options: Record<string, unknown>,
-): Promise<{ jobId: string }> {
-  return json<{ jobId: string }>(
-    await fetch("/api/run", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model, scenario, options }),
-    }),
-  );
-}
-
-/** Send the model once, then poll until the whole result is ready. */
 export async function runToCompletion(
-  model: Workbook,
+  sessionId: string,
   scenario: Record<string, unknown>,
   options: Record<string, unknown> = { domain: "process" },
   onTick?: (status: string) => void,
 ): Promise<RunResult> {
-  const { jobId } = await startRun(model, scenario, options);
+  const { jobId } = await json<{ jobId: string }>(
+    await fetch("/api/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId, scenario, options }),
+    }),
+  );
   for (;;) {
     const state = await json<JobState>(await fetch(`/api/run/${jobId}`));
     onTick?.(state.status);

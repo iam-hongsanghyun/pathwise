@@ -1,23 +1,29 @@
-import { useEffect, useState } from "react";
-import { getConfig, runToCompletion } from "./api";
+import { useEffect, useRef, useState } from "react";
+import { getConfig, runToCompletion } from "./lib/api/run";
+import {
+  downloadResultXlsx,
+  ensureSession,
+  exportModelUrl,
+  type ExampleModel,
+  listExamples,
+  loadExample,
+  putModel,
+  replaceSheet,
+  uploadWorkbook,
+} from "./lib/api/session";
 import { ActivityBar, type View } from "./layout/ActivityBar";
 import { AnalyticsView } from "./views/AnalyticsView";
 import { ModelView } from "./views/ModelView";
 import { SettingsView } from "./views/SettingsView";
 import type { ConfigBundle, PortfolioConfig, RunResult, Workbook } from "./types";
-import {
-  downloadResult,
-  downloadWorkbook,
-  emptyWorkbook,
-  type ExampleModel,
-  listExamples,
-  loadExample,
-  parseWorkbookFile,
-} from "./workbook";
 
 export function App() {
   const [config, setConfig] = useState<ConfigBundle | null>(null);
-  const [workbook, setWorkbook] = useState<Workbook>(emptyWorkbook());
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [workbook, setWorkbook] = useState<Workbook>({});
+  // The last model state known to be on the backend; sheet-level reference
+  // equality against this drives the debounced patch sync below.
+  const synced = useRef<Workbook>({});
   const [view, setView] = useState<View>("model");
   const [discount, setDiscount] = useState(0.08);
   const [objScope, setObjScope] = useState<"system" | "company" | "facility">("company");
@@ -39,6 +45,7 @@ export function App() {
   const [leftW, setLeftW] = useState(232);
   const [examples, setExamples] = useState<ExampleModel[]>([]);
 
+  // Boot: config handshake + a backend session (the model's source of truth).
   useEffect(() => {
     getConfig()
       .then(setConfig)
@@ -46,15 +53,54 @@ export function App() {
     listExamples()
       .then(setExamples)
       .catch(() => setExamples([]));
+    ensureSession()
+      .then(({ sessionId: sid, model }) => {
+        synced.current = model;
+        setSessionId(sid);
+        setWorkbook(model);
+      })
+      .catch((e) => setError(String(e)));
   }, []);
 
+  /** Adopt a model the BACKEND already holds (upload / example / template). */
+  const adoptServerModel = (model: Workbook) => {
+    synced.current = model;
+    setWorkbook(model);
+    setResult(null);
+  };
+
+  /** Push local edits to the session: per-sheet patches, or a full put when
+   *  sheets were added/removed. Returns once the backend is current. */
+  async function syncNow(): Promise<void> {
+    if (!sessionId || workbook === synced.current) return;
+    const prev = synced.current;
+    const structural =
+      Object.keys(workbook).some((s) => !(s in prev)) ||
+      Object.keys(prev).some((s) => !(s in workbook));
+    synced.current = workbook;
+    if (structural) {
+      await putModel(sessionId, workbook);
+      return;
+    }
+    const changed = Object.entries(workbook).filter(([sheet, rows]) => prev[sheet] !== rows);
+    await Promise.all(changed.map(([sheet, rows]) => replaceSheet(sessionId, sheet, rows)));
+  }
+
+  // Debounced edit sync — the browser is a thin cache; the session is truth.
+  useEffect(() => {
+    if (!sessionId || workbook === synced.current) return;
+    const t = setTimeout(() => {
+      syncNow().catch((e) => setError(String(e)));
+    }, 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workbook, sessionId]);
+
   async function onPickExample(id: string) {
-    const model = examples.find((e) => e.id === id);
-    if (!model) return;
+    if (!sessionId) return;
     setError(null);
     try {
-      setWorkbook(await loadExample(model.file));
-      setResult(null);
+      adoptServerModel(await loadExample(sessionId, id));
       setView("model");
     } catch (e) {
       setError(String(e));
@@ -62,19 +108,21 @@ export function App() {
   }
 
   async function onUpload(file: File) {
+    if (!sessionId) return;
     setError(null);
     try {
-      setWorkbook(await parseWorkbookFile(file));
-      setResult(null);
+      adoptServerModel(await uploadWorkbook(sessionId, file));
     } catch (e) {
       setError(String(e));
     }
   }
 
   async function onRun() {
+    if (!sessionId) return;
     setError(null);
     setResult(null);
     try {
+      await syncNow(); // flush pending edits so the session model is current
       const scenario: Record<string, unknown> = {
         domain: "process",
         economics: { discount_rate: discount },
@@ -104,7 +152,7 @@ export function App() {
           bl_views: Object.fromEntries(portfolio.views.map((vw) => [vw.asset, vw.view])),
         };
       }
-      const res = await runToCompletion(workbook, scenario, { domain: "process", backend }, setRunning);
+      const res = await runToCompletion(sessionId, scenario, { domain: "process", backend }, setRunning);
       setResult(res);
       setView("analytics");
     } catch (e) {
@@ -114,7 +162,7 @@ export function App() {
     }
   }
 
-  const shared = { workbook, setWorkbook, config, leftW, setLeftW };
+  const shared = { workbook, setWorkbook, config, sessionId, adoptServerModel, leftW, setLeftW };
 
   return (
     <div className="studio-shell">
@@ -152,10 +200,21 @@ export function App() {
               onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])}
             />
           </label>
-          <button className="ghost" onClick={() => downloadWorkbook(workbook)}>
+          <button
+            className="ghost"
+            disabled={!sessionId}
+            onClick={async () => {
+              await syncNow().catch((e) => setError(String(e)));
+              if (sessionId) window.location.assign(exportModelUrl(sessionId));
+            }}
+          >
             Export model
           </button>
-          <button className="ghost" onClick={() => result && downloadResult(result)} disabled={!result}>
+          <button
+            className="ghost"
+            onClick={() => result && downloadResultXlsx(result).catch((e) => setError(String(e)))}
+            disabled={!result}
+          >
             Export result
           </button>
         </header>

@@ -80,16 +80,16 @@ export interface LibraryIndexEntry {
   description?: string;
 }
 
-/** List the bundled sector libraries from the library index. */
+/** List the sector libraries (served by the backend). */
 export async function listLibrary(): Promise<LibraryIndexEntry[]> {
-  const res = await fetch("/library/index.json");
+  const res = await fetch("/api/library");
   if (!res.ok) return [];
   return (await res.json()) as LibraryIndexEntry[];
 }
 
-/** Fetch one sector's template file. */
-export async function loadSector(file: string): Promise<SectorLibrary> {
-  const res = await fetch(`/library/${file}`);
-  if (!res.ok) throw new Error(`could not load library sector ${file}`);
+/** Fetch one sector's templates (served by the backend). */
+export async function loadSector(sector: string): Promise<SectorLibrary> {
+  const res = await fetch(`/api/library/${encodeURIComponent(sector)}`);
+  if (!res.ok) throw new Error(`could not load library sector ${sector}`);
   return (await res.json()) as SectorLibrary;
 }
