@@ -41,12 +41,28 @@ export interface LibCommodity {
   sale_price?: number;
 }
 
+export interface LibMeasureBlock {
+  reduction: number;
+  capex_per_capacity: number;
+}
+
+/** A MACC measure: a small retrofit of the SAME system (no technology switch). */
+export interface LibMeasure {
+  measure_id: string;
+  label?: string;
+  type: "energy_efficiency" | "emission_reduction" | "environmental";
+  target: string;
+  lifetime?: number;
+  blocks: LibMeasureBlock[];
+}
+
 export interface FacilityTemplate {
   facility_id: string;
   label: string;
   description?: string;
   technology: LibTechnology;
   alternatives?: LibAlternative[];
+  measures?: LibMeasure[];
   default_capacity?: number;
   source: SourceRef;
 }

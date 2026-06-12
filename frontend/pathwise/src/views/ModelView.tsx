@@ -395,8 +395,21 @@ function LibraryPreview({
             </ul>
             {(fac.alternatives ?? []).length > 0 && (
               <p className="muted">
-                Alternatives:{" "}
+                Alternatives (transitions):{" "}
                 {(fac.alternatives ?? []).map((a) => a.technology.technology_id).join(", ")}
+              </p>
+            )}
+            {(fac.measures ?? []).length > 0 && (
+              <p className="muted">
+                MACC measures (same-system retrofits):{" "}
+                {(fac.measures ?? [])
+                  .map(
+                    (m) =>
+                      `${m.label || m.measure_id} (−${Math.round(
+                        m.blocks.reduce((s, b) => s + b.reduction, 0) * 100,
+                      )}% ${m.target})`,
+                  )
+                  .join("; ")}
               </p>
             )}
           </>
