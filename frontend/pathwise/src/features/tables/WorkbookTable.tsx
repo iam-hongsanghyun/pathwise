@@ -1,5 +1,8 @@
-import { emptyHint, optionsFor } from "../../lib/references";
+import { useState } from "react";
+import { emptyHint, optionsFor, refTargets, type RefTarget } from "../../lib/references";
 import type { Cell, Row, Workbook } from "../../types";
+import { CreateComponentModal, type SchemaMap } from "../controls/CreateComponentModal";
+import { SearchableSelect } from "../controls/SearchableSelect";
 
 /** Per-column metadata from the domain schema (label, required, description). */
 export interface ColumnMeta {
@@ -17,12 +20,16 @@ interface Props {
   workbook?: Workbook;
   sheet?: string;
   columnMeta?: Record<string, ColumnMeta>;
+  /** Full schema + whole-workbook updater — enables creating a missing
+   *  component (on another sheet) straight from a reference dropdown. */
+  schema?: SchemaMap;
+  onWorkbook?: (wb: Workbook) => void;
 }
 
 /** Editable grid for one workbook sheet: required columns first (bold), the
- *  rest grey; reference columns render as dropdowns of existing components —
- *  an EMPTY dropdown tells the user what to add first instead of inviting a
- *  broken free-text id. */
+ *  rest grey; reference columns are searchable dropdowns of existing
+ *  components — typing a new name offers to create the component on the spot
+ *  (Save) or keep just the name for later (Cancel, shown red until it exists). */
 export function WorkbookTable({
   rows,
   columns,
@@ -31,7 +38,15 @@ export function WorkbookTable({
   workbook,
   sheet,
   columnMeta,
+  schema,
+  onWorkbook,
 }: Props) {
+  const [creating, setCreating] = useState<{
+    i: number;
+    c: string;
+    name: string;
+    targets: RefTarget[];
+  } | null>(null);
   const raw = columns ?? (rows.length ? Object.keys(rows[0]) : []);
   // Required columns lead (left), optional follow — in schema order.
   const cols = columnMeta
@@ -53,25 +68,17 @@ export function WorkbookTable({
     const value = row[c] == null ? "" : String(row[c]);
     const opts = workbook && sheet ? optionsFor(workbook, sheet, c, row) : null;
     if (opts) {
-      if (!opts.length && sheet) {
-        // No valid targets exist yet — a free-text id here would only break
-        // the model; tell the user what to create first.
-        return (
-          <select disabled title={emptyHint(sheet, c)}>
-            <option>— {emptyHint(sheet, c)} —</option>
-          </select>
-        );
-      }
+      const targets = workbook && sheet ? refTargets(sheet, c, row) : [];
+      const canCreate = targets.length > 0 && Boolean(schema && onWorkbook);
       return (
-        <select value={value} onChange={(e) => edit(i, c, e.target.value)}>
-          <option value="">—</option>
-          {value && !opts.includes(value) && <option value={value}>{value} (unknown)</option>}
-          {opts.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
+        <SearchableSelect
+          value={value}
+          options={opts}
+          broken={value !== "" && !opts.includes(value)}
+          hint={sheet ? emptyHint(sheet, c) : undefined}
+          onChange={(v) => edit(i, c, v)}
+          onCreate={canCreate ? (name) => setCreating({ i, c, name, targets }) : undefined}
+        />
       );
     }
     return <input value={value} onChange={(e) => edit(i, c, e.target.value)} />;
@@ -89,12 +96,17 @@ export function WorkbookTable({
                   className={
                     columnMeta ? (meta(c).required ? "col-required" : "col-optional") : undefined
                   }
-                  title={[meta(c).desc, meta(c).required ? "(required)" : "(optional)"]
-                    .filter(Boolean)
-                    .join(" — ")}
                 >
                   {meta(c).label ?? c}
-                  {meta(c).desc ? <span className="col-info"> ⓘ</span> : null}
+                  {meta(c).desc ? (
+                    <span
+                      className="col-info"
+                      data-tip={`${meta(c).desc} ${meta(c).required ? "(required)" : "(optional)"}`}
+                    >
+                      {" "}
+                      ⓘ
+                    </span>
+                  ) : null}
                 </th>
               ))}
               <th />
@@ -120,6 +132,28 @@ export function WorkbookTable({
         + row
       </button>
       {rows.length > maxRows && <span className="muted"> … {rows.length - maxRows} more</span>}
+      {creating && workbook && sheet && schema && onWorkbook && (
+        <CreateComponentModal
+          name={creating.name}
+          targets={creating.targets}
+          schema={schema}
+          workbook={workbook}
+          onSave={(tsheet, newRow) => {
+            onWorkbook({
+              ...workbook,
+              [tsheet]: [...(workbook[tsheet] ?? []), newRow],
+              [sheet]: rows.map((r, j) =>
+                j === creating.i ? { ...r, [creating.c]: creating.name } : r,
+              ),
+            });
+            setCreating(null);
+          }}
+          onCancel={() => {
+            edit(creating.i, creating.c, creating.name);
+            setCreating(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -6,6 +6,8 @@ import { TopologyCanvas } from "../features/topology/TopologyCanvas";
 import { FlowView } from "../features/flow/FlowView";
 import { MaccDesigner } from "../features/macc/MaccDesigner";
 import { WorkbookTable, type ColumnMeta } from "../features/tables/WorkbookTable";
+import { SearchableSelect } from "../features/controls/SearchableSelect";
+import type { SchemaMap } from "../features/controls/CreateComponentModal";
 import {
   addFacilityWithTech,
   addMeasure,
@@ -379,6 +381,8 @@ export function ModelView({
                         activeSheet
                       ]?.columns
                     }
+                    schema={schema as SchemaMap}
+                    onWorkbook={setWorkbook}
                     onChange={(rows) => setWorkbook({ ...workbook, [activeSheet]: rows })}
                   />
                 )
@@ -570,40 +574,42 @@ function LibraryPreview({
         {src.notes && <p className="muted">{src.notes}</p>}
         {fac && replaceables.length > 0 && (
           <div className="lib-mode">
-            <label>
-              <input
-                type="radio"
-                checked={mode === "initial"}
-                onChange={() => setMode("initial")}
-              />{" "}
-              Add as an <strong>initial facility</strong> (runs from the start)
-            </label>
-            <label>
-              <input
-                type="radio"
-                checked={mode === "replacement"}
-                onChange={() => setMode("replacement")}
-              />{" "}
-              Add as a <strong>replacement option</strong> for technology
-              <select
-                value={replaceProcess}
-                disabled={mode !== "replacement"}
-                onChange={(e) => setReplaceProcess(e.target.value)}
-              >
-                <option value="">— choose technology —</option>
-                {replaceables.map(([t, n]) => (
-                  <option key={t} value={t}>
-                    {t} ({n} facilit{n === 1 ? "y" : "ies"})
-                  </option>
-                ))}
-              </select>
-            </label>
-            {mode === "replacement" && (
+            <div className="view-toggle">
+              {(["initial", "replacement"] as const).map((m) => (
+                <button
+                  key={m}
+                  className={`tab${mode === m ? " active" : ""}`}
+                  onClick={() => setMode(m)}
+                >
+                  {m === "initial" ? "Initial" : "Transition"}
+                </button>
+              ))}
+            </div>
+            {mode === "initial" && (
               <p className="muted">
-                Writes a transitions-table row (chosen technology → this template). The option
-                applies to <em>every</em> facility running that technology; for a multi-stage
-                chain, add one replacement per stage.
+                Adds an <strong>initial facility</strong> that runs from the start.
               </p>
+            )}
+            {mode === "replacement" && (
+              <>
+                <label className="inspector-field">
+                  <span>Replaces technology</span>
+                  <SearchableSelect
+                    value={replaceProcess}
+                    options={replaceables.map(([t]) => t)}
+                    labelOf={(t) => {
+                      const n = counts.get(t) ?? 0;
+                      return `${t} (${n} facilit${n === 1 ? "y" : "ies"})`;
+                    }}
+                    onChange={setReplaceProcess}
+                  />
+                </label>
+                <p className="muted">
+                  Writes a transitions-table row (chosen technology → this template). The option
+                  applies to <em>every</em> facility running that technology; for a multi-stage
+                  chain, add one replacement per stage.
+                </p>
+              </>
             )}
           </div>
         )}
@@ -652,9 +658,12 @@ function TechAddModal({
   const seedBaseline = facilities.find((f) => f.id === seed.process)?.baseline ?? "";
   const [fromTech, setFromTech] = useState(seedBaseline);
   const [tech, setTech] = useState(seed.tech ?? "");
-  const [newTech, setNewTech] = useState("");
-  const chosenTech = seed.tech ?? (tech === "__new__" ? newTech.trim() : tech);
+  const chosenTech = (seed.tech ?? tech).trim();
   const ready = mode === "initial" ? Boolean(chosenTech) : Boolean(chosenTech && fromTech);
+  const countLabel = (t: string) => {
+    const n = baselineCounts.get(t) ?? 0;
+    return `${t} (${n} facilit${n === 1 ? "y" : "ies"})`;
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -667,57 +676,48 @@ function TechAddModal({
           </button>
         </div>
         {!seed.process && (
-          <div className="lib-mode">
-            <label>
-              <input type="radio" checked={mode === "initial"} onChange={() => setMode("initial")} />{" "}
-              <strong>Initial</strong> — new facility running it from the start (shown on the map)
-            </label>
-            <label>
-              <input
-                type="radio"
-                checked={mode === "transition"}
-                onChange={() => setMode("transition")}
-              />{" "}
-              <strong>Transition</strong> — future option a facility may switch into (○ in the
-              tree, not on the map)
-            </label>
-          </div>
+          <>
+            <div className="view-toggle">
+              {(["initial", "transition"] as const).map((m) => (
+                <button
+                  key={m}
+                  className={`tab${mode === m ? " active" : ""}`}
+                  onClick={() => setMode(m)}
+                >
+                  {m === "initial" ? "Initial" : "Transition"}
+                </button>
+              ))}
+            </div>
+            <p className="muted">
+              {mode === "initial"
+                ? "Initial — new facility running it from the start (shown on the map)."
+                : "Transition — future option a facility may switch into (○ in the tree, not on the map)."}
+            </p>
+          </>
         )}
         {!seed.tech && (
           <label className="inspector-field">
-            <span>Technology</span>
-            <select value={tech} onChange={(e) => setTech(e.target.value)}>
-              <option value="">— choose —</option>
-              {techs.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-              <option value="__new__">+ new technology…</option>
-            </select>
-          </label>
-        )}
-        {tech === "__new__" && (
-          <label className="inspector-field">
-            <span>New technology id</span>
-            <input value={newTech} onChange={(e) => setNewTech(e.target.value)} />
+            <span>Technology (search, or type a new name)</span>
+            <SearchableSelect
+              value={tech}
+              options={techs}
+              onChange={setTech}
+              onCreate={setTech}
+              placeholder="search or type a new technology id…"
+            />
           </label>
         )}
         {mode === "transition" && (
           <label className="inspector-field">
             <span>Replaces technology (in the topology)</span>
-            <select
+            <SearchableSelect
               value={fromTech}
-              onChange={(e) => setFromTech(e.target.value)}
+              options={replaceables.map(([t]) => t)}
+              labelOf={countLabel}
+              onChange={setFromTech}
               disabled={Boolean(seed.process)}
-            >
-              <option value="">— choose technology —</option>
-              {replaceables.map(([t, n]) => (
-                <option key={t} value={t}>
-                  {t} ({n} facilit{n === 1 ? "y" : "ies"})
-                </option>
-              ))}
-            </select>
+              hint="add a facility first"
+            />
           </label>
         )}
         {mode === "transition" && fromTech && (

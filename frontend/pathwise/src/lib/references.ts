@@ -27,8 +27,21 @@ function companies(wb: Workbook): string[] {
   return ["all", ...distinct(wb, "processes", "company").filter((c) => c !== "all")];
 }
 
+/** Each entity sheet's own id column — NOT a reference when edited on that
+ *  sheet itself (it's the unique id being defined there). */
+const ID_COL: Record<string, string> = {
+  processes: "process_id",
+  commodities: "commodity_id",
+  markets: "market_id",
+  storage: "storage_id",
+  technologies: "technology_id",
+  measures: "measure_id",
+  impacts: "impact_id",
+};
+
 /** Options for a (sheet, column) cell, or ``null`` for a free-text field. */
 export function optionsFor(wb: Workbook, sheet: string, col: string, row: Row): string[] | null {
+  if (ID_COL[sheet] === col) return null; // defining the id, not referencing one
   const key = `${sheet}.${col}`;
   if (key in ENUMS) return ENUMS[key];
   if (BOOLEAN_COLS.has(col)) return ["true", "false"];
@@ -66,6 +79,52 @@ export function optionsFor(wb: Workbook, sheet: string, col: string, row: Row): 
   if (["from_process", "to_process", "applies_to"].includes(col))
     return distinct(wb, "processes", "process_id");
   return null;
+}
+
+/** Where a reference column points — the sheet(s) a missing component could
+ *  be created on. Empty array = not a creatable component (enums, booleans,
+ *  free names like MACC set labels). */
+export interface RefTarget {
+  sheet: string;
+  idCol: string;
+  label: string;
+}
+
+const COMMODITY: RefTarget = { sheet: "commodities", idCol: "commodity_id", label: "stream" };
+const IMPACT: RefTarget = { sheet: "impacts", idCol: "impact_id", label: "impact" };
+const TECH: RefTarget = { sheet: "technologies", idCol: "technology_id", label: "technology" };
+const FACILITY: RefTarget = { sheet: "processes", idCol: "process_id", label: "facility" };
+const MEASURE: RefTarget = { sheet: "measures", idCol: "measure_id", label: "measure" };
+
+export function refTargets(sheet: string, col: string, row: Row): RefTarget[] {
+  if (ID_COL[sheet] === col) return [];
+  if (`${sheet}.${col}` in ENUMS || BOOLEAN_COLS.has(col)) return [];
+  if ((sheet === "measures" || sheet === "measure_links") && col === "applies_to")
+    return [FACILITY, TECH];
+  if (sheet === "measure_links" && col === "set") return []; // named on measure rows
+  if (sheet === "measure_blocks" && col === "measure_id") return [MEASURE];
+  if (sheet === "markets" && col === "target")
+    return String(row.target_kind ?? "commodity") === "impact" ? [IMPACT] : [COMMODITY];
+  if (sheet === "measures" && col === "target")
+    return String(row.type ?? "") === "energy_efficiency" ? [COMMODITY] : [IMPACT];
+  if (col === "commodity_id") return [COMMODITY];
+  if (col === "impact_id") return [IMPACT];
+  if (["technology_id", "baseline_technology", "from_technology", "to_technology"].includes(col))
+    return [TECH];
+  if (["from_process", "to_process", "applies_to"].includes(col)) return [FACILITY];
+  return [];
+}
+
+/** Reference columns of one row whose value does not resolve to an existing
+ *  component — shown red in editors and as a red dot in the model tree. */
+export function rowProblems(wb: Workbook, sheet: string, row: Row): string[] {
+  const bad: string[] = [];
+  for (const [col, v] of Object.entries(row)) {
+    if (v == null || v === "" || typeof v === "boolean") continue;
+    const opts = optionsFor(wb, sheet, col, row);
+    if (opts && !opts.includes(String(v))) bad.push(col);
+  }
+  return bad;
 }
 
 /** What to add first when a reference dropdown has no options yet. */
