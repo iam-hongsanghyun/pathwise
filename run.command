@@ -17,6 +17,16 @@ export PATHWISE_BACKEND_URL="http://${BACKEND_HOST}:${BACKEND_PORT}"
 cleanup() { echo; echo "▶ shutting down…"; kill 0 2>/dev/null || true; }
 trap cleanup EXIT INT TERM
 
+# Start from a clean slate: drop any persisted working sessions so the app opens
+# empty on every launch. The browser keeps only a session-id pointer in
+# localStorage; with its backend session gone the frontend transparently creates
+# a fresh, empty one (see ensureSession in lib/api/session.ts).
+DATA_DIR="${PATHWISE_DATA_DIR:-data}"
+if [ -d "${DATA_DIR}/sessions" ]; then
+  echo "▶ clearing previous sessions (${DATA_DIR}/sessions)…"
+  rm -rf "${DATA_DIR}/sessions"
+fi
+
 if [ ! -d ".venv" ]; then
   echo "▶ installing backend deps (uv sync)…"
   uv sync --all-extras
