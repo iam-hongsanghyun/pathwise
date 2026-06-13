@@ -1,5 +1,5 @@
 {
-  "sector": "petrochemical",
+  "id": "petrochemical",
   "label": "Petrochemical",
   "commodities": [
     {
@@ -126,7 +126,7 @@
       "default_capacity": 7772000.0,
       "source": {
         "name": "PLANiT MACC petrochemical dataset (Korea), via the pathwise converter",
-        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/petrochemical.py",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/src/pathwise/assets/library/petrochemical.json",
         "year": 2026,
         "region": "KR",
         "basis": "sector-model extraction",
@@ -290,7 +290,7 @@
       "default_capacity": 2190000.0,
       "source": {
         "name": "PLANiT MACC petrochemical dataset (Korea), via the pathwise converter",
-        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/petrochemical.py",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/src/pathwise/assets/library/petrochemical.json",
         "year": 2026,
         "region": "KR",
         "basis": "sector-model extraction",
@@ -394,7 +394,7 @@
       "default_capacity": 350000.0,
       "source": {
         "name": "PLANiT MACC petrochemical dataset (Korea), via the pathwise converter",
-        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/petrochemical.py",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/src/pathwise/assets/library/petrochemical.json",
         "year": 2026,
         "region": "KR",
         "basis": "sector-model extraction",
@@ -540,7 +540,7 @@
       "default_capacity": 11962000.0,
       "source": {
         "name": "PLANiT MACC petrochemical dataset (Korea), via the pathwise converter",
-        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/petrochemical.py",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/src/pathwise/assets/library/petrochemical.json",
         "year": 2026,
         "region": "KR",
         "basis": "sector-model extraction",
@@ -593,7 +593,7 @@
       "default_capacity": 360000.0,
       "source": {
         "name": "PLANiT MACC petrochemical dataset (Korea), via the pathwise converter",
-        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/petrochemical.py",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/src/pathwise/assets/library/petrochemical.json",
         "year": 2026,
         "region": "KR",
         "basis": "sector-model extraction",
@@ -627,7 +627,7 @@
       "default_capacity": 410000.0,
       "source": {
         "name": "PLANiT MACC petrochemical dataset (Korea), via the pathwise converter",
-        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/petrochemical.py",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/src/pathwise/assets/library/petrochemical.json",
         "year": 2026,
         "region": "KR",
         "basis": "sector-model extraction",
@@ -656,7 +656,7 @@
       "default_capacity": 10790000.0,
       "source": {
         "name": "PLANiT MACC petrochemical dataset (Korea), via the pathwise converter",
-        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/petrochemical.py",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/src/pathwise/assets/library/petrochemical.json",
         "year": 2026,
         "region": "KR",
         "basis": "sector-model extraction",
@@ -802,7 +802,7 @@
       "default_capacity": 11165000.0,
       "source": {
         "name": "PLANiT MACC petrochemical dataset (Korea), via the pathwise converter",
-        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/petrochemical.py",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/src/pathwise/assets/library/petrochemical.json",
         "year": 2026,
         "region": "KR",
         "basis": "sector-model extraction",
@@ -851,7 +851,7 @@
       "default_capacity": 2928000.0,
       "source": {
         "name": "PLANiT MACC petrochemical dataset (Korea), via the pathwise converter",
-        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/petrochemical.py",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/src/pathwise/assets/library/petrochemical.json",
         "year": 2026,
         "region": "KR",
         "basis": "sector-model extraction",
@@ -900,7 +900,7 @@
       "default_capacity": 3494000.0,
       "source": {
         "name": "PLANiT MACC petrochemical dataset (Korea), via the pathwise converter",
-        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/petrochemical.py",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/src/pathwise/assets/library/petrochemical.json",
         "year": 2026,
         "region": "KR",
         "basis": "sector-model extraction",

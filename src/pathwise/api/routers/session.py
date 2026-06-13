@@ -18,11 +18,11 @@ from pathwise.api.session_store import SessionNotFound, SessionStore
 from pathwise.api.workbook_io import parse_xlsx, result_to_xlsx, write_xlsx
 from pathwise.config import get_settings
 from pathwise.data.library import (
-    SectorLibrary,
+    Library,
     add_chain,
     add_facility,
     add_replacement,
-    load_sector,
+    load_library,
 )
 from pathwise.logger import get_logger
 
@@ -85,7 +85,7 @@ class LibraryInsert(BaseModel):
     system the optimiser may switch into.
     """
 
-    sector: str
+    library: str
     kind: str = Field(pattern="^(facility|chain)$")
     id: str
     mode: str = Field(default="initial", pattern="^(initial|replacement)$")
@@ -190,7 +190,7 @@ def export_result(result: dict[str, Any]) -> Response:
     )
 
 
-# ── Examples (bundled sector workbooks, loaded server-side) ───────────────────
+# ── Examples (bundled example workbooks, loaded server-side) ──────────────────
 
 
 @router.get("/examples")
@@ -221,11 +221,11 @@ def load_example(session_id: str, example_id: str) -> dict[str, Any]:
 # ── Facility-template library (insert server-side) ────────────────────────────
 
 
-def _sector(sector: str) -> SectorLibrary:
-    path = Path(get_settings().library_dir) / f"{sector}.json"
+def _library(name: str) -> Library:
+    path = Path(get_settings().library_dir) / f"{name}.json"
     if not path.exists():
-        raise HTTPException(status_code=404, detail=f"unknown library sector '{sector}'")
-    return load_sector(path)
+        raise HTTPException(status_code=404, detail=f"unknown library '{name}'")
+    return load_library(path)
 
 
 @router.get("/library")
@@ -237,10 +237,10 @@ def list_library() -> list[dict[str, Any]]:
     return json.loads(index.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
 
 
-@router.get("/library/{sector}")
-def sector_library(sector: str) -> dict[str, Any]:
-    """One sector's templates (for the preview cards)."""
-    return _sector(sector).model_dump()
+@router.get("/library/{name}")
+def library_detail(name: str) -> dict[str, Any]:
+    """One library's templates (for the preview cards)."""
+    return _library(name).model_dump()
 
 
 @router.post("/session/{session_id}/library")
@@ -248,7 +248,7 @@ def insert_template(session_id: str, body: LibraryInsert) -> dict[str, Any]:
     """Insert a facility or chain template into the session model."""
     store = _store()
     model = _model_or_404(store, session_id)
-    lib = _sector(body.sector)
+    lib = _library(body.library)
     try:
         if body.kind == "chain":
             model = add_chain(model, lib, body.id)

@@ -1,5 +1,5 @@
 {
-  "sector": "steel_processing",
+  "id": "steel_processing",
   "label": "Steel — pre/post processing",
   "commodities": [
     {

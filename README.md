@@ -29,8 +29,9 @@ frontend/    Vite + React + TypeScript (React Flow designer)
 ```
 
 - **Solver:** [linopy](https://linopy.readthedocs.io) + [HiGHS](https://highs.dev).
-- **Stateless backend:** all data arrives in the request; the whole result returns in
-  the response. xlsx parse/export is client-side.
+- **Backend-centric:** the backend owns the model — xlsx parse/export, the working-model
+  store, the example workbooks, and the template library all live server-side. The browser
+  is a thin client (it persists only a session id) and never parses spreadsheets.
 
 ## Develop
 

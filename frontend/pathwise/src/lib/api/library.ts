@@ -1,5 +1,5 @@
 // Facility-template library: types mirroring src/pathwise/data/library.py and
-// loaders following the examples-library pattern (static JSON under /library).
+// loaders for libraries served by the backend under /api/library.
 
 export interface SourceRef {
   name: string;
@@ -81,8 +81,8 @@ export interface ChainTemplate {
   source: SourceRef;
 }
 
-export interface SectorLibrary {
-  sector: string;
+export interface Library {
+  id: string;
   label: string;
   commodities: LibCommodity[];
   facilities: FacilityTemplate[];
@@ -90,22 +90,22 @@ export interface SectorLibrary {
 }
 
 export interface LibraryIndexEntry {
-  sector: string;
+  id: string;
   label: string;
   file: string;
   description?: string;
 }
 
-/** List the sector libraries (served by the backend). */
+/** List the available libraries (served by the backend). */
 export async function listLibrary(): Promise<LibraryIndexEntry[]> {
   const res = await fetch("/api/library");
   if (!res.ok) return [];
   return (await res.json()) as LibraryIndexEntry[];
 }
 
-/** Fetch one sector's templates (served by the backend). */
-export async function loadSector(sector: string): Promise<SectorLibrary> {
-  const res = await fetch(`/api/library/${encodeURIComponent(sector)}`);
-  if (!res.ok) throw new Error(`could not load library sector ${sector}`);
-  return (await res.json()) as SectorLibrary;
+/** Fetch one library's templates (served by the backend). */
+export async function loadLibrary(id: string): Promise<Library> {
+  const res = await fetch(`/api/library/${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error(`could not load library ${id}`);
+  return (await res.json()) as Library;
 }

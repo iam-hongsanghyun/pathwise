@@ -1,10 +1,12 @@
 """Facility-template library — the format contract and chain instantiation.
 
-The library is a set of static JSON files (one per sector, served to the
-frontend like the example workbooks) holding **prebuilt facility archetypes**
+The library is a set of static JSON files (one per named collection, served to
+the frontend like the example workbooks) holding **prebuilt facility archetypes**
 (inputs, outputs incl. slates, costs, emission factors, alternatives) and
 **process chains** (ordered stages wired by intermediate streams). Users insert
-them into a model instead of authoring cross-referenced tables by hand.
+them into a model instead of authoring cross-referenced tables by hand. The
+templates are generic process recipes — pathwise is a general process-network
+tool, so a library is just a reusable bundle, not a hard-coded industry.
 
 Every facility and chain **must carry a reference** (``source.url``): values are
 only as credible as their citation, so an uncited entry is a validation error,
@@ -82,7 +84,7 @@ class Alternative(BaseModel):
 
 
 class CommodityTemplate(BaseModel):
-    """A stream the sector's facilities consume or produce."""
+    """A stream the library's facilities consume or produce."""
 
     commodity_id: str
     kind: str = Field(pattern="^(energy|material|indirect|product|byproduct)$")
@@ -148,7 +150,7 @@ class DemandHint(BaseModel):
 
 
 class ChainTemplate(BaseModel):
-    """A predefined multi-stage route through the sector's facilities."""
+    """A predefined multi-stage route through the library's facilities."""
 
     chain_id: str
     label: str
@@ -158,10 +160,10 @@ class ChainTemplate(BaseModel):
     source: SourceRef
 
 
-class SectorLibrary(BaseModel):
-    """All templates for one sector."""
+class Library(BaseModel):
+    """One named library: all templates in a single collection."""
 
-    sector: str
+    id: str
     label: str
     commodities: list[CommodityTemplate] = Field(default_factory=list)
     facilities: list[FacilityTemplate] = Field(min_length=1)
@@ -175,10 +177,10 @@ class SectorLibrary(BaseModel):
         raise KeyError(f"unknown facility template '{facility_id}'")
 
 
-def load_sector(path: str | Path) -> SectorLibrary:
-    """Load and validate one sector library JSON file."""
+def load_library(path: str | Path) -> Library:
+    """Load and validate one library JSON file."""
     with open(path, encoding="utf-8") as fh:
-        return SectorLibrary.model_validate(json.load(fh))
+        return Library.model_validate(json.load(fh))
 
 
 def _io_rows(tech: TechnologyTemplate) -> list[dict[str, Any]]:
@@ -212,7 +214,7 @@ def _tech_row(tech: TechnologyTemplate) -> dict[str, Any]:
 
 def add_facility(
     workbook: Workbook,
-    library: SectorLibrary,
+    library: Library,
     facility_id: str,
     *,
     process_id: str | None = None,
@@ -317,9 +319,77 @@ def add_facility(
     return wb
 
 
+def apply_measures(workbook: Workbook, library: Library) -> Workbook:
+    """Stamp the library's retrofit measures onto a workbook's existing facilities.
+
+    The companion to :func:`add_facility` for a model that already exists (e.g. an
+    example workbook, or one a user authored by
+    hand). The library is the single source of truth for retrofit measures — the
+    MACC cost curves live as JSON on each :class:`FacilityTemplate`, never in the
+    converter code — and this is the one function that reads them in: every
+    process whose ``baseline_technology`` matches a template's technology
+    inherits that template's measures, one independent ``measures`` row per
+    (process, measure) with the block capex scaled to the *process's own*
+    capacity (so each plant is sized to itself, not to the template default).
+
+    Pure — returns a new workbook; existing ``measures`` rows are kept and
+    re-stamping the same (process, measure) is a no-op (idempotent), so a
+    converter and the regeneration tool produce the same result.
+
+    Args:
+        workbook: The model to augment (``{sheet: rows}``).
+        library: The library whose facility templates carry the measures.
+
+    Returns:
+        A new workbook with ``measures`` / ``measure_blocks`` populated.
+    """
+    template_of: dict[str, FacilityTemplate] = {}
+    for f in library.facilities:
+        template_of.setdefault(f.technology.technology_id, f)
+
+    wb: Workbook = {k: list(v) for k, v in workbook.items()}
+    measures = wb.setdefault("measures", [])
+    blocks = wb.setdefault("measure_blocks", [])
+    seen = {str(r.get("measure_id")) for r in measures}
+
+    for proc in wb.get("processes", []):
+        template = template_of.get(str(proc.get("baseline_technology") or ""))
+        if template is None or not template.measures:
+            continue
+        pid = str(proc.get("process_id"))
+        try:
+            capacity = float(proc.get("capacity") or 0.0)
+        except (TypeError, ValueError):
+            capacity = 0.0
+        for m in template.measures:
+            mid = f"{pid} · {m.measure_id}"
+            if mid in seen:
+                continue
+            seen.add(mid)
+            measures.append(
+                {
+                    "measure_id": mid,
+                    "type": m.type,
+                    "facility": pid,
+                    "target": m.target,
+                    "lifetime": m.lifetime,
+                }
+            )
+            for i, blk in enumerate(m.blocks):
+                blocks.append(
+                    {
+                        "measure_id": mid,
+                        "block": i,
+                        "reduction": blk.reduction,
+                        "capex": round(blk.capex_per_capacity * capacity, 2),
+                    }
+                )
+    return wb
+
+
 def add_replacement(
     workbook: Workbook,
-    library: SectorLibrary,
+    library: Library,
     facility_id: str,
     replace_process: str,
     *,
@@ -339,7 +409,7 @@ def add_replacement(
 
     Args:
         workbook: The model to extend (pure; returns a new dict).
-        library: The sector library.
+        library: The library.
         facility_id: The template whose baseline technology becomes the option.
         replace_process: The facility whose baseline it may replace, or a
             technology id directly (same effect — transitions are
@@ -414,7 +484,7 @@ def add_replacement(
 
 def add_chain(
     workbook: Workbook,
-    library: SectorLibrary,
+    library: Library,
     chain_id: str,
     *,
     company: str = "",
@@ -505,7 +575,7 @@ def add_chain(
 
 
 def instantiate_chain(
-    library: SectorLibrary,
+    library: Library,
     chain_id: str,
     *,
     company: str = "Library",

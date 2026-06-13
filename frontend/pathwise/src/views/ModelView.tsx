@@ -17,7 +17,7 @@ import {
   maccNames,
 } from "../lib/graph";
 import { insertTemplate } from "../lib/api/session";
-import { listLibrary, loadSector, type SectorLibrary } from "../lib/api/library";
+import { listLibrary, loadLibrary, type Library, type LibraryIndexEntry } from "../lib/api/library";
 import type { Cell, ConfigBundle, Row, Selection, Workbook } from "../types";
 
 interface Props {
@@ -151,25 +151,37 @@ export function ModelView({
   const [dockH, setDockH] = useState(260);
   const schema = config?.domains[0]?.schema ?? {};
 
-  // Prebuilt facility/chain templates (sector library) for the rail.
-  const [library, setLibrary] = useState<SectorLibrary[]>([]);
+  // Prebuilt facility/chain templates (library) for the rail. Only the
+  // lightweight index is fetched up front; each library's full template detail
+  // is loaded lazily (and cached) the first time its rail group is opened or a
+  // template is previewed — so the browser never holds libraries it isn't using.
+  const [libIndex, setLibIndex] = useState<LibraryIndexEntry[]>([]);
+  const [libDetail, setLibDetail] = useState<Record<string, Library>>({});
   const [libPreview, setLibPreview] = useState<{
-    sector: string;
+    library: string;
     kind: "facility" | "chain";
     id: string;
   } | null>(null);
   useEffect(() => {
     listLibrary()
-      .then((entries) => Promise.all(entries.map((e) => loadSector(e.sector))))
-      .then(setLibrary)
-      .catch(() => setLibrary([]));
+      .then(setLibIndex)
+      .catch(() => setLibIndex([]));
   }, []);
-  const railLibrary: RailLibrarySector[] = library.map((lib) => ({
-    sector: lib.sector,
-    label: lib.label,
-    chains: (lib.chains ?? []).map((c) => ({ id: c.chain_id, label: c.label })),
-    facilities: lib.facilities.map((f) => ({ id: f.facility_id, label: f.label })),
-  }));
+  const ensureLibrary = (id: string) => {
+    if (libDetail[id]) return;
+    void loadLibrary(id)
+      .then((lib) => setLibDetail((cur) => (cur[id] ? cur : { ...cur, [id]: lib })))
+      .catch(() => {});
+  };
+  const railLibrary: RailLibrarySector[] = libIndex.map((entry) => {
+    const lib = libDetail[entry.id];
+    return {
+      id: entry.id,
+      label: entry.label,
+      chains: (lib?.chains ?? []).map((c) => ({ id: c.chain_id, label: c.label })),
+      facilities: (lib?.facilities ?? []).map((f) => ({ id: f.facility_id, label: f.label })),
+    };
+  });
 
   // "Add technology as…" dialog: from a tech drag (tech known, choose mode +
   // facility) or from a facility's context menu (facility known, choose tech).
@@ -190,7 +202,7 @@ export function ModelView({
   // Template inserts happen SERVER-side (the session owns the model); the
   // frontend adopts the refreshed model and selects what was created.
   const insert = async (body: {
-    sector: string;
+    library: string;
     kind: "facility" | "chain";
     id: string;
     mode?: "initial" | "replacement";
@@ -214,10 +226,10 @@ export function ModelView({
     setLibPreview(null);
   };
 
-  // A library facility dragged onto the canvas (payload `libfac:<sector>/<id>`).
+  // A library facility dragged onto the canvas (payload `libfac:<libId>/<id>`).
   const dropLibraryFacility = (key: string, x: number, y: number) => {
-    const [sector, fid] = key.split("/", 2);
-    if (sector && fid) void insert({ sector, kind: "facility", id: fid, x, y });
+    const [libId, fid] = key.split("/", 2);
+    if (libId && fid) void insert({ library: libId, kind: "facility", id: fid, x, y });
   };
 
   // Table columns = schema columns ∪ keys present in the rows, so optional
@@ -307,7 +319,11 @@ export function ModelView({
         onToggleIds={toggleIds}
         onAdd={addRow}
         library={railLibrary}
-        onLibraryItem={(sector, kind, id) => setLibPreview({ sector, kind, id })}
+        onExpandLibrary={ensureLibrary}
+        onLibraryItem={(library, kind, id) => {
+          ensureLibrary(library);
+          setLibPreview({ library, kind, id });
+        }}
         draggable
         width={leftW}
         schema={schema as SchemaMap}
@@ -472,7 +488,7 @@ export function ModelView({
       )}
       {libPreview && (
         <LibraryPreview
-          library={library}
+          lib={libDetail[libPreview.library]}
           preview={libPreview}
           workbook={workbook}
           onAdd={addFromLibrary}
@@ -488,14 +504,14 @@ export function ModelView({
  *  (current) facility, or as a replacement OPTION the optimiser may switch an
  *  existing facility into (a transitions-table entry, no new facility). */
 function LibraryPreview({
-  library,
+  lib,
   preview,
   workbook,
   onAdd,
   onClose,
 }: {
-  library: SectorLibrary[];
-  preview: { sector: string; kind: "facility" | "chain"; id: string };
+  lib: Library | undefined;
+  preview: { library: string; kind: "facility" | "chain"; id: string };
   workbook: Workbook;
   onAdd: (opts: { mode: "initial" | "replacement"; replaceProcess?: string }) => void;
   onClose: () => void;
@@ -510,8 +526,7 @@ function LibraryPreview({
   }
   const replaceables = [...counts.entries()].sort();
   const [replaceProcess, setReplaceProcess] = useState<string>("");
-  const lib = library.find((l) => l.sector === preview.sector);
-  if (!lib) return null;
+  if (!lib) return null; // detail still loading — re-renders when it arrives
   const fac =
     preview.kind === "facility"
       ? lib.facilities.find((f) => f.facility_id === preview.id)
