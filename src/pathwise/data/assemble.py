@@ -417,7 +417,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     #      whose baseline runs it) columns on the measure row;
     #   2. membership in a named MACC (`maccs` rows {macc, measure_id} — the
     #      same measure may sit in several MACCs) deployed via `macc_links`
-    #      rows {macc, facility|technology};
+    #      rows {macc, facility|technology|commodity|storage} — a commodity
+    #      (stream) reaches every facility whose baseline technology consumes
+    #      it; a storage reaches the consumers of its stored stream;
     #   3. legacy `applies_to` / `set` + `measure_links` columns (older files).
     # Every (measure, facility) pair becomes its OWN independent Measure
     # instance — adoption is per facility, never grouped.
@@ -433,14 +435,14 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         if macc and member:
             maccs_by_measure.setdefault(member, []).append(macc)
 
-    macc_targets: dict[str, list[str]] = {}
+    macc_targets: dict[str, list[tuple[str, str]]] = {}  # macc → [(kind, name)]
     for r in _rows(workbook, "macc_links"):
         macc = _str(r.get("macc"))
         if not macc:
             continue
-        for target in (_str(r.get("facility")), _str(r.get("technology"))):
-            if target:
-                macc_targets.setdefault(macc, []).append(target)
+        for link_kind in ("facility", "technology", "commodity", "storage"):
+            if target := _str(r.get(link_kind)):
+                macc_targets.setdefault(macc, []).append((link_kind, target))
 
     proc_ids = {proc.process_id for proc in processes}
     by_baseline: dict[str, list[str]] = {}
@@ -452,6 +454,25 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         if target in proc_ids:
             return [target]
         return by_baseline.get(target, [])
+
+    storage_commodity: dict[str, str] = {}
+    for r in _rows(workbook, "storage"):
+        sid, cid = _str(r.get("storage_id")), _str(r.get("commodity_id"))
+        if sid and cid:
+            storage_commodity[sid] = cid
+
+    def _consumers(commodity: str) -> list[str]:
+        """Facilities whose baseline technology consumes the stream."""
+        return [p.process_id for p in processes if commodity in inputs.get(p.baseline_technology, {})]
+
+    def _resolve_link(kind: str, target: str) -> list[str]:
+        """A typed macc_links target → the facility ids it deploys on."""
+        if kind == "commodity":
+            return _consumers(target)
+        if kind == "storage":
+            stored = storage_commodity.get(target)
+            return _consumers(stored) if stored else []
+        return _resolve(target)
 
     measures: list[Measure] = []
     for r in _rows(workbook, "measures"):
@@ -466,8 +487,8 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         if direct_tech := _str(r.get("technology")):
             targets.extend(_resolve(direct_tech))
         for macc in maccs_by_measure.get(mid, []):
-            for link in macc_targets.get(macc, []):
-                targets.extend(_resolve(link))
+            for link_kind, link in macc_targets.get(macc, []):
+                targets.extend(_resolve_link(link_kind, link))
         if direct_link := _str(r.get("applies_to")):  # legacy column
             targets.extend(_resolve(direct_link))
         if set_id := _str(r.get("set")):  # legacy named set

@@ -71,7 +71,9 @@ export function optionsFor(wb: Workbook, sheet: string, col: string, row: Row): 
     return distinct(wb, "measures", "measure_id");
 
   if (col === "company") return companies(wb);
-  if (col === "commodity_id") return distinct(wb, "commodities", "commodity_id");
+  if (col === "commodity_id" || col === "commodity")
+    return distinct(wb, "commodities", "commodity_id");
+  if (col === "storage") return distinct(wb, "storage", "storage_id");
   if (col === "impact_id") return distinct(wb, "impacts", "impact_id");
   if (
     ["technology_id", "baseline_technology", "from_technology", "to_technology", "technology"].includes(col)
@@ -96,6 +98,7 @@ const IMPACT: RefTarget = { sheet: "impacts", idCol: "impact_id", label: "impact
 const TECH: RefTarget = { sheet: "technologies", idCol: "technology_id", label: "technology" };
 const FACILITY: RefTarget = { sheet: "processes", idCol: "process_id", label: "facility" };
 const MEASURE: RefTarget = { sheet: "measures", idCol: "measure_id", label: "measure" };
+const STORE: RefTarget = { sheet: "storage", idCol: "storage_id", label: "store" };
 
 export function refTargets(sheet: string, col: string, row: Row): RefTarget[] {
   if (ID_COL[sheet] === col) return [];
@@ -106,7 +109,8 @@ export function refTargets(sheet: string, col: string, row: Row): RefTarget[] {
     return String(row.target_kind ?? "commodity") === "impact" ? [IMPACT] : [COMMODITY];
   if (sheet === "measures" && col === "target")
     return String(row.type ?? "") === "energy_efficiency" ? [COMMODITY] : [IMPACT];
-  if (col === "commodity_id") return [COMMODITY];
+  if (col === "commodity_id" || col === "commodity") return [COMMODITY];
+  if (col === "storage") return [STORE];
   if (col === "impact_id") return [IMPACT];
   if (
     ["technology_id", "baseline_technology", "from_technology", "to_technology", "technology"].includes(col)
@@ -138,13 +142,14 @@ export function rowMissing(sheet: string, row: Row, requiredCols?: string[]): st
     const v = row[col];
     if (v == null || v === "") out.push(col);
   }
-  // A MACC deployment must name a facility OR a technology.
+  // A MACC deployment must name a facility, technology, stream or store.
   if (
     sheet === "macc_links" &&
-    (row.facility == null || row.facility === "") &&
-    (row.technology == null || row.technology === "")
+    ["facility", "technology", "commodity", "storage"].every(
+      (c) => row[c] == null || row[c] === "",
+    )
   )
-    out.push("facility or technology");
+    out.push("facility, technology, stream or store");
   return out;
 }
 
@@ -162,7 +167,9 @@ export function measureDeployed(wb: Workbook, row: Row): boolean {
   );
   if (
     (wb.macc_links ?? []).some(
-      (l) => myMaccs.has(String(l.macc ?? "")) && (l.facility || l.technology),
+      (l) =>
+        myMaccs.has(String(l.macc ?? "")) &&
+        (l.facility || l.technology || l.commodity || l.storage),
     )
   )
     return true;
@@ -178,7 +185,8 @@ export function emptyHint(sheet: string, col: string): string {
   if (isFreeName(sheet, col)) return "type a name for a new MACC";
   if ((sheet === "measure_blocks" || sheet === "maccs") && col === "measure_id")
     return "add a measure first";
-  if (col === "commodity_id") return "add a stream first";
+  if (col === "commodity_id" || col === "commodity") return "add a stream first";
+  if (col === "storage") return "add a store first";
   if (col === "impact_id") return "add an impact first";
   if (
     ["technology_id", "baseline_technology", "from_technology", "to_technology", "technology"].includes(col)

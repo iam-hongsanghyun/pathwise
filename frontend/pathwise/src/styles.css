@@ -162,6 +162,26 @@
   border-top: 1px solid var(--border);
   padding-top: 6px;
 }
+.measure-blocks {
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+}
+.measure-block-head,
+.measure-block-row {
+  display: grid;
+  grid-template-columns: 54px 1fr 1fr 28px;
+  align-items: center;
+  gap: 4px;
+  margin: 3px 0;
+}
+.measure-block-head {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+}
+.measure-block-row input {
+  min-width: 0;
+}
 .ef-row {
   display: grid;
   grid-template-columns: 1fr 80px 28px;
@@ -1221,21 +1241,179 @@ th.col-optional {
 /* ── MACC editor (one MACC: members + deployment + curve) ─────────────────── */
 .macc-panel {
   display: flex;
-  gap: 16px;
+  flex-direction: column;
+  gap: 10px;
   height: 100%;
   min-height: 0;
 }
-.macc-side {
-  flex: 0 0 280px;
-  overflow: auto;
-  padding-right: 8px;
-  border-right: 1px solid var(--border);
+.macc-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
 }
-.macc-side .combo {
+.macc-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.macc-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(92px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.macc-metric {
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+}
+.macc-metric span {
+  display: block;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+}
+.macc-metric strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 1rem;
+}
+.macc-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(240px, 1fr));
+  gap: 14px;
+}
+.macc-section {
+  min-width: 0;
+}
+.macc-section .combo {
   margin-top: 4px;
 }
-.macc-chart {
+.macc-section + .macc-section {
+  margin-top: 14px;
+}
+.macc-deploy-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+  align-items: start;
+}
+.macc-deploy-row > select {
+  flex: 0 0 auto;
+}
+.macc-deploy-row .combo {
   flex: 1;
+  margin-top: 0;
+}
+.macc-picker th:first-child,
+.macc-picker td:first-child {
+  width: 28px;
+  text-align: center;
+}
+.macc-picker input[type="checkbox"] {
+  accent-color: var(--brand);
+  cursor: pointer;
+}
+.macc-picker tr.row-broken td {
+  color: var(--danger);
+}
+.macc-chart-shell {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(180px, 240px);
+  gap: 12px;
+  align-items: start;
+}
+.macc-chart-plot {
   min-width: 0;
-  overflow: auto;
+  max-width: 760px;
+}
+.macc-chart-plot svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+}
+.macc-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.macc-axis,
+.macc-zero-axis {
+  stroke: var(--text);
+  stroke-width: 1.2;
+}
+.macc-zero-axis {
+  stroke-width: 1.5;
+}
+.macc-tick,
+.macc-axis-label {
+  fill: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.macc-axis-label {
+  font-size: 11px;
+}
+.macc-bar {
+  cursor: pointer;
+  opacity: 0.78;
+  stroke: transparent;
+  stroke-width: 2;
+}
+.macc-bar:hover,
+.macc-bar:focus,
+.macc-bar.is-active {
+  opacity: 1;
+  stroke: var(--text);
+  outline: none;
+}
+.macc-chart-readout {
+  border-left: 1px solid var(--border);
+  padding-left: 10px;
+  min-width: 0;
+}
+.macc-chart-readout strong {
+  display: block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+.macc-chart-readout dl {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+}
+.macc-chart-readout dl div {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+}
+.macc-chart-readout dt {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+}
+.macc-chart-readout dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.macc-overview.table-wrap {
+  max-height: none;
+  height: 100%;
+}
+.macc-link {
+  padding-inline: 0;
+}
+@media (max-width: 900px) {
+  .macc-summary-strip,
+  .macc-editor-grid,
+  .macc-chart-shell {
+    grid-template-columns: 1fr;
+  }
+  .macc-chart-readout {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    padding-left: 0;
+    padding-top: 8px;
+  }
 }

@@ -2,7 +2,9 @@
 
 The model: ``measures`` is a catalogue (no target needed), ``maccs`` rows
 {macc, measure_id} build named bundles (a measure may sit in several), and
-``macc_links`` rows {macc, facility|technology} deploy a bundle. Direct
+``macc_links`` rows {macc, facility|technology|commodity|storage} deploy a
+bundle: a commodity (stream) reaches every facility whose baseline technology
+consumes it, a storage reaches the consumers of its stored stream. Direct
 ``facility``/``technology`` columns on a measure remain a one-off shortcut.
 """
 
@@ -108,6 +110,38 @@ def test_direct_facility_and_technology_columns() -> None:
     prob = _problem(wb)
     ids = sorted(m.measure_id for m in prob.measures)
     assert ids == ["co2_scrub @ Big", "co2_scrub @ Small", "fuel_saver"]
+
+
+def test_macc_deploys_via_stream() -> None:
+    wb = _wb()
+    # Both baseline technologies (T, U) consume fuel → all three facilities.
+    wb["macc_links"] = [{"macc": "T pack", "commodity": "fuel"}]
+    prob = _problem(wb)
+    assert sorted(m.applies_to for m in prob.measures if m.measure_id.startswith("fuel_saver")) == [
+        "Big",
+        "Other",
+        "Small",
+    ]
+
+
+def test_macc_deploys_via_storage() -> None:
+    wb = _wb()
+    # A store resolves through its stream to the stream's consumers.
+    wb["storage"] = [{"storage_id": "tank", "commodity_id": "fuel"}]
+    wb["macc_links"] = [{"macc": "T pack", "storage": "tank"}]
+    prob = _problem(wb)
+    assert sorted(m.applies_to for m in prob.measures if m.measure_id.startswith("fuel_saver")) == [
+        "Big",
+        "Other",
+        "Small",
+    ]
+
+
+def test_macc_storage_link_without_store_is_inert() -> None:
+    wb = _wb()
+    wb["macc_links"] = [{"macc": "T pack", "storage": "missing_tank"}]
+    prob = _problem(wb)
+    assert all(not m.measure_id.startswith("fuel_saver") for m in prob.measures)
 
 
 def test_duplicate_membership_does_not_double_instances() -> None:

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { applyMacc, type MaccLinkKind } from "../../lib/graph";
 import { emptyHint, isFreeName, optionsFor, refTargets, type RefTarget } from "../../lib/references";
 import type { Cell, Selection, Workbook } from "../../types";
 import { CreateComponentModal } from "../controls/CreateComponentModal";
@@ -295,6 +296,141 @@ function TechnologyIO({
   );
 }
 
+/** Which macc_links column a deployment from this sheet's detail panel fills. */
+const MACC_TARGET_COL: Record<string, MaccLinkKind> = {
+  processes: "facility",
+  technologies: "technology",
+  commodities: "commodity",
+  storage: "storage",
+};
+
+/** Deploy a MACC from the component's side: facilities, technologies, streams
+ *  and stores each list the MACCs deployed on them and can add one — the
+ *  mirror of the MACC panel's "deployed on" editor (same macc_links rows). */
+function MaccDeployments({
+  workbook,
+  sheet,
+  id,
+  onChange,
+}: {
+  workbook: Workbook;
+  sheet: string;
+  id: string;
+  onChange: (wb: Workbook) => void;
+}) {
+  const col = MACC_TARGET_COL[sheet];
+  const links = (workbook.macc_links ?? [])
+    .map((r, i) => ({ r, i }))
+    .filter(({ r }) => String(r[col] ?? "") === id);
+  const names = [
+    ...new Set(
+      [...(workbook.maccs ?? []), ...(workbook.macc_links ?? [])]
+        .map((r) => String(r.macc ?? ""))
+        .filter(Boolean),
+    ),
+  ].sort();
+  const here = new Set(links.map(({ r }) => String(r.macc ?? "")));
+  const addable = names.filter((n) => !here.has(n));
+  const remove = (idx: number) =>
+    onChange({ ...workbook, macc_links: (workbook.macc_links ?? []).filter((_, i) => i !== idx) });
+
+  return (
+    <div className="emission-factors">
+      <div className="rail-count" style={{ marginTop: 8 }}>
+        MACC DEPLOYMENT
+      </div>
+      {links.map(({ r, i }) => (
+        <div className="io-line" key={i}>
+          <span className="io-name">{String(r.macc ?? "")}</span>
+          <span className="io-meta">MACC</span>
+          <span />
+          <button className="ghost" onClick={() => remove(i)} title="remove deployment">
+            ✕
+          </button>
+        </div>
+      ))}
+      <SearchableSelect
+        value=""
+        options={addable}
+        onChange={(v) => v && onChange(applyMacc(workbook, v, { [col]: id }))}
+        placeholder="+ deploy a MACC here..."
+        hint="build a MACC first (MACC rail)"
+      />
+    </div>
+  );
+}
+
+/** A measure owns its own cost blocks; keep them with the measure inspector so
+ *  the user edits one retrofit object instead of hunting through a raw table. */
+function MeasureBlocks({
+  workbook,
+  measure,
+  onChange,
+}: {
+  workbook: Workbook;
+  measure: string;
+  onChange: (wb: Workbook) => void;
+}) {
+  const rows = workbook.measure_blocks ?? [];
+  const mine = rows
+    .map((r, i) => ({ r, i }))
+    .filter(({ r }) => String(r.measure_id ?? "") === measure);
+  const numeric = (value: string) => (value === "" ? null : Number(value));
+  const set = (idx: number, key: string, val: Cell) =>
+    onChange({ ...workbook, measure_blocks: rows.map((r, i) => (i === idx ? { ...r, [key]: val } : r)) });
+  const del = (idx: number) =>
+    onChange({ ...workbook, measure_blocks: rows.filter((_, i) => i !== idx) });
+  const add = () => {
+    const nextBlock =
+      mine.reduce((highest, { r }) => Math.max(highest, Number(r.block ?? -1)), -1) + 1;
+    onChange({
+      ...workbook,
+      measure_blocks: [
+        ...rows,
+        { measure_id: measure, block: nextBlock, reduction: 0.1, capex: 0 },
+      ],
+    });
+  };
+
+  return (
+    <div className="measure-blocks">
+      <div className="rail-count" style={{ marginTop: 8 }}>
+        COST BLOCKS
+      </div>
+      <div className="measure-block-head">
+        <span>block</span>
+        <span>reduction</span>
+        <span>capex</span>
+        <span />
+      </div>
+      {mine.map(({ r, i }) => (
+        <div key={i} className="measure-block-row">
+          <input value={num(r.block)} onChange={(e) => set(i, "block", numeric(e.target.value))} />
+          <input
+            type="number"
+            min={0}
+            max={1}
+            step={0.01}
+            value={num(r.reduction)}
+            onChange={(e) => set(i, "reduction", numeric(e.target.value))}
+          />
+          <input
+            type="number"
+            value={num(r.capex)}
+            onChange={(e) => set(i, "capex", numeric(e.target.value))}
+          />
+          <button className="ghost" onClick={() => del(i)} title="remove">
+            ✕
+          </button>
+        </div>
+      ))}
+      <button className="ghost" onClick={add}>
+        + block
+      </button>
+    </div>
+  );
+}
+
 /** Detail editor for one entity — rendered in the main panel (Data) or as a
  *  floating card on the canvas (Model). Replaces the old right-rail inspector. */
 export function DetailPanel({ workbook, selected, schema, onChange, onClose, floating }: Props) {
@@ -440,6 +576,17 @@ export function DetailPanel({ workbook, selected, schema, onChange, onClose, flo
           )}
           {selected.sheet === "technologies" && (
             <TechnologyIO workbook={workbook} technology={selected.id} onChange={onChange} />
+          )}
+          {selected.sheet === "measures" && (
+            <MeasureBlocks workbook={workbook} measure={selected.id} onChange={onChange} />
+          )}
+          {selected.sheet in MACC_TARGET_COL && (
+            <MaccDeployments
+              workbook={workbook}
+              sheet={selected.sheet}
+              id={selected.id}
+              onChange={onChange}
+            />
           )}
           <button className="ghost" onClick={remove}>
             Delete

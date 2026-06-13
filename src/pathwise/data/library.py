@@ -104,7 +104,7 @@ class MeasureBlockTemplate(BaseModel):
 
 
 class MeasureTemplate(BaseModel):
-    """A MACC measure: a small retrofit of the SAME system (no tech switch).
+    """A measure template: a small retrofit of the SAME system (no tech switch).
 
     The other decarbonisation lever next to ``alternatives`` (full technology
     transitions): efficiency or abatement upgrades applied to the facility's
@@ -222,7 +222,7 @@ def add_facility(
 
     Commodities are merged by id (existing rows win); a technology that already
     exists is reused (recipe/instance separation — many facilities may share an
-    archetype); the process instance id is uniquified. MACC measure templates
+    archetype); the process instance id is uniquified. Measure templates
     are stamped onto the created instance (``facility`` = the new process id;
     block capex scales with the instance capacity).
     """
@@ -293,7 +293,7 @@ def add_facility(
         }
     )
 
-    # MACC measures: small retrofits of the SAME system, stamped per instance.
+    # Measures: small retrofits of the SAME system, stamped per instance.
     for m in f.measures:
         mid = f"{pid} · {m.measure_id}"
         wb["measures"].append(

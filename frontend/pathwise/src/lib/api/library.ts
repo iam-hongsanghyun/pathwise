@@ -46,7 +46,7 @@ export interface LibMeasureBlock {
   capex_per_capacity: number;
 }
 
-/** A MACC measure: a small retrofit of the SAME system (no technology switch). */
+/** A measure template: a small retrofit of the same system (no technology switch). */
 export interface LibMeasure {
   measure_id: string;
   label?: string;

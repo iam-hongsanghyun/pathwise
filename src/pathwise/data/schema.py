@@ -23,7 +23,7 @@ TERMINOLOGY: dict[str, str] = {
     "technology": "Technology",
     "commodity": "Stream",
     "impact": "Environmental impact",
-    "measure": "Measure (MACC)",
+    "measure": "Measure",
     "company": "Company",
     "throughput": "Production",
 }
@@ -193,7 +193,7 @@ SCHEMA: dict[str, Any] = {
         },
     },
     "measures": {
-        "label": "Measures (MACC)",
+        "label": "Measures",
         "columns": {
             "measure_id": {"label": "Measure", "type": "string", "required": True, "desc": "Unique name of this retrofit measure."},
             "type": {"label": "Type", "type": "string", "required": True, "desc": "Lever it pulls: energy_efficiency cuts an input stream; emission_reduction cuts CO2; environmental cuts another impact."},
@@ -214,8 +214,10 @@ SCHEMA: dict[str, Any] = {
         "label": "MACC deployment",
         "columns": {
             "macc": {"label": "MACC", "type": "string", "required": True, "desc": "MACC table to deploy (built in the maccs sheet)."},
-            "facility": {"label": "Facility", "type": "string", "desc": "Deploy on one facility. Fill this OR technology."},
-            "technology": {"label": "Technology", "type": "string", "desc": "Deploy on every facility running this technology (each adopts independently). Fill this OR facility."},
+            "facility": {"label": "Facility", "type": "string", "desc": "Deploy on one facility. Fill exactly one of facility / technology / stream / store."},
+            "technology": {"label": "Technology", "type": "string", "desc": "Deploy on every facility running this technology (each adopts independently). Fill exactly one of facility / technology / stream / store."},
+            "commodity": {"label": "Stream", "type": "string", "desc": "Deploy on every facility whose baseline technology consumes this stream (each adopts independently). Fill exactly one of facility / technology / stream / store."},
+            "storage": {"label": "Store", "type": "string", "desc": "Deploy via a store: every facility consuming the stored stream (each adopts independently). Fill exactly one of facility / technology / stream / store."},
         },
     },
     "measure_blocks": {
