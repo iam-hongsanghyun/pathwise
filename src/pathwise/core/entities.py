@@ -366,11 +366,15 @@ class MeasureBlock:
 
     Attributes:
         reduction: Fractional reduction of the target at full adoption [—], 0–1.
-        capex: Block capital cost [currency].
+        capex: Block capital cost — a one-off lump at adoption [currency].
+        opex: Block fixed operating cost while adopted, per year at full
+            adoption [currency / yr]. Charged every period in proportion to the
+            adoption level (so a half-adopted block pays half its opex).
     """
 
     reduction: float
     capex: float
+    opex: float = 0.0
 
 
 @dataclass(slots=True, frozen=True)

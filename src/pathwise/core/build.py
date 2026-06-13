@@ -836,6 +836,12 @@ def _objective(ctx: BuildContext) -> None:
                     inc = inc - ctx.z.sel(slot=s.key, period=pt)
                 if s.capex:
                     terms.append((df * s.capex) * inc)
+        # Measure opex while adopted — a recurring O&M cost (discounted ×
+        # duration), proportional to the adoption level z, like fixed O&M.
+        if tog.opex and ctx.slots:
+            for s in ctx.slots:
+                if s.opex:
+                    terms.append((w * s.opex) * ctx.z.sel(slot=s.key, period=t))
 
     # Product sale revenue for profit companies (negative cost ⇒ maximise profit):
     # revenue = sale_price · delivered, summed over the company's processes.

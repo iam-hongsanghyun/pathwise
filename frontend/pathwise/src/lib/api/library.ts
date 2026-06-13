@@ -44,6 +44,7 @@ export interface LibCommodity {
 export interface LibMeasureBlock {
   reduction: number;
   capex_per_capacity: number;
+  opex_per_capacity?: number;
 }
 
 /** A measure template: a small retrofit of the same system (no technology switch). */

@@ -96,13 +96,14 @@ class CommodityTemplate(BaseModel):
 class MeasureBlockTemplate(BaseModel):
     """One piecewise step of a measure's cost curve.
 
-    ``capex_per_capacity`` scales with the facility instance it is stamped onto
-    (block capex = value × instance capacity), so one template serves plants of
-    any size.
+    ``capex_per_capacity`` (and ``opex_per_capacity``) scale with the facility
+    instance the block is stamped onto (block cost = value × instance capacity),
+    so one template serves plants of any size.
     """
 
     reduction: float = Field(gt=0.0, le=1.0)
     capex_per_capacity: float = Field(ge=0.0)
+    opex_per_capacity: float = Field(default=0.0, ge=0.0)
 
 
 class MeasureTemplate(BaseModel):
@@ -314,6 +315,7 @@ def add_facility(
                     "block": i,
                     "reduction": blk.reduction,
                     "capex": blk.capex_per_capacity * f.default_capacity,
+                    "opex": blk.opex_per_capacity * f.default_capacity,
                 }
             )
     return wb
@@ -382,6 +384,7 @@ def apply_measures(workbook: Workbook, library: Library) -> Workbook:
                         "block": i,
                         "reduction": blk.reduction,
                         "capex": round(blk.capex_per_capacity * capacity, 2),
+                        "opex": round(blk.opex_per_capacity * capacity, 2),
                     }
                 )
     return wb
