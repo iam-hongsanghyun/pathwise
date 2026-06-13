@@ -50,7 +50,7 @@ export function SearchableSelect({
   if (disabled || (!options.length && !onCreate)) {
     return (
       <div className="combo is-disabled">
-        <input disabled placeholder={hint ?? placeholder ?? "—"} title={hint} />
+        <input disabled readOnly value="" placeholder={hint ?? placeholder ?? "—"} title={hint} />
       </div>
     );
   }

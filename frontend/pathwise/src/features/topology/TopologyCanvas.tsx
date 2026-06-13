@@ -37,7 +37,7 @@ interface Props {
   onDropLibrary?: (key: string, x: number, y: number) => void;
   /** A technology dragged onto the canvas — the host decides Initial vs Transition. */
   onDropTech?: (techId: string, x: number, y: number) => void;
-  /** Right-click shortcuts: add a transition option / a MACC measure. */
+  /** Right-click shortcuts: add a transition option / a measure. */
   onAddTransition?: (processId: string) => void;
   onAddMeasure?: (kind: NodeKind, entityId: string) => void;
   /** Link an existing named MACC set to this facility (undefined → hidden). */
@@ -338,7 +338,7 @@ export function TopologyCanvas({
                       setMenu(null);
                     }}
                   >
-                    Add MACC measure…
+                    Add measure…
                   </button>
                 )}
               {menu.nodeId.startsWith("process:") && onApplySet && (

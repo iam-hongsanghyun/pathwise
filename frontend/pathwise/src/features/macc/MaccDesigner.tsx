@@ -1,11 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { resolveMeasures } from "../../lib/graph";
 import type { Row, Workbook } from "../../types";
 
 const str = (v: unknown, d = ""): string => (v == null ? d : String(v));
 const num = (v: unknown, d = 0): number => (v == null || v === "" ? d : Number(v));
 
-interface Bar {
+export interface MaccBar {
   measure: string;
   machine: string;
   type: string;
@@ -63,7 +63,7 @@ function references(wb: Workbook) {
   return { refConsumption, refImpact };
 }
 
-function bars(wb: Workbook, macc?: string): Bar[] {
+export function maccBars(wb: Workbook, macc?: string): MaccBar[] {
   const { refConsumption, refImpact } = references(wb);
   const blocks = new Map<string, Row[]>();
   for (const b of wb.measure_blocks ?? [])
@@ -77,7 +77,7 @@ function bars(wb: Workbook, macc?: string): Bar[] {
           .map((r) => str(r.measure_id)),
       )
     : null;
-  const out: Bar[] = [];
+  const out: MaccBar[] = [];
   // Expanded per-facility instances (MACC deployments + direct links included).
   for (const m of resolveMeasures(wb)) {
     if (members && !members.has(m.base_id)) continue;
@@ -106,87 +106,226 @@ function bars(wb: Workbook, macc?: string): Bar[] {
 
 const PALETTE = ["#2563eb", "#16a34a", "#db2777", "#d97706", "#7c3aed", "#0891b2"];
 
-/** Marginal Abatement Cost curve: bars sorted by marginal cost, width = potential. */
-function MaccChart({ data, width = 720, height = 280 }: { data: Bar[]; width?: number; height?: number }) {
+const formatAxis = (value: number): string => {
+  if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(1)}k`;
+  if (Math.abs(value) >= 100) return value.toFixed(0);
+  if (Math.abs(value) >= 10) return value.toFixed(1);
+  return value.toFixed(2).replace(/\.?0+$/, "");
+};
+
+const niceTicks = (min: number, max: number, count: number): number[] => {
+  if (!Number.isFinite(min) || !Number.isFinite(max) || count < 2) return [0];
+  if (min === max) return [min];
+  const span = max - min;
+  const rawStep = span / (count - 1);
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+  const residual = rawStep / magnitude;
+  const niceResidual = residual >= 5 ? 5 : residual >= 2 ? 2 : 1;
+  const step = niceResidual * magnitude;
+  const first = Math.ceil(min / step) * step;
+  const ticks: number[] = [];
+  for (let v = first; v <= max + step * 0.25; v += step) ticks.push(Number(v.toPrecision(12)));
+  if (!ticks.includes(0) && min < 0 && max > 0) ticks.push(0);
+  return ticks.sort((a, b) => a - b);
+};
+
+/** Marginal Abatement Cost curve: bars sorted by marginal cost, width =
+ *  potential. Interactive: hover/click a bar to pin its readout; click a
+ *  legend entry to hide/show that facility's bars. */
+export function MaccChart({
+  data,
+  width = 620,
+  height = 260,
+}: {
+  data: MaccBar[];
+  width?: number;
+  height?: number;
+}) {
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const usable = data.filter((b) => Number.isFinite(b.cost) && b.potential > 0);
   if (!usable.length) return <p className="muted">No measures with a positive potential yet.</p>;
-  const sorted = [...usable].sort((a, b) => a.cost - b.cost);
-  const totalW = sorted.reduce((s, b) => s + b.potential, 0);
-  const maxCost = Math.max(...sorted.map((b) => b.cost), 1);
-  const machines = [...new Set(sorted.map((b) => b.machine))];
+  // Colors stay keyed to the FULL facility list so toggling doesn't reshuffle.
+  const machines = [...new Set(usable.map((b) => b.machine))];
   const color = (m: string) => PALETTE[machines.indexOf(m) % PALETTE.length];
+  const toggleMachine = (m: string) =>
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(m)) next.delete(m);
+      else next.add(m);
+      return next;
+    });
+  const legend = (
+    <div className="legend">
+      {machines.map((m) => (
+        <button
+          key={m}
+          className={`legend-item${hidden.has(m) ? " is-off" : ""}`}
+          onClick={() => toggleMachine(m)}
+          title={hidden.has(m) ? "show this facility" : "hide this facility"}
+        >
+          <span className="swatch" style={{ background: color(m) }} /> {m}
+        </button>
+      ))}
+    </div>
+  );
+  const sorted = usable.filter((b) => !hidden.has(b.machine)).sort((a, b) => a.cost - b.cost);
+  if (!sorted.length)
+    return (
+      <div className="macc-chart-shell">
+        <p className="muted">All facilities hidden — click a legend entry to show them.</p>
+        {legend}
+      </div>
+    );
+  const totalW = sorted.reduce((s, b) => s + b.potential, 0);
+  const minCost = Math.min(...sorted.map((b) => b.cost), 0);
+  const maxCost = Math.max(...sorted.map((b) => b.cost), 1);
+  const yMin = minCost === maxCost ? Math.min(0, minCost - 1) : minCost;
+  const yMax = minCost === maxCost ? Math.max(1, maxCost + 1) : maxCost;
 
-  const padL = 56;
-  const padB = 28;
-  const plotW = width - padL - 10;
-  const plotH = height - padB - 10;
-  let xCursor = 0;
+  const padL = 62;
+  const padR = 14;
+  const padT = 14;
+  const padB = 44;
+  const plotW = width - padL - padR;
+  const plotH = height - padT - padB;
+  const xScale = (value: number) => padL + (value / totalW) * plotW;
+  const yScale = (value: number) => padT + ((yMax - value) / (yMax - yMin)) * plotH;
+  const yZero = yScale(0);
+  let cursor = 0;
+  const bars = sorted.map((b, i) => {
+    const x0 = cursor;
+    const x1 = cursor + b.potential;
+    cursor = x1;
+    const key = `${b.measure}|${b.machine}|${i}`;
+    return {
+      ...b,
+      key,
+      x: xScale(x0),
+      y: Math.min(yScale(b.cost), yZero),
+      width: Math.max(xScale(x1) - xScale(x0) - 1, 1),
+      height: Math.max(Math.abs(yScale(b.cost) - yZero), 1),
+      x0,
+      x1,
+    };
+  });
+  const active = bars.find((b) => b.key === activeKey) ?? bars[0];
+  const xTicks = niceTicks(0, totalW, 5);
+  const yTicks = niceTicks(yMin, yMax, 5);
 
   return (
-    <div>
-      <svg width={width} height={height} role="img" aria-label="aggregate MACC">
-        <line x1={padL} y1={height - padB} x2={width - 10} y2={height - padB} stroke="#999" />
-        <line x1={padL} y1={10} x2={padL} y2={height - padB} stroke="#999" />
-        <text x={6} y={18} fontSize="10" fill="#555">
-          $/unit
-        </text>
-        <text x={width - 70} y={height - 8} fontSize="10" fill="#555">
-          abatement →
-        </text>
-        {sorted.map((b, i) => {
-          const w = (b.potential / totalW) * plotW;
-          const h = (b.cost / maxCost) * plotH;
-          const x = padL + (xCursor / totalW) * plotW;
-          xCursor += b.potential;
-          return (
+    <div className="macc-chart-shell">
+      <div className="macc-chart-plot">
+        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="interactive MACC chart">
+          {xTicks.map((tick) => {
+            const x = xScale(tick);
+            return (
+              <g key={`x-${tick}`}>
+                <line x1={x} y1={padT} x2={x} y2={height - padB} className="macc-grid" />
+                <line x1={x} y1={height - padB} x2={x} y2={height - padB + 4} className="macc-axis" />
+                <text x={x} y={height - 24} textAnchor="middle" className="macc-tick">
+                  {formatAxis(tick)}
+                </text>
+              </g>
+            );
+          })}
+          {yTicks.map((tick) => {
+            const y = yScale(tick);
+            return (
+              <g key={`y-${tick}`}>
+                <line x1={padL} y1={y} x2={width - padR} y2={y} className="macc-grid" />
+                <line x1={padL - 4} y1={y} x2={padL} y2={y} className="macc-axis" />
+                <text x={padL - 8} y={y + 3} textAnchor="end" className="macc-tick">
+                  {formatAxis(tick)}
+                </text>
+              </g>
+            );
+          })}
+          <line x1={padL} y1={padT} x2={padL} y2={height - padB} className="macc-axis" />
+          <line x1={padL} y1={yZero} x2={width - padR} y2={yZero} className="macc-zero-axis" />
+          {bars.map((b) => {
+            const activeBar = b.key === active.key;
+            return (
             <rect
-              key={i}
-              x={x}
-              y={height - padB - h}
-              width={Math.max(w - 1, 1)}
-              height={h}
+              key={b.key}
+              x={b.x}
+              y={b.y}
+              width={b.width}
+              height={b.height}
               fill={color(b.machine)}
-              opacity={0.85}
+              className={`macc-bar${activeBar ? " is-active" : ""}`}
+              tabIndex={0}
+              role="button"
+              aria-label={`${b.measure} at ${b.machine}: ${b.potential.toFixed(
+                1,
+              )} potential, ${b.cost.toFixed(1)} dollars per unit`}
+              onFocus={() => setActiveKey(b.key)}
+              onPointerEnter={() => setActiveKey(b.key)}
+              onClick={() => setActiveKey(b.key)}
             >
               <title>
                 {b.measure} @ {b.machine}: {b.potential.toFixed(1)} potential, {b.cost.toFixed(1)} $/unit
               </title>
             </rect>
-          );
-        })}
-      </svg>
-      <div className="legend">
-        {machines.map((m) => (
-          <span key={m} className="legend-item">
-            <span className="swatch" style={{ background: color(m) }} /> {m}
-          </span>
-        ))}
+            );
+          })}
+          <text x={width / 2} y={height - 6} textAnchor="middle" className="macc-axis-label">
+            cumulative potential
+          </text>
+          <text
+            x={16}
+            y={height / 2}
+            textAnchor="middle"
+            className="macc-axis-label"
+            transform={`rotate(-90 16 ${height / 2})`}
+          >
+            marginal cost ($/unit)
+          </text>
+        </svg>
       </div>
+      <div className="macc-chart-readout" aria-live="polite">
+        <div>
+          <span className="rail-count">BAR</span>
+          <strong>{active.measure}</strong>
+        </div>
+        <dl>
+          <div>
+            <dt>facility</dt>
+            <dd>{active.machine}</dd>
+          </div>
+          <div>
+            <dt>target</dt>
+            <dd>{active.target}</dd>
+          </div>
+          <div>
+            <dt>range</dt>
+            <dd>
+              {formatAxis(active.x0)}-{formatAxis(active.x1)}
+            </dd>
+          </div>
+          <div>
+            <dt>potential</dt>
+            <dd>{active.potential.toFixed(1)}</dd>
+          </div>
+          <div>
+            <dt>cost</dt>
+            <dd>{active.cost.toFixed(1)} $/unit</dd>
+          </div>
+        </dl>
+      </div>
+      {legend}
     </div>
   );
 }
 
-interface Props {
-  workbook: Workbook;
-  /** Restrict the chart to one MACC's member measures. */
-  macc?: string;
-}
+export function MaccMeasureTable({ data }: { data: MaccBar[] }) {
+  const byMachine = new Map<string, MaccBar[]>();
+  for (const b of data) byMachine.set(b.machine, [...(byMachine.get(b.machine) ?? []), b]);
 
-/** Per-machine MACC summary + the aggregate MACC curve (whole model, or one
- *  MACC's members when `macc` is given). */
-export function MaccDesigner({ workbook, macc }: Props) {
-  const data = useMemo(() => bars(workbook, macc), [workbook, macc]);
-  const byMachine = useMemo(() => {
-    const m = new Map<string, Bar[]>();
-    for (const b of data) (m.get(b.machine) ?? m.set(b.machine, []).get(b.machine)!).push(b);
-    return m;
-  }, [data]);
+  if (!data.length) return <p className="muted">No deployed measures yet.</p>;
 
   return (
     <div>
-      <h3>Aggregate MACC (whole process)</h3>
-      <MaccChart data={data} />
-      <h3>Per-machine measures</h3>
       {[...byMachine.entries()].map(([machine, bs]) => (
         <div key={machine} className="macc-machine">
           <strong>{machine}</strong>
@@ -214,7 +353,28 @@ export function MaccDesigner({ workbook, macc }: Props) {
           </table>
         </div>
       ))}
-      {!data.length && <p className="muted">Add measures + blocks (in Tables) to build MACC curves.</p>}
+    </div>
+  );
+}
+
+interface Props {
+  workbook: Workbook;
+  /** Restrict the chart to one MACC's member measures. */
+  macc?: string;
+}
+
+/** Per-machine MACC summary + the aggregate MACC curve (whole model, or one
+ *  MACC's members when `macc` is given). */
+export function MaccDesigner({ workbook, macc }: Props) {
+  const data = useMemo(() => maccBars(workbook, macc), [workbook, macc]);
+
+  return (
+    <div>
+      <h3>Aggregate MACC (whole process)</h3>
+      <MaccChart data={data} />
+      <h3>Per-machine measures</h3>
+      <MaccMeasureTable data={data} />
+      {!data.length && <p className="muted">Add measures and cost blocks to build MACC curves.</p>}
     </div>
   );
 }

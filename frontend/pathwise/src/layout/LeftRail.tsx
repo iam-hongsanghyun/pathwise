@@ -62,9 +62,10 @@ const HIDDEN = new Set([
   "process_inputs",
   "process_outputs",
   "tech_impacts",
+  "measure_blocks",
   "node_layout",
   "meta",
-  // Authored through the MACCs group (one editor: members + deployment + curve)
+  // Authored through the MACCs group (overview + one editor: members + deployment + curve)
   "maccs",
   "macc_links",
 ]);
@@ -352,7 +353,9 @@ export function LeftRail({
       ),
     ].sort();
     const memberCount = (name: string) =>
-      (workbook.maccs ?? []).filter((r) => String(r.macc ?? "") === name).length;
+      (workbook.maccs ?? []).filter(
+        (r) => String(r.macc ?? "") === name && Boolean(String(r.measure_id ?? "")),
+      ).length;
     const deployed = (name: string) =>
       (workbook.macc_links ?? []).some(
         (r) => String(r.macc ?? "") === name && (r.facility || r.technology),
@@ -361,8 +364,11 @@ export function LeftRail({
       <div className="rail-group" key="maccs">
         <div className="rail-head-row">
           <button
-            className={`rail-head${selected?.sheet === "maccs" ? " is-active" : ""}`}
+            className={`rail-head${
+              selected?.sheet === "maccs" || activeSheet === "maccs" ? " is-active" : ""
+            }`}
             title="MACCs — bundles of measures with their own abatement curve, deployed on facilities or technologies"
+            onClick={() => onGroup?.("maccs")}
           >
             MACCs <span className="rail-count">{names.length}</span>
           </button>

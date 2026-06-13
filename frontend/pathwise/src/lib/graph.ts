@@ -367,10 +367,15 @@ export function addMeasure(
   return out;
 }
 
+/** The four ways a MACC deployment can name its target. */
+export const MACC_LINK_KINDS = ["facility", "technology", "commodity", "storage"] as const;
+export type MaccLinkKind = (typeof MACC_LINK_KINDS)[number];
+
 /** Expand measure definitions into per-facility instances — the TS mirror of
  *  the assembler: direct `facility` / `technology` columns, plus every MACC
- *  the measure belongs to (`maccs`) that is deployed (`macc_links`), plus the
- *  legacy `applies_to` / `set` columns. One row per (measure, facility). */
+ *  the measure belongs to (`maccs`) that is deployed (`macc_links` — on a
+ *  facility, a technology, a stream, or a store), plus the legacy
+ *  `applies_to` / `set` columns. One row per (measure, facility). */
 export function resolveMeasures(
   wb: Workbook,
 ): { measure_id: string; base_id: string; applies_to: string; type: string; target: string }[] {
@@ -382,6 +387,30 @@ export function resolveMeasures(
   }
   const resolve = (target: string): string[] =>
     procIds.has(target) ? [target] : (byBaseline.get(target) ?? []);
+  // Streams/stores resolve to consumers: every facility whose baseline
+  // technology takes the stream as an input (mirrors the assembler).
+  const techInputs = new Map<string, Set<string>>();
+  const addInput = (tech: string, commodity: string) => {
+    if (tech && commodity) (techInputs.get(tech) ?? techInputs.set(tech, new Set()).get(tech)!).add(commodity);
+  };
+  for (const r of wb.process_inputs ?? []) addInput(s(r.technology_id), s(r.commodity_id));
+  for (const r of wb.io ?? [])
+    if (s(r.role, "input") === "input") addInput(s(r.technology_id), s(r.target));
+  const consumers = (commodity: string): string[] =>
+    (wb.processes ?? [])
+      .filter((p) => techInputs.get(s(p.baseline_technology))?.has(commodity))
+      .map((p) => s(p.process_id));
+  const storageCommodity = new Map(
+    (wb.storage ?? []).map((r) => [s(r.storage_id), s(r.commodity_id)]),
+  );
+  const resolveLink = (kind: MaccLinkKind, target: string): string[] => {
+    if (kind === "commodity") return consumers(target);
+    if (kind === "storage") {
+      const stored = storageCommodity.get(target);
+      return stored ? consumers(stored) : [];
+    }
+    return resolve(target);
+  };
   const linksBySet = new Map<string, string[]>();
   for (const r of wb.measure_links ?? []) {
     const set = s(r.set);
@@ -393,12 +422,14 @@ export function resolveMeasures(
     const mid = s(r.measure_id);
     if (mid && s(r.macc)) maccsByMeasure.set(mid, [...(maccsByMeasure.get(mid) ?? []), s(r.macc)]);
   }
-  const maccTargets = new Map<string, string[]>();
+  const maccTargets = new Map<string, { kind: MaccLinkKind; name: string }[]>();
   for (const r of wb.macc_links ?? []) {
     const macc = s(r.macc);
     if (!macc) continue;
-    for (const t of [s(r.facility), s(r.technology)])
-      if (t) maccTargets.set(macc, [...(maccTargets.get(macc) ?? []), t]);
+    for (const kind of MACC_LINK_KINDS) {
+      const name = s(r[kind]);
+      if (name) maccTargets.set(macc, [...(maccTargets.get(macc) ?? []), { kind, name }]);
+    }
   }
   const out: { measure_id: string; base_id: string; applies_to: string; type: string; target: string }[] = [];
   for (const m of wb.measures ?? []) {
@@ -407,7 +438,8 @@ export function resolveMeasures(
     if (s(m.facility)) targets.push(...resolve(s(m.facility)));
     if (s(m.technology)) targets.push(...resolve(s(m.technology)));
     for (const macc of maccsByMeasure.get(mid) ?? [])
-      for (const link of maccTargets.get(macc) ?? []) targets.push(...resolve(link));
+      for (const link of maccTargets.get(macc) ?? [])
+        targets.push(...resolveLink(link.kind, link.name));
     if (s(m.applies_to)) targets.push(...resolve(s(m.applies_to))); // legacy
     for (const link of linksBySet.get(s(m.set)) ?? []) targets.push(...resolve(link)); // legacy
     const unique = [...new Set(targets)];
@@ -423,27 +455,20 @@ export function resolveMeasures(
   return out;
 }
 
-/** Deploy a named MACC on a facility or technology (deduped). */
+/** Deploy a named MACC on a facility, technology, stream or store (deduped). */
 export function applyMacc(
   wb: Workbook,
   macc: string,
-  target: { facility?: string; technology?: string },
+  target: Partial<Record<MaccLinkKind, string>>,
 ): Workbook {
-  if (!macc || (!target.facility && !target.technology)) return wb;
+  if (!macc || !MACC_LINK_KINDS.some((k) => target[k])) return wb;
   const exists = (wb.macc_links ?? []).some(
-    (r) =>
-      s(r.macc) === macc &&
-      s(r.facility) === (target.facility ?? "") &&
-      s(r.technology) === (target.technology ?? ""),
+    (r) => s(r.macc) === macc && MACC_LINK_KINDS.every((k) => s(r[k]) === (target[k] ?? "")),
   );
   if (exists) return wb;
-  return {
-    ...wb,
-    macc_links: [
-      ...(wb.macc_links ?? []),
-      { macc, facility: target.facility ?? null, technology: target.technology ?? null },
-    ],
-  };
+  const row: Row = { macc };
+  for (const k of MACC_LINK_KINDS) row[k] = target[k] ?? null;
+  return { ...wb, macc_links: [...(wb.macc_links ?? []), row] };
 }
 
 /** Distinct MACC names with members (built in the maccs sheet). */

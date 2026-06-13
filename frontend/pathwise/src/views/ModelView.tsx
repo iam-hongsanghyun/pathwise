@@ -4,7 +4,7 @@ import { LeftRail, type RailLibrarySector } from "../layout/LeftRail";
 import { Resizer } from "../layout/Resizer";
 import { TopologyCanvas } from "../features/topology/TopologyCanvas";
 import { FlowView } from "../features/flow/FlowView";
-import { MaccPanel } from "../features/macc/MaccPanel";
+import { MaccDeployRail, MaccOverview, MaccPanel } from "../features/macc/MaccPanel";
 import { WorkbookTable, type ColumnMeta } from "../features/tables/WorkbookTable";
 import { SearchableSelect } from "../features/controls/SearchableSelect";
 import type { SchemaMap } from "../features/controls/CreateComponentModal";
@@ -179,7 +179,7 @@ export function ModelView({
     x?: number;
     y?: number;
   } | null>(null);
-  // "Add MACC measure" dialog, opened from a facility or stream context menu.
+  // "Add measure" dialog, opened from a facility or stream context menu.
   const [measureAdd, setMeasureAdd] = useState<{
     kind: "process" | "commodity";
     entityId: string;
@@ -275,6 +275,7 @@ export function ModelView({
       let k = 1;
       let name = "MACC 1";
       while (taken.has(name)) name = `MACC ${++k}`;
+      setWorkbook({ ...workbook, maccs: [...(workbook.maccs ?? []), { macc: name, measure_id: null }] });
       openItem({ sheet: "maccs", idCol: "macc", id: name });
       return;
     }
@@ -350,7 +351,13 @@ export function ModelView({
             <div className="dock-head">
               <strong>{selected ? selected.id : activeSheet}</strong>
               <span className="rail-count">
-                {maccSelected ? "MACC — measures, deployment, curve" : selected ? "time series" : "table"}
+                {maccSelected
+                  ? "MACC — description, table, chart"
+                  : activeSheet === "maccs"
+                    ? "MACC overview"
+                    : selected
+                      ? "time series"
+                      : "table"}
               </span>
               <span className="spacer" />
               <button className="ghost" onClick={closeDock} title="close editor">
@@ -360,6 +367,11 @@ export function ModelView({
             <div className="dock-body">
               {maccSelected ? (
                 <MaccPanel workbook={workbook} macc={maccSelected} onChange={setWorkbook} />
+              ) : activeSheet === "maccs" ? (
+                <MaccOverview
+                  workbook={workbook}
+                  onSelect={(macc) => openItem({ sheet: "maccs", idCol: "macc", id: macc })}
+                />
               ) : selected ? (
                 <ItemTimeSeries workbook={workbook} selected={selected} onChange={setWorkbook} />
               ) : (
@@ -384,7 +396,7 @@ export function ModelView({
           </div>
         )}
       </main>
-      {selected && !maccSelected && (
+      {selected && (
         <>
           <Resizer width={rightW} setWidth={setRightW} side="right" min={200} max={600} />
           <aside
@@ -392,13 +404,22 @@ export function ModelView({
             aria-label="Static values"
             style={{ width: rightW, flex: `0 0 ${rightW}px` }}
           >
-            <DetailPanel
-              workbook={workbook}
-              selected={selected}
-              schema={schema}
-              onChange={setWorkbook}
-              onClose={() => setSelected(null)}
-            />
+            {maccSelected ? (
+              <MaccDeployRail
+                workbook={workbook}
+                macc={maccSelected}
+                onChange={setWorkbook}
+                onClose={() => setSelected(null)}
+              />
+            ) : (
+              <DetailPanel
+                workbook={workbook}
+                selected={selected}
+                schema={schema}
+                onChange={setWorkbook}
+                onClose={() => setSelected(null)}
+              />
+            )}
           </aside>
         </>
       )}
@@ -427,20 +448,12 @@ export function ModelView({
           workbook={workbook}
           seed={measureAdd}
           onClose={() => setMeasureAdd(null)}
-          onApply={({ scope, processId, ...opts }) => {
+          onApply={({ processId, ...opts }) => {
             setMeasureAdd(null);
-            const baseline = String(
-              (workbook.processes ?? []).find((r) => String(r.process_id) === processId)
-                ?.baseline_technology ?? "",
-            );
-            setWorkbook(
-              addMeasure(workbook, {
-                ...opts,
-                facility: scope === "facility" ? processId : undefined,
-                technology: scope === "technology" && baseline ? baseline : undefined,
-              }),
-            );
-            if (opts.macc) openItem({ sheet: "maccs", idCol: "macc", id: opts.macc });
+            const next = addMeasure(workbook, { ...opts, facility: processId });
+            setWorkbook(next);
+            const created = next.measures?.[next.measures.length - 1]?.measure_id;
+            if (created) openItem({ sheet: "measures", idCol: "measure_id", id: String(created) });
             else openGroup("measures");
           }}
         />
@@ -542,7 +555,7 @@ function LibraryPreview({
             )}
             {(fac.measures ?? []).length > 0 && (
               <p className="muted">
-                MACC measures (same-system retrofits):{" "}
+                Measures (same-system retrofits):{" "}
                 {(fac.measures ?? [])
                   .map(
                     (m) =>
@@ -732,8 +745,8 @@ function TechAddModal({
   );
 }
 
-/** "Add MACC measure" — a small retrofit on a facility's existing technology:
- *  pick the lever (efficiency / abatement), the target, and one starter block. */
+/** Add one measure: a small retrofit on a facility's existing technology with
+ *  one starter cost block. Further edits live on the measure's right rail. */
 function MeasureModal({
   workbook,
   seed,
@@ -749,8 +762,6 @@ function MeasureModal({
     lifetime?: number;
     reduction: number;
     capex: number;
-    macc?: string;
-    scope: "facility" | "technology" | "none";
   }) => void;
   onClose: () => void;
 }) {
@@ -778,17 +789,15 @@ function MeasureModal({
   const [reduction, setReduction] = useState(0.1);
   const [capex, setCapex] = useState(0);
   const [lifetime, setLifetime] = useState(15);
-  const [scope, setScope] = useState<"facility" | "technology" | "none">("facility");
-  const [maccName, setMaccName] = useState("");
   const targets = type === "energy_efficiency" ? inputsOf(baselineOf(processId)) : impacts;
-  const ready = Boolean(target && reduction > 0 && (scope === "none" || processId));
+  const ready = Boolean(processId && target && reduction > 0);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="dock-head">
-          <strong>Add MACC measure</strong>
-          <span className="rail-count">retrofit of the same system</span>
+          <strong>Add measure</strong>
+          <span className="rail-count">single retrofit</span>
           <span className="spacer" />
           <button className="ghost" onClick={onClose} title="close">
             ✕
@@ -862,41 +871,9 @@ function MeasureModal({
           <span>Lifetime (yr)</span>
           <input type="number" min={1} value={lifetime} onChange={(e) => setLifetime(Number(e.target.value))} />
         </label>
-        <div className="lib-mode">
-          <label>
-            <input
-              type="radio"
-              checked={scope === "facility"}
-              onChange={() => setScope("facility")}
-            />{" "}
-            This facility only ({processId || "…"})
-          </label>
-          <label>
-            <input
-              type="radio"
-              checked={scope === "technology"}
-              onChange={() => setScope("technology")}
-            />{" "}
-            Every facility running <strong>{baselineOf(processId) || "…"}</strong> (each adopts
-            independently)
-          </label>
-          <label>
-            <input type="radio" checked={scope === "none"} onChange={() => setScope("none")} />{" "}
-            Catalogue only — deploy later by bundling it into a MACC
-          </label>
-        </div>
-        <label className="inspector-field">
-          <span>Add to MACC (optional bundle — deploy it in macc_links)</span>
-          <input
-            value={maccName}
-            onChange={(e) => setMaccName(e.target.value)}
-            placeholder="e.g. EAF retrofits"
-          />
-        </label>
         <p className="muted">
-          Creates one cost-curve block (capex may be negative, e.g. subsidised); add more blocks in
-          the measure_blocks table. The MACC tab in the bottom panel shows the curve. Adoption is
-          always per facility — a bundle never decides as a group.
+          Creates one cost-curve block. Edit the measure and its blocks in the right panel; add it
+          to a MACC from the MACC bottom panel.
         </p>
         <button
           disabled={!ready}
@@ -908,8 +885,6 @@ function MeasureModal({
               lifetime,
               reduction,
               capex,
-              macc: maccName.trim() || undefined,
-              scope,
             })
           }
         >
