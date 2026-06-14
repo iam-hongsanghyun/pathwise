@@ -10,7 +10,13 @@ from __future__ import annotations
 
 import pytest
 
-from pathwise.core.valuechain import _inject_price, _price_signal, _shift, run_value_chain
+from pathwise.core.valuechain import (
+    _inject_price,
+    _price_signal,
+    _shift,
+    run_value_chain,
+    sweep_value_chain,
+)
 from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.valuechain import CouplingLink, Stage, ValueChainSpec
 
@@ -220,6 +226,36 @@ def test_feedback_sizes_upstream_to_downstream_consumption() -> None:
     }
     assert prod[2025] == pytest.approx(400.0, abs=1.0)
     assert res["iterations"] <= 6, "the fixed point should converge well within the cap"
+
+
+def test_uncertainty_sweep_spreads_downstream_outcomes() -> None:
+    # Three upstream carbon-policy draws ⇒ a distribution of downstream steel cost.
+    spec = _spec()
+    draws = [{"elec": _electricity_wb(c), "steel": _steel_wb()} for c in (0.0, 100.0, 200.0)]
+    res = sweep_value_chain(spec, draws, SC)
+
+    assert len(res["runs"]) == 3
+    steel_cost = res["distribution"]["steel"]["cost"]
+    assert steel_cost["max"] > steel_cost["min"], "upstream uncertainty must spread downstream"
+    assert steel_cost["min"] <= steel_cost["mean"] <= steel_cost["max"]
+
+
+def test_profit_objective_stage_composes_in_cascade() -> None:
+    # A downstream profit-maximiser (with a sale price) sells up to its demand.
+    steel = _steel_wb()
+    steel["company_config"] = [{"company": "SteelCo", "objective": "profit"}]
+    for c in steel["commodities"]:
+        if c["commodity_id"] == "steel":
+            c["sale_price"] = 10000.0
+    res = run_value_chain(_spec(), {"elec": _electricity_wb(10.0), "steel": steel}, SC)
+
+    assert res["status"] == "optimal"
+    produced = {
+        r["period"]: r["produced"]
+        for r in res["stages"]["steel"]["summary"]["commodity"]
+        if r["commodity"] == "steel"
+    }
+    assert produced[2025] == pytest.approx(100.0)
 
 
 def test_lag_shift_offsets_and_holds_flat() -> None:

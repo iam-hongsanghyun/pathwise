@@ -36,6 +36,8 @@ from __future__ import annotations
 import copy
 from typing import Any
 
+import numpy as np
+
 from pathwise.core.build import build
 from pathwise.core.extract import extract_results
 from pathwise.core.solve import solve
@@ -115,6 +117,73 @@ def run_value_chain(
     if feedback:
         out["iterations"] = passes
     return out
+
+
+def sweep_value_chain(
+    spec: ValueChainSpec,
+    draws: list[dict[str, Workbook]],
+    scenario: ScenarioConfig | None = None,
+    *,
+    iterations: int = 1,
+    damping: float = 0.5,
+) -> dict[str, Any]:
+    """Run the value chain over an ensemble of workbook draws (uncertainty).
+
+    Each draw is a full ``{stage_id: workbook}`` variant — e.g. the same chain
+    with a different upstream carbon-price trajectory — so the caller expresses
+    whatever uncertainty matters (policy, prices, demand). The result holds every
+    run plus, per stage, the distribution (min / mean / max / p10 / p90) of total
+    cost and total CO2 across the draws — i.e. how upstream uncertainty spreads
+    into each stage's outcomes.
+
+    Args:
+        spec: The value-chain definition.
+        draws: One ``{stage_id: workbook}`` per ensemble member.
+        scenario: Base scenario applied to every draw.
+        iterations: Forward passes per run (feedback fixed point).
+        damping: Feedback relaxation per run.
+
+    Returns:
+        ``{"runs": [...], "distribution": {stage: {"cost": {...}, "co2": {...}}}}``.
+    """
+    runs = [
+        run_value_chain(spec, wbs, scenario, iterations=iterations, damping=damping)
+        for wbs in draws
+    ]
+    return {"runs": runs, "distribution": _distribution(spec, runs)}
+
+
+def _distribution(spec: ValueChainSpec, runs: list[dict[str, Any]]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for sid in (s.id for s in spec.stages):
+        present = [run for run in runs if sid in run.get("stages", {})]
+        costs = [
+            sum(float(r["cost"]) for r in run["stages"][sid].get("summary", {}).get("periods", []))
+            for run in present
+        ]
+        co2 = [
+            sum(
+                float(r.get("total") or 0.0)
+                for r in run["stages"][sid].get("summary", {}).get("impacts", [])
+                if str(r.get("impact")) == "CO2"
+            )
+            for run in present
+        ]
+        out[sid] = {"cost": _stats(costs), "co2": _stats(co2)}
+    return out
+
+
+def _stats(values: list[float]) -> dict[str, float]:
+    if not values:
+        return {}
+    arr = np.asarray(values, dtype=float)
+    return {
+        "min": float(arr.min()),
+        "mean": float(arr.mean()),
+        "max": float(arr.max()),
+        "p10": float(np.percentile(arr, 10)),
+        "p90": float(np.percentile(arr, 90)),
+    }
 
 
 def _forward_pass(
