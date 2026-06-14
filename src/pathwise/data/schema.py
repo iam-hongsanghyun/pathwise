@@ -201,6 +201,45 @@ SCHEMA: dict[str, Any] = {
             "max_flow": {"label": "Max flow (/yr)", "type": "number"},
         },
     },
+    "nodes": {
+        "label": "Group hierarchy (nodes)",
+        "columns": {
+            "node_id": {"label": "Node", "type": "string", "required": True, "desc": "Unique id of a group or machine in the recursive hierarchy."},
+            "parent_id": {"label": "Parent", "type": "string", "desc": "Containing node; empty for a root."},
+            "kind": {"label": "Kind (group|machine)", "type": "string", "desc": "group = composite (has children); machine = leaf (runs one technology)."},
+            "level": {"label": "Level (free text)", "type": "string", "desc": "User-defined level name (e.g. company); the only built-in level is the machine leaf."},
+            "label": {"label": "Label", "type": "string"},
+            "order": {"label": "Order", "type": "number"},
+        },
+    },
+    "machines": {
+        "label": "Machines (leaf units)",
+        "columns": {
+            "machine_id": {"label": "Machine", "type": "string", "required": True, "desc": "A node of kind machine; the facility is the sum of its machines."},
+            "baseline_technology": {"label": "Baseline tech", "type": "string", "required": True},
+            "capacity": {"label": "Capacity (throughput/yr)", "type": "number"},
+            "introduced_year": {"label": "Installed", "type": "integer"},
+        },
+    },
+    "connections": {
+        "label": "Connections (between nodes)",
+        "columns": {
+            "from_node": {"label": "From node", "type": "string", "required": True},
+            "to_node": {"label": "To node", "type": "string", "required": True},
+            "commodity_id": {"label": "Stream", "type": "string", "required": True, "desc": "Unique name of the energy/material stream."},
+            "lag_years": {"label": "Time gap (yr)", "type": "integer", "desc": "Lag applied when the connection crosses an optimisation boundary (becomes a coupling-link lag)."},
+            "max_flow": {"label": "Max flow (/yr)", "type": "number"},
+        },
+    },
+    "ports": {
+        "label": "Boundary ports",
+        "columns": {
+            "node_id": {"label": "Group", "type": "string", "required": True, "desc": "Group exposing the boundary stream."},
+            "commodity_id": {"label": "Stream", "type": "string", "required": True, "desc": "Unique name of the energy/material stream."},
+            "direction": {"label": "Direction (in|out)", "type": "string", "required": True},
+            "bind_node": {"label": "Binds to (descendant)", "type": "string"},
+        },
+    },
     "measures": {
         "label": "Measures",
         "columns": {
