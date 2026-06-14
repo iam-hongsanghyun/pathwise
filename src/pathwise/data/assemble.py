@@ -190,18 +190,44 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
             row["introduced_year"] = m.introduced_year
         procs.append(row)
 
-    machine_ids = set(h.machines)
+    # Connections (machine↔machine or group↔group) become machine edges: the
+    # producers of the commodity in the source subtree → its consumers in the
+    # destination subtree (resolved via each machine's technology I/O).
+    io_out: dict[str, set[str]] = {}
+    io_in: dict[str, set[str]] = {}
+    for r in workbook.get("io", []):
+        tech, role, tgt = _str(r.get("technology_id")), _str(r.get("role")), _str(r.get("target"))
+        coef = _num(r.get("coefficient")) or 0.0
+        if not tech or not tgt:
+            continue
+        if role == "output" and coef != 0.0:
+            io_out.setdefault(tech, set()).add(tgt)
+        elif role == "input" and coef > 0.0:
+            io_in.setdefault(tech, set()).add(tgt)
+    machine_tech = {mid: m.baseline_technology for mid, m in h.machines.items()}
+
+    def producers(node: str, commodity: str) -> list[str]:
+        return [m for m in h.leaf_machines(node) if commodity in io_out.get(machine_tech.get(m, ""), set())]
+
+    def consumers(node: str, commodity: str) -> list[str]:
+        return [m for m in h.leaf_machines(node) if commodity in io_in.get(machine_tech.get(m, ""), set())]
+
     edges = list(workbook.get("edges", []))
+    seen_edges: set[tuple[str, str, str]] = set()
     for c in h.connections:
-        if c.from_node in machine_ids and c.to_node in machine_ids:
-            edge: dict[str, Any] = {
-                "from_process": c.from_node,
-                "to_process": c.to_node,
-                "commodity_id": c.commodity_id,
-            }
-            if c.max_flow is not None:
-                edge["max_flow"] = c.max_flow
-            edges.append(edge)
+        for s in producers(c.from_node, c.commodity_id):
+            for d in consumers(c.to_node, c.commodity_id):
+                if s == d or (s, d, c.commodity_id) in seen_edges:
+                    continue
+                seen_edges.add((s, d, c.commodity_id))
+                edge: dict[str, Any] = {
+                    "from_process": s,
+                    "to_process": d,
+                    "commodity_id": c.commodity_id,
+                }
+                if c.max_flow is not None:
+                    edge["max_flow"] = c.max_flow
+                edges.append(edge)
 
     return {**workbook, "processes": procs, "edges": edges}
 
