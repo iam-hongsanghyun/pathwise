@@ -30,6 +30,14 @@ def _new_session() -> str:
     return str(client.post("/api/session").json()["sessionId"])
 
 
+def test_value_chain_list_and_run() -> None:
+    chains = client.get("/api/value-chains").json()
+    assert any(c["id"] == "elec_steel" for c in chains), "shipped value chain missing from index"
+    res = client.post("/api/value-chain/elec_steel/run", json={}).json()
+    assert res["status"] == "optimal"
+    assert res["couplings"], "the run should report the electricity price flowing to steel"
+
+
 def test_create_session_has_core_sheets() -> None:
     sid = _new_session()
     model = client.get(f"/api/session/{sid}/model").json()["model"]

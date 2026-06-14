@@ -1,0 +1,8 @@
+[
+  {
+    "id": "elec_steel",
+    "label": "Electricity → Steel (KR)",
+    "file": "elec_steel.json",
+    "description": "A carbon-priced Korean electricity stage feeds a Korean steel mill; the electricity price flows downstream and reshapes the mill's pathway."
+  }
+]

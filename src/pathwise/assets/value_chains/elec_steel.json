@@ -1,0 +1,29 @@
+{
+  "id": "elec_steel",
+  "label": "Electricity → Steel (KR)",
+  "stages": [
+    {
+      "id": "electricity",
+      "label": "Electricity (KR)",
+      "model": "models/electricity.json",
+      "region": "KR",
+      "sector": "electricity"
+    },
+    {
+      "id": "steel",
+      "label": "Steel (KR)",
+      "model": "models/steel.json",
+      "region": "KR",
+      "sector": "steel"
+    }
+  ],
+  "links": [
+    {
+      "from_stage": "electricity",
+      "to_stage": "steel",
+      "commodity": "electricity",
+      "signals": ["price"],
+      "lag_years": 0
+    }
+  ]
+}
