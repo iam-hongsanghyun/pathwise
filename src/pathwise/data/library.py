@@ -439,9 +439,7 @@ def add_replacement(
     )
     if proc is not None:
         from_tech = str(proc.get("baseline_technology") or "")
-    elif any(
-        str(r.get("technology_id")) == replace_process for r in wb.get("technologies", [])
-    ):
+    elif any(str(r.get("technology_id")) == replace_process for r in wb.get("technologies", [])):
         from_tech = replace_process
     else:
         raise KeyError(f"unknown facility '{replace_process}'")

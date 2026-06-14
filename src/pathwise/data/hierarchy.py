@@ -210,9 +210,7 @@ class Hierarchy:
 
     def nodes_at_level(self, level: str) -> list[str]:
         """Node ids whose ``level`` (or leaf kind) matches ``level``."""
-        return sorted(
-            nid for nid, n in self.nodes.items() if (n.level or n.kind.value) == level
-        )
+        return sorted(nid for nid, n in self.nodes.items() if (n.level or n.kind.value) == level)
 
     def derive_ports(self) -> list[Port]:
         """Boundary ports implied by connections crossing a group boundary.
