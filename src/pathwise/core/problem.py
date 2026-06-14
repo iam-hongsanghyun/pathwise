@@ -82,6 +82,10 @@ class Problem:
     storages: list[Storage] = field(default_factory=list)
     markets: list[Market] = field(default_factory=list)
     commodity_impacts: dict[tuple[str, str], float] = field(default_factory=dict)
+    # Optional year-varying override of ``commodity_impacts`` (a commodity's
+    # carbon intensity can change over the horizon — e.g. a greening grid, or an
+    # upstream value-chain stage's pathway). Falls back to the static factor.
+    commodity_impacts_by_year: dict[tuple[str, str], dict[int, float]] = field(default_factory=dict)
     demand: dict[tuple[str, str, int], float] = field(default_factory=dict)
     impact_caps: dict[tuple[str, str, int], float] = field(default_factory=dict)
     # Per (company, impact): whether the cap is soft (exceedance allowed at a
@@ -117,3 +121,14 @@ class Problem:
     def objective_of(self, company: str) -> ObjectiveMode:
         """Objective mode for ``company`` (default :attr:`ObjectiveMode.COST`)."""
         return self.company_objective.get(company, ObjectiveMode.COST)
+
+    def commodity_impact(self, commodity: str, impact: str, year: int) -> float:
+        """Impact factor of consuming ``commodity`` in ``year`` [impact / unit].
+
+        Returns the year-varying factor when one is defined for that year,
+        otherwise the static :attr:`commodity_impacts` value (0 if unset).
+        """
+        traj = self.commodity_impacts_by_year.get((commodity, impact))
+        if traj is not None and year in traj:
+            return traj[year]
+        return self.commodity_impacts.get((commodity, impact), 0.0)

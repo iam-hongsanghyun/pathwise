@@ -309,6 +309,17 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         if c and i:
             commodity_impacts[(c, i)] = _num(r.get("factor"), 0.0) or 0.0
 
+    # Optional year-varying carbon intensity (long format: commodity_id, impact_id,
+    # year, factor) — e.g. a greening grid, or an upstream value-chain stage's
+    # pathway. Sparse points are interpolated onto the horizon (flat-hold ends).
+    ci_points: dict[tuple[str, str], dict[int, float]] = {}
+    for r in _rows(workbook, "commodity_impacts_t"):
+        c, i = _str(r.get("commodity_id")), _str(r.get("impact_id"))
+        yr, fac = _int(r.get("year")), _num(r.get("factor"))
+        if c and i and yr is not None and fac is not None:
+            ci_points.setdefault((c, i), {})[yr] = fac
+    commodity_impacts_by_year = {k: interpolate(v, years) for k, v in ci_points.items()}
+
     # Any technology scalar attribute may go temporal via technologies_t__<attr>.
     tech_capex_t = _wide_temporal(workbook, "technologies_t__capex")
     tech_renewal_t = _wide_temporal(workbook, "technologies_t__renewal")
@@ -685,6 +696,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         storages=storages,
         markets=markets,
         commodity_impacts=commodity_impacts,
+        commodity_impacts_by_year=commodity_impacts_by_year,
         demand=demand,
         impact_caps=impact_caps,
         impact_cap_soft=impact_cap_soft,

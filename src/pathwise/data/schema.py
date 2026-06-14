@@ -183,6 +183,15 @@ SCHEMA: dict[str, Any] = {
             "factor": {"label": "Impact per unit", "type": "number", "required": True},
         },
     },
+    "commodity_impacts_t": {
+        "label": "Stream impact factors · by year",
+        "columns": {
+            "commodity_id": {"label": "Stream", "type": "string", "required": True, "desc": "Unique name of the energy/material stream."},
+            "impact_id": {"label": "Impact", "type": "string", "required": True},
+            "year": {"label": "Year", "type": "integer", "required": True},
+            "factor": {"label": "Impact per unit", "type": "number", "required": True, "desc": "Year-varying carbon intensity; overrides the static factor for that year (interpolated between, flat-held beyond)."},
+        },
+    },
     "edges": {
         "label": "Flows between facilities",
         "columns": {

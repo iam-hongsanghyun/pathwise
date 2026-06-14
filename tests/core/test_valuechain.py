@@ -157,6 +157,38 @@ def test_upstream_carbon_policy_raises_downstream_price_and_flips_pathway() -> N
     assert _switched(high), "expensive electricity ⇒ switch to the half-electricity tech"
 
 
+def test_carbon_intensity_signal_couples_into_downstream_emissions() -> None:
+    # Electricity emits 1,000 tCO2 for 1,000 MWh ⇒ CI = 1.0 tCO2/MWh, injected
+    # into steel's electricity input so the mill's emissions reflect the grid.
+    spec = ValueChainSpec(
+        id="vc",
+        stages=[Stage(id="elec"), Stage(id="steel")],
+        links=[
+            CouplingLink(
+                from_stage="elec",
+                to_stage="steel",
+                commodity="electricity",
+                signals=["carbon_intensity"],
+                impact="CO2",
+            )
+        ],
+    )
+    steel = _steel_wb()
+    steel["impacts"] = [{"impact_id": "CO2", "unit": "tCO2"}]
+    res = run_value_chain(spec, {"elec": _electricity_wb(0.0), "steel": steel}, SC)
+
+    assert res["status"] == "optimal"
+    ci = [c for c in res["couplings"] if c["signal"] == "carbon_intensity"]
+    assert ci and ci[0]["by_year"][0]["value"] == pytest.approx(1.0)
+    # Mill stays on Arc (no carbon price downstream): 4 MWh/t · 100 t · 1.0 = 400 tCO2.
+    steel_co2 = {
+        r["period"]: r["total"]
+        for r in res["stages"]["steel"]["summary"]["impacts"]
+        if r["impact"] == "CO2"
+    }
+    assert steel_co2[2025] == pytest.approx(400.0)
+
+
 def test_lag_shift_offsets_and_holds_flat() -> None:
     # Price known at 2025/2030 upstream; a 5-yr lag pushes it to 2030/2035.
     out = _shift({2025: 10.0, 2030: 20.0}, 5, [2025, 2030, 2035])

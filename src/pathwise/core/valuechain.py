@@ -83,24 +83,23 @@ def run_value_chain(
         results[sid] = extract_results(solve(build(assemble_problem(wbs[sid], sc))))
 
         for link in by_source.get(sid, []):
-            if "price" not in link.signals:
-                continue  # Phase 1 couples price only
             target_years = _years(wbs[link.to_stage])
-            signal = _price_signal(results[sid], link.commodity)
-            shifted = _shift(signal, link.lag_years, target_years)
-            if not shifted:
-                continue
-            _inject_price(wbs[link.to_stage], link.commodity, shifted)
-            couplings.append(
-                {
-                    "from_stage": sid,
-                    "to_stage": link.to_stage,
-                    "commodity": link.commodity,
-                    "signal": "price",
-                    "lag_years": link.lag_years,
-                    "by_year": [{"year": y, "value": v} for y, v in sorted(shifted.items())],
-                }
-            )
+            if "price" in link.signals:
+                shifted = _shift(
+                    _price_signal(results[sid], link.commodity), link.lag_years, target_years
+                )
+                if shifted:
+                    _inject_price(wbs[link.to_stage], link.commodity, shifted)
+                    couplings.append(_record(sid, link, "price", shifted))
+            if "carbon_intensity" in link.signals:
+                shifted = _shift(
+                    _ci_signal(results[sid], link.commodity, link.impact),
+                    link.lag_years,
+                    target_years,
+                )
+                if shifted:
+                    _inject_ci(wbs[link.to_stage], link.commodity, link.impact, shifted)
+                    couplings.append(_record(sid, link, "carbon_intensity", shifted))
 
     return {"status": _overall_status(results), "stages": results, "couplings": couplings}
 
@@ -119,6 +118,20 @@ def _years(wb: Workbook) -> list[int]:
     return sorted(int(r["year"]) for r in wb.get("periods", []) if r.get("year") is not None)
 
 
+def _record(from_stage: str, link: Any, signal: str, by_year: dict[int, float]) -> dict[str, Any]:
+    rec = {
+        "from_stage": from_stage,
+        "to_stage": link.to_stage,
+        "commodity": link.commodity,
+        "signal": signal,
+        "lag_years": link.lag_years,
+        "by_year": [{"year": y, "value": v} for y, v in sorted(by_year.items())],
+    }
+    if signal == "carbon_intensity":
+        rec["impact"] = link.impact
+    return rec
+
+
 def _price_signal(result: dict[str, Any], commodity: str) -> dict[int, float]:
     """Upstream average unit cost of ``commodity`` per year (the transfer price)."""
     summary = result.get("summary", {})
@@ -131,6 +144,30 @@ def _price_signal(result: dict[str, Any], commodity: str) -> dict[int, float]:
         produced = float(r.get("produced") or 0.0)
         if produced > _EPS and y in cost:
             out[y] = cost[y] / produced
+    return out
+
+
+def _ci_signal(result: dict[str, Any], commodity: str, impact: str) -> dict[int, float]:
+    """Upstream carbon intensity of ``commodity`` per year = emissions / production.
+
+    Emissions attributable to the commodity are taken as the stage's total of
+    ``impact`` that year (exact when the stage makes a single product; an
+    over-allocation for multi-product stages — documented).
+    """
+    summary = result.get("summary", {})
+    total = {
+        int(r["period"]): float(r.get("total") or 0.0)
+        for r in summary.get("impacts", [])
+        if str(r.get("impact")) == impact
+    }
+    out: dict[int, float] = {}
+    for r in summary.get("commodity", []):
+        if str(r.get("commodity")) != commodity:
+            continue
+        y = int(r["period"])
+        produced = float(r.get("produced") or 0.0)
+        if produced > _EPS and y in total:
+            out[y] = total[y] / produced
     return out
 
 
@@ -153,6 +190,22 @@ def _inject_price(wb: Workbook, commodity: str, by_year: dict[int, float]) -> No
             row: dict[str, Any] = {"year": y, commodity: v}
             rows.append(row)
             index[y] = row
+
+
+def _inject_ci(wb: Workbook, commodity: str, impact: str, by_year: dict[int, float]) -> None:
+    """Upsert per-year carbon-intensity rows for ``commodity`` into ``commodity_impacts_t``."""
+    rows = wb.setdefault("commodity_impacts_t", [])
+    index = {
+        (str(r.get("commodity_id")), str(r.get("impact_id")), int(r["year"])): r
+        for r in rows
+        if r.get("year") is not None
+    }
+    for y, v in by_year.items():
+        key = (commodity, impact, y)
+        if key in index:
+            index[key]["factor"] = v
+        else:
+            rows.append({"commodity_id": commodity, "impact_id": impact, "year": y, "factor": v})
 
 
 def _stage_scenario(base: ScenarioConfig, overrides: dict[str, Any]) -> ScenarioConfig:
