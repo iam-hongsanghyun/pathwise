@@ -29,6 +29,7 @@ from pathwise.core.entities import (
     TransitionAction,
 )
 from pathwise.core.problem import CostToggles, Problem
+from pathwise.data.hierarchy import Hierarchy, load_hierarchy
 from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.trajectory import interpolate
 from pathwise.data.workbook import Workbook
@@ -154,6 +155,57 @@ def _actions(value: Any) -> frozenset[TransitionAction]:
     return frozenset(out) if out else frozenset(TransitionAction)
 
 
+def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
+    """Synthesize flat ``processes`` + ``edges`` from a node hierarchy.
+
+    Each machine becomes one ``Process`` — so a facility is the *sum of its
+    machines* and can run **multiple technologies in parallel** — and
+    machine↔machine connections become edges. ``company`` is set to the machine's
+    top-level subdivision (the child of the root, e.g. the company/sector) and
+    ``group`` to its parent (the facility), so the existing facility/company/
+    machine scope still resolves for the canonical depth; arbitrary mid-levels are
+    handled by the hierarchy-aware scope added later.
+    """
+    roots = set(h.roots())
+
+    def company_of(mid: str) -> str:
+        for a in h.ancestors(mid):
+            if h.nodes[a].parent_id in roots:
+                return a
+        return h.nodes[mid].parent_id or mid
+
+    procs: list[dict[str, Any]] = []
+    for mid, m in h.machines.items():
+        node = h.nodes.get(mid)
+        if node is None:
+            continue
+        row: dict[str, Any] = {
+            "process_id": mid,
+            "company": company_of(mid),
+            "group": node.parent_id or company_of(mid),
+            "baseline_technology": m.baseline_technology,
+            "capacity": m.capacity,
+        }
+        if m.introduced_year is not None:
+            row["introduced_year"] = m.introduced_year
+        procs.append(row)
+
+    machine_ids = set(h.machines)
+    edges = list(workbook.get("edges", []))
+    for c in h.connections:
+        if c.from_node in machine_ids and c.to_node in machine_ids:
+            edge: dict[str, Any] = {
+                "from_process": c.from_node,
+                "to_process": c.to_node,
+                "commodity_id": c.commodity_id,
+            }
+            if c.max_flow is not None:
+                edge["max_flow"] = c.max_flow
+            edges.append(edge)
+
+    return {**workbook, "processes": procs, "edges": edges}
+
+
 def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     """Build a :class:`Problem` from a workbook and a validated scenario.
 
@@ -164,6 +216,12 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     Returns:
         The assembled problem instance.
     """
+    # A node hierarchy (optional) expands to flat processes/edges first, so the
+    # rest of assembly is unchanged; absent ⇒ the model stays flat.
+    hierarchy = load_hierarchy(workbook)
+    if hierarchy is not None:
+        workbook = _expand_hierarchy(workbook, hierarchy)
+
     meta = _meta(workbook)
     econ = scenario.economics
 
