@@ -207,10 +207,18 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
     machine_tech = {mid: m.baseline_technology for mid, m in h.machines.items()}
 
     def producers(node: str, commodity: str) -> list[str]:
-        return [m for m in h.leaf_machines(node) if commodity in io_out.get(machine_tech.get(m, ""), set())]
+        return [
+            m
+            for m in h.leaf_machines(node)
+            if commodity in io_out.get(machine_tech.get(m, ""), set())
+        ]
 
     def consumers(node: str, commodity: str) -> list[str]:
-        return [m for m in h.leaf_machines(node) if commodity in io_in.get(machine_tech.get(m, ""), set())]
+        return [
+            m
+            for m in h.leaf_machines(node)
+            if commodity in io_in.get(machine_tech.get(m, ""), set())
+        ]
 
     edges = list(workbook.get("edges", []))
     seen_edges: set[tuple[str, str, str]] = set()
@@ -559,7 +567,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
 
     def _consumers(commodity: str) -> list[str]:
         """Facilities whose baseline technology consumes the stream."""
-        return [p.process_id for p in processes if commodity in inputs.get(p.baseline_technology, {})]
+        return [
+            p.process_id for p in processes if commodity in inputs.get(p.baseline_technology, {})
+        ]
 
     def _resolve_link(kind: str, target: str) -> list[str]:
         """A typed macc_links target → the facility ids it deploys on."""
