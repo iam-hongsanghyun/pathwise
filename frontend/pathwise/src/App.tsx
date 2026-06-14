@@ -14,6 +14,7 @@ import {
 } from "./lib/api/session";
 import { ActivityBar, type View } from "./layout/ActivityBar";
 import { AnalyticsView } from "./views/AnalyticsView";
+import { ChainDesignView } from "./views/ChainDesignView";
 import { ModelView } from "./views/ModelView";
 import { SettingsView } from "./views/SettingsView";
 import { ValueChainView } from "./views/ValueChainView";
@@ -292,6 +293,7 @@ export function App() {
 
         {view === "model" && <ModelView {...shared} />}
         {view === "valuechain" && <ValueChainView />}
+        {view === "chain" && <ChainDesignView wb={workbook} />}
         {view === "analytics" && (
           <AnalyticsView workbook={workbook} result={result} leftW={leftW} setLeftW={setLeftW} />
         )}
