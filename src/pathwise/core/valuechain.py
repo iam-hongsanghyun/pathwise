@@ -198,7 +198,16 @@ def _forward_pass(
         results[sid] = extract_results(solve(build(assemble_problem(wbs[sid], sc))))
         for link in by_source.get(sid, []):
             target_years = _years(wbs[link.to_stage])
-            if "price" in link.signals:
+            # marginal_price (finite-difference) takes precedence over the
+            # average-cost price proxy when both are requested.
+            if "marginal_price" in link.signals:
+                sc = _stage_scenario(base, spec.stage(sid).scenario)
+                mp = marginal_price(wbs[sid], sc, link.commodity)
+                shifted = _shift(mp, link.lag_years, target_years)
+                if shifted:
+                    _inject_price(wbs[link.to_stage], link.commodity, shifted)
+                    couplings.append(_record(sid, link, "marginal_price", shifted))
+            elif "price" in link.signals:
                 shifted = _shift(
                     _price_signal(results[sid], link.commodity), link.lag_years, target_years
                 )
@@ -257,6 +266,55 @@ def _price_signal(result: dict[str, Any], commodity: str) -> dict[int, float]:
         produced = float(r.get("produced") or 0.0)
         if produced > _EPS and y in cost:
             out[y] = cost[y] / produced
+    return out
+
+
+def marginal_price(
+    wb: Workbook, scenario: ScenarioConfig, commodity: str
+) -> dict[int, float]:
+    """True marginal cost of one more unit of ``commodity`` per year (transfer price).
+
+    Re-solves the stage with its demand for ``commodity`` bumped by a small ε in
+    each year; ``Δobjective / ε`` (un-discounted) is the marginal cost of delivery
+    that year — unlike the average-cost proxy it reflects scarcity / binding
+    capacity. Costs O(years) extra solves. Returns ``{}`` if the commodity has no
+    demand row to perturb or a solve is non-optimal.
+    """
+    prob = assemble_problem(wb, scenario)
+    base = solve(build(prob))
+    if base.objective is None:
+        return {}
+    duration = {p.year: p.duration_years for p in prob.periods}
+    company = _upstream_company(wb, commodity)
+    rows = wb.get("demand", [])
+    present = {
+        y
+        for y in prob.years
+        if any(
+            str(r.get("company")) == company
+            and str(r.get("commodity_id")) == commodity
+            and _as_int(r.get("year")) == y
+            for r in rows
+        )
+    }
+    out: dict[int, float] = {}
+    eps = 1.0
+    for y in sorted(present):
+        weight = prob.discount_factor(y) * (duration.get(y, 1.0) or 1.0)
+        if weight <= 0:
+            continue
+        wb2 = copy.deepcopy(wb)
+        for r in wb2["demand"]:
+            if (
+                str(r.get("company")) == company
+                and str(r.get("commodity_id")) == commodity
+                and _as_int(r.get("year")) == y
+            ):
+                r["amount"] = float(r.get("amount") or 0.0) + eps
+        bumped = solve(build(assemble_problem(wb2, scenario)))
+        if bumped.objective is None:
+            continue
+        out[y] = (bumped.objective - base.objective) / eps / weight
     return out
 
 

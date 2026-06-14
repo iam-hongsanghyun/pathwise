@@ -14,6 +14,7 @@ from pathwise.core.valuechain import (
     _inject_price,
     _price_signal,
     _shift,
+    marginal_price,
     run_value_chain,
     sweep_value_chain,
 )
@@ -57,7 +58,7 @@ def _electricity_wb(co2_price: float) -> dict:
                 "process_id": "Plant",
                 "company": "Grid",
                 "baseline_technology": "gen",
-                "capacity": 1000,
+                "capacity": 2000,
             }
         ],
         "demand": [
@@ -256,6 +257,31 @@ def test_profit_objective_stage_composes_in_cascade() -> None:
         if r["commodity"] == "steel"
     }
     assert produced[2025] == pytest.approx(100.0)
+
+
+def test_marginal_price_equals_known_marginal_cost() -> None:
+    # Linear grid: marginal cost = 2 fuel · 10 + 2 fuel · 0.5 · co2 = 20 + co2.
+    mp = marginal_price(_electricity_wb(10.0), SC, "electricity")
+    assert mp[2025] == pytest.approx(30.0, abs=0.5)
+    assert mp[2030] == pytest.approx(30.0, abs=0.5)
+
+
+def test_marginal_price_signal_couples_downstream() -> None:
+    spec = ValueChainSpec(
+        id="vc",
+        stages=[Stage(id="elec"), Stage(id="steel")],
+        links=[
+            CouplingLink(
+                from_stage="elec",
+                to_stage="steel",
+                commodity="electricity",
+                signals=["marginal_price"],
+            )
+        ],
+    )
+    res = run_value_chain(spec, {"elec": _electricity_wb(10.0), "steel": _steel_wb()}, SC)
+    mp = [c for c in res["couplings"] if c["signal"] == "marginal_price"]
+    assert mp and mp[0]["by_year"][0]["value"] == pytest.approx(30.0, abs=0.5)
 
 
 def test_lag_shift_offsets_and_holds_flat() -> None:
