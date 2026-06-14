@@ -475,7 +475,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
 
     def _consumers(commodity: str) -> list[str]:
         """Facilities whose baseline technology consumes the stream."""
-        return [p.process_id for p in processes if commodity in inputs.get(p.baseline_technology, {})]
+        return [
+            p.process_id for p in processes if commodity in inputs.get(p.baseline_technology, {})
+        ]
 
     def _resolve_link(kind: str, target: str) -> list[str]:
         """A typed macc_links target → the facility ids it deploys on."""

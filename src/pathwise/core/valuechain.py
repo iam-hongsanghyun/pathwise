@@ -269,9 +269,7 @@ def _price_signal(result: dict[str, Any], commodity: str) -> dict[int, float]:
     return out
 
 
-def marginal_price(
-    wb: Workbook, scenario: ScenarioConfig, commodity: str
-) -> dict[int, float]:
+def marginal_price(wb: Workbook, scenario: ScenarioConfig, commodity: str) -> dict[int, float]:
     """True marginal cost of one more unit of ``commodity`` per year (transfer price).
 
     Re-solves the stage with its demand for ``commodity`` bumped by a small ε in
