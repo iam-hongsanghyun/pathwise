@@ -77,7 +77,9 @@ class GroupComponent(BaseModel):
         for conn in self.connections:
             for end in (conn.source, conn.target):
                 if end not in known:
-                    raise ValueError(f"group '{self.name}' connection references unknown child '{end}'")
+                    raise ValueError(
+                        f"group '{self.name}' connection references unknown child '{end}'"
+                    )
         return self
 
 
@@ -110,7 +112,9 @@ def load_component_library(path: str | Path) -> ComponentLibrary:
         return ComponentLibrary.model_validate(json.load(fh))
 
 
-def instantiate(library: ComponentLibrary, component: str, *, instance_id: str | None = None) -> Workbook:
+def instantiate(
+    library: ComponentLibrary, component: str, *, instance_id: str | None = None
+) -> Workbook:
     """Stamp a component into a recursive hierarchy workbook (one fresh instance).
 
     Recursively places ``component`` and all its descendants as instance nodes
