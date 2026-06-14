@@ -22,5 +22,11 @@
     "label": "Aluminium — 3-stage chain",
     "file": "aluminium.xlsx",
     "description": "Refinery → smelter → caster (3 routed stages); each stage has a lower-carbon transition (H2 refining / RE smelting / electric casting) under a rising carbon price and declining CO2 cap."
+  },
+  {
+    "id": "value_chain_demo",
+    "label": "Value chain demo — Korea (group/component)",
+    "file": "value_chain_demo.xlsx",
+    "description": "A recursive group hierarchy: value chain → Korea Power / Korea Steel → facilities → machines (the mill runs a blast furnace, BOF and an EAF in parallel). Electricity couples the two companies. Open it in the Chain view to drill the levels; it solves jointly or per-company."
   }
 ]
