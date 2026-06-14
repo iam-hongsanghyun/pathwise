@@ -189,6 +189,39 @@ def test_carbon_intensity_signal_couples_into_downstream_emissions() -> None:
     assert steel_co2[2025] == pytest.approx(400.0)
 
 
+def test_feedback_sizes_upstream_to_downstream_consumption() -> None:
+    # The grid starts with a wrong demand guess (10); two-way feedback drives it
+    # to the steel mill's actual electricity consumption (4 MWh/t · 100 t = 400).
+    elec = _electricity_wb(10.0)
+    elec["demand"] = [
+        {"company": "Grid", "commodity_id": "electricity", "year": y, "amount": 10.0}
+        for y in (2025, 2030)
+    ]
+    spec = ValueChainSpec(
+        id="vc",
+        stages=[Stage(id="elec"), Stage(id="steel")],
+        links=[
+            CouplingLink(
+                from_stage="elec",
+                to_stage="steel",
+                commodity="electricity",
+                signals=["price"],
+                feedback=True,
+            )
+        ],
+    )
+    res = run_value_chain(spec, {"elec": elec, "steel": _steel_wb()}, SC, iterations=6, damping=1.0)
+
+    assert res["status"] == "optimal"
+    prod = {
+        r["period"]: r["produced"]
+        for r in res["stages"]["elec"]["summary"]["commodity"]
+        if r["commodity"] == "electricity"
+    }
+    assert prod[2025] == pytest.approx(400.0, abs=1.0)
+    assert res["iterations"] <= 6, "the fixed point should converge well within the cap"
+
+
 def test_lag_shift_offsets_and_holds_flat() -> None:
     # Price known at 2025/2030 upstream; a 5-yr lag pushes it to 2030/2035.
     out = _shift({2025: 10.0, 2030: 20.0}, 5, [2025, 2030, 2035])

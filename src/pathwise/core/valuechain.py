@@ -46,14 +46,24 @@ from pathwise.data.valuechain import ValueChainSpec
 from pathwise.data.workbook import Workbook
 
 _EPS = 1e-9
+_TOL = 1e-3  # relative convergence tolerance for the feedback fixed point
 
 
 def run_value_chain(
     spec: ValueChainSpec,
     workbooks: dict[str, Workbook],
     scenario: ScenarioConfig | None = None,
+    iterations: int = 1,
+    damping: float = 0.5,
 ) -> dict[str, Any]:
-    """Solve a value chain as a forward cascade of price-coupled stages.
+    """Solve a value chain as a cascade of coupled stages.
+
+    A forward pass solves each stage upstream→downstream, injecting the upstream
+    price / carbon-intensity signals (lagged) into the downstream inputs. With
+    ``iterations > 1`` and ``feedback`` links present, downstream consumption of
+    the coupled commodity is fed back as the upstream stage's demand and the pass
+    repeats (Gauss–Seidel) until the feedback demand converges — damped to avoid
+    oscillation.
 
     Args:
         spec: The value-chain definition (stages + coupling links).
@@ -61,27 +71,62 @@ def run_value_chain(
             a resolved workbook (the caller does the I/O; this stays pure).
         scenario: Base run scenario; per-stage ``scenario`` overrides are
             deep-merged onto it. Defaults to ``ScenarioConfig()``.
+        iterations: Max forward passes. ``1`` = forward-only (no feedback).
+        damping: Relaxation on the fed-back demand, ``0 < damping ≤ 1`` — a new
+            demand is ``(1-damping)·old + damping·observed``.
 
     Returns:
-        ``{"status", "stages": {id: result}, "couplings": [...]}`` — each stage's
-        standard :func:`extract_results` dict plus the price trajectories that
-        flowed between stages (for inspection / UI overlay).
+        ``{"status", "stages": {id: result}, "couplings": [...], "iterations": n}``
+        — each stage's standard :func:`extract_results` dict plus the trajectories
+        that flowed between stages (for inspection / UI overlay).
 
     Raises:
         KeyError: If a stage in ``spec`` has no workbook in ``workbooks``.
     """
     base = scenario or ScenarioConfig()
     wbs: dict[str, Workbook] = {s.id: copy.deepcopy(workbooks[s.id]) for s in spec.stages}
+    feedback = [link for link in spec.active_links() if link.feedback]
 
     results: dict[str, dict[str, Any]] = {}
     couplings: list[dict[str, Any]] = []
+    prev: dict[tuple[str, str, int], float] = {}
+    passes = 0
+    for it in range(max(1, iterations)):
+        results, couplings = _forward_pass(spec, wbs, base)
+        passes = it + 1
+        if not feedback:
+            break
+        observed = _feedback_demands(spec, wbs, results, feedback)
+        damped = {k: (1 - damping) * prev.get(k, v) + damping * v for k, v in observed.items()}
+        change = max(
+            (abs(damped[k] - prev.get(k, 0.0)) / max(abs(damped[k]), 1.0) for k in damped),
+            default=0.0,
+        )
+        _apply_feedback_demands(spec, wbs, damped)
+        prev = damped
+        if it >= 1 and change < _TOL:
+            break
+
+    out: dict[str, Any] = {
+        "status": _overall_status(results),
+        "stages": results,
+        "couplings": couplings,
+    }
+    if feedback:
+        out["iterations"] = passes
+    return out
+
+
+def _forward_pass(
+    spec: ValueChainSpec, wbs: dict[str, Workbook], base: ScenarioConfig
+) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
+    """One upstream→downstream solve, injecting price/CI signals as it goes."""
+    results: dict[str, dict[str, Any]] = {}
+    couplings: list[dict[str, Any]] = []
     by_source = _links_by_source(spec)
-
     for sid in spec.order():
-        stage = spec.stage(sid)
-        sc = _stage_scenario(base, stage.scenario)
+        sc = _stage_scenario(base, spec.stage(sid).scenario)
         results[sid] = extract_results(solve(build(assemble_problem(wbs[sid], sc))))
-
         for link in by_source.get(sid, []):
             target_years = _years(wbs[link.to_stage])
             if "price" in link.signals:
@@ -100,8 +145,7 @@ def run_value_chain(
                 if shifted:
                     _inject_ci(wbs[link.to_stage], link.commodity, link.impact, shifted)
                     couplings.append(_record(sid, link, "carbon_intensity", shifted))
-
-    return {"status": _overall_status(results), "stages": results, "couplings": couplings}
+    return results, couplings
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -190,6 +234,69 @@ def _inject_price(wb: Workbook, commodity: str, by_year: dict[int, float]) -> No
             row: dict[str, Any] = {"year": y, commodity: v}
             rows.append(row)
             index[y] = row
+
+
+def _feedback_demands(
+    spec: ValueChainSpec,
+    wbs: dict[str, Workbook],
+    results: dict[str, dict[str, Any]],
+    feedback_links: list[Any],
+) -> dict[tuple[str, str, int], float]:
+    """Downstream consumption of each fed-back commodity → upstream demand target."""
+    out: dict[tuple[str, str, int], float] = {}
+    for link in feedback_links:
+        for r in results.get(link.to_stage, {}).get("summary", {}).get("commodity", []):
+            if str(r.get("commodity")) != link.commodity:
+                continue
+            key = (link.from_stage, link.commodity, int(r["period"]))
+            out[key] = out.get(key, 0.0) + float(r.get("consumed") or 0.0)
+    return out
+
+
+def _apply_feedback_demands(
+    spec: ValueChainSpec, wbs: dict[str, Workbook], demands: dict[tuple[str, str, int], float]
+) -> None:
+    """Upsert fed-back demand onto the upstream stages' demand sheets."""
+    for (stage_id, commodity, year), amount in demands.items():
+        wb = wbs[stage_id]
+        company = _upstream_company(wb, commodity)
+        rows = wb.setdefault("demand", [])
+        for r in rows:
+            if (
+                str(r.get("company")) == company
+                and str(r.get("commodity_id")) == commodity
+                and _as_int(r.get("year")) == year
+            ):
+                r["amount"] = amount
+                break
+        else:
+            rows.append(
+                {"company": company, "commodity_id": commodity, "year": year, "amount": amount}
+            )
+
+
+def _upstream_company(wb: Workbook, commodity: str) -> str:
+    """The company whose demand for ``commodity`` the feedback should drive."""
+    for r in wb.get("demand", []):
+        if str(r.get("commodity_id")) == commodity:
+            return str(r.get("company"))
+    producers = {
+        str(r.get("technology_id"))
+        for r in wb.get("io", [])
+        if str(r.get("target")) == commodity and str(r.get("role")) == "output"
+    }
+    for p in wb.get("processes", []):
+        if str(p.get("baseline_technology")) in producers:
+            return str(p.get("company"))
+    procs = wb.get("processes", [])
+    return str(procs[0].get("company")) if procs else "all"
+
+
+def _as_int(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _inject_ci(wb: Workbook, commodity: str, impact: str, by_year: dict[int, float]) -> None:
