@@ -16,6 +16,7 @@ import { ActivityBar, type View } from "./layout/ActivityBar";
 import { AnalyticsView } from "./views/AnalyticsView";
 import { ModelView } from "./views/ModelView";
 import { SettingsView } from "./views/SettingsView";
+import { ValueChainView } from "./views/ValueChainView";
 import type { ConfigBundle, PortfolioConfig, RunResult, Workbook } from "./types";
 
 export function App() {
@@ -290,6 +291,7 @@ export function App() {
         {error && <div className="error" style={{ padding: "4px 16px" }}>{error}</div>}
 
         {view === "model" && <ModelView {...shared} />}
+        {view === "valuechain" && <ValueChainView />}
         {view === "analytics" && (
           <AnalyticsView workbook={workbook} result={result} leftW={leftW} setLeftW={setLeftW} />
         )}

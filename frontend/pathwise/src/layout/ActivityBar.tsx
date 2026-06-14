@@ -1,7 +1,8 @@
-export type View = "model" | "analytics" | "settings";
+export type View = "model" | "valuechain" | "analytics" | "settings";
 
 const ENTRIES: { id: View; glyph: string; label: string }[] = [
   { id: "model", glyph: "M", label: "Model — process map + all editing" },
+  { id: "valuechain", glyph: "V", label: "Value chain — coupled stages across sectors/regions" },
   { id: "analytics", glyph: "A", label: "Analytics — results & charts" },
   { id: "settings", glyph: "S", label: "Settings — snapshots & scenario" },
 ];
