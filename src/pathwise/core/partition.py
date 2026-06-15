@@ -1,0 +1,175 @@
+"""Partition a node hierarchy at a level into independent, coupled problems.
+
+Choosing an optimisation level cuts the tree there: every node *at* that level
+becomes the root of its own optimisation problem (a flat sub-workbook), and any
+**connection crossing a cut boundary** becomes a value-chain **coupling link**
+(commodity + lag + signals). The result is a :class:`ValueChainSpec` plus the
+per-cut workbooks — fed straight into :func:`pathwise.core.valuechain.run_value_chain`,
+which solves and couples them. Connections *inside* a cut stay edges in that
+sub-workbook (already expanded by the assembler).
+
+The partition is pure data shuffling; the solve is the existing single-model
+pipeline run per cut, with the cascade carrying the cross-cut signals.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from pathwise.data.assemble import _expand_hierarchy
+from pathwise.data.hierarchy import Hierarchy
+from pathwise.data.valuechain import CouplingLink, Stage, ValueChainSpec
+from pathwise.data.workbook import Workbook
+
+# Catalogue/scenario sheets shared by every cut sub-workbook (not partitioned).
+_SHARED_PREFIXES = ("technologies", "commodities", "impacts", "io", "markets", "storage")
+_SHARED_SHEETS = {
+    "periods",
+    "meta",
+    "transitions",
+    "measures",
+    "measure_blocks",
+    "maccs",
+    "macc_links",
+    "tech_impacts",
+    "commodity_impacts",
+    "commodity_impacts_t",
+}
+
+
+def _cuts_for(node: str, cut_set: set[str], h: Hierarchy) -> set[str]:
+    """The cut node(s) a node maps to: itself, its cut ancestor, or its cut descendants."""
+    if node in cut_set:
+        return {node}
+    for a in h.ancestors(node):  # below the cut → the containing cut node
+        if a in cut_set:
+            return {a}
+    return {d for d in h.descendants(node) if d in cut_set}  # above the cut → its cut descendants
+
+
+def _scope_in_cut(scope: str, cut: str, h: Hierarchy) -> bool:
+    """Whether a demand/cap scope (a node id) belongs to ``cut``'s subtree."""
+    return scope == cut or scope in h.descendants(cut)
+
+
+def _set_commodity(wb: Workbook, commodity: str, **fields: Any) -> None:
+    """Override commodity attributes in ``wb`` (copy-on-write; row added if absent)."""
+    rows = wb.get("commodities", [])
+    new_rows = []
+    found = False
+    for r in rows:
+        if str(r.get("commodity_id")) == commodity:
+            new_rows.append({**r, **fields})
+            found = True
+        else:
+            new_rows.append(r)
+    if not found:
+        new_rows.append({"commodity_id": commodity, **fields})
+    wb["commodities"] = new_rows
+
+
+def _project(flat: Workbook, members: set[str], cut: str, h: Hierarchy) -> Workbook:
+    """A flat, self-contained sub-workbook for one cut node."""
+    sub: Workbook = {}
+    for sheet, rows in flat.items():
+        if sheet in ("nodes", "machines", "connections", "ports"):
+            continue  # the sub-workbook is flat (no re-expansion)
+        if sheet == "processes":
+            sub[sheet] = [r for r in rows if str(r.get("process_id")) in members]
+        elif sheet == "edges":
+            sub[sheet] = [
+                r
+                for r in rows
+                if str(r.get("from_process")) in members and str(r.get("to_process")) in members
+            ]
+        elif sheet in ("demand", "impact_caps", "min_production", "investment_budget"):
+            sub[sheet] = [r for r in rows if _scope_in_cut(str(r.get("company")), cut, h)]
+        else:
+            sub[sheet] = list(rows)  # shared catalogue / scenario sheet
+    return sub
+
+
+def partition(
+    workbook: Workbook,
+    hierarchy: Hierarchy,
+    level: str,
+    *,
+    signals: list[str] | None = None,
+    default_lag: int = 0,
+    feedback: bool = True,
+) -> tuple[ValueChainSpec, dict[str, Workbook]]:
+    """Cut ``hierarchy`` at ``level`` → a coupling spec + one workbook per cut node.
+
+    Args:
+        workbook: The full model (with the node hierarchy sheets).
+        hierarchy: The parsed tree.
+        level: The designed level to cut at; every node there optimises alone.
+        signals: Coupling signals carried by cross-cut links (default ``["price"]``).
+        default_lag: Lag for a crossing connection that sets none.
+        feedback: Mark cross-cut links as feedback (downstream demand → upstream),
+            so an upstream cut produces what its downstream consumes.
+
+    Returns:
+        ``(spec, {cut_id: sub_workbook})`` ready for ``run_value_chain``.
+    """
+    sig = list(signals or ["price"])
+    cut_ids = hierarchy.nodes_at_level(level)
+    cut_set = set(cut_ids)
+    flat = _expand_hierarchy(workbook, hierarchy)
+
+    machine_cut: dict[str, str] = {}
+    for mid in hierarchy.machines:
+        cuts = _cuts_for(mid, cut_set, hierarchy)
+        if cuts:
+            machine_cut[mid] = next(iter(cuts))
+
+    workbooks: dict[str, Workbook] = {}
+    for cut in cut_ids:
+        members = {m for m, c in machine_cut.items() if c == cut}
+        workbooks[cut] = _project(flat, members, cut, hierarchy)
+
+    links: list[CouplingLink] = []
+    seen: set[tuple[str, str, str]] = set()
+    for conn in hierarchy.connections:
+        for fc in _cuts_for(conn.from_node, cut_set, hierarchy):
+            for tc in _cuts_for(conn.to_node, cut_set, hierarchy):
+                if fc == tc or fc not in cut_set or tc not in cut_set:
+                    continue
+                key = (fc, tc, conn.commodity_id)
+                if key in seen:
+                    continue
+                seen.add(key)
+                links.append(
+                    CouplingLink(
+                        from_stage=fc,
+                        to_stage=tc,
+                        commodity=conn.commodity_id,
+                        signals=sig,
+                        lag_years=conn.lag_years or default_lag,
+                        feedback=feedback,
+                    )
+                )
+
+    # The coupled stream is the upstream cut's product (it makes & sells it to
+    # meet the fed-back demand) and a purchasable input to the downstream cut.
+    for link in links:
+        if link.from_stage in workbooks:
+            _set_commodity(
+                workbooks[link.from_stage], link.commodity, kind="product", sellable=True
+            )
+        if link.to_stage in workbooks:
+            _set_commodity(workbooks[link.to_stage], link.commodity, purchasable=True)
+
+    spec = ValueChainSpec(
+        id=f"partition@{level}",
+        label=f"{level} partition",
+        stages=[Stage(id=c, label=hierarchy.nodes[c].label) for c in cut_ids],
+        links=links,
+    )
+    return spec, workbooks
+
+
+def is_partitionable(hierarchy: Hierarchy, level: str) -> bool:
+    """Whether cutting at ``level`` yields more than one independent problem."""
+    cuts = hierarchy.nodes_at_level(level)
+    return len(cuts) > 1 and set(cuts) != set(hierarchy.roots())

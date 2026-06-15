@@ -29,6 +29,7 @@ from pathwise.core.entities import (
     TransitionAction,
 )
 from pathwise.core.problem import CostToggles, Problem
+from pathwise.data.hierarchy import Hierarchy, load_hierarchy
 from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.trajectory import interpolate
 from pathwise.data.workbook import Workbook
@@ -154,6 +155,91 @@ def _actions(value: Any) -> frozenset[TransitionAction]:
     return frozenset(out) if out else frozenset(TransitionAction)
 
 
+def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
+    """Synthesize flat ``processes`` + ``edges`` from a node hierarchy.
+
+    Each machine becomes one ``Process`` — so a facility is the *sum of its
+    machines* and can run **multiple technologies in parallel** — and
+    machine↔machine connections become edges. ``company`` is set to the machine's
+    top-level subdivision (the child of the root, e.g. the company/sector) and
+    ``group`` to its parent (the facility), so the existing facility/company/
+    machine scope still resolves for the canonical depth; arbitrary mid-levels are
+    handled by the hierarchy-aware scope added later.
+    """
+    roots = set(h.roots())
+
+    def company_of(mid: str) -> str:
+        for a in h.ancestors(mid):
+            if h.nodes[a].parent_id in roots:
+                return a
+        return h.nodes[mid].parent_id or mid
+
+    procs: list[dict[str, Any]] = []
+    for mid, m in h.machines.items():
+        node = h.nodes.get(mid)
+        if node is None:
+            continue
+        row: dict[str, Any] = {
+            "process_id": mid,
+            "company": company_of(mid),
+            "group": node.parent_id or company_of(mid),
+            "baseline_technology": m.baseline_technology,
+            "capacity": m.capacity,
+        }
+        if m.introduced_year is not None:
+            row["introduced_year"] = m.introduced_year
+        procs.append(row)
+
+    # Connections (machine↔machine or group↔group) become machine edges: the
+    # producers of the commodity in the source subtree → its consumers in the
+    # destination subtree (resolved via each machine's technology I/O).
+    io_out: dict[str, set[str]] = {}
+    io_in: dict[str, set[str]] = {}
+    for r in workbook.get("io", []):
+        tech, role, tgt = _str(r.get("technology_id")), _str(r.get("role")), _str(r.get("target"))
+        coef = _num(r.get("coefficient")) or 0.0
+        if not tech or not tgt:
+            continue
+        if role == "output" and coef != 0.0:
+            io_out.setdefault(tech, set()).add(tgt)
+        elif role == "input" and coef > 0.0:
+            io_in.setdefault(tech, set()).add(tgt)
+    machine_tech = {mid: m.baseline_technology for mid, m in h.machines.items()}
+
+    def producers(node: str, commodity: str) -> list[str]:
+        return [
+            m
+            for m in h.leaf_machines(node)
+            if commodity in io_out.get(machine_tech.get(m, ""), set())
+        ]
+
+    def consumers(node: str, commodity: str) -> list[str]:
+        return [
+            m
+            for m in h.leaf_machines(node)
+            if commodity in io_in.get(machine_tech.get(m, ""), set())
+        ]
+
+    edges = list(workbook.get("edges", []))
+    seen_edges: set[tuple[str, str, str]] = set()
+    for c in h.connections:
+        for s in producers(c.from_node, c.commodity_id):
+            for d in consumers(c.to_node, c.commodity_id):
+                if s == d or (s, d, c.commodity_id) in seen_edges:
+                    continue
+                seen_edges.add((s, d, c.commodity_id))
+                edge: dict[str, Any] = {
+                    "from_process": s,
+                    "to_process": d,
+                    "commodity_id": c.commodity_id,
+                }
+                if c.max_flow is not None:
+                    edge["max_flow"] = c.max_flow
+                edges.append(edge)
+
+    return {**workbook, "processes": procs, "edges": edges}
+
+
 def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     """Build a :class:`Problem` from a workbook and a validated scenario.
 
@@ -164,6 +250,12 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     Returns:
         The assembled problem instance.
     """
+    # A node hierarchy (optional) expands to flat processes/edges first, so the
+    # rest of assembly is unchanged; absent ⇒ the model stays flat.
+    hierarchy = load_hierarchy(workbook)
+    if hierarchy is not None:
+        workbook = _expand_hierarchy(workbook, hierarchy)
+
     meta = _meta(workbook)
     econ = scenario.economics
 
@@ -308,6 +400,17 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         c, i = _str(r.get("commodity_id")), _str(r.get("impact_id"))
         if c and i:
             commodity_impacts[(c, i)] = _num(r.get("factor"), 0.0) or 0.0
+
+    # Optional year-varying carbon intensity (long format: commodity_id, impact_id,
+    # year, factor) — e.g. a greening grid, or an upstream value-chain stage's
+    # pathway. Sparse points are interpolated onto the horizon (flat-hold ends).
+    ci_points: dict[tuple[str, str], dict[int, float]] = {}
+    for r in _rows(workbook, "commodity_impacts_t"):
+        c, i = _str(r.get("commodity_id")), _str(r.get("impact_id"))
+        yr, fac = _int(r.get("year")), _num(r.get("factor"))
+        if c and i and yr is not None and fac is not None:
+            ci_points.setdefault((c, i), {})[yr] = fac
+    commodity_impacts_by_year = {k: interpolate(v, years) for k, v in ci_points.items()}
 
     # Any technology scalar attribute may go temporal via technologies_t__<attr>.
     tech_capex_t = _wide_temporal(workbook, "technologies_t__capex")
@@ -464,7 +567,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
 
     def _consumers(commodity: str) -> list[str]:
         """Facilities whose baseline technology consumes the stream."""
-        return [p.process_id for p in processes if commodity in inputs.get(p.baseline_technology, {})]
+        return [
+            p.process_id for p in processes if commodity in inputs.get(p.baseline_technology, {})
+        ]
 
     def _resolve_link(kind: str, target: str) -> list[str]:
         """A typed macc_links target → the facility ids it deploys on."""
@@ -685,6 +790,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         storages=storages,
         markets=markets,
         commodity_impacts=commodity_impacts,
+        commodity_impacts_by_year=commodity_impacts_by_year,
         demand=demand,
         impact_caps=impact_caps,
         impact_cap_soft=impact_cap_soft,

@@ -468,7 +468,7 @@ def _impacts(ctx: BuildContext) -> None:
             for t in ctx.years:
                 terms = []
                 for r in ctx.comms:
-                    factor = prob.commodity_impacts.get((r, i), 0.0)
+                    factor = prob.commodity_impact(r, i, t)
                     if factor == 0.0:
                         continue
                     cons = _gross_consumed(ctx, p, r, t)

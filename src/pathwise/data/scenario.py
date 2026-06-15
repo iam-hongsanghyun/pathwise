@@ -83,6 +83,26 @@ class PortfolioConfig(BaseModel):
     bl_tau: float = Field(default=0.05, gt=0.0)
 
 
+class Coupling(BaseModel):
+    """How independently-optimised hierarchy nodes couple across their boundary.
+
+    Used when ``optimisation_scope`` cuts a node tree into independent problems:
+    cross-cut connections become value-chain coupling links carrying these
+    signals, resolved by ``iterations`` of damped feedback.
+
+    Attributes:
+        signals: Subset of ``price`` / ``marginal_price`` / ``carbon_intensity``.
+        iterations: Forward passes (``1`` = forward-only; ``>1`` enables feedback).
+        damping: Relaxation on fed-back demand, ``0 < damping ≤ 1``.
+        default_lag: Lag [yr] applied to a connection that does not set its own.
+    """
+
+    signals: list[str] = Field(default_factory=lambda: ["price"])
+    iterations: int = Field(default=1, ge=1)
+    damping: float = Field(default=0.5, gt=0.0, le=1.0)
+    default_lag: int = Field(default=0, ge=0)
+
+
 class ScenarioConfig(BaseModel):
     """A complete, validated run definition.
 
@@ -105,10 +125,13 @@ class ScenarioConfig(BaseModel):
     horizon: Horizon = Field(default_factory=Horizon)
     slack_penalty: float = Field(default=1.0e9, ge=0.0)
     portfolio: PortfolioConfig = Field(default_factory=PortfolioConfig)
-    # Level the emission targets bind at — sets whether the optimisation minimises
-    # cost for the whole economy (one shared cap; companies trade off) or per
-    # company / facility (each independent). ``company`` keeps caps as authored.
-    optimisation_scope: str = Field(default="company", pattern="^(system|company|facility)$")
+    coupling: Coupling = Field(default_factory=Coupling)
+    # The level the optimisation is performed at. For a flat model this is the
+    # cap-pooling scope (``system`` = one shared cap; ``company``/``facility`` keep
+    # caps as authored). For a node hierarchy it is the cut level: every node at
+    # that designed level optimises independently, coupled across boundaries.
+    # Free text so any user-defined level is selectable; ``system`` = single solve.
+    optimisation_scope: str = "company"
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ScenarioConfig:

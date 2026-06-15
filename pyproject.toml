@@ -47,6 +47,13 @@ select = ["E", "F", "I", "UP", "B", "C4", "SIM", "RUF"]
 # RUF012: ClassVar mutable defaults not relevant to our dataclasses.
 ignore = ["RUF001", "RUF002", "RUF003", "RUF012"]
 
+[tool.ruff.lint.per-file-ignores]
+# These ship inside the package but were never line-length-linted while the
+# unanchored `data/` gitignore hid them from ruff; schema.py is intentionally a
+# wide column-descriptor table, and assemble.py carries dense parsing one-liners.
+"src/pathwise/data/schema.py" = ["E501"]
+"src/pathwise/data/assemble.py" = ["E501"]
+
 [tool.mypy]
 python_version = "3.11"
 packages = ["pathwise"]

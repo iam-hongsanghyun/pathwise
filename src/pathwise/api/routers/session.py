@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 from pathwise.api.session_store import SessionNotFound, SessionStore
 from pathwise.api.workbook_io import parse_xlsx, result_to_xlsx, write_xlsx
 from pathwise.config import get_settings
+from pathwise.core.valuechain import run_value_chain
 from pathwise.data.library import (
     Library,
     add_chain,
@@ -24,6 +25,8 @@ from pathwise.data.library import (
     add_replacement,
     load_library,
 )
+from pathwise.data.scenario import ScenarioConfig
+from pathwise.data.valuechain import ValueChainSpec, load_value_chain
 from pathwise.logger import get_logger
 
 logger = get_logger(__name__)
@@ -272,3 +275,51 @@ def insert_template(session_id: str, body: LibraryInsert) -> dict[str, Any]:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     store.put_model(session_id, model)
     return {"sessionId": session_id, "created": created}
+
+
+# ── Value chains (coupled multi-stage models, solved as a forward cascade) ─────
+
+
+class ValueChainRun(BaseModel):
+    """Body for ``POST /api/value-chain/{name}/run`` (scenario optional)."""
+
+    scenario: dict[str, Any] = Field(default_factory=dict)
+
+
+def _load_chain(name: str) -> ValueChainSpec:
+    path = Path(get_settings().value_chains_dir) / f"{name}.json"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"unknown value chain '{name}'")
+    return load_value_chain(path)
+
+
+@router.get("/value-chains")
+def list_value_chains() -> list[dict[str, Any]]:
+    """The value-chain index."""
+    index = Path(get_settings().value_chains_dir) / "index.json"
+    if not index.exists():
+        return []
+    return json.loads(index.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
+
+
+@router.get("/value-chain/{name}")
+def value_chain_detail(name: str) -> dict[str, Any]:
+    """One value-chain spec (for the designer)."""
+    return _load_chain(name).model_dump()
+
+
+@router.post("/value-chain/{name}/run")
+def run_chain(name: str, body: ValueChainRun | None = None) -> dict[str, Any]:
+    """Resolve each stage's workbook and solve the chain as a forward cascade."""
+    spec = _load_chain(name)
+    vdir = Path(get_settings().value_chains_dir).resolve()
+    workbooks: dict[str, dict[str, list[dict[str, Any]]]] = {}
+    for stage in spec.stages:
+        wb_path = (vdir / stage.model).resolve()
+        if not wb_path.is_relative_to(vdir) or not wb_path.exists():
+            raise HTTPException(
+                status_code=404, detail=f"stage '{stage.id}' model '{stage.model}' not found"
+            )
+        workbooks[stage.id] = json.loads(wb_path.read_text(encoding="utf-8"))
+    overrides = (body.scenario if body else None) or {"economics": {"base_year": 2025}}
+    return run_value_chain(spec, workbooks, ScenarioConfig.from_dict(overrides))

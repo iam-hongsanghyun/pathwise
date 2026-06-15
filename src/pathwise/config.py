@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     # parses files itself and never serves them statically).
     examples_dir: str = str(_ASSETS / "examples")
     library_dir: str = str(_ASSETS / "library")
+    # Value-chain specs (a DAG of coupled stage-models) + their stage workbooks.
+    value_chains_dir: str = str(_ASSETS / "value_chains")
     # Paging cap for session sheet reads.
     max_sheet_page: int = 1000
 
