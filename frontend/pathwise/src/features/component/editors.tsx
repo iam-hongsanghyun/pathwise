@@ -427,20 +427,82 @@ export function MeasureEditor({
 }
 
 // ── MACC (a group/bundle of measures) ─────────────────────────────────────────
+// A marginal-abatement-cost curve: one bar per measure block, width ∝ the
+// reduction it delivers, height ∝ its marginal cost (capex per unit reduced),
+// sorted cheapest-first. Negative-cost ("no-regret") blocks sit below the axis.
+export function MaccChart({ measures }: { measures: MeasureTemplate[] }) {
+  const blocks = measures
+    .flatMap((m) =>
+      m.blocks.map((b) => ({
+        name: m.label || m.measure_id,
+        width: b.reduction,
+        cost: b.reduction > 0 ? b.capex_per_capacity / b.reduction : 0,
+      })),
+    )
+    .filter((b) => b.width > 0)
+    .sort((a, b) => a.cost - b.cost);
+  if (blocks.length === 0)
+    return <p className="muted" style={{ fontSize: "0.78rem" }}>Bundle measures (with blocks) to see the MACC curve.</p>;
+
+  const W = 520, H = 210, padL = 52, padB = 30, padT = 12, padR = 12;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const totalW = blocks.reduce((s, b) => s + b.width, 0) || 1;
+  const maxCost = Math.max(...blocks.map((b) => b.cost), 0);
+  const minCost = Math.min(...blocks.map((b) => b.cost), 0);
+  const range = maxCost - minCost || 1;
+  const yOf = (c: number) => padT + ((maxCost - c) / range) * plotH;
+  const y0 = yOf(0);
+  let cx = padL;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", maxWidth: W, height: "auto" }} role="img" aria-label="MACC curve">
+      {/* axes */}
+      <line x1={padL} y1={padT} x2={padL} y2={padT + plotH} stroke="var(--border-strong)" strokeWidth={1} />
+      <line x1={padL} y1={y0} x2={W - padR} y2={y0} stroke="var(--border-strong)" strokeWidth={1} />
+      <text x={6} y={padT + 8} fontSize={9} fill="var(--muted)">cost / unit abated</text>
+      <text x={W - padR} y={y0 + 18} fontSize={9} fill="var(--muted)" textAnchor="end">cumulative abatement →</text>
+      {blocks.map((b, i) => {
+        const w = (b.width / totalW) * plotW;
+        const yc = yOf(b.cost);
+        const x = cx;
+        cx += w;
+        const top = Math.min(yc, y0);
+        const h = Math.max(Math.abs(yc - y0), 1);
+        const pos = b.cost >= 0;
+        return (
+          <g key={i}>
+            <rect x={x} y={top} width={Math.max(w - 1, 1)} height={h}
+              fill={pos ? "var(--brand)" : "var(--warn)"} opacity={0.85} />
+            {w > 26 && (
+              <text x={x + w / 2} y={pos ? top - 3 : top + h + 10} fontSize={8}
+                fill="var(--muted)" textAnchor="middle">
+                {b.name.length > 10 ? `${b.name.slice(0, 9)}…` : b.name}
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 export function MaccEditor({
   value,
   measures,
+  allMeasures,
   onChange,
   onRename,
 }: {
   value: MaccGroup;
   /** All standalone measures available to bundle. */
   measures: { id: string; label: string }[];
+  /** Full templates (for the MACC chart). */
+  allMeasures: MeasureTemplate[];
   onChange: (v: MaccGroup) => void;
   onRename: (id: string) => void;
 }) {
   const toggle = (mid: string, on: boolean) =>
     onChange({ ...value, measures: on ? [...value.measures, mid] : value.measures.filter((m) => m !== mid) });
+  const bundled = allMeasures.filter((m) => value.measures.includes(m.measure_id));
   return (
     <section>
       <h2 style={{ margin: "0 0 12px" }}>MACC <span className="muted" style={{ fontSize: "0.8rem" }}>(group of measures)</span></h2>
@@ -452,7 +514,9 @@ export function MaccEditor({
           <input style={inputStyle} value={value.label} onChange={(e) => onChange({ ...value, label: e.target.value })} />
         </Field>
       </Row>
-      <h3 style={{ margin: "8px 0 6px", fontSize: "0.85rem" }}>Measures in this MACC</h3>
+      <h3 style={{ margin: "8px 0 6px", fontSize: "0.85rem" }}>MACC curve</h3>
+      <MaccChart measures={bundled} />
+      <h3 style={{ margin: "12px 0 6px", fontSize: "0.85rem" }}>Measures in this MACC</h3>
       {measures.length === 0 && <p className="muted" style={{ fontSize: "0.78rem" }}>No measures yet — add individual measures first.</p>}
       {measures.map((m) => (
         <label key={m.id} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.82rem", padding: "2px 0" }}>

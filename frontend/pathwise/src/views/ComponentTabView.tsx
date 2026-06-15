@@ -140,41 +140,80 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
     setDirty((prev) => new Set(prev).add(libId));
   }
 
-  // ── Tree adapter: library → {Technology, Stream, Measures{MACC, Individual}} ──
+  // ── Tree: library → Sector → {Technology, Stream (outputs), Measures & MACC} ──
+  // A stream belongs to the sector that PRODUCES it; a library shows only the
+  // streams its technologies OUTPUT (an input like electricity is produced
+  // elsewhere, so it is hidden here). A technology files under the sector of its
+  // product; measures/MACCs under the sector of the technology that links them.
+  // Anything unclassified falls under "Other".
+  const OTHER = "Other";
   const treeNodes = useMemo<TreeNode[]>(() => {
     const out: TreeNode[] = [];
-    const cat = (libId: string, key: string, label: string, parent: string, has: boolean): void => {
-      out.push({ id: `cat:${libId}:${key}`, parentId: parent, kind: "group", label, hasChildren: has, draggable: false, droppable: false });
+    const node = (id: string, parentId: string, label: string, kind: TreeNode["kind"], has: boolean): void => {
+      out.push({ id, parentId, kind, label, hasChildren: has, draggable: false, droppable: false });
     };
+    const sec = (s: string | null | undefined): string => (s && s.trim()) || OTHER;
+
     for (const l of libs) {
       const lk = keyOf(l); // compound `${scope}/${id}`
       const tag = l.scope === "session" ? " · scenario" : " · base";
       out.push({ id: `lib:${lk}`, parentId: null, kind: "library", label: `${l.label || l.id}${tag}`, hasChildren: true, draggable: false, droppable: false });
       const body = openLibs.get(lk);
-      const tn = body ? body.technologies.length : l.technologies;
-      const sn = body ? body.commodities.length : l.commodities;
-      cat(lk, "tech", "Technology", `lib:${lk}`, tn > 0);
-      cat(lk, "stream", "Stream", `lib:${lk}`, sn > 0);
-      cat(lk, "measures", "Measures", `lib:${lk}`, true);
       if (!body) continue;
-      for (const t of body.technologies) out.push({ id: `t:${lk}:${t.technology_id}`, parentId: `cat:${lk}:tech`, kind: "leaf", label: t.technology_id, hasChildren: false, draggable: false, droppable: false });
-      // Streams grouped by their OWNING sector (electricity is a 'power' stream, not
-      // a steel one); streams with no sector fall under "General".
-      const bySector = new Map<string, CommodityTemplate[]>();
+
+      const secOf = new Map(body.commodities.map((c) => [c.commodity_id, c.sector]));
+      const produced = new Set<string>();
+      const consumed = new Set<string>();
+      for (const t of body.technologies)
+        for (const r of t.io) (r.role === "output" ? produced : r.role === "input" ? consumed : new Set()).add(r.target);
+      const techSector = (t: TechnologyTemplate): string => {
+        const outs = t.io.filter((r) => r.role === "output");
+        const prod = outs.find((r) => r.is_product) ?? outs[0];
+        return prod ? sec(secOf.get(prod.target)) : OTHER;
+      };
+      // measures / MACCs inherit the sector of the technology that links them
+      const measSectorOf = new Map<string, string>();
+      const maccSectorOf = new Map<string, string>();
+      for (const t of body.technologies) {
+        const ts = techSector(t);
+        for (const mid of t.maccs) {
+          if (!maccSectorOf.has(mid)) maccSectorOf.set(mid, ts);
+          for (const meas of body.maccs.find((g) => g.macc_id === mid)?.measures ?? [])
+            if (!measSectorOf.has(meas)) measSectorOf.set(meas, ts);
+        }
+      }
+
+      type Bucket = { techs: TechnologyTemplate[]; streams: CommodityTemplate[]; maccs: MaccGroup[]; measures: MeasureTemplate[] };
+      const buckets = new Map<string, Bucket>();
+      const B = (s: string): Bucket => {
+        let b = buckets.get(s);
+        if (!b) buckets.set(s, (b = { techs: [], streams: [], maccs: [], measures: [] }));
+        return b;
+      };
+      for (const t of body.technologies) B(techSector(t)).techs.push(t);
       for (const c of body.commodities) {
-        const key = (c.sector ?? "").trim() || "General";
-        (bySector.get(key) ?? bySector.set(key, []).get(key)!).push(c);
+        const isOut = produced.has(c.commodity_id);
+        if (!isOut && consumed.has(c.commodity_id)) continue; // pure input → produced elsewhere
+        B(isOut ? sec(c.sector) : OTHER).streams.push(c); // standalone (neither) → Other
       }
-      const sectorKeys = [...bySector.keys()].sort((a, b) =>
-        a === "General" ? -1 : b === "General" ? 1 : a.localeCompare(b));
-      for (const sk of sectorKeys) {
-        cat(lk, `stream:${sk}`, sk, `cat:${lk}:stream`, true);
-        for (const c of bySector.get(sk)!) out.push({ id: `s:${lk}:${c.commodity_id}`, parentId: `cat:${lk}:stream:${sk}`, kind: "leaf", label: c.commodity_id, hasChildren: false, draggable: false, droppable: false });
+      for (const g of body.maccs) B(maccSectorOf.get(g.macc_id) ?? OTHER).maccs.push(g);
+      for (const m of body.measures) B(measSectorOf.get(m.measure_id) ?? sec(secOf.get(m.target))).measures.push(m);
+
+      const sectors = [...buckets.keys()].sort((a, b) => (a === OTHER ? 1 : b === OTHER ? -1 : a.localeCompare(b)));
+      for (const s of sectors) {
+        const b = buckets.get(s)!;
+        const secId = `cat:${lk}:${s}`;
+        node(secId, `lib:${lk}`, s, "group", true);
+        node(`cat:${lk}:${s}/tech`, secId, "Technology", "group", b.techs.length > 0);
+        for (const t of b.techs) node(`t:${lk}:${t.technology_id}`, `cat:${lk}:${s}/tech`, t.technology_id, "leaf", false);
+        node(`cat:${lk}:${s}/stream`, secId, "Stream", "group", b.streams.length > 0);
+        for (const c of b.streams) node(`s:${lk}:${c.commodity_id}`, `cat:${lk}:${s}/stream`, c.commodity_id, "leaf", false);
+        node(`cat:${lk}:${s}/measures`, secId, "Measures & MACC", "group", b.maccs.length + b.measures.length > 0);
+        node(`cat:${lk}:${s}/macc`, `cat:${lk}:${s}/measures`, "MACC", "group", b.maccs.length > 0);
+        for (const g of b.maccs) node(`g:${lk}:${g.macc_id}`, `cat:${lk}:${s}/macc`, g.label || g.macc_id, "leaf", false);
+        node(`cat:${lk}:${s}/indiv`, `cat:${lk}:${s}/measures`, "Individual", "group", b.measures.length > 0);
+        for (const m of b.measures) node(`m:${lk}:${m.measure_id}`, `cat:${lk}:${s}/indiv`, m.label || m.measure_id, "leaf", false);
       }
-      cat(lk, "macc", "MACC", `cat:${lk}:measures`, body.maccs.length > 0);
-      cat(lk, "indiv", "Individual", `cat:${lk}:measures`, body.measures.length > 0);
-      for (const g of body.maccs) out.push({ id: `g:${lk}:${g.macc_id}`, parentId: `cat:${lk}:macc`, kind: "leaf", label: g.label || g.macc_id, hasChildren: false, draggable: false, droppable: false });
-      for (const m of body.measures) out.push({ id: `m:${lk}:${m.measure_id}`, parentId: `cat:${lk}:indiv`, kind: "leaf", label: m.label || m.measure_id, hasChildren: false, draggable: false, droppable: false });
     }
     return out;
   }, [libs, openLibs]);
@@ -185,16 +224,17 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
       const id = uniq("Technology", new Set(l.technologies.map((t) => t.technology_id)));
       const tech: TechnologyTemplate = { technology_id: id, lifespan: 20, capex: 0, opex: 0, io: [], maccs: [] };
       setSel({ libId, kind: "tech", id });
-      setExpanded((p) => new Set(p).add(`lib:${libId}`).add(`cat:${libId}:tech`));
+      // a new item is unclassified until it has an output / link → lands in "Other"
+      setExpanded((p) => new Set(p).add(`lib:${libId}`).add(`cat:${libId}:${OTHER}`).add(`cat:${libId}:${OTHER}/tech`));
       return { ...l, technologies: [...l.technologies, tech] };
     });
   }
   function addStream(libId: string, sector: string | null = null) {
     editLib(libId, (l) => {
       const id = uniq("stream", new Set(l.commodities.map((c) => c.commodity_id)));
-      const sk = (sector ?? "").trim() || "General";
       setSel({ libId, kind: "stream", id });
-      setExpanded((p) => new Set(p).add(`lib:${libId}`).add(`cat:${libId}:stream`).add(`cat:${libId}:stream:${sk}`));
+      // standalone until produced by a technology → shown under "Other" for now
+      setExpanded((p) => new Set(p).add(`lib:${libId}`).add(`cat:${libId}:${OTHER}`).add(`cat:${libId}:${OTHER}/stream`));
       return { ...l, commodities: [...l.commodities, { commodity_id: id, kind: "material", unit: "unit", sector } as CommodityTemplate] };
     });
   }
@@ -203,7 +243,7 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
       const id = uniq("measure", new Set(l.measures.map((m) => m.measure_id)));
       const m: MeasureTemplate = { measure_id: id, label: "", type: "energy_efficiency", target: l.commodities[0]?.commodity_id ?? "", lifetime: 15, blocks: [{ reduction: 0.05, capex_per_capacity: 0, opex_per_capacity: 0 }] };
       setSel({ libId, kind: "measure", id });
-      setExpanded((p) => new Set(p).add(`lib:${libId}`).add(`cat:${libId}:measures`).add(`cat:${libId}:indiv`));
+      setExpanded((p) => new Set(p).add(`lib:${libId}`).add(`cat:${libId}:${OTHER}`).add(`cat:${libId}:${OTHER}/measures`).add(`cat:${libId}:${OTHER}/indiv`));
       return { ...l, measures: [...l.measures, m] };
     });
   }
@@ -211,7 +251,7 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
     editLib(libId, (l) => {
       const id = uniq("macc", new Set(l.maccs.map((g) => g.macc_id)));
       setSel({ libId, kind: "macc", id });
-      setExpanded((p) => new Set(p).add(`lib:${libId}`).add(`cat:${libId}:measures`).add(`cat:${libId}:macc`));
+      setExpanded((p) => new Set(p).add(`lib:${libId}`).add(`cat:${libId}:${OTHER}`).add(`cat:${libId}:${OTHER}/measures`).add(`cat:${libId}:${OTHER}/macc`));
       return { ...l, maccs: [...l.maccs, { macc_id: id, label: "", measures: [] } as MaccGroup] };
     });
   }
@@ -277,15 +317,22 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
         { id: "delete-lib", label: "Delete library", danger: true },
       ];
     if (s.kind === "cat") {
-      const key = s.id ?? "";
-      if (key === "stream" || key.startsWith("stream:")) return [{ id: "add-stream", label: "Add stream" }];
+      // cat id is `${sector}` (the sector group) or `${sector}/<sub>`
+      const sub = (s.id ?? "").includes("/") ? (s.id ?? "").split("/")[1] : "";
       const map: Record<string, TreeAction[]> = {
+        "": [
+          { id: "add-tech", label: "Add technology" },
+          { id: "add-stream", label: "Add stream" },
+          { id: "add-measure", label: "Add measure" },
+          { id: "add-macc", label: "Add MACC" },
+        ],
         tech: [{ id: "add-tech", label: "Add technology" }],
+        stream: [{ id: "add-stream", label: "Add stream" }],
         measures: [{ id: "add-measure", label: "Add measure" }, { id: "add-macc", label: "Add MACC" }],
         macc: [{ id: "add-macc", label: "Add MACC" }],
         indiv: [{ id: "add-measure", label: "Add measure" }],
       };
-      return map[key] ?? [];
+      return map[sub] ?? [];
     }
     return [
       { id: "rename", label: "Rename" },
@@ -296,8 +343,8 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
     const s = parseId(node.id);
     if (actionId === "add-tech") addTech(s.libId);
     else if (actionId === "add-stream") {
-      const sector = s.kind === "cat" && s.id?.startsWith("stream:") ? s.id.slice(7) : null;
-      addStream(s.libId, sector === "General" ? null : sector);
+      const sector = s.kind === "cat" ? (s.id ?? "").split("/")[0] : "";
+      addStream(s.libId, sector && sector !== OTHER ? sector : null);
     } else if (actionId === "add-measure") addMeasure(s.libId);
     else if (actionId === "add-macc") addMacc(s.libId);
     else if (actionId === "delete-lib") void removeLibrary(s.libId);
@@ -403,6 +450,7 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
       <MaccEditor
         value={g}
         measures={body.measures.map((m) => ({ id: m.measure_id, label: m.label || m.measure_id }))}
+        allMeasures={body.measures}
         onChange={(v) => editLib(sel.libId, (l) => ({ ...l, maccs: l.maccs.map((x) => (x.macc_id === sel.id ? v : x)) }))}
         onRename={(id) => setSel({ libId: sel.libId, kind: "macc", id })}
       />
