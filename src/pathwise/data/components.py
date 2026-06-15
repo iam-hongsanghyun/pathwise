@@ -282,6 +282,8 @@ def instantiate(
             row["price"] = c.price
         if c.sale_price is not None:
             row["sale_price"] = c.sale_price
+        if c.sector:
+            row["sector"] = c.sector
         commodities.append(row)
 
     out: Workbook = {
@@ -377,6 +379,8 @@ def _commodity_row(c: CommodityTemplate) -> dict[str, Any]:
         row["price"] = c.price
     if c.sale_price is not None:
         row["sale_price"] = c.sale_price
+    if c.sector:
+        row["sector"] = c.sector
     return row
 
 

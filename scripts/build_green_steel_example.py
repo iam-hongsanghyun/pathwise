@@ -31,6 +31,22 @@ from pathwise.data.components import ComponentLibrary, instantiate
 
 ASSETS = Path(__file__).resolve().parents[1] / "src" / "pathwise" / "assets"
 YEARS = [2025, 2030, 2035, 2040, 2045, 2050]
+# Owning sector of each stream — the sector that PRODUCES it (electricity is a
+# "power" stream, not a steel one). Used only to group streams in the Component
+# builder; the optimiser ignores it.
+SECTORS = {
+    "iron_ore": "mining",
+    "coal": "energy",
+    "gas": "energy",
+    "scrap": "steel",
+    "hbi": "steel",
+    "electricity": "power",
+    "hydrogen": "hydrogen",
+    "iron": "steel",
+    "steel": "steel",
+    "car": "automotive",
+    "ship": "shipbuilding",
+}
 CARBON = {2025: 15, 2030: 30, 2035: 55, 2040: 90, 2045: 140, 2050: 200}
 # Declining CO2 cap as a fraction of the (dirty) 2025 baseline emissions.
 CAP_FRAC = {2025: 0.82, 2030: 0.66, 2035: 0.50, 2040: 0.38, 2045: 0.27, 2050: 0.18}
@@ -475,6 +491,8 @@ def _system(wb):
 
 
 def main() -> None:
+    for c in LIBRARY["commodities"]:
+        c["sector"] = SECTORS.get(c["commodity_id"])
     lib = ComponentLibrary.model_validate(LIBRARY)
     (ASSETS / "component_libraries" / "green_steel.json").write_text(
         json.dumps(LIBRARY, indent=2), encoding="utf-8"

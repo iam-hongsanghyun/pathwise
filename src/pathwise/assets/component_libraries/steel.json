@@ -6,35 +6,40 @@
       "kind": "energy",
       "unit": "t",
       "price": 120.0,
-      "sale_price": null
+      "sale_price": null,
+      "sector": "energy"
     },
     {
       "commodity_id": "iron",
       "kind": "material",
       "unit": "t",
       "price": null,
-      "sale_price": null
+      "sale_price": null,
+      "sector": "steel"
     },
     {
       "commodity_id": "scrap",
       "kind": "material",
       "unit": "t",
       "price": 300.0,
-      "sale_price": null
+      "sale_price": null,
+      "sector": "steel"
     },
     {
       "commodity_id": "electricity",
       "kind": "energy",
       "unit": "MWh",
       "price": 60.0,
-      "sale_price": null
+      "sale_price": null,
+      "sector": "power"
     },
     {
       "commodity_id": "steel",
       "kind": "product",
       "unit": "t",
       "price": null,
-      "sale_price": 700.0
+      "sale_price": 700.0,
+      "sector": "steel"
     }
   ],
   "technologies": [
