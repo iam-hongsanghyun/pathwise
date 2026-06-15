@@ -183,6 +183,9 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
             "process_id": mid,
             "company": company_of(mid),
             "group": node.parent_id or company_of(mid),
+            # Every designed level the machine sits under, so a market / demand /
+            # cap scoped to ANY ancestor (sector, company, facility…) resolves.
+            "scopes": [mid, *h.ancestors(mid), "all"],
             "baseline_technology": m.baseline_technology,
             "capacity": m.capacity,
         }
@@ -475,6 +478,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 replaceable=False if fixed else _bool(r.get("replaceable"), True),
                 decommission_year=_int(r.get("decommission_year")),
                 group=_str(r.get("group")) or "",
+                scopes=frozenset(str(s) for s in (r.get("scopes") or ())),
                 capacity_by_year=interpolate(cap_t[pid], years) if pid in cap_t else {},
             )
         )

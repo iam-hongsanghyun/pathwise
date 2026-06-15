@@ -15,7 +15,7 @@ from fastapi import APIRouter, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field
 
 from pathwise.api.session_store import SessionNotFound, SessionStore
-from pathwise.api.workbook_io import parse_xlsx, result_to_xlsx, write_xlsx
+from pathwise.api.workbook_io import parse_sqlite, parse_xlsx, result_to_xlsx, write_xlsx
 from pathwise.config import get_settings
 from pathwise.core.valuechain import run_value_chain
 from pathwise.data.library import (
@@ -216,7 +216,15 @@ def load_example(session_id: str, example_id: str) -> dict[str, Any]:
     entry = next((e for e in index if e.get("id") == example_id), None)
     if entry is None:
         raise HTTPException(status_code=404, detail=f"unknown example '{example_id}'")
-    model = parse_xlsx((examples_dir / str(entry["file"])).read_bytes())
+    fpath = examples_dir / str(entry["file"])
+    # Examples ship as a SQLite workbook (a built node hierarchy); JSON / .xlsx
+    # are also accepted by the generic loader.
+    if fpath.suffix in (".sqlite", ".db"):
+        model = parse_sqlite(fpath.read_bytes())
+    elif fpath.suffix == ".json":
+        model = json.loads(fpath.read_text(encoding="utf-8"))
+    else:
+        model = parse_xlsx(fpath.read_bytes())
     counts = store.put_model(session_id, model)
     return {"sessionId": session_id, "sheets": counts}
 

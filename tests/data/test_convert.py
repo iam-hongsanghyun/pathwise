@@ -1,0 +1,97 @@
+"""Generic flat → node-hierarchy conversion (to_hierarchy)."""
+
+from __future__ import annotations
+
+from pathwise.core.run import run_model
+from pathwise.data import ScenarioConfig
+from pathwise.data.convert import to_hierarchy
+
+
+def _flat() -> dict[str, list[dict[str, object]]]:
+    # two companies, one a 2-stage chain wired by an edge
+    return {
+        "processes": [
+            {
+                "process_id": "bf",
+                "company": "SteelCo",
+                "group": "mill",
+                "baseline_technology": "BF",
+                "capacity": 100,
+            },
+            {
+                "process_id": "bof",
+                "company": "SteelCo",
+                "group": "mill",
+                "baseline_technology": "BOF",
+                "capacity": 100,
+            },
+            {
+                "process_id": "gen",
+                "company": "PowerCo",
+                "baseline_technology": "GEN",
+                "capacity": 100,
+            },
+        ],
+        "edges": [{"from_process": "bf", "to_process": "bof", "commodity_id": "iron"}],
+        "technologies": [
+            {"technology_id": "BF", "io": []},
+            {"technology_id": "BOF", "io": []},
+            {"technology_id": "GEN", "io": []},
+        ],
+        "io": [
+            {"technology_id": "BF", "target": "coal", "role": "input", "coefficient": 1},
+            {"technology_id": "BF", "target": "iron", "role": "output", "coefficient": 1},
+            {"technology_id": "BOF", "target": "iron", "role": "input", "coefficient": 1},
+            {
+                "technology_id": "BOF",
+                "target": "steel",
+                "role": "output",
+                "coefficient": 1,
+                "is_product": True,
+            },
+            {
+                "technology_id": "GEN",
+                "target": "electricity",
+                "role": "output",
+                "coefficient": 1,
+                "is_product": True,
+            },
+        ],
+        "commodities": [
+            {"commodity_id": "coal", "kind": "material", "price": 100},
+            {"commodity_id": "iron", "kind": "material"},
+            {"commodity_id": "steel", "kind": "product"},
+            {"commodity_id": "electricity", "kind": "energy"},
+        ],
+        "periods": [{"year": 2025, "duration_years": 1}],
+        "demand": [{"company": "SteelCo", "commodity_id": "steel", "year": 2025, "amount": 50}],
+    }
+
+
+def test_to_hierarchy_builds_companies_facilities_machines() -> None:
+    h = to_hierarchy(_flat(), root_label="Test")
+    assert "processes" not in h and "edges" not in h
+    by_id = {n["node_id"]: n for n in h["nodes"]}
+    assert by_id["vc"]["kind"] == "group" and by_id["vc"]["parent_id"] is None
+    assert by_id["SteelCo"]["parent_id"] == "vc" and by_id["SteelCo"]["level"] == "company"
+    assert by_id["SteelCo/mill"]["parent_id"] == "SteelCo"  # facility group
+    assert by_id["bf"]["parent_id"] == "SteelCo/mill" and by_id["bf"]["kind"] == "machine"
+    assert {m["machine_id"] for m in h["machines"]} == {"bf", "bof", "gen"}
+    # the edge became a connection
+    assert h["connections"] == [{"from_node": "bf", "to_node": "bof", "commodity_id": "iron"}]
+
+
+def test_converted_hierarchy_solves() -> None:
+    h = to_hierarchy(_flat())
+    res = run_model(
+        h,
+        ScenarioConfig.from_dict(
+            {"economics": {"base_year": 2025}, "optimisation_scope": "system"}
+        ),
+    )
+    assert res["status"] == "optimal" and not res["outputs"]["demand_slack"]
+
+
+def test_to_hierarchy_is_noop_when_already_hierarchy() -> None:
+    wb = {"nodes": [{"node_id": "x", "kind": "group"}], "machines": []}
+    assert to_hierarchy(wb) is wb

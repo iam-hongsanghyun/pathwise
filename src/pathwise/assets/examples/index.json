@@ -1,27 +1,33 @@
 [
   {
+    "id": "value_chain_ccgt",
+    "label": "Value chain — CCGT power + steel (KR)",
+    "file": "value_chain_ccgt.sqlite",
+    "description": "A value chain (node hierarchy): a Power company owning a CCGT (a GROUP of GT + ST wired by steam) AND a Solar farm (a single component) supplying electricity to a Steel company's integrated mill. Solve jointly, per-company (value chain, upstream→downstream), or pick units."
+  },
+  {
     "id": "steel",
-    "label": "Steel — Korea (PLANiT MACC)",
-    "file": "steel.xlsx",
-    "description": "16 BF/EAF facilities; fuel + feedstock blend groups; transitions to H2-DRI-ESF / EAF under a declining CO2 target and rising carbon price."
+    "label": "Steel — Korea (POSCO + Hyundai)",
+    "file": "steel.sqlite",
+    "description": "Two steel companies (POSCO, Hyundai Steel) as a value chain: BF/BOF/EAF facilities wired by intermediate streams, fuel/feedstock blends, transitions to H2-DRI-ESF / EAF under a declining CO2 target and rising carbon price."
+  },
+  {
+    "id": "aluminium",
+    "label": "Aluminium — refinery → smelter → caster",
+    "file": "aluminium.sqlite",
+    "description": "A 3-stage value chain (refinery → smelter → caster) wired by intermediate streams; each stage has a lower-carbon transition (H2 refining / RE smelting / electric casting) under a rising carbon price and declining CO2 cap."
   },
   {
     "id": "shipping",
     "label": "Shipping — fleet fuel mix",
-    "file": "shipping.xlsx",
-    "description": "Fleet aggregated by engine class; fuel blend (bio / LNG / e-fuels) shifts within share bounds under a tightening well-to-wake CO2 target."
+    "file": "shipping.sqlite",
+    "description": "Shipping companies and engine-class fleets; fuel blend (bio / LNG / e-fuels) shifts within share bounds under a tightening well-to-wake CO2 target."
   },
   {
     "id": "petrochemical",
     "label": "Petrochemicals — Korea (PLANiT MACC)",
-    "file": "petrochemical.xlsx",
-    "description": "Process archetypes (Naphtha Cracker / BTX / Utility); naphtha crackers may switch to H2 or electric cracking under a Policy_Target CO2 path."
-  },
-  {
-    "id": "aluminium",
-    "label": "Aluminium — 3-stage chain",
-    "file": "aluminium.xlsx",
-    "description": "Refinery → smelter → caster (3 routed stages); each stage has a lower-carbon transition (H2 refining / RE smelting / electric casting) under a rising carbon price and declining CO2 cap."
+    "file": "petrochemical.sqlite",
+    "description": "Process archetypes (Naphtha Cracker / BTX / Utility) as a company hierarchy; naphtha crackers may switch to H2 or electric cracking under a Policy_Target CO2 path."
   },
   {
     "id": "value_chain_demo",

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import io
 import math
+import sqlite3
 from typing import Any
 
 import pandas as pd
@@ -20,6 +21,74 @@ def _clean(v: Any) -> Any:
     if isinstance(v, float) and math.isnan(v):
         return None
     return v
+
+
+# ── Generic SQLite workbook I/O (one table per sheet) ─────────────────────────
+# A workbook is ``{sheet: [row, …]}``; a SQLite example DB is the same shape —
+# one table per sheet, one row per row, sparse cells stored as NULL and dropped
+# on read. Completely generic: no sheet/column/sector is known here.
+
+
+def _ident(name: str) -> str:
+    return '"' + str(name).replace('"', '""') + '"'
+
+
+def parse_sqlite(data: bytes) -> Workbook:
+    """Parse a SQLite database into the ``{sheet: rows[]}`` model.
+
+    Every user table becomes a sheet; every row a dict of its non-NULL cells.
+    """
+    conn = sqlite3.connect(":memory:")
+    try:
+        conn.deserialize(data)
+        model: Workbook = {}
+        tables = [
+            r[0]
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            )
+        ]
+        for table in tables:
+            cur = conn.execute(f"SELECT * FROM {_ident(table)}")
+            cols = [d[0] for d in cur.description]
+            model[table] = [
+                {cols[i]: rec[i] for i in range(len(cols)) if rec[i] is not None and cols[i] != "_"}
+                for rec in cur.fetchall()
+            ]
+        return model
+    finally:
+        conn.close()
+
+
+def write_sqlite(model: Workbook) -> bytes:
+    """Write the model to SQLite bytes (one table per sheet)."""
+    conn = sqlite3.connect(":memory:")
+    try:
+        for sheet, rows in model.items():
+            cols: list[str] = []
+            seen: set[str] = set()
+            for r in rows:
+                for k in r:
+                    if str(k) not in seen:
+                        seen.add(str(k))
+                        cols.append(str(k))
+            if not cols:  # an empty sheet — keep the table (no rows) via a sentinel column
+                conn.execute(f"CREATE TABLE {_ident(sheet)} (_)")
+                continue
+            conn.execute(f"CREATE TABLE {_ident(sheet)} ({', '.join(_ident(c) for c in cols)})")
+            ph = ", ".join("?" for _ in cols)
+            conn.executemany(
+                f"INSERT INTO {_ident(sheet)} ({', '.join(_ident(c) for c in cols)}) VALUES ({ph})",
+                [[_sqlval(r.get(c)) for c in cols] for r in rows],
+            )
+        conn.commit()
+        return bytes(conn.serialize())
+    finally:
+        conn.close()
+
+
+def _sqlval(v: Any) -> Any:
+    return (1 if v else 0) if isinstance(v, bool) else v  # sqlite has no bool type
 
 
 def parse_xlsx(data: bytes) -> Workbook:

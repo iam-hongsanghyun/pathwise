@@ -7,6 +7,7 @@ from typing import Any
 from pathwise.config import get_settings
 from pathwise.core.build import build
 from pathwise.core.extract import empty_result, extract_results
+from pathwise.core.run import run_model
 from pathwise.core.solve import SolverOptions, solve
 from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.workbook import Workbook
@@ -64,6 +65,14 @@ class LinopyBackend:
         if not report.ok:
             logger.warning("validation failed: %d error(s)", len(report.errors))
             return empty_result("invalid", domain.terminology(), report.as_dict())
+
+        # A node hierarchy is solved through the unified front door: a joint solve
+        # at the root/``system`` level, or a per-level partitioned cascade
+        # (``optimisation_scope`` = a designed level). Flat models keep the
+        # direct build→solve path below.
+        if model.get("nodes"):
+            logger.info("hierarchy model → run_model(scope=%s)", sc.optimisation_scope)
+            return run_model(model, sc, terminology=domain.terminology(), report=report.as_dict())
 
         problem = domain.build_problem(model, sc)
         ctx = build(problem)

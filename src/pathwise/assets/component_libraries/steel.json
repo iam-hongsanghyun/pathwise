@@ -1,0 +1,279 @@
+{
+  "label": "Steel",
+  "commodities": [
+    {
+      "commodity_id": "coal",
+      "kind": "energy",
+      "unit": "t",
+      "price": 120.0,
+      "sale_price": null
+    },
+    {
+      "commodity_id": "iron",
+      "kind": "material",
+      "unit": "t",
+      "price": null,
+      "sale_price": null
+    },
+    {
+      "commodity_id": "scrap",
+      "kind": "material",
+      "unit": "t",
+      "price": 300.0,
+      "sale_price": null
+    },
+    {
+      "commodity_id": "electricity",
+      "kind": "energy",
+      "unit": "MWh",
+      "price": 60.0,
+      "sale_price": null
+    },
+    {
+      "commodity_id": "steel",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": 700.0
+    }
+  ],
+  "technologies": [
+    {
+      "technology_id": "BlastFurnace",
+      "lifespan": 30,
+      "capex": 900.0,
+      "opex": 20.0,
+      "io": [
+        {
+          "target": "coal",
+          "role": "input",
+          "coefficient": 1.5,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "iron",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "CO2",
+          "role": "impact",
+          "coefficient": 1.8,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [
+        "bf_abate"
+      ]
+    },
+    {
+      "technology_id": "BOF",
+      "lifespan": 25,
+      "capex": 400.0,
+      "opex": 15.0,
+      "io": [
+        {
+          "target": "iron",
+          "role": "input",
+          "coefficient": 1.05,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "electricity",
+          "role": "input",
+          "coefficient": 0.2,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "steel",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "CO2",
+          "role": "impact",
+          "coefficient": 0.2,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": []
+    },
+    {
+      "technology_id": "EAF",
+      "lifespan": 25,
+      "capex": 500.0,
+      "opex": 18.0,
+      "io": [
+        {
+          "target": "scrap",
+          "role": "input",
+          "coefficient": 1.05,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "electricity",
+          "role": "input",
+          "coefficient": 0.6,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "steel",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "CO2",
+          "role": "impact",
+          "coefficient": 0.1,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": []
+    }
+  ],
+  "measures": [
+    {
+      "measure_id": "pci",
+      "label": "Pulverised coal injection",
+      "type": "energy_efficiency",
+      "target": "coal",
+      "lifetime": 15,
+      "blocks": [
+        {
+          "reduction": 0.08,
+          "capex_per_capacity": 15.0,
+          "opex_per_capacity": 1.0
+        },
+        {
+          "reduction": 0.04,
+          "capex_per_capacity": 40.0,
+          "opex_per_capacity": 2.0
+        }
+      ]
+    },
+    {
+      "measure_id": "trt",
+      "label": "Top-gas recovery turbine",
+      "type": "energy_efficiency",
+      "target": "coal",
+      "lifetime": 20,
+      "blocks": [
+        {
+          "reduction": 0.03,
+          "capex_per_capacity": 25.0,
+          "opex_per_capacity": 0.5
+        }
+      ]
+    }
+  ],
+  "maccs": [
+    {
+      "macc_id": "bf_abate",
+      "label": "Blast-furnace abatement",
+      "measures": [
+        "pci",
+        "trt"
+      ]
+    }
+  ],
+  "machines": [
+    {
+      "name": "bf",
+      "label": "Blast furnace",
+      "technology": "BlastFurnace",
+      "capacity": 1000.0,
+      "measures": []
+    },
+    {
+      "name": "bof",
+      "label": "Basic oxygen furnace",
+      "technology": "BOF",
+      "capacity": 1000.0,
+      "measures": []
+    },
+    {
+      "name": "eaf",
+      "label": "Electric arc furnace",
+      "technology": "EAF",
+      "capacity": 1000.0,
+      "measures": []
+    }
+  ],
+  "groups": [
+    {
+      "name": "integrated_mill",
+      "label": "Integrated mill",
+      "level": "facility",
+      "children": [
+        {
+          "component": "bf",
+          "alias": ""
+        },
+        {
+          "component": "bof",
+          "alias": ""
+        },
+        {
+          "component": "eaf",
+          "alias": ""
+        }
+      ],
+      "connections": [
+        {
+          "source": "bf",
+          "target": "bof",
+          "commodity": "iron",
+          "lag_years": 0
+        }
+      ]
+    },
+    {
+      "name": "steel_company",
+      "label": "Steel company",
+      "level": "company",
+      "children": [
+        {
+          "component": "integrated_mill",
+          "alias": "mill"
+        }
+      ],
+      "connections": []
+    }
+  ]
+}

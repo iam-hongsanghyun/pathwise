@@ -87,12 +87,24 @@ def test_upload_and_export_roundtrip() -> None:
     assert "processes" in parsed.sheet_names
 
 
-def test_load_example_into_session() -> None:
+def test_examples_are_sqlite_node_hierarchies() -> None:
+    # every shipped example is a SQLite workbook in the new node-hierarchy form
     examples = client.get("/api/examples").json()
-    assert any(e["id"] == "aluminium" for e in examples)
+    assert {"value_chain_ccgt", "steel", "aluminium"} <= {e["id"] for e in examples}
+    assert all(str(e["file"]).endswith(".sqlite") for e in examples)
+    for e in examples:
+        sid = _new_session()
+        res = client.post(f"/api/session/{sid}/example/{e['id']}").json()
+        assert res["sheets"].get("nodes", 0) >= 1, f"{e['id']} should be a node hierarchy"
+        assert res["sheets"].get("machines", 0) >= 1
+
+
+def test_load_sqlite_value_chain_example() -> None:
     sid = _new_session()
-    res = client.post(f"/api/session/{sid}/example/aluminium").json()
-    assert res["sheets"]["processes"] == 3
+    res = client.post(f"/api/session/{sid}/example/value_chain_ccgt").json()
+    assert res["sheets"]["nodes"] >= 1
+    model = client.get(f"/api/session/{sid}/model").json()["model"]
+    assert any(str(n["node_id"]).endswith("/ccgt") for n in model["nodes"]), "the CCGT group"
 
 
 def test_library_insert_into_session() -> None:

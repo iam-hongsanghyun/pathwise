@@ -287,18 +287,21 @@ class Process:
     capacity_by_year: dict[int, float] = field(default_factory=dict)
     group: str = ""
     decommission_year: int | None = None
+    scopes: frozenset[str] = frozenset()
 
     def in_scope(self, scope: str) -> bool:
         """Whether this facility is covered by a constraint ``scope``.
 
-        A scope matches ``"all"``, the facility id, its company, or its group —
-        so a cap can be applied at any level (facility / company / group / all).
+        A scope matches ``"all"``, the facility id, its company, or its group.
+        For a node hierarchy ``scopes`` holds the machine's full ancestor chain,
+        so a cap / market / demand can be applied at ANY designed level (sector /
+        company / facility / machine / all), not just the canonical three.
         """
-        return scope == "all" or scope in {
-            self.process_id,
-            self.company,
-            self.group or self.company,
-        }
+        return (
+            scope == "all"
+            or scope in self.scopes
+            or scope in {self.process_id, self.company, self.group or self.company}
+        )
 
     @property
     def available_capacity(self) -> float:

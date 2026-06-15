@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { getConfig, runToCompletion } from "./lib/api/run";
+import { getConfig } from "./lib/api/run";
 import {
   clearModel,
   downloadResultXlsx,
@@ -14,10 +14,9 @@ import {
 } from "./lib/api/session";
 import { ActivityBar, type View } from "./layout/ActivityBar";
 import { AnalyticsView } from "./views/AnalyticsView";
-import { ChainDesignView } from "./views/ChainDesignView";
-import { ModelView } from "./views/ModelView";
+import { ComponentTabView } from "./views/ComponentTabView";
 import { SettingsView } from "./views/SettingsView";
-import { ValueChainView } from "./views/ValueChainView";
+import { ValueChainTabView } from "./views/ValueChainTabView";
 import type { ConfigBundle, PortfolioConfig, RunResult, Workbook } from "./types";
 
 export function App() {
@@ -27,7 +26,7 @@ export function App() {
   // The last model state known to be on the backend; sheet-level reference
   // equality against this drives the debounced patch sync below.
   const synced = useRef<Workbook>({});
-  const [view, setView] = useState<View>("model");
+  const [view, setView] = useState<View>("valuechain");
   const [discount, setDiscount] = useState(0.08);
   const [objScope, setObjScope] = useState<"system" | "company" | "facility">("company");
   const [backend, setBackend] = useState("linopy");
@@ -43,7 +42,6 @@ export function App() {
     views: [],
   });
   const [result, setResult] = useState<RunResult | null>(null);
-  const [running, setRunning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [leftW, setLeftW] = useState(232);
   const [examples, setExamples] = useState<ExampleModel[]>([]);
@@ -138,7 +136,7 @@ export function App() {
     setError(null);
     try {
       adoptServerModel(await loadExample(sessionId, id));
-      setView("model");
+      setView("valuechain");
     } catch (e) {
       setError(String(e));
     }
@@ -154,49 +152,10 @@ export function App() {
     }
   }
 
-  async function onRun() {
-    if (!sessionId) return;
-    setError(null);
-    setResult(null);
-    try {
-      await syncNow(); // flush pending edits so the session model is current
-      const scenario: Record<string, unknown> = {
-        domain: "process",
-        economics: { discount_rate: discount },
-        optimisation_scope: objScope,
-      };
-      if (backend === "portfolio") {
-        const v = portfolio.volatility;
-        scenario.portfolio = {
-          method: portfolio.method,
-          reward_mode: portfolio.reward_mode,
-          asset_level: portfolio.asset_level,
-          n_scenarios: portfolio.n_scenarios,
-          // A single UI volatility applies to every category; 0 ⇒ engine defaults.
-          volatility:
-            v > 0
-              ? {
-                  commodity_price: v,
-                  sale_price: v,
-                  impact_price: v,
-                  opex: v,
-                  capex: v,
-                }
-              : {},
-          risk_aversion: portfolio.risk_aversion,
-          target_return: portfolio.target_return,
-          cvar_alpha: portfolio.cvar_alpha,
-          bl_views: Object.fromEntries(portfolio.views.map((vw) => [vw.asset, vw.view])),
-        };
-      }
-      const res = await runToCompletion(sessionId, scenario, { domain: "process", backend }, setRunning);
-      setResult(res);
-      setView("analytics");
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setRunning(null);
-    }
+  /** A standard (joint) run result from the Value-Chain builder → Analytics. */
+  function onJointResult(res: RunResult) {
+    setResult(res);
+    setView("analytics");
   }
 
   async function onNewModel() {
@@ -209,26 +168,13 @@ export function App() {
     }
   }
 
-  const shared = {
-    workbook,
-    setWorkbook: updateWorkbook,
-    config,
-    sessionId,
-    adoptServerModel,
-    leftW,
-    setLeftW,
-  };
-
   return (
     <div className="studio-shell">
       <ActivityBar view={view} onChange={setView} />
       <div className="workspace">
         <header className="topbar">
-          <button className="run-button" onClick={onRun} disabled={running != null}>
-            {running ? `▶ Running… (${running})` : "▶ Run"}
-          </button>
           <div>
-            <div className="eyebrow">facility transition optimiser</div>
+            <div className="eyebrow">process value-chain optimiser</div>
             <h1>pathwise{config ? ` · build ${config.buildId}` : ""}</h1>
           </div>
           <button
@@ -291,9 +237,16 @@ export function App() {
 
         {error && <div className="error" style={{ padding: "4px 16px" }}>{error}</div>}
 
-        {view === "model" && <ModelView {...shared} />}
-        {view === "valuechain" && <ValueChainView />}
-        {view === "chain" && <ChainDesignView wb={workbook} />}
+        {view === "component" && <ComponentTabView />}
+        {view === "valuechain" && (
+          <ValueChainTabView
+            workbook={workbook}
+            setWorkbook={updateWorkbook}
+            sessionId={sessionId}
+            adoptServerModel={adoptServerModel}
+            onJointResult={onJointResult}
+          />
+        )}
         {view === "analytics" && (
           <AnalyticsView workbook={workbook} result={result} leftW={leftW} setLeftW={setLeftW} />
         )}
