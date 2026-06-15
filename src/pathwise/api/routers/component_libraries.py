@@ -29,6 +29,7 @@ from pathwise.data.components import (
     ComponentLibrary,
     instantiate_into,
     load_component_library,
+    place_technology,
 )
 from pathwise.logger import get_logger
 
@@ -67,6 +68,8 @@ def _summary(lib_id: str, lib: ComponentLibrary) -> dict[str, Any]:
         "label": lib.label or lib_id,
         "commodities": len(lib.commodities),
         "technologies": len(lib.technologies),
+        "measures": len(lib.measures),
+        "maccs": len(lib.maccs),
         "machines": len(lib.machines),
         "groups": len(lib.groups),
     }
@@ -166,3 +169,52 @@ def instantiate_component(session_id: str, body: InstantiateInsert) -> dict[str,
     )
     counts = store.put_model(session_id, model)
     return {"sessionId": session_id, "created": created, "root": root, "sheets": counts}
+
+
+class PlaceTechnology(BaseModel):
+    """Body for ``POST /api/session/{sid}/place-technology``.
+
+    Place ``technology`` from ``library`` as a fresh MACHINE under ``parent_id``,
+    with its ``capacity``; the technology's MACC measures come along.
+    """
+
+    library: str
+    technology: str
+    parent_id: str
+    capacity: float = 1000.0
+    instance_id: str | None = None
+
+
+@router.post("/session/{session_id}/place-technology")
+def place_technology_route(session_id: str, body: PlaceTechnology) -> dict[str, Any]:
+    """Add one technology as a machine node to the session's hierarchy."""
+    path = _lib_path(body.library)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"unknown component library '{body.library}'")
+    lib = load_component_library(path)
+    store = _store()
+    try:
+        model = store.get_model(session_id)
+    except SessionNotFound as exc:
+        raise HTTPException(status_code=404, detail=f"unknown session '{session_id}'") from exc
+
+    before = {str(r.get("node_id")) for r in model.get("nodes", [])}
+    try:
+        model = place_technology(
+            model,
+            lib,
+            body.technology,
+            parent_id=body.parent_id,
+            capacity=body.capacity,
+            instance_id=body.instance_id,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    created = [str(r["node_id"]) for r in model["nodes"] if str(r["node_id"]) not in before]
+    counts = store.put_model(session_id, model)
+    return {
+        "sessionId": session_id,
+        "created": created,
+        "root": created[0] if created else None,
+        "sheets": counts,
+    }

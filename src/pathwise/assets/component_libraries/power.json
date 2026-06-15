@@ -50,6 +50,9 @@
           "share_min": null,
           "share_max": null
         }
+      ],
+      "maccs": [
+        "ccgt_eff"
       ]
     },
     {
@@ -67,68 +70,35 @@
           "share_min": null,
           "share_max": null
         }
+      ],
+      "maccs": []
+    }
+  ],
+  "measures": [
+    {
+      "measure_id": "heat_recovery",
+      "label": "Heat recovery",
+      "type": "energy_efficiency",
+      "target": "gas",
+      "lifetime": 15,
+      "blocks": [
+        {
+          "reduction": 0.05,
+          "capex_per_capacity": 12.0,
+          "opex_per_capacity": 0.5
+        }
       ]
     }
   ],
-  "machines": [
+  "maccs": [
     {
-      "name": "ccgt",
-      "label": "CCGT unit",
-      "technology": "GasTurbine",
-      "capacity": 1000.0,
+      "macc_id": "ccgt_eff",
+      "label": "CCGT efficiency",
       "measures": [
-        {
-          "measure_id": "heat_recovery",
-          "label": "Heat recovery",
-          "type": "energy_efficiency",
-          "target": "gas",
-          "lifetime": 15,
-          "blocks": [
-            {
-              "reduction": 0.05,
-              "capex_per_capacity": 12.0,
-              "opex_per_capacity": 0.5
-            }
-          ]
-        }
+        "heat_recovery"
       ]
-    },
-    {
-      "name": "solar",
-      "label": "Solar farm",
-      "technology": "SolarPV",
-      "capacity": 500.0,
-      "measures": []
     }
   ],
-  "groups": [
-    {
-      "name": "power_plant",
-      "label": "Power plant",
-      "level": "facility",
-      "children": [
-        {
-          "component": "ccgt",
-          "alias": ""
-        },
-        {
-          "component": "solar",
-          "alias": ""
-        }
-      ],
-      "connections": []
-    },
-    {
-      "name": "power_company",
-      "label": "Power company",
-      "level": "company",
-      "children": [
-        {
-          "component": "power_plant",
-          "alias": "plant"
-        }
-      ],
-      "connections": []
-    }
-  ]
+  "machines": [],
+  "groups": []
 }

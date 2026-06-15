@@ -17,6 +17,7 @@ from pathwise.data.components import (
     ComponentLibrary,
     instantiate,
     instantiate_into,
+    place_technology,
 )
 from pathwise.data.library import MeasureBlockTemplate, MeasureTemplate
 
@@ -134,6 +135,49 @@ def test_machine_measures_are_stamped_per_instance() -> None:
     ]
     blk = wb["measure_blocks"][0]
     assert blk["capex"] == pytest.approx(500.0) and blk["opex"] == pytest.approx(100.0)
+
+
+def test_place_technology_makes_a_machine_with_its_macc() -> None:
+    lib = ComponentLibrary.model_validate(
+        {
+            "commodities": [
+                {"commodity_id": "power", "kind": "energy", "price": 1.0},
+                {"commodity_id": "steel", "kind": "product"},
+            ],
+            "technologies": [
+                {
+                    "technology_id": "EAF",
+                    "maccs": ["eaf_eff"],
+                    "io": [
+                        {"target": "power", "role": "input", "coefficient": 2},
+                        {"target": "steel", "role": "output", "coefficient": 1, "is_product": True},
+                    ],
+                }
+            ],
+            "measures": [
+                {
+                    "measure_id": "vfd",
+                    "type": "energy_efficiency",
+                    "target": "power",
+                    "blocks": [{"reduction": 0.1, "capex_per_capacity": 5.0}],
+                }
+            ],
+            "maccs": [{"macc_id": "eaf_eff", "label": "EAF efficiency", "measures": ["vfd"]}],
+        }
+    )
+    model = {"nodes": [{"node_id": "co", "parent_id": None, "kind": "group", "level": "company"}]}
+    model = place_technology(model, lib, "EAF", parent_id="co", capacity=200)
+    machine = next(m for m in model["machines"] if m["machine_id"] == "co/EAF")
+    assert machine["baseline_technology"] == "EAF" and machine["capacity"] == 200
+    # the linked MACC's measure is stamped onto the machine, scaled to capacity
+    meas = [m for m in model["measures"] if m["facility"] == "co/EAF"]
+    assert meas and meas[0]["measure_id"] == "co/EAF · vfd"
+    assert model["measure_blocks"][0]["capex"] == pytest.approx(1000.0)  # 5 × 200
+    # solves
+    model["periods"] = [{"year": 2025, "duration_years": 1}]
+    model["demand"] = [{"company": "co", "commodity_id": "steel", "year": 2025, "amount": 100}]
+    res = run_model(model, SC)
+    assert res["status"] == "optimal" and not res["outputs"]["demand_slack"]
 
 
 def test_instantiate_into_drops_a_fresh_copy_under_a_parent() -> None:

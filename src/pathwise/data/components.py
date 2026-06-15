@@ -96,12 +96,32 @@ class GroupComponent(BaseModel):
         return self
 
 
+class MaccGroup(BaseModel):
+    """A MACC — a named, reusable BUNDLE of individual measures.
+
+    The "group of measures" of the Component builder: it links a set of
+    standalone, reusable :class:`MeasureTemplate`\\ s by id. A technology lists
+    the MACCs that apply to it (``TechnologyTemplate.maccs``); placing that
+    technology stamps every measure of those MACCs onto the resulting machine.
+    """
+
+    macc_id: str
+    label: str = ""
+    measures: list[str] = Field(default_factory=list)  # individual measure ids
+
+
 class ComponentLibrary(BaseModel):
-    """A catalogue of reusable components plus the recipes they reference."""
+    """A catalogue of the three reusable building blocks — technologies (recipes
+    + their streams), streams (commodities), and measures (individual + grouped
+    into MACCs). ``machines`` / ``groups`` are legacy composite components kept
+    for back-compatibility; the builder no longer authors them (the Value Chain
+    places a technology directly as a machine)."""
 
     label: str = ""
     commodities: list[CommodityTemplate] = Field(default_factory=list)
     technologies: list[TechnologyTemplate] = Field(default_factory=list)
+    measures: list[MeasureTemplate] = Field(default_factory=list)
+    maccs: list[MaccGroup] = Field(default_factory=list)
     machines: list[MachineComponent] = Field(default_factory=list)
     groups: list[GroupComponent] = Field(default_factory=list)
 
@@ -117,6 +137,31 @@ class ComponentLibrary(BaseModel):
 
     def group(self, name: str) -> GroupComponent | None:
         return next((g for g in self.groups if g.name == name), None)
+
+    def technology(self, tech_id: str) -> TechnologyTemplate | None:
+        return next((t for t in self.technologies if t.technology_id == tech_id), None)
+
+    def measure(self, measure_id: str) -> MeasureTemplate | None:
+        return next((m for m in self.measures if m.measure_id == measure_id), None)
+
+    def macc(self, macc_id: str) -> MaccGroup | None:
+        return next((g for g in self.maccs if g.macc_id == macc_id), None)
+
+    def technology_measures(self, tech_id: str) -> list[MeasureTemplate]:
+        """Every measure reachable from a technology via its linked MACCs."""
+        tech = self.technology(tech_id)
+        if tech is None:
+            return []
+        seen: dict[str, MeasureTemplate] = {}
+        for macc_id in tech.maccs:
+            macc = self.macc(macc_id)
+            if macc is None:
+                continue
+            for mid in macc.measures:
+                m = self.measure(mid)
+                if m is not None:
+                    seen[mid] = m
+        return list(seen.values())
 
 
 def load_component_library(path: str | Path) -> ComponentLibrary:
@@ -316,3 +361,100 @@ def _merge_by(wb: Workbook, fresh: Workbook, sheet: str, id_col: str) -> None:
         if str(row.get(id_col)) not in have:
             wb[sheet].append(row)
             have.add(str(row.get(id_col)))
+
+
+def _commodity_row(c: CommodityTemplate) -> dict[str, Any]:
+    row: dict[str, Any] = {"commodity_id": c.commodity_id, "kind": c.kind, "unit": c.unit}
+    if c.price is not None:
+        row["price"] = c.price
+    if c.sale_price is not None:
+        row["sale_price"] = c.sale_price
+    return row
+
+
+def _merge_row(wb: Workbook, sheet: str, id_col: str, row: dict[str, Any]) -> None:
+    """Append one row to ``wb[sheet]`` unless its id already exists."""
+    rows = wb.setdefault(sheet, [])
+    if all(str(r.get(id_col)) != str(row.get(id_col)) for r in rows):
+        rows.append(row)
+
+
+def place_technology(
+    model: Workbook,
+    library: ComponentLibrary,
+    technology_id: str,
+    *,
+    parent_id: str,
+    capacity: float = 0.0,
+    instance_id: str | None = None,
+) -> Workbook:
+    """Place a technology as a fresh MACHINE node under ``parent_id``.
+
+    The Value-Chain builder's "add component": a technology becomes one machine
+    node (a process); its recipe (``technologies`` / ``io``) + referenced streams
+    + impacts are merged in, and every measure of the technology's linked MACCs is
+    stamped onto the machine (block cost scaled to ``capacity``). Pure — returns a
+    new workbook.
+
+    Raises:
+        KeyError: If ``technology_id`` is not in the library.
+    """
+    tech = library.technology(technology_id)
+    if tech is None:
+        raise KeyError(f"unknown technology '{technology_id}'")
+
+    wb: Workbook = {k: list(v) for k, v in model.items()}
+    have_nodes = {str(r.get("node_id")) for r in wb.get("nodes", [])}
+    node_id = instance_id or f"{parent_id}/{technology_id}"
+    base, n = node_id, 2
+    while node_id in have_nodes:
+        node_id = f"{base}-{n}"
+        n += 1
+
+    wb.setdefault("nodes", []).append(
+        {
+            "node_id": node_id,
+            "parent_id": parent_id,
+            "kind": "machine",
+            "level": "machine",
+            "label": technology_id,
+        }
+    )
+    wb.setdefault("machines", []).append(
+        {"machine_id": node_id, "baseline_technology": technology_id, "capacity": capacity}
+    )
+
+    _merge_row(wb, "technologies", "technology_id", _tech_row(tech))
+    if all(str(r.get("technology_id")) != technology_id for r in model.get("io", [])):
+        wb.setdefault("io", []).extend(_io_rows(tech))
+    inputs_outputs = {r.target for r in tech.io if r.role != "impact"}
+    for c in library.commodities:
+        if c.commodity_id in inputs_outputs:
+            _merge_row(wb, "commodities", "commodity_id", _commodity_row(c))
+    for imp in sorted({r.target for r in tech.io if r.role == "impact"}):
+        _merge_row(wb, "impacts", "impact_id", {"impact_id": imp, "unit": "t"})
+
+    measures = wb.setdefault("measures", [])
+    blocks = wb.setdefault("measure_blocks", [])
+    for m in library.technology_measures(technology_id):
+        mid = f"{node_id} · {m.measure_id}"
+        measures.append(
+            {
+                "measure_id": mid,
+                "type": m.type,
+                "facility": node_id,
+                "target": m.target,
+                "lifetime": m.lifetime,
+            }
+        )
+        for i, blk in enumerate(m.blocks):
+            blocks.append(
+                {
+                    "measure_id": mid,
+                    "block": i,
+                    "reduction": blk.reduction,
+                    "capex": round(blk.capex_per_capacity * capacity, 2),
+                    "opex": round(blk.opex_per_capacity * capacity, 2),
+                }
+            )
+    return wb

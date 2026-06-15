@@ -30,15 +30,19 @@ def _tmp_data_dir(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> Iterator[No
 def test_seeds_starters_on_first_access() -> None:
     libs = {lib["id"]: lib for lib in client.get("/api/component-libraries").json()}
     assert {"power", "steel"} <= set(libs), "starter libraries should seed a fresh install"
-    assert libs["steel"]["machines"] >= 3  # bf, bof, eaf
+    assert libs["steel"]["technologies"] >= 3  # BlastFurnace, BOF, EAF
+    assert libs["steel"]["maccs"] >= 1  # the blast-furnace MACC bundle
 
 
 def test_get_one_library() -> None:
     steel = client.get("/api/component-library/steel").json()
-    names = {m["name"] for m in steel["machines"]}
-    assert {"bf", "bof", "eaf"} <= names
-    bf = next(m for m in steel["machines"] if m["name"] == "bf")
-    assert bf["measures"], "bf carries a MACC measure (PCI)"
+    techs = {t["technology_id"] for t in steel["technologies"]}
+    assert {"BlastFurnace", "BOF", "EAF"} <= techs
+    bf = next(t for t in steel["technologies"] if t["technology_id"] == "BlastFurnace")
+    assert bf["maccs"], "BlastFurnace links a MACC bundle"
+    assert {m["measure_id"] for m in steel["measures"]} >= {"pci", "trt"}
+    macc = next(g for g in steel["maccs"] if g["macc_id"] == "bf_abate")
+    assert "pci" in macc["measures"]
 
 
 def test_put_create_get_delete() -> None:
@@ -61,7 +65,7 @@ def test_invalid_library_id_rejected() -> None:
     assert client.put("/api/component-library/bad id", json={"label": "x"}).status_code == 422
 
 
-def test_instantiate_drops_fresh_copies_into_session() -> None:
+def test_place_technology_creates_independent_machines() -> None:
     # a session holding a root chain with one company group
     model = {
         "nodes": [
@@ -72,27 +76,37 @@ def test_instantiate_drops_fresh_copies_into_session() -> None:
     sid = client.post("/api/session/model", json={"model": model}).json()["sessionId"]
 
     r1 = client.post(
-        f"/api/session/{sid}/instantiate",
-        json={"library": "steel", "component": "integrated_mill", "parent_id": "chain/steel"},
+        f"/api/session/{sid}/place-technology",
+        json={
+            "library": "steel",
+            "technology": "BlastFurnace",
+            "parent_id": "chain/steel",
+            "capacity": 500,
+        },
     ).json()
     r2 = client.post(
-        f"/api/session/{sid}/instantiate",
-        json={"library": "steel", "component": "integrated_mill", "parent_id": "chain/steel"},
+        f"/api/session/{sid}/place-technology",
+        json={
+            "library": "steel",
+            "technology": "BlastFurnace",
+            "parent_id": "chain/steel",
+            "capacity": 700,
+        },
     ).json()
-    assert r1["root"] and r2["root"] and r1["root"] != r2["root"], "copies must be independent"
+    assert r1["root"] and r2["root"] and r1["root"] != r2["root"], "two placements are independent"
 
-    nodes = client.get(f"/api/session/{sid}/model").json()["model"]["nodes"]
-    ids = [n["node_id"] for n in nodes]
-    assert len(ids) == len(set(ids)), "no shared node ids across fresh copies"
-    mills = [n for n in nodes if str(n.get("parent_id")) == "chain/steel"]
-    assert len(mills) == 2
+    wb = client.get(f"/api/session/{sid}/model").json()["model"]
+    machines = [m for m in wb["machines"] if str(m.get("baseline_technology")) == "BlastFurnace"]
+    assert {float(m["capacity"]) for m in machines} == {500.0, 700.0}
+    # the BlastFurnace MACC measures came along, scoped per machine
+    assert any(s in str(m["measure_id"]) for m in wb.get("measures", []) for s in ("pci", "trt"))
 
 
-def test_instantiate_unknown_component_is_422() -> None:
+def test_place_unknown_technology_is_422() -> None:
     model = {"nodes": [{"node_id": "chain", "parent_id": None, "kind": "group", "level": "vc"}]}
     sid = client.post("/api/session/model", json={"model": model}).json()["sessionId"]
     resp = client.post(
-        f"/api/session/{sid}/instantiate",
-        json={"library": "steel", "component": "nope", "parent_id": "chain"},
+        f"/api/session/{sid}/place-technology",
+        json={"library": "steel", "technology": "nope", "parent_id": "chain"},
     )
     assert resp.status_code == 422

@@ -71,6 +71,9 @@
           "share_min": null,
           "share_max": null
         }
+      ],
+      "maccs": [
+        "bf_abate"
       ]
     },
     {
@@ -115,7 +118,8 @@
           "share_min": null,
           "share_max": null
         }
-      ]
+      ],
+      "maccs": []
     },
     {
       "technology_id": "EAF",
@@ -159,91 +163,55 @@
           "share_min": null,
           "share_max": null
         }
+      ],
+      "maccs": []
+    }
+  ],
+  "measures": [
+    {
+      "measure_id": "pci",
+      "label": "Pulverised coal injection",
+      "type": "energy_efficiency",
+      "target": "coal",
+      "lifetime": 15,
+      "blocks": [
+        {
+          "reduction": 0.08,
+          "capex_per_capacity": 15.0,
+          "opex_per_capacity": 1.0
+        },
+        {
+          "reduction": 0.04,
+          "capex_per_capacity": 40.0,
+          "opex_per_capacity": 2.0
+        }
+      ]
+    },
+    {
+      "measure_id": "trt",
+      "label": "Top-gas recovery turbine",
+      "type": "energy_efficiency",
+      "target": "coal",
+      "lifetime": 20,
+      "blocks": [
+        {
+          "reduction": 0.03,
+          "capex_per_capacity": 25.0,
+          "opex_per_capacity": 0.5
+        }
       ]
     }
   ],
-  "machines": [
+  "maccs": [
     {
-      "name": "bf",
-      "label": "Blast furnace",
-      "technology": "BlastFurnace",
-      "capacity": 1000.0,
+      "macc_id": "bf_abate",
+      "label": "Blast-furnace abatement",
       "measures": [
-        {
-          "measure_id": "pci",
-          "label": "Pulverised coal injection",
-          "type": "energy_efficiency",
-          "target": "coal",
-          "lifetime": 15,
-          "blocks": [
-            {
-              "reduction": 0.08,
-              "capex_per_capacity": 15.0,
-              "opex_per_capacity": 1.0
-            },
-            {
-              "reduction": 0.04,
-              "capex_per_capacity": 40.0,
-              "opex_per_capacity": 2.0
-            }
-          ]
-        }
+        "pci",
+        "trt"
       ]
-    },
-    {
-      "name": "bof",
-      "label": "Basic oxygen furnace",
-      "technology": "BOF",
-      "capacity": 1000.0,
-      "measures": []
-    },
-    {
-      "name": "eaf",
-      "label": "Electric arc furnace",
-      "technology": "EAF",
-      "capacity": 1000.0,
-      "measures": []
     }
   ],
-  "groups": [
-    {
-      "name": "integrated_mill",
-      "label": "Integrated mill",
-      "level": "facility",
-      "children": [
-        {
-          "component": "bf",
-          "alias": ""
-        },
-        {
-          "component": "bof",
-          "alias": ""
-        },
-        {
-          "component": "eaf",
-          "alias": ""
-        }
-      ],
-      "connections": [
-        {
-          "source": "bf",
-          "target": "bof",
-          "commodity": "iron",
-          "lag_years": 0
-        }
-      ]
-    },
-    {
-      "name": "steel_company",
-      "label": "Steel company",
-      "level": "company",
-      "children": [
-        {
-          "component": "integrated_mill",
-          "alias": "mill"
-        }
-      ],
-      "connections": []
-    }
-  ]
+  "machines": [],
+  "groups": []
 }

@@ -67,13 +67,19 @@ class IoRow(BaseModel):
 
 
 class TechnologyTemplate(BaseModel):
-    """A technology recipe: costs + per-unit-throughput coefficients."""
+    """A technology recipe: costs + per-unit-throughput coefficients.
+
+    ``maccs`` lists the ids of the MACC bundles that apply to this technology
+    (Component-library authoring); placing the technology stamps their measures
+    onto the machine. Empty for the facility-library format.
+    """
 
     technology_id: str
     lifespan: int = Field(default=20, ge=1)
     capex: float = 0.0  # replacement capex [currency / unit capacity]
     opex: float = 0.0  # fixed O&M [currency / unit throughput]
     io: list[IoRow] = Field(min_length=1)
+    maccs: list[str] = Field(default_factory=list)
 
 
 class Alternative(BaseModel):
