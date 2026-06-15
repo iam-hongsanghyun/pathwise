@@ -248,6 +248,52 @@ def test_place_technology_carries_per_year_costs() -> None:
     assert prob.technologies["EAF"].capex(2035) == 300.0
 
 
+def test_place_technology_carries_per_year_measure_block_cost() -> None:
+    # A measure block authored with per-year per-capacity cost must stamp
+    # per-year absolute rows (× capacity) onto the placed model's measure_blocks_t.
+    lib = ComponentLibrary.model_validate(
+        {
+            "commodities": [
+                {"commodity_id": "power", "kind": "energy", "price": 1.0},
+                {"commodity_id": "steel", "kind": "product"},
+            ],
+            "technologies": [
+                {
+                    "technology_id": "EAF",
+                    "maccs": ["eff"],
+                    "io": [
+                        {"target": "power", "role": "input", "coefficient": 2},
+                        {"target": "steel", "role": "output", "coefficient": 1, "is_product": True},
+                    ],
+                }
+            ],
+            "measures": [
+                {
+                    "measure_id": "vfd",
+                    "type": "energy_efficiency",
+                    "target": "power",
+                    "blocks": [
+                        {
+                            "reduction": 0.1,
+                            "capex_per_capacity": 5.0,
+                            "capex_per_capacity_by_year": {2025: 5.0, 2035: 9.0},
+                        }
+                    ],
+                }
+            ],
+            "maccs": [{"macc_id": "eff", "measures": ["vfd"]}],
+        }
+    )
+    model = {"nodes": [{"node_id": "co", "parent_id": None, "kind": "group", "level": "company"}]}
+    model = place_technology(model, lib, "EAF", parent_id="co", capacity=200)
+    rows = {
+        r["year"]: r.get("capex")
+        for r in model.get("measure_blocks_t", [])
+        if r["measure_id"] == "co/EAF · vfd"
+    }
+    assert rows == {2025: 1000.0, 2035: 1800.0}  # 5×200, 9×200
+
+
 def test_instantiate_into_drops_a_fresh_copy_under_a_parent() -> None:
     lib = _library()
     model = {

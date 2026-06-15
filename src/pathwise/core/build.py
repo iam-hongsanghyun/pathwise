@@ -715,13 +715,13 @@ def _controls(ctx: BuildContext) -> None:
                 if cost:
                     terms.append(cost * ctx.w.sel(process=p, tech=k, period=y))
         for s in ctx.slots:
-            if not _in_scope(c, slot_company[s.key]) or not s.capex:
+            if not _in_scope(c, slot_company[s.key]) or not s.capex_at(y):
                 continue
             inc = ctx.z.sel(slot=s.key, period=y)
             pt = prev[y]
             if pt is not None:
                 inc = inc - ctx.z.sel(slot=s.key, period=pt)
-            terms.append(s.capex * inc)
+            terms.append(s.capex_at(y) * inc)
         if y == ctx.years[0]:
             for st in prob.storages:
                 if _in_scope(c, st.company) and st.capex_per_capacity:
@@ -836,14 +836,14 @@ def _objective(ctx: BuildContext) -> None:
                 inc = ctx.z.sel(slot=s.key, period=t)
                 if pt is not None:
                     inc = inc - ctx.z.sel(slot=s.key, period=pt)
-                if s.capex:
-                    terms.append((df * s.capex) * inc)
+                if s.capex_at(t):
+                    terms.append((df * s.capex_at(t)) * inc)
         # Measure opex while adopted — a recurring O&M cost (discounted ×
         # duration), proportional to the adoption level z, like fixed O&M.
         if tog.opex and ctx.slots:
             for s in ctx.slots:
-                if s.opex:
-                    terms.append((w * s.opex) * ctx.z.sel(slot=s.key, period=t))
+                if s.opex_at(t):
+                    terms.append((w * s.opex_at(t)) * ctx.z.sel(slot=s.key, period=t))
 
     # Product sale revenue for profit companies (negative cost ⇒ maximise profit):
     # revenue = sale_price · delivered, summed over the company's processes.

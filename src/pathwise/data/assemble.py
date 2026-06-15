@@ -520,19 +520,37 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         if _str(r.get("from_process")) and _str(r.get("to_process")) and _str(r.get("commodity_id"))
     ]
 
-    # ── Measures (+ blocks) ──────────────────────────────────────────────────
+    # ── Measures (+ blocks, + optional per-year block cost) ──────────────────
+    # Long-format measure_blocks_t (measure_id, block, year, capex, opex —
+    # absolute, already scaled to the instance, matching measure_blocks).
+    block_traj: dict[tuple[str, int], dict[str, dict[int, float]]] = {}
+    for r in _rows(workbook, "measure_blocks_t"):
+        mid = _str(r.get("measure_id"))
+        yr = _int(r.get("year"))
+        if mid is None or yr is None:
+            continue
+        bi = _int(r.get("block"), 0) or 0
+        if (cx := _num(r.get("capex"))) is not None:
+            block_traj.setdefault((mid, bi), {}).setdefault("capex", {})[yr] = cx
+        if (ox := _num(r.get("opex"))) is not None:
+            block_traj.setdefault((mid, bi), {}).setdefault("opex", {})[yr] = ox
+
     blocks_by_measure: dict[str, list[tuple[int, MeasureBlock]]] = {}
     for r in _rows(workbook, "measure_blocks"):
         mid = _str(r.get("measure_id"))
         if mid is None:
             continue
+        bi = _int(r.get("block"), 0) or 0
+        bt = block_traj.get((mid, bi), {})
         blocks_by_measure.setdefault(mid, []).append(
             (
-                _int(r.get("block"), 0) or 0,
+                bi,
                 MeasureBlock(
                     reduction=_num(r.get("reduction"), 0.0) or 0.0,
                     capex=_num(r.get("capex"), 0.0) or 0.0,
                     opex=_num(r.get("opex"), 0.0) or 0.0,
+                    capex_by_year=interpolate(bt["capex"], years) if "capex" in bt else {},
+                    opex_by_year=interpolate(bt["opex"], years) if "opex" in bt else {},
                 ),
             )
         )

@@ -378,6 +378,18 @@ class MeasureBlock:
     reduction: float
     capex: float
     opex: float = 0.0
+    #: Per-year overrides of the scalar block cost (absolute currency, already
+    #: scaled to the instance). Empty → the scalar applies every year.
+    capex_by_year: dict[int, float] = field(default_factory=dict)
+    opex_by_year: dict[int, float] = field(default_factory=dict)
+
+    def capex_at(self, year: int) -> float:
+        """Block adoption capex in ``year`` (per-year override, else the scalar)."""
+        return self.capex_by_year.get(year, self.capex)
+
+    def opex_at(self, year: int) -> float:
+        """Block fixed O&M in ``year`` (per-year override, else the scalar)."""
+        return self.opex_by_year.get(year, self.opex)
 
 
 @dataclass(slots=True, frozen=True)
