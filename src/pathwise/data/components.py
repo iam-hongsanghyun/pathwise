@@ -82,6 +82,8 @@ class GroupComponent(BaseModel):
     level: str = ""  # the designed level this group sits at (free text)
     children: list[ChildRef] = Field(min_length=1)
     connections: list[ConnectionTemplate] = Field(default_factory=list)
+    #: Free-text notes / references for the authoring UI (optimiser ignores it).
+    notes: str = ""
 
     @model_validator(mode="after")
     def _aliases_unique_and_wired(self) -> GroupComponent:
@@ -110,6 +112,8 @@ class MaccGroup(BaseModel):
     macc_id: str
     label: str = ""
     measures: list[str] = Field(default_factory=list)  # individual measure ids
+    #: Free-text notes / references for the authoring UI (optimiser ignores it).
+    notes: str = ""
 
 
 class ComponentLibrary(BaseModel):
@@ -126,6 +130,10 @@ class ComponentLibrary(BaseModel):
     maccs: list[MaccGroup] = Field(default_factory=list)
     machines: list[MachineComponent] = Field(default_factory=list)
     groups: list[GroupComponent] = Field(default_factory=list)
+    #: Free-text notes / references keyed by DERIVED sector name. Sectors are not
+    #: stored entities, so their notes live here at the library level; entity notes
+    #: live on the entities themselves. Optimiser ignores all of it.
+    notes_by_sector: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _names_unique(self) -> ComponentLibrary:
@@ -187,24 +195,44 @@ def load_component_library(path: str | Path) -> ComponentLibrary:
 
 
 def library_to_workbook(lib: ComponentLibrary) -> Workbook:
-    """Decompose a component library into a ``{sheet: rows}`` workbook (lossless)."""
+    """Decompose a component library into a ``{sheet: rows}`` workbook (lossless).
+
+    Per-year cost trajectories ride on separate long-format sheets
+    (``commodity_prices`` / ``technologies_prices`` / ``measure_blocks_t``, keyed
+    by entity id + year), emitted only when populated so a library with no
+    trajectories produces the same sheets as before. Free-text notes ride as an
+    extra ``notes`` column on each entity sheet (written only when non-empty); a
+    derived sector's note rides in ``meta`` under a ``sector_note:<sector>`` key.
+    """
 
     def js(v: Any) -> str:
         return json.dumps(v, ensure_ascii=False)
 
-    return {
-        "meta": [{"key": "label", "value": lib.label}],
+    def with_notes(row: dict[str, Any], notes: str) -> dict[str, Any]:
+        if notes:
+            row["notes"] = notes
+        return row
+
+    wb: Workbook = {
+        # Sector notes are keyed by a present-or-absent dict, so (unlike entity
+        # notes, where "" is the default) an explicit empty value is meaningful
+        # and must be stored — never drop a present key.
+        "meta": [{"key": "label", "value": lib.label}]
+        + [{"key": f"sector_note:{k}", "value": v} for k, v in lib.notes_by_sector.items()],
         "commodities": [_commodity_row(c) for c in lib.commodities],
         "technologies": [
-            {
-                "technology_id": t.technology_id,
-                "lifespan": t.lifespan,
-                "capex": t.capex,
-                "opex": t.opex,
-                "introduction_year": t.introduction_year,
-                "phase_out_year": t.phase_out_year,
-                "maccs": "|".join(t.maccs),
-            }
+            with_notes(
+                {
+                    "technology_id": t.technology_id,
+                    "lifespan": t.lifespan,
+                    "capex": t.capex,
+                    "opex": t.opex,
+                    "introduction_year": t.introduction_year,
+                    "phase_out_year": t.phase_out_year,
+                    "maccs": "|".join(t.maccs),
+                },
+                t.notes,
+            )
             for t in lib.technologies
         ],
         "io": [
@@ -213,13 +241,16 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
             for r in t.io
         ],
         "measures": [
-            {
-                "measure_id": m.measure_id,
-                "label": m.label,
-                "type": m.type,
-                "target": m.target,
-                "lifetime": m.lifetime,
-            }
+            with_notes(
+                {
+                    "measure_id": m.measure_id,
+                    "label": m.label,
+                    "type": m.type,
+                    "target": m.target,
+                    "lifetime": m.lifetime,
+                },
+                m.notes,
+            )
             for m in lib.measures
         ],
         "measure_blocks": [
@@ -234,7 +265,10 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
             for i, b in enumerate(m.blocks)
         ],
         "maccs": [
-            {"macc_id": g.macc_id, "label": g.label, "measures": "|".join(g.measures)}
+            with_notes(
+                {"macc_id": g.macc_id, "label": g.label, "measures": "|".join(g.measures)},
+                g.notes,
+            )
             for g in lib.maccs
         ],
         "machines": [
@@ -248,22 +282,133 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
             for mc in lib.machines
         ],
         "groups": [
-            {
-                "name": g.name,
-                "label": g.label,
-                "level": g.level,
-                "children_json": js([c.model_dump() for c in g.children]),
-                "connections_json": js([c.model_dump() for c in g.connections]),
-            }
+            with_notes(
+                {
+                    "name": g.name,
+                    "label": g.label,
+                    "level": g.level,
+                    "children_json": js([c.model_dump() for c in g.children]),
+                    "connections_json": js([c.model_dump() for c in g.connections]),
+                },
+                g.notes,
+            )
             for g in lib.groups
         ],
     }
+    # Per-year cost trajectories — only when populated (keeps trajectory-free
+    # libraries byte-identical to the legacy sheets).
+    if cp := _commodity_price_rows(lib):
+        wb["commodity_prices"] = cp
+    if tp := _technology_price_rows(lib):
+        wb["technologies_prices"] = tp
+    if mb := _measure_block_traj_rows(lib):
+        wb["measure_blocks_t"] = mb
+    return wb
+
+
+def _commodity_price_rows(lib: ComponentLibrary) -> list[dict[str, Any]]:
+    """Long-format price trajectory rows (commodity_id, year, price?, sale_price?).
+
+    Matches the ``commodity_prices`` sheet the assembler already reads, so a
+    commodity's per-year prices drive the optimiser as soon as the library loads.
+    """
+    rows: list[dict[str, Any]] = []
+    for c in lib.commodities:
+        for y in sorted(set(c.price_by_year) | set(c.sale_price_by_year)):
+            row: dict[str, Any] = {"commodity_id": c.commodity_id, "year": y}
+            if y in c.price_by_year:
+                row["price"] = c.price_by_year[y]
+            if y in c.sale_price_by_year:
+                row["sale_price"] = c.sale_price_by_year[y]
+            rows.append(row)
+    return rows
+
+
+def _technology_price_rows(lib: ComponentLibrary) -> list[dict[str, Any]]:
+    """Long-format tech cost trajectory rows (technology_id, year, capex?, opex?)."""
+    rows: list[dict[str, Any]] = []
+    for t in lib.technologies:
+        for y in sorted(set(t.capex_by_year) | set(t.opex_by_year)):
+            row: dict[str, Any] = {"technology_id": t.technology_id, "year": y}
+            if y in t.capex_by_year:
+                row["capex"] = t.capex_by_year[y]
+            if y in t.opex_by_year:
+                row["opex"] = t.opex_by_year[y]
+            rows.append(row)
+    return rows
+
+
+def _measure_block_traj_rows(lib: ComponentLibrary) -> list[dict[str, Any]]:
+    """Long-format measure-block trajectory rows, keyed (measure_id, block, year).
+
+    Blocks have no own id, so the block ORDINAL (its index in the measure's
+    ``blocks`` list, matching the ``measure_blocks`` sheet) completes the key.
+    """
+    rows: list[dict[str, Any]] = []
+    for m in lib.measures:
+        for i, b in enumerate(m.blocks):
+            for y in sorted(set(b.capex_per_capacity_by_year) | set(b.opex_per_capacity_by_year)):
+                row: dict[str, Any] = {"measure_id": m.measure_id, "block": i, "year": y}
+                if y in b.capex_per_capacity_by_year:
+                    row["capex_per_capacity"] = b.capex_per_capacity_by_year[y]
+                if y in b.opex_per_capacity_by_year:
+                    row["opex_per_capacity"] = b.opex_per_capacity_by_year[y]
+                rows.append(row)
+    return rows
+
+
+def _read_traj(
+    rows: list[dict[str, Any]], *value_cols: str
+) -> dict[Any, dict[str, dict[int, float]]]:
+    """Group long-format trajectory rows into ``{entity_key: {value_col: {year: v}}}``.
+
+    Each row carries the entity key the caller injected under ``_key`` (an id, or
+    an ``(id, block)`` tuple) and a ``year``. A year is kept only when its cell is
+    a real number, so an explicit ``0.0`` survives but an absent / blank cell is
+    skipped (it falls back to the scalar). Rows lacking a key or a year are dropped.
+    """
+    out: dict[Any, dict[str, dict[int, float]]] = {}
+    for r in rows:
+        key = r.get("_key")
+        y = _year(r.get("year"))
+        if key is None or y is None:
+            continue
+        for col in value_cols:
+            v = r.get(col)
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                out.setdefault(key, {}).setdefault(col, {})[y] = float(v)
+    return out
 
 
 def library_from_workbook(wb: Workbook) -> ComponentLibrary:
     """Reconstruct a component library from its ``library_to_workbook`` sheets."""
     label = next(
         (_es(r.get("value")) for r in wb.get("meta", []) if _es(r.get("key")) == "label"), ""
+    )
+    notes_by_sector: dict[str, str] = {}
+    for r in wb.get("meta", []):
+        key = _es(r.get("key"))
+        if key.startswith("sector_note:"):
+            notes_by_sector[key[len("sector_note:") :]] = _es(r.get("value"))
+
+    # Per-year trajectories (long-format sheets; absent → empty → scalar fallback).
+    comm_traj = _read_traj(
+        [{**r, "_key": _es(r.get("commodity_id"))} for r in wb.get("commodity_prices", [])],
+        "price",
+        "sale_price",
+    )
+    tech_traj = _read_traj(
+        [{**r, "_key": _es(r.get("technology_id"))} for r in wb.get("technologies_prices", [])],
+        "capex",
+        "opex",
+    )
+    block_traj = _read_traj(
+        [
+            {**r, "_key": (_es(r.get("measure_id")), _year(r.get("block")) or 0)}
+            for r in wb.get("measure_blocks_t", [])
+        ],
+        "capex_per_capacity",
+        "opex_per_capacity",
     )
 
     io_by: dict[str, list[IoRow]] = {}
@@ -295,10 +440,13 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
             lifespan=int(_enum(r.get("lifespan"), 20)) or 20,
             capex=_enum(r.get("capex")),
             opex=_enum(r.get("opex")),
+            capex_by_year=tech_traj.get(_es(r.get("technology_id")), {}).get("capex", {}),
+            opex_by_year=tech_traj.get(_es(r.get("technology_id")), {}).get("opex", {}),
             introduction_year=_year(r.get("introduction_year")),
             phase_out_year=_year(r.get("phase_out_year")),
             io=io_by.get(_es(r.get("technology_id")), []),
             maccs=split(r.get("maccs")),
+            notes=_es(r.get("notes")),
         )
         for r in wb.get("technologies", [])
     ]
@@ -318,11 +466,18 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
                     reduction=_enum(b.get("reduction"), 0.01),
                     capex_per_capacity=_enum(b.get("capex_per_capacity")),
                     opex_per_capacity=_enum(b.get("opex_per_capacity")),
+                    capex_per_capacity_by_year=block_traj.get(
+                        (_es(r.get("measure_id")), _year(b.get("block")) or 0), {}
+                    ).get("capex_per_capacity", {}),
+                    opex_per_capacity_by_year=block_traj.get(
+                        (_es(r.get("measure_id")), _year(b.get("block")) or 0), {}
+                    ).get("opex_per_capacity", {}),
                 )
                 for b in sorted(
                     blocks_by.get(_es(r.get("measure_id")), []), key=lambda b: _enum(b.get("block"))
                 )
             ],
+            notes=_es(r.get("notes")),
         )
         for r in wb.get("measures", [])
     ]
@@ -332,6 +487,7 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
             macc_id=_es(r.get("macc_id")),
             label=_es(r.get("label")),
             measures=split(r.get("measures")),
+            notes=_es(r.get("notes")),
         )
         for r in wb.get("maccs", [])
     ]
@@ -344,7 +500,10 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
             sale_price=r.get("sale_price")
             if isinstance(r.get("sale_price"), (int, float))
             else None,
+            price_by_year=comm_traj.get(_es(r.get("commodity_id")), {}).get("price", {}),
+            sale_price_by_year=comm_traj.get(_es(r.get("commodity_id")), {}).get("sale_price", {}),
             sector=_es(r.get("sector")) or None,
+            notes=_es(r.get("notes")),
         )
         for r in wb.get("commodities", [])
     ]
@@ -373,6 +532,7 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
                 ConnectionTemplate.model_validate(c)
                 for c in json.loads(_es(r.get("connections_json")) or "[]")
             ],
+            notes=_es(r.get("notes")),
         )
         for r in wb.get("groups", [])
     ]
@@ -384,6 +544,7 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
         maccs=maccs,
         machines=machines,
         groups=groups,
+        notes_by_sector=notes_by_sector,
     )
 
 
@@ -598,6 +759,8 @@ def _commodity_row(c: CommodityTemplate) -> dict[str, Any]:
         row["sale_price"] = c.sale_price
     if c.sector:
         row["sector"] = c.sector
+    if c.notes:
+        row["notes"] = c.notes
     return row
 
 

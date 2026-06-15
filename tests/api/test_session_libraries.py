@@ -64,6 +64,109 @@ def test_library_sqlite_round_trip_is_lossless() -> None:
         assert back.model_dump() == lib.model_dump(), f"{name} did not round-trip through SQLite"
 
 
+def test_no_trajectory_library_keeps_legacy_sheets() -> None:
+    """A library with no per-year data must not gain trajectory sheets, and its
+    scalar columns must be untouched (backwards-compatible storage)."""
+    lib = ComponentLibrary.model_validate(
+        {
+            "label": "scalar",
+            "commodities": [{"commodity_id": "x", "kind": "material", "unit": "t", "price": 3.0}],
+            "technologies": [
+                {
+                    "technology_id": "T",
+                    "capex": 100.0,
+                    "opex": 2.0,
+                    "io": [{"target": "x", "role": "output", "coefficient": 1.0}],
+                }
+            ],
+            "measures": [],
+            "maccs": [],
+            "machines": [],
+            "groups": [],
+        }
+    )
+    wb = library_to_workbook(lib)
+    assert "commodity_prices" not in wb
+    assert "technologies_prices" not in wb
+    assert "measure_blocks_t" not in wb
+    assert "notes" not in wb["technologies"][0]  # blank notes don't add a column
+    assert wb["technologies"][0]["capex"] == 100.0
+    assert wb["commodities"][0]["price"] == 3.0
+
+
+def test_trajectories_and_notes_round_trip() -> None:
+    """Per-year capex/opex/price trajectories, per-block trajectories, entity
+    notes and sector notes all survive the base/session SQLite round-trip."""
+    lib = ComponentLibrary.model_validate(
+        {
+            "label": "traj",
+            "commodities": [
+                {
+                    "commodity_id": "power",
+                    "kind": "energy",
+                    "unit": "MWh",
+                    "price": 50.0,
+                    "price_by_year": {2025: 50.0, 2030: 40.0, 2050: 20.0},
+                    "sale_price_by_year": {2030: 0.0},  # an explicit zero must survive
+                    "sector": "power",
+                    "notes": "grid average; ref [1]",
+                },
+                {"commodity_id": "steel", "kind": "product", "unit": "t"},
+            ],
+            "technologies": [
+                {
+                    "technology_id": "EAF",
+                    "lifespan": 25,
+                    "capex": 200.0,
+                    "opex": 5.0,
+                    "capex_by_year": {2025: 200.0, 2040: 150.0},
+                    "opex_by_year": {2025: 5.0},
+                    "io": [
+                        {"target": "power", "role": "input", "coefficient": 0.5},
+                        {
+                            "target": "steel",
+                            "role": "output",
+                            "coefficient": 1.0,
+                            "is_product": True,
+                        },
+                    ],
+                    "maccs": ["m1"],
+                    "notes": "BAT plant; ref [2]",
+                }
+            ],
+            "measures": [
+                {
+                    "measure_id": "ee1",
+                    "type": "energy_efficiency",
+                    "target": "power",
+                    "lifetime": 10,
+                    "blocks": [
+                        {
+                            "reduction": 0.1,
+                            "capex_per_capacity": 1.0,
+                            "capex_per_capacity_by_year": {2025: 1.0, 2040: 0.5},
+                        },
+                        {
+                            "reduction": 0.2,
+                            "capex_per_capacity": 2.0,
+                            "opex_per_capacity_by_year": {2030: 0.3},
+                        },
+                    ],
+                    "notes": "two-step efficiency curve",
+                }
+            ],
+            "maccs": [{"macc_id": "m1", "label": "MACC", "measures": ["ee1"], "notes": "bundle"}],
+            "machines": [],
+            "groups": [],
+            # "steel": "" — an explicit empty sector note is distinct from absent
+            # and must survive (present-or-absent dict, no "" default).
+            "notes_by_sector": {"power": "power sector overview", "steel": ""},
+        }
+    )
+    back = library_from_workbook(parse_sqlite(write_sqlite(library_to_workbook(lib))))
+    assert back.model_dump() == lib.model_dump()
+
+
 def _new_session() -> str:
     return client.post("/api/session").json()["sessionId"]
 

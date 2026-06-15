@@ -78,6 +78,12 @@ class TechnologyTemplate(BaseModel):
     lifespan: int = Field(default=20, ge=1)
     capex: float = 0.0  # replacement capex [currency / unit capacity]
     opex: float = 0.0  # fixed O&M [currency / unit throughput]
+    #: Per-year cost trajectories. When non-empty they override the scalar
+    #: ``capex`` / ``opex`` for the years given (sparse points are interpolated
+    #: onto the horizon by the assembler); empty = use the scalar everywhere. Keys
+    #: are calendar years, values share the scalar's units.
+    capex_by_year: dict[int, float] = Field(default_factory=dict)
+    opex_by_year: dict[int, float] = Field(default_factory=dict)
     #: Years the technology is AVAILABLE to adopt: first year (introduction) and
     #: last year (phase-out). None = always available. The optimiser only lets a
     #: facility run / switch to the technology within this window.
@@ -85,6 +91,8 @@ class TechnologyTemplate(BaseModel):
     phase_out_year: int | None = None
     io: list[IoRow] = Field(min_length=1)
     maccs: list[str] = Field(default_factory=list)
+    #: Free-text notes / references for the authoring UI (optimiser ignores it).
+    notes: str = ""
 
 
 class Alternative(BaseModel):
@@ -102,11 +110,17 @@ class CommodityTemplate(BaseModel):
     unit: str = "unit"
     price: float | None = None
     sale_price: float | None = None
+    #: Per-year price trajectories overriding the scalar ``price`` / ``sale_price``
+    #: for the years given (interpolated onto the horizon); empty = scalar.
+    price_by_year: dict[int, float] = Field(default_factory=dict)
+    sale_price_by_year: dict[int, float] = Field(default_factory=dict)
     #: Owning sector — the sector that PRODUCES this stream (electricity belongs to
     #: "power", not "steel"). Blank/None = a general, industry-agnostic stream.
     #: Purely organisational (groups streams in the Component builder); the
     #: optimiser ignores it.
     sector: str | None = None
+    #: Free-text notes / references for the authoring UI (optimiser ignores it).
+    notes: str = ""
 
 
 class MeasureBlockTemplate(BaseModel):
@@ -120,6 +134,10 @@ class MeasureBlockTemplate(BaseModel):
     reduction: float = Field(gt=0.0, le=1.0)
     capex_per_capacity: float = Field(ge=0.0)
     opex_per_capacity: float = Field(default=0.0, ge=0.0)
+    #: Per-year overrides of ``capex_per_capacity`` / ``opex_per_capacity`` for the
+    #: years given (interpolated onto the horizon); empty = use the scalar.
+    capex_per_capacity_by_year: dict[int, float] = Field(default_factory=dict)
+    opex_per_capacity_by_year: dict[int, float] = Field(default_factory=dict)
 
 
 class MeasureTemplate(BaseModel):
@@ -137,6 +155,8 @@ class MeasureTemplate(BaseModel):
     target: str  # commodity id (energy_efficiency) or impact id (otherwise)
     lifetime: int = Field(default=15, ge=1)
     blocks: list[MeasureBlockTemplate] = Field(min_length=1)
+    #: Free-text notes / references for the authoring UI (optimiser ignores it).
+    notes: str = ""
 
 
 class FacilityTemplate(BaseModel):
