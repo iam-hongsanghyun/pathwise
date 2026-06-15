@@ -62,6 +62,11 @@ class Settings(BaseSettings):
     library_dir: str = str(_ASSETS / "library")
     # Value-chain specs (a DAG of coupled stage-models) + their stage workbooks.
     value_chains_dir: str = str(_ASSETS / "value_chains")
+    # Read-only STARTER component libraries that ship with the package; copied
+    # into the writable <data_dir>/component_libraries on first access so a fresh
+    # install opens with real, editable content (see the component_libraries
+    # router). User-created libraries never touch this directory.
+    component_seeds_dir: str = str(_ASSETS / "component_libraries")
     # Paging cap for session sheet reads.
     max_sheet_page: int = 1000
 

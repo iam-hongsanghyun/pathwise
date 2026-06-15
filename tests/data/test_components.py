@@ -12,7 +12,13 @@ import pytest
 
 from pathwise.core.run import run_model
 from pathwise.data import ScenarioConfig
-from pathwise.data.components import ChildRef, ComponentLibrary, instantiate
+from pathwise.data.components import (
+    ChildRef,
+    ComponentLibrary,
+    instantiate,
+    instantiate_into,
+)
+from pathwise.data.library import MeasureBlockTemplate, MeasureTemplate
 
 SC = ScenarioConfig.from_dict({"economics": {"base_year": 2025, "discount_rate": 0.0}})
 
@@ -99,3 +105,51 @@ def test_a_component_can_be_reused_as_distinct_instances() -> None:
     wb["demand"] = [{"company": "all", "commodity_id": "steel", "year": 2025, "amount": 150}]
     res = run_model(wb, SC)
     assert res["status"] == "optimal" and not res["outputs"]["demand_slack"]
+
+
+def test_machine_measures_are_stamped_per_instance() -> None:
+    lib = _library()
+    bf = lib.machine("bf")
+    assert bf is not None
+    bf.measures.append(  # the MACC subgroup authored on the machine
+        MeasureTemplate(
+            measure_id="eff",
+            type="energy_efficiency",
+            target="power",
+            blocks=[
+                MeasureBlockTemplate(reduction=0.1, capex_per_capacity=5.0, opex_per_capacity=1.0)
+            ],
+        )
+    )
+    wb = instantiate(lib, "co")
+    # one measure stamped onto the bf instance, block capex scaled by capacity (100)
+    assert wb["measures"] == [
+        {
+            "measure_id": "co/m1/bf · eff",
+            "type": "energy_efficiency",
+            "facility": "co/m1/bf",
+            "target": "power",
+            "lifetime": 15,
+        }
+    ]
+    blk = wb["measure_blocks"][0]
+    assert blk["capex"] == pytest.approx(500.0) and blk["opex"] == pytest.approx(100.0)
+
+
+def test_instantiate_into_drops_a_fresh_copy_under_a_parent() -> None:
+    lib = _library()
+    model = {
+        "nodes": [
+            {"node_id": "chain", "parent_id": None, "kind": "group", "level": "value_chain"},
+            {"node_id": "chain/steel", "parent_id": "chain", "kind": "group", "level": "company"},
+        ]
+    }
+    model = instantiate_into(model, lib, "mill", parent_id="chain/steel")
+    # second drop must NOT share ids with the first (fresh copies)
+    model = instantiate_into(model, lib, "mill", parent_id="chain/steel")
+    ids = [n["node_id"] for n in model["nodes"]]
+    assert len(ids) == len(set(ids)), "fresh copies must have unique node ids"
+    roots = [n for n in model["nodes"] if str(n.get("parent_id")) == "chain/steel"]
+    assert len(roots) == 2 and roots[0]["node_id"] != roots[1]["node_id"]
+    # technologies are merged by id (shared recipe), not duplicated
+    assert len({r["technology_id"] for r in model["technologies"]}) == len(model["technologies"])
