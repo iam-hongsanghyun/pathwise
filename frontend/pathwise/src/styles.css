@@ -1417,3 +1417,55 @@ th.col-optional {
     padding-top: 8px;
   }
 }
+
+/* ── Builder views (Component + Value Chain) ─────────────────────────────────
+   The reframed builder surface. Chips are the subgroup toggles at the top of
+   the Value-Chain builder; .grid is the compact editor table used for io
+   streams, measure blocks, and demand. */
+.builder .rail-add {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 2px 4px;
+}
+.builder .rail-add:hover { color: var(--brand); }
+
+.vc-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.vc-chip-label {
+  border: none;
+  background: transparent;
+  padding: 3px 6px 3px 10px;
+  font: inherit;
+  font-size: 0.76rem;
+  color: var(--text);
+  cursor: pointer;
+}
+.vc-chip-label:hover { color: var(--brand); }
+.vc-chip-x {
+  border: none;
+  background: transparent;
+  padding: 3px 8px 3px 4px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.7rem;
+}
+.vc-chip-x:hover { color: var(--danger); }
+
+table.grid { border-collapse: collapse; }
+table.grid th,
+table.grid td {
+  padding: 2px 6px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+table.grid thead th { font-weight: 600; }
