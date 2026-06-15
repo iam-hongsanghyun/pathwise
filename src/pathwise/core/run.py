@@ -53,13 +53,33 @@ def run_model(
             solve(build(assemble_problem(workbook, scenario))), terminology, report
         )
 
-    # JOINT: solve the selected units (their subtrees) together as one problem —
-    # also the case of a single unit. INDEPENDENT: each unit is its own problem,
-    # coupled across boundaries by the value-chain cascade.
-    if scenario.optimisation_mode == "joint" or not is_partitionable(hierarchy, level, targets):
+    mode = scenario.optimisation_mode
+
+    # JOINT (or a single unit, or a non-partitionable cut): the selected units'
+    # subtrees solved together as one problem.
+    if mode == "joint" or not is_partitionable(hierarchy, level, targets):
         sub = subset_workbook(workbook, hierarchy, units)
         return extract_results(solve(build(assemble_problem(sub, scenario))), terminology, report)
 
+    # INDEPENDENT: each unit solved entirely on its own (no coupling; it trades
+    # with the market). Reported in the same per-stage shape as the cascade.
+    if mode == "independent":
+        stages: dict[str, Any] = {}
+        ok = True
+        for u in units:
+            r = extract_results(
+                solve(build(assemble_problem(subset_workbook(workbook, hierarchy, [u]), scenario)))
+            )
+            stages[u] = {"status": r["status"], "objective": r["objective"]}
+            ok = ok and r["status"] == "optimal"
+        return {
+            "status": "optimal" if ok else "mixed",
+            "stages": stages,
+            "couplings": [],
+            "iterations": 1,
+        }
+
+    # VALUE CHAIN: in series, upstream → downstream, coupled (the cascade).
     c = scenario.coupling
     spec, workbooks = partition(
         workbook, hierarchy, level, signals=c.signals, default_lag=c.default_lag, targets=units

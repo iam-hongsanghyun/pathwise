@@ -133,10 +133,13 @@ class ScenarioConfig(BaseModel):
     optimisation_scope: str = "company"
     # Which units (node ids) at ``optimisation_scope`` to optimise; empty ⇒ all.
     optimisation_targets: list[str] = Field(default_factory=list)
-    # How the selected units are solved: ``independent`` = each on its own,
-    # coupled across boundaries by the value-chain cascade; ``joint`` = all
-    # selected units solved together as a single problem. One unit ⇒ solved alone.
-    optimisation_mode: str = Field(default="independent", pattern="^(independent|joint)$")
+    # How the selected units are solved:
+    #   ``valuechain``  — in series, upstream → downstream, coupled (the cascade:
+    #                     a unit is optimised before the units it feeds);
+    #   ``joint``       — all selected units solved together as one problem;
+    #   ``independent`` — each unit solved on its own, no coupling (it trades with
+    #                     the market). A single unit is always solved on its own.
+    optimisation_mode: str = Field(default="valuechain", pattern="^(valuechain|joint|independent)$")
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ScenarioConfig:

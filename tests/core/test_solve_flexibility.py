@@ -67,10 +67,17 @@ def test_joint_solves_selected_units_as_one_problem() -> None:
     assert {"chain/a/m", "chain/b/m"} <= procs  # both companies in one problem
 
 
-def test_independent_partitions_into_a_cascade() -> None:
-    res = run_model(_model(), _sc(optimisation_scope="company", optimisation_mode="independent"))
+def test_value_chain_solves_as_a_coupled_cascade() -> None:
+    res = run_model(_model(), _sc(optimisation_scope="company", optimisation_mode="valuechain"))
     assert "stages" in res  # cascade result shape
     assert set(res["stages"]) == {"chain/a", "chain/b"}
+
+
+def test_independent_solves_each_unit_on_its_own() -> None:
+    res = run_model(_model(), _sc(optimisation_scope="company", optimisation_mode="independent"))
+    assert "stages" in res and res["couplings"] == []  # per-unit, no coupling
+    assert set(res["stages"]) == {"chain/a", "chain/b"}
+    assert all(s["status"] == "optimal" for s in res["stages"].values())
 
 
 def test_targets_restrict_to_chosen_units() -> None:

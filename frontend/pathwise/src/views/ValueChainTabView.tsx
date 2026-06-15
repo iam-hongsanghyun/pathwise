@@ -56,7 +56,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [scope, setScope] = useState("system");
   const [units, setUnits] = useState<Set<string>>(new Set()); // selected unit ids at the level
-  const [mode, setMode] = useState<"independent" | "joint">("independent");
+  const [mode, setMode] = useState<"valuechain" | "joint" | "independent">("valuechain");
   const [baseYear, setBaseYear] = useState(2025);
   const [running, setRunning] = useState<string | null>(null);
   const [cascade, setCascade] = useState<CascadeResult | null>(null);
@@ -333,9 +333,15 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
             <MultiSelect label="units" options={unitsAtLevel} selected={units} onChange={setUnits} />
             <label style={{ fontSize: "0.78rem", display: "flex", gap: 4, alignItems: "center" }}>
               <span className="muted">solve</span>
-              <select value={mode} onChange={(e) => setMode(e.target.value as "independent" | "joint")} style={inp} title="Independent = each unit on its own, coupled across boundaries; Joint = all selected units as one problem">
-                <option value="independent">Independent (each on its own)</option>
+              <select
+                value={mode}
+                onChange={(e) => setMode(e.target.value as "valuechain" | "joint" | "independent")}
+                style={inp}
+                title="Value chain = in series upstream→downstream, coupled; Joint = all selected units as one problem; Independent = each on its own, no coupling"
+              >
+                <option value="valuechain">Value chain (upstream → downstream)</option>
                 <option value="joint">Joint (all together)</option>
+                <option value="independent">Independent (each on its own)</option>
               </select>
             </label>
           </>
