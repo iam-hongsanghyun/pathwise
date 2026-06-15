@@ -40,6 +40,7 @@ A technology is a recipe. It carries:
 | `lifespan` | asset life in years (drives renewal scheduling) |
 | `capex` | replacement capital cost, per unit capacity |
 | `opex` | operating cost, per unit throughput |
+| `introduction_year` / `phase_out_year` | the years the technology is **available** to adopt (blank = always); the optimiser only runs / switches to it within this window |
 | `io` | the input / output / impact rows (see below) |
 | `maccs` | the MACCs that apply to this technology |
 

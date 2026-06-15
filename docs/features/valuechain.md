@@ -17,10 +17,13 @@ technologies in parallel.
   target / connection; drag to re-parent).
 - **Centre pane** — the *relationship canvas* for the selected group: its direct
   children and the connections between them. Drill by selecting a deeper group.
-- **Right pane** — the selected item's wiring: for a group, its purchasing
-  (markets) + targets (demand); for a machine, **how each required input stream
-  is satisfied** (by a connection or a purchase). The recipe itself is *not*
-  edited here — that's the Component tab.
+- **Right pane** — the selected item's detail. A **single technology** shows its
+  full recipe: every **input** and **output** stream with its per-unit
+  coefficient and *who provides / consumes it* (the connected group, a purchase,
+  or final demand), plus impacts and the years it is available — so a technology
+  that buys electricity reads as wired, not floating. A **group** gets the
+  lighter Flow context + its purchasing/targets. (The recipe is *edited* in the
+  Component tab; here it's shown for wiring.)
   - **Flow context** — a compact "feeds in (before) / feeds out (next)" list, so
     even a lone machine shows what connects to it. It reads every connection
     touching the node *or an ancestor* (so a country-level link shows on the

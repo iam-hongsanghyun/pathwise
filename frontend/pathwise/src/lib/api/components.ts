@@ -28,6 +28,9 @@ export interface TechnologyTemplate {
   lifespan: number;
   capex: number;
   opex: number;
+  /** Years the technology is available to adopt (null = always). */
+  introduction_year?: number | null;
+  phase_out_year?: number | null;
   io: IoRow[];
   /** Ids of the MACC bundles that apply to this technology. */
   maccs: string[];
