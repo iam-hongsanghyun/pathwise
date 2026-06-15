@@ -70,6 +70,14 @@ export function CommodityEditor({
             ))}
           </select>
         </Field>
+        <Field label="sector">
+          <input
+            style={inputStyle}
+            value={value.sector ?? ""}
+            placeholder="e.g. steel · power · (blank = general)"
+            onChange={(e) => onChange({ ...value, sector: e.target.value.trim() === "" ? null : e.target.value })}
+          />
+        </Field>
         <Field label="unit">
           <input style={inputStyle} value={value.unit} onChange={(e) => onChange({ ...value, unit: e.target.value })} />
         </Field>

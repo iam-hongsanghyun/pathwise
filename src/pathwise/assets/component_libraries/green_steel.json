@@ -6,77 +6,88 @@
       "kind": "material",
       "unit": "t",
       "price": null,
-      "sale_price": null
+      "sale_price": null,
+      "sector": "mining"
     },
     {
       "commodity_id": "coal",
       "kind": "energy",
       "unit": "t",
       "price": 90.0,
-      "sale_price": null
+      "sale_price": null,
+      "sector": "energy"
     },
     {
       "commodity_id": "gas",
       "kind": "energy",
       "unit": "GJ",
       "price": 9.0,
-      "sale_price": null
+      "sale_price": null,
+      "sector": "energy"
     },
     {
       "commodity_id": "scrap",
       "kind": "material",
       "unit": "t",
       "price": null,
-      "sale_price": null
+      "sale_price": null,
+      "sector": "steel"
     },
     {
       "commodity_id": "hbi",
       "kind": "material",
       "unit": "t",
       "price": null,
-      "sale_price": null
+      "sale_price": null,
+      "sector": "steel"
     },
     {
       "commodity_id": "electricity",
       "kind": "energy",
       "unit": "MWh",
       "price": null,
-      "sale_price": null
+      "sale_price": null,
+      "sector": "power"
     },
     {
       "commodity_id": "hydrogen",
       "kind": "energy",
       "unit": "t",
       "price": null,
-      "sale_price": null
+      "sale_price": null,
+      "sector": "hydrogen"
     },
     {
       "commodity_id": "iron",
       "kind": "material",
       "unit": "t",
       "price": null,
-      "sale_price": null
+      "sale_price": null,
+      "sector": "steel"
     },
     {
       "commodity_id": "steel",
       "kind": "product",
       "unit": "t",
       "price": null,
-      "sale_price": 800.0
+      "sale_price": 800.0,
+      "sector": "steel"
     },
     {
       "commodity_id": "car",
       "kind": "product",
       "unit": "veh",
       "price": null,
-      "sale_price": 30000.0
+      "sale_price": 30000.0,
+      "sector": "automotive"
     },
     {
       "commodity_id": "ship",
       "kind": "product",
       "unit": "ship",
       "price": null,
-      "sale_price": 90000000.0
+      "sale_price": 90000000.0,
+      "sector": "shipbuilding"
     }
   ],
   "technologies": [

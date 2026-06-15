@@ -97,6 +97,11 @@ class CommodityTemplate(BaseModel):
     unit: str = "unit"
     price: float | None = None
     sale_price: float | None = None
+    #: Owning sector — the sector that PRODUCES this stream (electricity belongs to
+    #: "power", not "steel"). Blank/None = a general, industry-agnostic stream.
+    #: Purely organisational (groups streams in the Component builder); the
+    #: optimiser ignores it.
+    sector: str | None = None
 
 
 class MeasureBlockTemplate(BaseModel):

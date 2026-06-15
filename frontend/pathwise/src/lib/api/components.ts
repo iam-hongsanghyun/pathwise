@@ -69,6 +69,9 @@ export interface CommodityTemplate {
   unit: string;
   price?: number | null;
   sale_price?: number | null;
+  /** Owning sector (the sector that PRODUCES this stream — electricity is "power",
+   *  not "steel"). Blank/null = a general, industry-agnostic stream. */
+  sector?: string | null;
 }
 
 export interface ChildRef {

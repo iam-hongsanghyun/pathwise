@@ -6,21 +6,24 @@
       "kind": "energy",
       "unit": "GJ",
       "price": 8.0,
-      "sale_price": null
+      "sale_price": null,
+      "sector": "energy"
     },
     {
       "commodity_id": "steam",
       "kind": "energy",
       "unit": "GJ",
       "price": null,
-      "sale_price": null
+      "sale_price": null,
+      "sector": "power"
     },
     {
       "commodity_id": "electricity",
       "kind": "energy",
       "unit": "MWh",
       "price": 60.0,
-      "sale_price": 60.0
+      "sale_price": 60.0,
+      "sector": "power"
     }
   ],
   "technologies": [
