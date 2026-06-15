@@ -9,23 +9,26 @@ blocks* of a model. It is deliberately separate from the **Value chain** view:
   commodity flows between them. The "how things are wired."
 
 A component **library** is a named, self-contained catalogue of these blocks. The
-left rail lists every library; expanding one reveals its three fixed structures:
+left rail lists every library; inside, content is organised **by sector**, and
+each sector holds the three fixed structures:
 
 ```
-<library>
-├── Technology      one recipe each: inputs / outputs / impacts + linked MACCs
-├── Stream          the commodities, grouped by owning sector (see below)
-└── Measures
-    ├── MACC         a named bundle of measures (a marginal-abatement curve)
-    └── Individual   the reusable measures themselves
+<library>  (· base or · scenario)
+└── <sector>            e.g. steel, power, hydrogen … (Other = unclassified)
+    ├── Technology      recipes whose product is in this sector
+    ├── Stream          the OUTPUTS this sector produces (see below)
+    └── Measures & MACC
+        ├── MACC         a named bundle of measures (with a MACC curve)
+        └── Individual   the reusable measures themselves
 ```
 
 Right-click any node for add / rename / delete; edits autosave to the library.
+A brand-new item is unclassified until it has an output / link, so it appears
+under **Other** until you wire it up.
 
-> **Note.** There is no longer a separate "Components" section. A composite unit
-> *is* a technology placed as a machine in the Value-chain view, so the old
-> Components list duplicated Technology and was removed — the builder is
-> **technology-only**.
+> **Note.** There is no separate "Components" section. A composite unit *is* a
+> technology placed as a machine in the Value-chain view, so the old Components
+> list duplicated Technology and was removed — the builder is **technology-only**.
 
 ## Technology
 
@@ -63,29 +66,22 @@ A stream is a commodity that technologies consume or produce:
 | `sale_price` | external sale price for surplus |
 | `sector` | **owning sector** — see below |
 
-### What "sector" means
+### What "sector" means (Stream = outputs)
 
 A stream belongs to the sector that **produces** it, not the one that consumes
 it. Electricity is a **power** stream even though steel mills consume it — it is
-*from* the power sector. So in the tree, streams are grouped under their owning
-sector:
+*from* the power sector. So a library shows under each sector only the streams
+that sector's technologies **output**:
 
-```
-Stream
-├── General        industry-agnostic streams (no sector set yet)
-├── energy         coal, gas
-├── power          electricity
-├── hydrogen       hydrogen
-├── steel          iron, steel, scrap, hbi
-└── mining         iron_ore
-```
+- the **Steel** sector's streams are `iron`, `steel` (what it produces) — *not*
+  `electricity` or `coal`, which are inputs produced elsewhere and so don't
+  appear in the Steel library at all;
+- the **Power** sector's streams are `electricity`, `steam`.
 
-Leave `sector` blank for a **general** stream — one not (yet) tied to a specific
-industry. Sector is purely organisational: it groups streams in this view and is
-ignored by the optimiser, so re-classifying a stream never changes a result.
-
-Adding a stream from inside a sector group pre-assigns that sector; adding from
-the top-level **Stream** node (or the library) creates a General stream.
+A commodity's `sector` field declares its owning sector (set in the stream
+editor). A produced stream with no sector, or a just-added standalone stream,
+falls under **Other** until classified. Sector is purely organisational — the
+optimiser ignores it, so re-classifying never changes a result.
 
 ## Measures & MACC
 
@@ -100,7 +96,10 @@ A **measure** is a retrofit/abatement lever:
 
 A **MACC** bundles measures by id. A technology lists the MACCs that apply to it;
 placing that technology stamps every measure of those MACCs onto the resulting
-machine, with block costs scaled to the machine's capacity.
+machine, with block costs scaled to the machine's capacity. Selecting a MACC
+shows its **marginal-abatement-cost curve** — one bar per block, width ∝ the
+reduction it delivers and height ∝ its marginal cost (capex ÷ reduction), sorted
+cheapest-first, with no-regret (negative-cost) blocks below the axis.
 
 ## Where libraries live
 
