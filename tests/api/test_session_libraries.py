@@ -10,9 +10,25 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from pathwise.api.main import app
-from pathwise.data.components import extract_library_from_workbook
+from pathwise.api.workbook_io import parse_sqlite, write_sqlite
+from pathwise.data.components import (
+    extract_library_from_workbook,
+    library_from_workbook,
+    library_to_workbook,
+    load_component_library,
+)
 
 client = TestClient(app)
+
+
+def test_library_sqlite_round_trip_is_lossless() -> None:
+    from importlib.resources import files
+
+    for name in ("green_steel", "power", "steel"):
+        src = files("pathwise.assets.component_libraries") / f"{name}.json"
+        lib = load_component_library(src)
+        back = library_from_workbook(parse_sqlite(write_sqlite(library_to_workbook(lib))))
+        assert back.model_dump() == lib.model_dump(), f"{name} did not round-trip through SQLite"
 
 
 def _new_session() -> str:

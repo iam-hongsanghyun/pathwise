@@ -17,8 +17,13 @@ edit and visualise*, not about removing data.
 
 | Set | Scope | Lives in | Editing it… |
 |---|---|---|---|
-| **base** | shared, global | `<data_dir>/component_libraries` (seeded from `assets/`) | affects every session |
-| **session** (scenario) | one session only | `<data_dir>/session_libraries/<session_id>/` | affects only that scenario |
+| **base** | shared, global | `<data_dir>/component_libraries/<id>.sqlite` (seeded from `assets/`) | affects every session |
+| **session** (scenario) | one session only | `<data_dir>/session_libraries/<session_id>/<id>.sqlite` | affects only that scenario |
+
+Both sets are stored as **SQLite** — the same sheets-in-SQLite form the examples
+use (one table per kind: commodities, technologies, io, measures, …), so a
+library is inspectable with any SQLite tool. The bundled seeds in `assets/` stay
+as readable JSON and are converted to SQLite on first run.
 
 The Component view lists both, each tagged in the tree — `… · scenario` for the
 session set, `… · base` for the shared set. A scenario's components and your edits

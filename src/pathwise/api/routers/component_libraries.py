@@ -3,7 +3,8 @@
 Unlike the read-only facility ``library`` (bundled ``assets``), component
 libraries are **user-owned**: there are *many* named libraries, each a
 :class:`~pathwise.data.components.ComponentLibrary` (commodities, technologies,
-machines with their MACC measures, groups). They live as JSON under the writable
+machines with their MACC measures, groups). They are stored as **SQLite** (one
+table per kind, like the example workbooks) under the writable
 ``<data_dir>/component_libraries`` (gitignored), seeded once from the bundled
 starters so a fresh install opens with real, editable content.
 
@@ -25,10 +26,12 @@ from pydantic import BaseModel
 
 from pathwise.api.session_library_store import SessionLibraryStore
 from pathwise.api.session_store import SessionNotFound, SessionStore
+from pathwise.api.workbook_io import write_sqlite
 from pathwise.config import get_settings
 from pathwise.data.components import (
     ComponentLibrary,
     instantiate_into,
+    library_to_workbook,
     load_component_library,
     place_technology,
 )
@@ -44,8 +47,10 @@ _LIB_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 def _components_dir() -> Path:
     """The writable component-library directory; seeded from bundled starters.
 
-    Seeding happens only when the directory does not yet exist, so a user who
-    deletes every library does not have the starters resurrected.
+    Libraries are stored as SQLite (one table per kind). The bundled seeds may be
+    readable ``.json`` (converted to SQLite on first seed) or pre-built
+    ``.sqlite``. Seeding happens only when the directory does not yet exist, so a
+    user who deletes every library does not have the starters resurrected.
     """
     d = Path(get_settings().data_dir) / "component_libraries"
     if not d.exists():
@@ -53,6 +58,10 @@ def _components_dir() -> Path:
         seeds = Path(get_settings().component_seeds_dir)
         if seeds.is_dir():
             for f in sorted(seeds.glob("*.json")):
+                (d / f"{f.stem}.sqlite").write_bytes(
+                    write_sqlite(library_to_workbook(load_component_library(f)))
+                )
+            for f in sorted(seeds.glob("*.sqlite")):
                 shutil.copy(f, d / f.name)
     return d
 
@@ -60,7 +69,7 @@ def _components_dir() -> Path:
 def _lib_path(lib_id: str) -> Path:
     if not _LIB_ID.match(lib_id):
         raise HTTPException(status_code=422, detail=f"invalid library id '{lib_id}'")
-    return _components_dir() / f"{lib_id}.json"
+    return _components_dir() / f"{lib_id}.sqlite"
 
 
 def _summary(lib_id: str, lib: ComponentLibrary, scope: str = "base") -> dict[str, Any]:
@@ -89,7 +98,7 @@ def _session_libs() -> SessionLibraryStore:
 def list_component_libraries() -> list[dict[str, Any]]:
     """Every writable component library, summarised (id + label + counts)."""
     out: list[dict[str, Any]] = []
-    for f in sorted(_components_dir().glob("*.json")):
+    for f in sorted(_components_dir().glob("*.sqlite")):
         try:
             out.append(_summary(f.stem, load_component_library(f)))
         except Exception as exc:  # a malformed file should not break the list
@@ -110,7 +119,7 @@ def get_component_library(lib_id: str) -> dict[str, Any]:
 def save_component_library(lib_id: str, library: ComponentLibrary) -> dict[str, Any]:
     """Create or overwrite a component library (validated server-side)."""
     path = _lib_path(lib_id)
-    path.write_text(library.model_dump_json(indent=2), encoding="utf-8")
+    path.write_bytes(write_sqlite(library_to_workbook(library)))
     logger.info(
         "saved component library %s (%d machines, %d groups)",
         lib_id,
@@ -142,11 +151,10 @@ def list_session_component_libraries(session_id: str) -> list[dict[str, Any]]:
     libs = _session_libs()
     out: list[dict[str, Any]] = []
     for lib_id in libs.list_ids(session_id):
-        raw = libs.get(session_id, lib_id)
-        if raw is None:
-            continue
         try:
-            out.append(_summary(lib_id, ComponentLibrary.model_validate(raw), scope="session"))
+            lib = libs.get(session_id, lib_id)
+            if lib is not None:
+                out.append(_summary(lib_id, lib, scope="session"))
         except Exception as exc:  # a malformed file should not break the list
             logger.warning("skipping unreadable session library %s/%s: %s", session_id, lib_id, exc)
     return out
@@ -155,10 +163,10 @@ def list_session_component_libraries(session_id: str) -> list[dict[str, Any]]:
 @router.get("/session/{session_id}/component-library/{lib_id}")
 def get_session_component_library(session_id: str, lib_id: str) -> dict[str, Any]:
     """One session library's full content."""
-    raw = _session_libs().get(session_id, lib_id)
-    if raw is None:
+    lib = _session_libs().get(session_id, lib_id)
+    if lib is None:
         raise HTTPException(status_code=404, detail=f"unknown session library '{lib_id}'")
-    return ComponentLibrary.model_validate(raw).model_dump()
+    return lib.model_dump()
 
 
 @router.put("/session/{session_id}/component-library/{lib_id}")
@@ -168,7 +176,7 @@ def save_session_component_library(
     """Create or overwrite a session library (validated server-side)."""
     if not _LIB_ID.match(lib_id):
         raise HTTPException(status_code=422, detail=f"invalid library id '{lib_id}'")
-    _session_libs().put(session_id, lib_id, library.model_dump())
+    _session_libs().put(session_id, lib_id, library)
     return _summary(lib_id, library, scope="session")
 
 
