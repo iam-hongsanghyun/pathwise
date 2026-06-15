@@ -10,7 +10,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { RelationshipCanvas } from "../features/topology/RelationshipCanvas";
-import { CascadeSummary, MachineInspector, PortsPanel, type CascadeResult } from "../features/valuechain/panels";
+import { CascadeSummary, FlowContext, MachineInspector, PortsPanel, type CascadeResult } from "../features/valuechain/panels";
 import { MultiSelect } from "../features/controls/MultiSelect";
 import { SearchableSelect } from "../features/controls/SearchableSelect";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
@@ -410,7 +410,10 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
           {!selNode ? (
             <div className="muted" style={{ padding: 16, fontSize: "0.82rem" }}>Select an item on the left to see its details. Right-click for actions.</div>
           ) : selNode.kind === "machine" ? (
-            <MachineInspector wb={workbook} machineId={selId!} onCapacity={(v) => setWorkbook(setSheet(workbook, "machines", (workbook.machines ?? []).map((r) => (s(r.machine_id) === selId ? { ...r, capacity: v } : r))))} />
+            <>
+              <MachineInspector wb={workbook} machineId={selId!} onCapacity={(v) => setWorkbook(setSheet(workbook, "machines", (workbook.machines ?? []).map((r) => (s(r.machine_id) === selId ? { ...r, capacity: v } : r))))} />
+              <div style={{ padding: "0 20px 16px" }}><FlowContext wb={workbook} nodeId={selId!} /></div>
+            </>
           ) : (
             <div style={{ padding: "14px 16px" }}>
               <div className="eyebrow">group</div>
@@ -419,6 +422,8 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 <span className="muted">level</span>
                 <input value={selNode.level} onChange={(e) => setLevel(selId!, e.target.value)} style={{ ...inp, flex: 1 }} placeholder="value_chain / company / facility" />
               </label>
+
+              <FlowContext wb={workbook} nodeId={selId!} />
 
               <PortsPanel wb={workbook} nodeId={selId!} commodities={commodities} onAdd={(c, k) => addMarket(selId!, c, k)} onRemove={removeMarket} />
 

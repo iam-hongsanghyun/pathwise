@@ -33,6 +33,15 @@ producers all feed the Korean mill's `hydrogen` balance and compete.
 | make imports lose over time | rising commodity `price` / carbon (`impact_prices`, `commodity_impacts`) |
 | outsource a whole step | make its output **purchasable** (a market) instead of produced |
 
+## How to *see* an alternative in the UI
+
+There's no special "alternative" line — an alternative is simply **one consumer
+commodity with more than one source**. Select the consuming node and read its
+**Flow context** (right pane, Value-chain view): each input commodity lists its
+source nodes, and any commodity with multiple sources is tagged *N alternatives*.
+E.g. selecting the Korean mill shows `hydrogen: Australia, Qatar · 2 alternatives`
+— the optimiser picks the least-cost split.
+
 ## Existing vs "alternative" machines
 
 A facility is the sum of its machines and a process can carry several feasible
