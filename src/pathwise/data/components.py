@@ -167,9 +167,220 @@ class ComponentLibrary(BaseModel):
 
 
 def load_component_library(path: str | Path) -> ComponentLibrary:
-    """Load and validate a component library JSON file."""
-    with open(path, encoding="utf-8") as fh:
+    """Load and validate a component library from a ``.sqlite`` (preferred) or
+    ``.json`` file (the format is chosen by suffix)."""
+    p = Path(path)
+    if p.suffix in (".sqlite", ".db"):
+        from pathwise.api.workbook_io import parse_sqlite
+
+        return library_from_workbook(parse_sqlite(p.read_bytes()))
+    with open(p, encoding="utf-8") as fh:
         return ComponentLibrary.model_validate(json.load(fh))
+
+
+# ── Library ⇄ SQLite workbook (one table per kind, like the example workbooks) ─
+# A component library is a nested document; we store it the same generic
+# sheets-in-SQLite way the examples use, so libraries are inspectable with any
+# SQLite tool. The cleanly-flat kinds become tables; the genuinely-nested legacy
+# bits (a machine's measures, a group's children/connections) ride along as a
+# JSON column so the round-trip stays lossless.
+
+
+def library_to_workbook(lib: ComponentLibrary) -> Workbook:
+    """Decompose a component library into a ``{sheet: rows}`` workbook (lossless)."""
+
+    def js(v: Any) -> str:
+        return json.dumps(v, ensure_ascii=False)
+
+    return {
+        "meta": [{"key": "label", "value": lib.label}],
+        "commodities": [_commodity_row(c) for c in lib.commodities],
+        "technologies": [
+            {
+                "technology_id": t.technology_id,
+                "lifespan": t.lifespan,
+                "capex": t.capex,
+                "opex": t.opex,
+                "maccs": "|".join(t.maccs),
+            }
+            for t in lib.technologies
+        ],
+        "io": [
+            {"technology_id": t.technology_id, **r.model_dump()}
+            for t in lib.technologies
+            for r in t.io
+        ],
+        "measures": [
+            {
+                "measure_id": m.measure_id,
+                "label": m.label,
+                "type": m.type,
+                "target": m.target,
+                "lifetime": m.lifetime,
+            }
+            for m in lib.measures
+        ],
+        "measure_blocks": [
+            {
+                "measure_id": m.measure_id,
+                "block": i,
+                "reduction": b.reduction,
+                "capex_per_capacity": b.capex_per_capacity,
+                "opex_per_capacity": b.opex_per_capacity,
+            }
+            for m in lib.measures
+            for i, b in enumerate(m.blocks)
+        ],
+        "maccs": [
+            {"macc_id": g.macc_id, "label": g.label, "measures": "|".join(g.measures)}
+            for g in lib.maccs
+        ],
+        "machines": [
+            {
+                "name": mc.name,
+                "label": mc.label,
+                "technology": mc.technology,
+                "capacity": mc.capacity,
+                "measures_json": js([m.model_dump() for m in mc.measures]),
+            }
+            for mc in lib.machines
+        ],
+        "groups": [
+            {
+                "name": g.name,
+                "label": g.label,
+                "level": g.level,
+                "children_json": js([c.model_dump() for c in g.children]),
+                "connections_json": js([c.model_dump() for c in g.connections]),
+            }
+            for g in lib.groups
+        ],
+    }
+
+
+def library_from_workbook(wb: Workbook) -> ComponentLibrary:
+    """Reconstruct a component library from its ``library_to_workbook`` sheets."""
+    label = next(
+        (_es(r.get("value")) for r in wb.get("meta", []) if _es(r.get("key")) == "label"), ""
+    )
+
+    io_by: dict[str, list[IoRow]] = {}
+    for r in wb.get("io", []):
+        tid = _es(r.get("technology_id"))
+        io_by.setdefault(tid, []).append(
+            IoRow(
+                target=_es(r.get("target")),
+                role=_es(r.get("role")) or "input",
+                coefficient=_enum(r.get("coefficient")),
+                is_product=bool(r.get("is_product")),
+                group=_es(r.get("group")) or None,
+                share_min=r.get("share_min")
+                if isinstance(r.get("share_min"), (int, float))
+                else None,
+                share_max=r.get("share_max")
+                if isinstance(r.get("share_max"), (int, float))
+                else None,
+            )
+        )
+
+    def split(v: object) -> list[str]:
+        sv = _es(v)
+        return sv.split("|") if sv else []
+
+    technologies = [
+        TechnologyTemplate(
+            technology_id=_es(r.get("technology_id")),
+            lifespan=int(_enum(r.get("lifespan"), 20)) or 20,
+            capex=_enum(r.get("capex")),
+            opex=_enum(r.get("opex")),
+            io=io_by.get(_es(r.get("technology_id")), []),
+            maccs=split(r.get("maccs")),
+        )
+        for r in wb.get("technologies", [])
+    ]
+
+    blocks_by: dict[str, list[dict[str, object]]] = {}
+    for r in wb.get("measure_blocks", []):
+        blocks_by.setdefault(_es(r.get("measure_id")), []).append(r)
+    measures = [
+        MeasureTemplate(
+            measure_id=_es(r.get("measure_id")),
+            label=_es(r.get("label")),
+            type=_es(r.get("type")) or "energy_efficiency",
+            target=_es(r.get("target")),
+            lifetime=int(_enum(r.get("lifetime"), 15)) or 15,
+            blocks=[
+                MeasureBlockTemplate(
+                    reduction=_enum(b.get("reduction"), 0.01),
+                    capex_per_capacity=_enum(b.get("capex_per_capacity")),
+                    opex_per_capacity=_enum(b.get("opex_per_capacity")),
+                )
+                for b in sorted(
+                    blocks_by.get(_es(r.get("measure_id")), []), key=lambda b: _enum(b.get("block"))
+                )
+            ],
+        )
+        for r in wb.get("measures", [])
+    ]
+
+    maccs = [
+        MaccGroup(
+            macc_id=_es(r.get("macc_id")),
+            label=_es(r.get("label")),
+            measures=split(r.get("measures")),
+        )
+        for r in wb.get("maccs", [])
+    ]
+    commodities = [
+        CommodityTemplate(
+            commodity_id=_es(r.get("commodity_id")),
+            kind=_es(r.get("kind")) or "material",
+            unit=_es(r.get("unit")) or "unit",
+            price=r.get("price") if isinstance(r.get("price"), (int, float)) else None,
+            sale_price=r.get("sale_price")
+            if isinstance(r.get("sale_price"), (int, float))
+            else None,
+            sector=_es(r.get("sector")) or None,
+        )
+        for r in wb.get("commodities", [])
+    ]
+    machines = [
+        MachineComponent(
+            name=_es(r.get("name")),
+            label=_es(r.get("label")),
+            technology=_es(r.get("technology")),
+            capacity=_enum(r.get("capacity")),
+            measures=[
+                MeasureTemplate.model_validate(m)
+                for m in json.loads(_es(r.get("measures_json")) or "[]")
+            ],
+        )
+        for r in wb.get("machines", [])
+    ]
+    groups = [
+        GroupComponent(
+            name=_es(r.get("name")),
+            label=_es(r.get("label")),
+            level=_es(r.get("level")),
+            children=[
+                ChildRef.model_validate(c) for c in json.loads(_es(r.get("children_json")) or "[]")
+            ],
+            connections=[
+                ConnectionTemplate.model_validate(c)
+                for c in json.loads(_es(r.get("connections_json")) or "[]")
+            ],
+        )
+        for r in wb.get("groups", [])
+    ]
+    return ComponentLibrary(
+        label=label,
+        commodities=commodities,
+        technologies=technologies,
+        measures=measures,
+        maccs=maccs,
+        machines=machines,
+        groups=groups,
+    )
 
 
 def instantiate(

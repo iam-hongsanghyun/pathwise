@@ -245,7 +245,7 @@ def load_example(session_id: str, example_id: str) -> dict[str, Any]:
             lib.label = str(entry.get("label") or example_id)
     else:
         lib = extract_library_from_workbook(model, label=str(entry.get("label") or example_id))
-    _session_libs().put(session_id, lib_id, lib.model_dump())
+    _session_libs().put(session_id, lib_id, lib)
     return {"sessionId": session_id, "sheets": counts, "library_id": lib_id}
 
 

@@ -3,19 +3,20 @@
 The shared *base* component libraries (``<data_dir>/component_libraries``) are
 global and reusable. A *scenario* often needs its own components, and editing
 them must not pollute the shared catalogue — so each session gets an isolated set
-of component libraries here, one JSON file per library under
-``<data_dir>/session_libraries/<session_id>/<lib_id>.json``.
+of component libraries here, one **SQLite** file per library under
+``<data_dir>/session_libraries/<session_id>/<lib_id>.sqlite`` (the same
+sheets-in-SQLite form the base libraries and examples use).
 
-Mirrors :class:`~pathwise.api.session_store.SessionStore`'s file-per-thing
-simplicity. Together they give the "two sets" the builder shows: **base**
-(global) + **session** (per-scenario).
+Together they give the "two sets" the builder shows: **base** (global) +
+**session** (per-scenario).
 """
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from typing import Any
+
+from pathwise.api.workbook_io import parse_sqlite, write_sqlite
+from pathwise.data.components import ComponentLibrary, library_from_workbook, library_to_workbook
 
 
 def _safe(name: str) -> str:
@@ -23,7 +24,7 @@ def _safe(name: str) -> str:
 
 
 class SessionLibraryStore:
-    """Component libraries scoped to one session (isolated JSON files)."""
+    """Component libraries scoped to one session (isolated SQLite files)."""
 
     def __init__(self, root: str | Path) -> None:
         self.root = Path(root)
@@ -37,23 +38,21 @@ class SessionLibraryStore:
     def list_ids(self, session_id: str) -> list[str]:
         """Library ids held for a session (alphabetical)."""
         d = self._dir(session_id)
-        return sorted(p.stem for p in d.glob("*.json")) if d.is_dir() else []
+        return sorted(p.stem for p in d.glob("*.sqlite")) if d.is_dir() else []
 
-    def get(self, session_id: str, lib_id: str) -> dict[str, Any] | None:
-        """Raw library JSON for a session, or None if absent."""
-        p = self._dir(session_id) / f"{_safe(lib_id)}.json"
-        return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
+    def get(self, session_id: str, lib_id: str) -> ComponentLibrary | None:
+        """A session library, or None if absent."""
+        p = self._dir(session_id) / f"{_safe(lib_id)}.sqlite"
+        return library_from_workbook(parse_sqlite(p.read_bytes())) if p.exists() else None
 
-    def put(self, session_id: str, lib_id: str, library: dict[str, Any]) -> None:
-        """Create/overwrite a session library."""
+    def put(self, session_id: str, lib_id: str, library: ComponentLibrary) -> None:
+        """Create/overwrite a session library (stored as SQLite)."""
         d = self._dir(session_id, create=True)
-        (d / f"{_safe(lib_id)}.json").write_text(
-            json.dumps(library, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        (d / f"{_safe(lib_id)}.sqlite").write_bytes(write_sqlite(library_to_workbook(library)))
 
     def delete(self, session_id: str, lib_id: str) -> bool:
         """Remove one session library; return whether it existed."""
-        p = self._dir(session_id) / f"{_safe(lib_id)}.json"
+        p = self._dir(session_id) / f"{_safe(lib_id)}.sqlite"
         if p.exists():
             p.unlink()
             return True
@@ -63,6 +62,6 @@ class SessionLibraryStore:
         """Drop every library for a session (called when the session is cleared)."""
         d = self._dir(session_id)
         if d.is_dir():
-            for p in d.glob("*.json"):
+            for p in d.glob("*.sqlite"):
                 p.unlink()
             d.rmdir()
