@@ -44,7 +44,6 @@ export function MachineInspector({
   const tech = s(machine?.baseline_technology);
   const io = (wb.io ?? []).filter((r) => s(r.technology_id) === tech);
   const inputs = io.filter((r) => s(r.role) === "input").map((r) => s(r.target));
-  const outputs = io.filter((r) => s(r.role) === "output").map((r) => s(r.target));
   const scope = useMemo(() => new Set(chain(wb, machineId)), [wb, machineId]);
 
   const satisfaction = (c: string): { how: string; ok: boolean } => {
@@ -70,15 +69,18 @@ export function MachineInspector({
       <div className="eyebrow">machine</div>
       <h2 style={{ margin: "4px 0 12px" }}>{machineId.split("/").pop()}</h2>
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 16, fontSize: "0.82rem" }}>
-        <div><span className="muted">technology</span><br />{tech || "—"}</div>
+        <div>
+          <span className="muted">technology</span><br />{tech || "—"}
+          <div className="muted" style={{ fontSize: "0.7rem" }}>recipe &amp; measures → Component tab</div>
+        </div>
         <div>
           <span className="muted">capacity</span><br />
           <input type="number" defaultValue={Number(machine.capacity) || 0} style={{ ...inp, width: 110 }} onBlur={(e) => onCapacity(Number(e.target.value) || 0)} />
         </div>
       </div>
       <p className="muted" style={{ fontSize: "0.75rem" }}>
-        Core substance (the recipe, measures) is edited in the Component tab. Here you wire how its
-        streams are satisfied.
+        The value chain is about <b>wiring</b>: the recipe and measures are defined in the Component
+        tab — here you check how each required input stream is satisfied (connection or purchase).
       </p>
       <h3 style={{ fontSize: "0.85rem", margin: "12px 0 6px" }}>Required input streams</h3>
       <table className="grid" style={{ fontSize: "0.78rem", width: "100%" }}>
@@ -98,8 +100,6 @@ export function MachineInspector({
           {inputs.length === 0 && <tr><td colSpan={2} className="muted">no inputs</td></tr>}
         </tbody>
       </table>
-      <h3 style={{ fontSize: "0.85rem", margin: "12px 0 6px" }}>Outputs</h3>
-      <div className="muted" style={{ fontSize: "0.8rem" }}>{outputs.join(", ") || "—"}</div>
     </div>
   );
 }

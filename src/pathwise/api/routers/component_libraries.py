@@ -23,6 +23,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from pathwise.api.session_library_store import SessionLibraryStore
 from pathwise.api.session_store import SessionNotFound, SessionStore
 from pathwise.config import get_settings
 from pathwise.data.components import (
@@ -62,10 +63,11 @@ def _lib_path(lib_id: str) -> Path:
     return _components_dir() / f"{lib_id}.json"
 
 
-def _summary(lib_id: str, lib: ComponentLibrary) -> dict[str, Any]:
+def _summary(lib_id: str, lib: ComponentLibrary, scope: str = "base") -> dict[str, Any]:
     return {
         "id": lib_id,
         "label": lib.label or lib_id,
+        "scope": scope,  # "base" (shared) or "session" (this scenario's own set)
         "commodities": len(lib.commodities),
         "technologies": len(lib.technologies),
         "measures": len(lib.measures),
@@ -77,6 +79,10 @@ def _summary(lib_id: str, lib: ComponentLibrary) -> dict[str, Any]:
 
 def _store() -> SessionStore:
     return SessionStore(Path(get_settings().data_dir) / "sessions")
+
+
+def _session_libs() -> SessionLibraryStore:
+    return SessionLibraryStore(Path(get_settings().data_dir) / "session_libraries")
 
 
 @router.get("/component-libraries")
@@ -121,6 +127,56 @@ def delete_component_library(lib_id: str) -> dict[str, Any]:
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"unknown component library '{lib_id}'")
     path.unlink()
+    return {"id": lib_id, "deleted": True}
+
+
+# ── Per-session component libraries (a scenario's OWN set) ────────────────────
+# The shared base libraries above are global; these are isolated per session, so
+# an imported scenario's components and a user's edits to them never touch the
+# shared catalogue. Same CRUD shape, scoped by session id.
+
+
+@router.get("/session/{session_id}/component-libraries")
+def list_session_component_libraries(session_id: str) -> list[dict[str, Any]]:
+    """The session's own component libraries (scope='session'), summarised."""
+    libs = _session_libs()
+    out: list[dict[str, Any]] = []
+    for lib_id in libs.list_ids(session_id):
+        raw = libs.get(session_id, lib_id)
+        if raw is None:
+            continue
+        try:
+            out.append(_summary(lib_id, ComponentLibrary.model_validate(raw), scope="session"))
+        except Exception as exc:  # a malformed file should not break the list
+            logger.warning("skipping unreadable session library %s/%s: %s", session_id, lib_id, exc)
+    return out
+
+
+@router.get("/session/{session_id}/component-library/{lib_id}")
+def get_session_component_library(session_id: str, lib_id: str) -> dict[str, Any]:
+    """One session library's full content."""
+    raw = _session_libs().get(session_id, lib_id)
+    if raw is None:
+        raise HTTPException(status_code=404, detail=f"unknown session library '{lib_id}'")
+    return ComponentLibrary.model_validate(raw).model_dump()
+
+
+@router.put("/session/{session_id}/component-library/{lib_id}")
+def save_session_component_library(
+    session_id: str, lib_id: str, library: ComponentLibrary
+) -> dict[str, Any]:
+    """Create or overwrite a session library (validated server-side)."""
+    if not _LIB_ID.match(lib_id):
+        raise HTTPException(status_code=422, detail=f"invalid library id '{lib_id}'")
+    _session_libs().put(session_id, lib_id, library.model_dump())
+    return _summary(lib_id, library, scope="session")
+
+
+@router.delete("/session/{session_id}/component-library/{lib_id}")
+def delete_session_component_library(session_id: str, lib_id: str) -> dict[str, Any]:
+    """Delete one of the session's libraries."""
+    if not _session_libs().delete(session_id, lib_id):
+        raise HTTPException(status_code=404, detail=f"unknown session library '{lib_id}'")
     return {"id": lib_id, "deleted": True}
 
 

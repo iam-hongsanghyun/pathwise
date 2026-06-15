@@ -18,15 +18,39 @@ import {
   type CommodityTemplate,
   type ComponentLibrary,
   deleteComponentLibrary,
+  deleteSessionComponentLibrary,
   emptyLibrary,
   getComponentLibrary,
+  getSessionComponentLibrary,
   type LibrarySummary,
-  listComponentLibraries,
+  type LibScope,
+  listAllComponentLibraries,
   type MaccGroup,
   type MeasureTemplate,
   saveComponentLibrary,
+  saveSessionComponentLibrary,
   type TechnologyTemplate,
 } from "../lib/api/components";
+
+// A library is addressed as `${scope}/${id}` ("base/power", "session/steel") so
+// base and session libraries with the same id never collide in the tree.
+const splitLib = (libId: string): [LibScope, string] => {
+  const i = libId.indexOf("/");
+  return i < 0 ? ["base", libId] : [libId.slice(0, i) as LibScope, libId.slice(i + 1)];
+};
+const keyOf = (l: LibrarySummary): string => `${l.scope}/${l.id}`;
+const getLib = (libId: string, sid: string | null): Promise<ComponentLibrary> => {
+  const [scope, id] = splitLib(libId);
+  return scope === "session" && sid ? getSessionComponentLibrary(sid, id) : getComponentLibrary(id);
+};
+const saveLib = (libId: string, body: ComponentLibrary, sid: string | null): Promise<LibrarySummary> => {
+  const [scope, id] = splitLib(libId);
+  return scope === "session" && sid ? saveSessionComponentLibrary(sid, id, body) : saveComponentLibrary(id, body);
+};
+const removeLib = (libId: string, sid: string | null): Promise<void> => {
+  const [scope, id] = splitLib(libId);
+  return scope === "session" && sid ? deleteSessionComponentLibrary(sid, id) : deleteComponentLibrary(id);
+};
 
 type Kind = "library" | "cat" | "tech" | "stream" | "measure" | "macc";
 interface Sel {
@@ -59,7 +83,7 @@ function treeIdOf(s: Sel): string {
   return `${KIND_PREFIX[s.kind]}:${s.libId}:${s.id}`;
 }
 
-export function ComponentTabView() {
+export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
   const [libs, setLibs] = useState<LibrarySummary[]>([]);
   const [openLibs, setOpenLibs] = useState<Map<string, ComponentLibrary>>(new Map());
   const [dirty, setDirty] = useState<Set<string>>(new Set());
@@ -69,16 +93,17 @@ export function ComponentTabView() {
   const [error, setError] = useState<string | null>(null);
   const saved = useRef<Map<string, string>>(new Map());
 
+  // Base (shared) + this session's own libraries (an imported scenario's set).
   useEffect(() => {
-    listComponentLibraries().then(setLibs).catch((e) => setError(String(e)));
-  }, []);
+    listAllComponentLibraries(sessionId).then(setLibs).catch((e) => setError(String(e)));
+  }, [sessionId]);
 
-  async function loadLib(id: string) {
-    if (openLibs.has(id)) return;
+  async function loadLib(libId: string) {
+    if (openLibs.has(libId)) return;
     try {
-      const body = await getComponentLibrary(id);
-      saved.current.set(id, JSON.stringify(body));
-      setOpenLibs((prev) => new Map(prev).set(id, body));
+      const body = await getLib(libId, sessionId);
+      saved.current.set(libId, JSON.stringify(body));
+      setOpenLibs((prev) => new Map(prev).set(libId, body));
     } catch (e) {
       setError(String(e));
     }
@@ -89,12 +114,12 @@ export function ComponentTabView() {
     setStatus("saving…");
     const t = setTimeout(async () => {
       try {
-        for (const id of dirty) {
-          const body = openLibs.get(id);
+        for (const libId of dirty) {
+          const body = openLibs.get(libId);
           if (!body) continue;
-          const summary = await saveComponentLibrary(id, body);
-          saved.current.set(id, JSON.stringify(body));
-          setLibs((prev) => prev.map((x) => (x.id === id ? summary : x)));
+          const summary = await saveLib(libId, body, sessionId);
+          saved.current.set(libId, JSON.stringify(body));
+          setLibs((prev) => prev.map((x) => (keyOf(x) === libId ? summary : x)));
         }
         setDirty(new Set());
         setStatus("saved");
@@ -104,7 +129,7 @@ export function ComponentTabView() {
       }
     }, 600);
     return () => clearTimeout(t);
-  }, [dirty, openLibs]);
+  }, [dirty, openLibs, sessionId]);
 
   function editLib(libId: string, fn: (l: ComponentLibrary) => ComponentLibrary) {
     setOpenLibs((prev) => {
@@ -122,15 +147,17 @@ export function ComponentTabView() {
       out.push({ id: `cat:${libId}:${key}`, parentId: parent, kind: "group", label, hasChildren: has, draggable: false, droppable: false });
     };
     for (const l of libs) {
-      out.push({ id: `lib:${l.id}`, parentId: null, kind: "library", label: l.label || l.id, hasChildren: true, draggable: false, droppable: false });
-      const body = openLibs.get(l.id);
+      const lk = keyOf(l); // compound `${scope}/${id}`
+      const tag = l.scope === "session" ? " · scenario" : " · base";
+      out.push({ id: `lib:${lk}`, parentId: null, kind: "library", label: `${l.label || l.id}${tag}`, hasChildren: true, draggable: false, droppable: false });
+      const body = openLibs.get(lk);
       const tn = body ? body.technologies.length : l.technologies;
       const sn = body ? body.commodities.length : l.commodities;
-      cat(l.id, "tech", "Technology", `lib:${l.id}`, tn > 0);
-      cat(l.id, "stream", "Stream", `lib:${l.id}`, sn > 0);
-      cat(l.id, "measures", "Measures", `lib:${l.id}`, true);
+      cat(lk, "tech", "Technology", `lib:${lk}`, tn > 0);
+      cat(lk, "stream", "Stream", `lib:${lk}`, sn > 0);
+      cat(lk, "measures", "Measures", `lib:${lk}`, true);
       if (!body) continue;
-      for (const t of body.technologies) out.push({ id: `t:${l.id}:${t.technology_id}`, parentId: `cat:${l.id}:tech`, kind: "leaf", label: t.technology_id, hasChildren: false, draggable: false, droppable: false });
+      for (const t of body.technologies) out.push({ id: `t:${lk}:${t.technology_id}`, parentId: `cat:${lk}:tech`, kind: "leaf", label: t.technology_id, hasChildren: false, draggable: false, droppable: false });
       // Streams grouped by their OWNING sector (electricity is a 'power' stream, not
       // a steel one); streams with no sector fall under "General".
       const bySector = new Map<string, CommodityTemplate[]>();
@@ -141,13 +168,13 @@ export function ComponentTabView() {
       const sectorKeys = [...bySector.keys()].sort((a, b) =>
         a === "General" ? -1 : b === "General" ? 1 : a.localeCompare(b));
       for (const sk of sectorKeys) {
-        cat(l.id, `stream:${sk}`, sk, `cat:${l.id}:stream`, true);
-        for (const c of bySector.get(sk)!) out.push({ id: `s:${l.id}:${c.commodity_id}`, parentId: `cat:${l.id}:stream:${sk}`, kind: "leaf", label: c.commodity_id, hasChildren: false, draggable: false, droppable: false });
+        cat(lk, `stream:${sk}`, sk, `cat:${lk}:stream`, true);
+        for (const c of bySector.get(sk)!) out.push({ id: `s:${lk}:${c.commodity_id}`, parentId: `cat:${lk}:stream:${sk}`, kind: "leaf", label: c.commodity_id, hasChildren: false, draggable: false, droppable: false });
       }
-      cat(l.id, "macc", "MACC", `cat:${l.id}:measures`, body.maccs.length > 0);
-      cat(l.id, "indiv", "Individual", `cat:${l.id}:measures`, body.measures.length > 0);
-      for (const g of body.maccs) out.push({ id: `g:${l.id}:${g.macc_id}`, parentId: `cat:${l.id}:macc`, kind: "leaf", label: g.label || g.macc_id, hasChildren: false, draggable: false, droppable: false });
-      for (const m of body.measures) out.push({ id: `m:${l.id}:${m.measure_id}`, parentId: `cat:${l.id}:indiv`, kind: "leaf", label: m.label || m.measure_id, hasChildren: false, draggable: false, droppable: false });
+      cat(lk, "macc", "MACC", `cat:${lk}:measures`, body.maccs.length > 0);
+      cat(lk, "indiv", "Individual", `cat:${lk}:measures`, body.measures.length > 0);
+      for (const g of body.maccs) out.push({ id: `g:${lk}:${g.macc_id}`, parentId: `cat:${lk}:macc`, kind: "leaf", label: g.label || g.macc_id, hasChildren: false, draggable: false, droppable: false });
+      for (const m of body.measures) out.push({ id: `m:${lk}:${m.measure_id}`, parentId: `cat:${lk}:indiv`, kind: "leaf", label: m.label || m.measure_id, hasChildren: false, draggable: false, droppable: false });
     }
     return out;
   }, [libs, openLibs]);
@@ -213,23 +240,25 @@ export function ComponentTabView() {
     const id = window.prompt("New library id (letters, digits, -_.):", "")?.trim();
     if (!id) return;
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id)) return setError(`invalid library id '${id}'`);
+    const libId = `base/${id}`; // new libraries go in the shared base catalogue
     try {
       await saveComponentLibrary(id, emptyLibrary(id));
-      setLibs(await listComponentLibraries());
-      setExpanded((p) => new Set(p).add(`lib:${id}`));
-      await loadLib(id);
-      setSel({ libId: id, kind: "library" });
+      setLibs(await listAllComponentLibraries(sessionId));
+      setExpanded((p) => new Set(p).add(`lib:${libId}`));
+      await loadLib(libId);
+      setSel({ libId, kind: "library" });
     } catch (e) {
       setError(String(e));
     }
   }
-  async function removeLibrary(id: string) {
-    if (!window.confirm(`Delete library '${id}'?`)) return;
+  async function removeLibrary(libId: string) {
+    const [, plain] = splitLib(libId);
+    if (!window.confirm(`Delete library '${plain}'?`)) return;
     try {
-      await deleteComponentLibrary(id);
-      setLibs(await listComponentLibraries());
-      setOpenLibs((p) => { const m = new Map(p); m.delete(id); return m; });
-      if (sel?.libId === id) setSel(null);
+      await removeLib(libId, sessionId);
+      setLibs(await listAllComponentLibraries(sessionId));
+      setOpenLibs((p) => { const m = new Map(p); m.delete(libId); return m; });
+      if (sel?.libId === libId) setSel(null);
     } catch (e) {
       setError(String(e));
     }
@@ -273,7 +302,7 @@ export function ComponentTabView() {
     else if (actionId === "add-macc") addMacc(s.libId);
     else if (actionId === "delete-lib") void removeLibrary(s.libId);
     else if (actionId === "rename-lib") {
-      const label = window.prompt("Library label:", libs.find((l) => l.id === s.libId)?.label ?? s.libId);
+      const label = window.prompt("Library label:", libs.find((l) => keyOf(l) === s.libId)?.label ?? s.libId);
       if (label != null) editLib(s.libId, (l) => ({ ...l, label }));
     } else if (actionId === "delete") deleteItem(s);
     else if (actionId === "rename") {
@@ -289,7 +318,7 @@ export function ComponentTabView() {
   function renderDetail() {
     if (!sel || !body) return <p className="muted">Pick or create a library on the left to start building.</p>;
     if (sel.kind === "library" || sel.kind === "cat") {
-      const l = libs.find((x) => x.id === sel.libId);
+      const l = libs.find((x) => keyOf(x) === sel.libId);
       return (
         <section>
           <h2 style={{ margin: "0 0 8px" }}>{body.label || sel.libId}</h2>

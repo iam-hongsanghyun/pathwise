@@ -14,10 +14,12 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field
 
+from pathwise.api.session_library_store import SessionLibraryStore
 from pathwise.api.session_store import SessionNotFound, SessionStore
 from pathwise.api.workbook_io import parse_sqlite, parse_xlsx, result_to_xlsx, write_xlsx
 from pathwise.config import get_settings
 from pathwise.core.valuechain import run_value_chain
+from pathwise.data.components import extract_library_from_workbook, load_component_library
 from pathwise.data.library import (
     Library,
     add_chain,
@@ -57,6 +59,10 @@ CORE_SHEETS = [
 
 def _store() -> SessionStore:
     return SessionStore(Path(get_settings().data_dir) / "sessions")
+
+
+def _session_libs() -> SessionLibraryStore:
+    return SessionLibraryStore(Path(get_settings().data_dir) / "session_libraries")
 
 
 def _model_or_404(store: SessionStore, session_id: str) -> dict[str, list[dict[str, Any]]]:
@@ -226,7 +232,21 @@ def load_example(session_id: str, example_id: str) -> dict[str, Any]:
     else:
         model = parse_xlsx(fpath.read_bytes())
     counts = store.put_model(session_id, model)
-    return {"sessionId": session_id, "sheets": counts}
+    # Split the import: the value-chain STRUCTURE (nodes / connections) stays in
+    # the session model (shown in the Value-chain view); the component DETAILS
+    # (streams / technologies / measures) populate the session's OWN component
+    # library (shown in the Component view), distinct from the shared base set.
+    lib_id = "".join(c for c in example_id if c.isalnum() or c in "-_.") or "scenario"
+    shipped = entry.get("library")
+    seeds = Path(get_settings().component_seeds_dir)
+    if shipped and (seeds / f"{shipped}.json").exists():
+        lib = load_component_library(seeds / f"{shipped}.json")  # faithful, shipped library
+        if not lib.label:
+            lib.label = str(entry.get("label") or example_id)
+    else:
+        lib = extract_library_from_workbook(model, label=str(entry.get("label") or example_id))
+    _session_libs().put(session_id, lib_id, lib.model_dump())
+    return {"sessionId": session_id, "sheets": counts, "library_id": lib_id}
 
 
 # ── Facility-template library (insert server-side) ────────────────────────────
