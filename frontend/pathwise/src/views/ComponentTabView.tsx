@@ -13,6 +13,7 @@ import {
   TechnologyEditor,
 } from "../features/component/editors";
 import { TimeSeriesRail } from "../features/component/TimeSeriesRail";
+import { type Column, DataTable } from "../features/controls/DataTable";
 import { useDialogs } from "../features/controls/Dialog";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
 import type { TreeAction, TreeNode } from "../features/tree/types";
@@ -71,6 +72,11 @@ const uniq = (base: string, taken: Set<string>): string => {
   return `${base}_${i}`;
 };
 
+// Parse a table cell back to a number: "" → 0 (pnum), "" → null (pnull/pint).
+const pnum = (raw: string): number => (raw.trim() === "" ? 0 : Number(raw) || 0);
+const pnull = (raw: string): number | null => (raw.trim() === "" ? null : Number(raw) || 0);
+const pint = (raw: string): number | null => (raw.trim() === "" ? null : Math.round(Number(raw) || 0));
+
 function parseId(treeId: string): Sel {
   const parts = treeId.split(":");
   const [prefix, libId] = parts;
@@ -85,6 +91,75 @@ function treeIdOf(s: Sel): string {
   return `${KIND_PREFIX[s.kind]}:${s.libId}:${s.id}`;
 }
 
+// ── Sector bucketing (shared by the tree and the detail panel) ─────────────────
+// A stream belongs to the sector that PRODUCES it; a library shows only the
+// streams its technologies OUTPUT (a pure input like electricity is produced
+// elsewhere, so it is hidden). A technology files under the sector of its
+// product; measures/MACCs under the sector of the technology that links them.
+// Anything unclassified falls under "Other".
+const OTHER = "Other";
+export interface Bucket {
+  techs: TechnologyTemplate[];
+  streams: CommodityTemplate[];
+  maccs: MaccGroup[];
+  measures: MeasureTemplate[];
+}
+export function libraryBuckets(body: ComponentLibrary): { order: string[]; buckets: Map<string, Bucket> } {
+  const sec = (s: string | null | undefined): string => (s && s.trim()) || OTHER;
+  const secOf = new Map(body.commodities.map((c) => [c.commodity_id, c.sector]));
+  const produced = new Set<string>();
+  const consumed = new Set<string>();
+  for (const t of body.technologies)
+    for (const r of t.io) {
+      if (r.role === "output") produced.add(r.target);
+      else if (r.role === "input") consumed.add(r.target);
+    }
+  const techSector = (t: TechnologyTemplate): string => {
+    const outs = t.io.filter((r) => r.role === "output");
+    const prod = outs.find((r) => r.is_product) ?? outs[0];
+    return prod ? sec(secOf.get(prod.target)) : OTHER;
+  };
+  const measSectorOf = new Map<string, string>();
+  const maccSectorOf = new Map<string, string>();
+  for (const t of body.technologies) {
+    const ts = techSector(t);
+    for (const mid of t.maccs) {
+      if (!maccSectorOf.has(mid)) maccSectorOf.set(mid, ts);
+      for (const meas of body.maccs.find((g) => g.macc_id === mid)?.measures ?? [])
+        if (!measSectorOf.has(meas)) measSectorOf.set(meas, ts);
+    }
+  }
+  const buckets = new Map<string, Bucket>();
+  const B = (s: string): Bucket => {
+    let b = buckets.get(s);
+    if (!b) buckets.set(s, (b = { techs: [], streams: [], maccs: [], measures: [] }));
+    return b;
+  };
+  for (const t of body.technologies) B(techSector(t)).techs.push(t);
+  for (const c of body.commodities) {
+    const isOut = produced.has(c.commodity_id);
+    if (!isOut && consumed.has(c.commodity_id)) continue; // pure input → produced elsewhere
+    B(isOut ? sec(c.sector) : OTHER).streams.push(c); // standalone (neither) → Other
+  }
+  for (const g of body.maccs) B(maccSectorOf.get(g.macc_id) ?? OTHER).maccs.push(g);
+  for (const m of body.measures) B(measSectorOf.get(m.measure_id) ?? sec(secOf.get(m.target))).measures.push(m);
+  const order = [...buckets.keys()].sort((a, b) => (a === OTHER ? 1 : b === OTHER ? -1 : a.localeCompare(b)));
+  return { order, buckets };
+}
+
+// Module-level so its identity is stable across renders (a component defined
+// inside render would remount its inputs on every keystroke, dropping focus).
+function BucketShell({ title, add, children }: { title: string; add?: () => void; children: React.ReactNode }) {
+  return (
+    <section>
+      <h2 style={{ margin: "0 0 4px" }}>{title}</h2>
+      <p className="muted" style={{ fontSize: "0.74rem", margin: "0 0 10px" }}>Edit values inline — changes autosave. Click an id to open the full item.</p>
+      {add && <button className="ghost" style={{ marginBottom: 8 }} onClick={add}>＋ add</button>}
+      {children}
+    </section>
+  );
+}
+
 export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
   const { prompt, confirm, node: dialogNode } = useDialogs();
   const [libs, setLibs] = useState<LibrarySummary[]>([]);
@@ -94,6 +169,7 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const [railMember, setRailMember] = useState<string>(""); // active member in a bucket's time-series rail
   const saved = useRef<Map<string, string>>(new Map());
 
   // Base (shared) + this session's own libraries (an imported scenario's set).
@@ -134,6 +210,9 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
     return () => clearTimeout(t);
   }, [dirty, openLibs, sessionId]);
 
+  // Reset the bucket time-series rail's active member when the selection changes.
+  useEffect(() => { setRailMember(""); }, [sel?.libId, sel?.kind, sel?.id]);
+
   function editLib(libId: string, fn: (l: ComponentLibrary) => ComponentLibrary) {
     setOpenLibs((prev) => {
       const cur = prev.get(libId);
@@ -144,18 +223,11 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
   }
 
   // ── Tree: library → Sector → {Technology, Stream (outputs), Measures & MACC} ──
-  // A stream belongs to the sector that PRODUCES it; a library shows only the
-  // streams its technologies OUTPUT (an input like electricity is produced
-  // elsewhere, so it is hidden here). A technology files under the sector of its
-  // product; measures/MACCs under the sector of the technology that links them.
-  // Anything unclassified falls under "Other".
-  const OTHER = "Other";
   const treeNodes = useMemo<TreeNode[]>(() => {
     const out: TreeNode[] = [];
     const node = (id: string, parentId: string, label: string, kind: TreeNode["kind"], has: boolean): void => {
       out.push({ id, parentId, kind, label, hasChildren: has, draggable: false, droppable: false });
     };
-    const sec = (s: string | null | undefined): string => (s && s.trim()) || OTHER;
 
     for (const l of libs) {
       const lk = keyOf(l); // compound `${scope}/${id}`
@@ -164,46 +236,8 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
       const body = openLibs.get(lk);
       if (!body) continue;
 
-      const secOf = new Map(body.commodities.map((c) => [c.commodity_id, c.sector]));
-      const produced = new Set<string>();
-      const consumed = new Set<string>();
-      for (const t of body.technologies)
-        for (const r of t.io) (r.role === "output" ? produced : r.role === "input" ? consumed : new Set()).add(r.target);
-      const techSector = (t: TechnologyTemplate): string => {
-        const outs = t.io.filter((r) => r.role === "output");
-        const prod = outs.find((r) => r.is_product) ?? outs[0];
-        return prod ? sec(secOf.get(prod.target)) : OTHER;
-      };
-      // measures / MACCs inherit the sector of the technology that links them
-      const measSectorOf = new Map<string, string>();
-      const maccSectorOf = new Map<string, string>();
-      for (const t of body.technologies) {
-        const ts = techSector(t);
-        for (const mid of t.maccs) {
-          if (!maccSectorOf.has(mid)) maccSectorOf.set(mid, ts);
-          for (const meas of body.maccs.find((g) => g.macc_id === mid)?.measures ?? [])
-            if (!measSectorOf.has(meas)) measSectorOf.set(meas, ts);
-        }
-      }
-
-      type Bucket = { techs: TechnologyTemplate[]; streams: CommodityTemplate[]; maccs: MaccGroup[]; measures: MeasureTemplate[] };
-      const buckets = new Map<string, Bucket>();
-      const B = (s: string): Bucket => {
-        let b = buckets.get(s);
-        if (!b) buckets.set(s, (b = { techs: [], streams: [], maccs: [], measures: [] }));
-        return b;
-      };
-      for (const t of body.technologies) B(techSector(t)).techs.push(t);
-      for (const c of body.commodities) {
-        const isOut = produced.has(c.commodity_id);
-        if (!isOut && consumed.has(c.commodity_id)) continue; // pure input → produced elsewhere
-        B(isOut ? sec(c.sector) : OTHER).streams.push(c); // standalone (neither) → Other
-      }
-      for (const g of body.maccs) B(maccSectorOf.get(g.macc_id) ?? OTHER).maccs.push(g);
-      for (const m of body.measures) B(measSectorOf.get(m.measure_id) ?? sec(secOf.get(m.target))).measures.push(m);
-
-      const sectors = [...buckets.keys()].sort((a, b) => (a === OTHER ? 1 : b === OTHER ? -1 : a.localeCompare(b)));
-      for (const s of sectors) {
+      const { order, buckets } = libraryBuckets(body);
+      for (const s of order) {
         const b = buckets.get(s)!;
         const secId = `cat:${lk}:${s}`;
         node(secId, `lib:${lk}`, s, "group", true);
@@ -364,10 +398,129 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
   // ── Detail ─────────────────────────────────────────────────────────────────────
   const body = sel ? openLibs.get(sel.libId) : undefined;
   const commodityIds = useMemo(() => (body?.commodities ?? []).map((c) => c.commodity_id), [body]);
+  const buckets = useMemo(() => (body ? libraryBuckets(body) : null), [body]);
+
+  // ── Sector (aggregated roll-up) and Bucket (editable table) views ────────────
+  function renderCat(raw: string) {
+    if (!sel || !body || !buckets) return null;
+    const libId = sel.libId;
+    const sector = raw.split("/")[0] || OTHER;
+    const sub = raw.includes("/") ? raw.split("/")[1] : "";
+    const b = buckets.buckets.get(sector);
+    if (!b) return <p className="muted">This sector is empty.</p>;
+    const drill = (kind: Kind, id: string) => setSel({ libId, kind, id });
+
+    if (sub === "tech") {
+      const cols: Column<TechnologyTemplate>[] = [
+        { key: "id", label: "id", type: "readonly", get: (t) => t.technology_id, onClick: (t) => drill("tech", t.technology_id) },
+        { key: "lifespan", label: "lifespan", metaKey: "lifespan", type: "number", get: (t) => t.lifespan, set: (t, v) => ({ ...t, lifespan: pnum(v) }) },
+        { key: "capex", label: "capex /cap", metaKey: "capex", type: "number", get: (t) => t.capex, set: (t, v) => ({ ...t, capex: pnum(v) }) },
+        { key: "opex", label: "opex /unit", metaKey: "opex", type: "number", get: (t) => t.opex, set: (t, v) => ({ ...t, opex: pnum(v) }) },
+        { key: "from", label: "avail. from", metaKey: "introduction_year", type: "number", get: (t) => t.introduction_year ?? "", set: (t, v) => ({ ...t, introduction_year: pint(v) }) },
+        { key: "to", label: "avail. to", metaKey: "phase_out_year", type: "number", get: (t) => t.phase_out_year ?? "", set: (t, v) => ({ ...t, phase_out_year: pint(v) }) },
+      ];
+      return (
+        <BucketShell title={`${sector} · Technologies`} add={() => addTech(libId)}>
+          <DataTable rows={b.techs} columns={cols} rowKey={(t) => t.technology_id} empty="No technologies in this sector."
+            onChange={(rows) => editLib(libId, (l) => { const by = new Map(rows.map((r) => [r.technology_id, r])); return { ...l, technologies: l.technologies.map((t) => by.get(t.technology_id) ?? t) }; })} />
+        </BucketShell>
+      );
+    }
+    if (sub === "stream") {
+      const cols: Column<CommodityTemplate>[] = [
+        { key: "id", label: "id", type: "readonly", get: (c) => c.commodity_id, onClick: (c) => drill("stream", c.commodity_id) },
+        { key: "kind", label: "kind", metaKey: "kind", type: "enum", options: ["energy", "material", "indirect", "product", "byproduct"], get: (c) => c.kind, set: (c, v) => ({ ...c, kind: v as CommodityTemplate["kind"] }) },
+        { key: "unit", label: "unit", metaKey: "unit", type: "text", get: (c) => c.unit, set: (c, v) => ({ ...c, unit: v }) },
+        { key: "sector", label: "sector", metaKey: "sector", type: "text", get: (c) => c.sector ?? "", set: (c, v) => ({ ...c, sector: v.trim() === "" ? null : v }) },
+        { key: "price", label: "price", metaKey: "price", type: "number", get: (c) => c.price ?? "", set: (c, v) => ({ ...c, price: pnull(v) }) },
+        { key: "sale", label: "sale price", metaKey: "sale_price", type: "number", get: (c) => c.sale_price ?? "", set: (c, v) => ({ ...c, sale_price: pnull(v) }) },
+      ];
+      return (
+        <BucketShell title={`${sector} · Streams`} add={() => addStream(libId, sector === OTHER ? null : sector)}>
+          <DataTable rows={b.streams} columns={cols} rowKey={(c) => c.commodity_id} empty="No streams produced in this sector."
+            onChange={(rows) => editLib(libId, (l) => { const by = new Map(rows.map((r) => [r.commodity_id, r])); return { ...l, commodities: l.commodities.map((c) => by.get(c.commodity_id) ?? c) }; })} />
+        </BucketShell>
+      );
+    }
+    if (sub === "indiv") {
+      const cols: Column<MeasureTemplate>[] = [
+        { key: "id", label: "id", type: "readonly", get: (m) => m.measure_id, onClick: (m) => drill("measure", m.measure_id) },
+        { key: "label", label: "label", metaKey: "label", type: "text", get: (m) => m.label, set: (m, v) => ({ ...m, label: v }) },
+        { key: "type", label: "type", metaKey: "measure_type", type: "enum", options: ["energy_efficiency", "emission_reduction", "environmental"], get: (m) => m.type, set: (m, v) => ({ ...m, type: v as MeasureTemplate["type"] }) },
+        { key: "target", label: "target", metaKey: "target", type: "text", get: (m) => m.target, set: (m, v) => ({ ...m, target: v }) },
+        { key: "lifetime", label: "lifetime", metaKey: "lifetime", type: "number", get: (m) => m.lifetime, set: (m, v) => ({ ...m, lifetime: pnum(v) }) },
+        { key: "blocks", label: "# blocks", type: "readonly", get: (m) => m.blocks.length },
+      ];
+      return (
+        <BucketShell title={`${sector} · Measures`} add={() => addMeasure(libId)}>
+          <DataTable rows={b.measures} columns={cols} rowKey={(m) => m.measure_id} empty="No individual measures in this sector."
+            onChange={(rows) => editLib(libId, (l) => { const by = new Map(rows.map((r) => [r.measure_id, r])); return { ...l, measures: l.measures.map((m) => by.get(m.measure_id) ?? m) }; })} />
+        </BucketShell>
+      );
+    }
+    if (sub === "macc") {
+      const cols: Column<MaccGroup>[] = [
+        { key: "id", label: "id", type: "readonly", get: (g) => g.macc_id, onClick: (g) => drill("macc", g.macc_id) },
+        { key: "label", label: "label", metaKey: "label", type: "text", get: (g) => g.label, set: (g, v) => ({ ...g, label: v }) },
+        { key: "measures", label: "# measures", type: "readonly", get: (g) => g.measures.length },
+      ];
+      return (
+        <BucketShell title={`${sector} · MACCs`} add={() => addMacc(libId)}>
+          <DataTable rows={b.maccs} columns={cols} rowKey={(g) => g.macc_id} empty="No MACC bundles in this sector."
+            onChange={(rows) => editLib(libId, (l) => { const by = new Map(rows.map((r) => [r.macc_id, r])); return { ...l, maccs: l.maccs.map((g) => by.get(g.macc_id) ?? g) }; })} />
+        </BucketShell>
+      );
+    }
+
+    // Sector group ("") or the Measures & MACC parent ("measures") → an
+    // aggregated, read-only roll-up of the members (click an id to drill in).
+    const noop = () => undefined;
+    const roll = <T,>(title: string, rows: T[], rowKey: (r: T) => string, cols: Column<T>[]) =>
+      rows.length === 0 ? null : (
+        <div style={{ marginBottom: 16 }}>
+          <h3 style={{ margin: "0 0 6px", fontSize: "0.85rem" }}>{title} <span className="muted">({rows.length})</span></h3>
+          <DataTable rows={rows} columns={cols} rowKey={rowKey} onChange={noop} />
+        </div>
+      );
+    const onlyMeasures = sub === "measures";
+    return (
+      <section>
+        <h2 style={{ margin: "0 0 4px" }}>{sector}{onlyMeasures ? " · Measures & MACC" : ""}</h2>
+        <p className="muted" style={{ fontSize: "0.76rem", margin: "0 0 12px" }}>
+          {onlyMeasures
+            ? `${b.measures.length} measures · ${b.maccs.length} MACCs in this sector.`
+            : `${b.techs.length} technologies · ${b.streams.length} streams · ${b.measures.length} measures · ${b.maccs.length} MACCs in this sector.`}
+          {" "}Open a bucket on the left to edit a column at a time, or click an id below.
+        </p>
+        {!onlyMeasures && roll<TechnologyTemplate>("Technologies", b.techs, (t) => t.technology_id, [
+          { key: "id", label: "id", type: "readonly", get: (t) => t.technology_id, onClick: (t) => drill("tech", t.technology_id) },
+          { key: "capex", label: "capex /cap", metaKey: "capex", type: "readonly", get: (t) => t.capex },
+          { key: "opex", label: "opex /unit", metaKey: "opex", type: "readonly", get: (t) => t.opex },
+        ])}
+        {!onlyMeasures && roll<CommodityTemplate>("Streams (outputs)", b.streams, (c) => c.commodity_id, [
+          { key: "id", label: "id", type: "readonly", get: (c) => c.commodity_id, onClick: (c) => drill("stream", c.commodity_id) },
+          { key: "kind", label: "kind", metaKey: "kind", type: "readonly", get: (c) => c.kind },
+          { key: "price", label: "price", metaKey: "price", type: "readonly", get: (c) => c.price ?? "—" },
+        ])}
+        {roll<MeasureTemplate>("Measures", b.measures, (m) => m.measure_id, [
+          { key: "id", label: "id", type: "readonly", get: (m) => m.label || m.measure_id, onClick: (m) => drill("measure", m.measure_id) },
+          { key: "type", label: "type", metaKey: "measure_type", type: "readonly", get: (m) => m.type },
+          { key: "target", label: "target", metaKey: "target", type: "readonly", get: (m) => m.target },
+        ])}
+        {roll<MaccGroup>("MACCs", b.maccs, (g) => g.macc_id, [
+          { key: "id", label: "id", type: "readonly", get: (g) => g.label || g.macc_id, onClick: (g) => drill("macc", g.macc_id) },
+          { key: "measures", label: "# measures", type: "readonly", get: (g) => g.measures.length },
+        ])}
+        {b.techs.length + b.streams.length + b.measures.length + b.maccs.length === 0 && (
+          <p className="muted" style={{ fontSize: "0.78rem" }}>This sector is empty.</p>
+        )}
+      </section>
+    );
+  }
 
   function renderDetail() {
     if (!sel || !body) return <p className="muted">Pick or create a library on the left to start building.</p>;
-    if (sel.kind === "library" || sel.kind === "cat") {
+    if (sel.kind === "library") {
       const l = libs.find((x) => keyOf(x) === sel.libId);
       return (
         <section>
@@ -389,6 +542,7 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
         </section>
       );
     }
+    if (sel.kind === "cat") return renderCat(sel.id ?? OTHER);
     if (sel.kind === "tech") {
       const t = body.technologies.find((x) => x.technology_id === sel.id);
       if (!t) return null;
@@ -525,6 +679,36 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
     if (sel.kind === "measure") {
       const m = body.measures.find((x) => x.measure_id === sel.id);
       return m == null ? null : <TimeSeriesRail kind="measure" value={m} onChange={(v) => editLib(sel.libId, (l) => ({ ...l, measures: l.measures.map((x) => (x.measure_id === sel.id ? v : x)) }))} />;
+    }
+    // Bucket selection → pick a member (per-series toggle), edit its trajectory.
+    if (sel.kind === "cat" && buckets) {
+      const raw = sel.id ?? "";
+      const sector = raw.split("/")[0] || OTHER;
+      const sub = raw.includes("/") ? raw.split("/")[1] : "";
+      const b = buckets.buckets.get(sector);
+      if (!b) return null;
+      const libId = sel.libId;
+      const toggle = (ids: string[], active: string) => (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+          <span className="muted" style={{ fontSize: "0.72rem", alignSelf: "center" }}>edit by-year for:</span>
+          {ids.map((id) => (
+            <button key={id} className="ghost" style={active === id ? { borderColor: "var(--brand)", color: "var(--brand)" } : undefined} onClick={() => setRailMember(id)}>{id}</button>
+          ))}
+        </div>
+      );
+      if (sub === "tech" && b.techs.length) {
+        const t = b.techs.find((x) => x.technology_id === railMember) ?? b.techs[0];
+        return (<>{toggle(b.techs.map((x) => x.technology_id), t.technology_id)}<TimeSeriesRail kind="tech" value={t} onChange={(v) => editLib(libId, (l) => ({ ...l, technologies: l.technologies.map((x) => (x.technology_id === t.technology_id ? v : x)) }))} /></>);
+      }
+      if (sub === "stream" && b.streams.length) {
+        const c = b.streams.find((x) => x.commodity_id === railMember) ?? b.streams[0];
+        return (<>{toggle(b.streams.map((x) => x.commodity_id), c.commodity_id)}<TimeSeriesRail kind="stream" value={c} onChange={(v) => editLib(libId, (l) => ({ ...l, commodities: l.commodities.map((x) => (x.commodity_id === c.commodity_id ? v : x)) }))} /></>);
+      }
+      if (sub === "indiv" && b.measures.length) {
+        const m = b.measures.find((x) => x.measure_id === railMember) ?? b.measures[0];
+        return (<>{toggle(b.measures.map((x) => x.measure_id), m.measure_id)}<TimeSeriesRail kind="measure" value={m} onChange={(v) => editLib(libId, (l) => ({ ...l, measures: l.measures.map((x) => (x.measure_id === m.measure_id ? v : x)) }))} /></>);
+      }
+      return null;
     }
     return null;
   }
