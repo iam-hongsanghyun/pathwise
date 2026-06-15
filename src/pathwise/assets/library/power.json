@@ -1,5 +1,5 @@
 {
-  "sector": "power",
+  "id": "power",
   "label": "Power generation",
   "commodities": [
     {

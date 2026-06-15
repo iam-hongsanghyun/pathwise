@@ -9,23 +9,23 @@ import pytest
 
 from pathwise.core import build, extract_results, solve
 from pathwise.data import ScenarioConfig, assemble_problem, validate
-from pathwise.data.library import SectorLibrary, instantiate_chain, load_sector
+from pathwise.data.library import Library, instantiate_chain, load_library
 
-LIB_DIR = Path(__file__).resolve().parents[2] / "frontend/pathwise/public/library"
-SECTOR_FILES = sorted(p for p in LIB_DIR.glob("*.json") if p.name != "index.json")
+LIB_DIR = Path(__file__).resolve().parents[2] / "src/pathwise/assets/library"
+LIBRARY_FILES = sorted(p for p in LIB_DIR.glob("*.json") if p.name != "index.json")
 
 
 def test_index_lists_existing_files() -> None:
     index = json.loads((LIB_DIR / "index.json").read_text(encoding="utf-8"))
     assert index, "library index is empty"
     for entry in index:
-        assert {"sector", "label", "file"} <= set(entry), f"index entry incomplete: {entry}"
+        assert {"id", "label", "file"} <= set(entry), f"index entry incomplete: {entry}"
         assert (LIB_DIR / entry["file"]).exists(), f"missing library file {entry['file']}"
 
 
-@pytest.mark.parametrize("path", SECTOR_FILES, ids=lambda p: p.stem)
-def test_sector_file_is_valid_and_referenced(path: Path) -> None:
-    lib = load_sector(path)  # pydantic enforces mandatory source.url on every entry
+@pytest.mark.parametrize("path", LIBRARY_FILES, ids=lambda p: p.stem)
+def test_library_file_is_valid_and_referenced(path: Path) -> None:
+    lib = load_library(path)  # pydantic enforces mandatory source.url on every entry
     declared = {c.commodity_id for c in lib.commodities}
     for f in lib.facilities:
         for tech in [f.technology, *(a.technology for a in f.alternatives)]:
@@ -57,9 +57,9 @@ def test_sector_file_is_valid_and_referenced(path: Path) -> None:
             )
 
 
-@pytest.mark.parametrize("path", SECTOR_FILES, ids=lambda p: p.stem)
+@pytest.mark.parametrize("path", LIBRARY_FILES, ids=lambda p: p.stem)
 def test_every_chain_solves_optimal(path: Path) -> None:
-    lib = load_sector(path)
+    lib = load_library(path)
     for chain in lib.chains:
         wb = instantiate_chain(lib, chain.chain_id)
         report = validate(wb)
@@ -77,8 +77,8 @@ def test_measures_stamped_on_insert() -> None:
     # block capex scaled by the instance capacity.
     from pathwise.data.library import add_facility
 
-    cement = next(p for p in SECTOR_FILES if p.stem == "cement")
-    lib = load_sector(cement)
+    cement = next(p for p in LIBRARY_FILES if p.stem == "cement")
+    lib = load_library(cement)
     fac = lib.facility("clinker_kiln")
     assert fac.measures, "cement kiln template should carry a MACC measure"
     wb = add_facility({"periods": [{"year": 2025}]}, lib, "clinker_kiln", company="C")
@@ -92,8 +92,8 @@ def test_measures_stamped_on_insert() -> None:
 
 
 def test_chain_with_measures_still_solves() -> None:
-    cement = next(p for p in SECTOR_FILES if p.stem == "cement")
-    lib = load_sector(cement)
+    cement = next(p for p in LIBRARY_FILES if p.stem == "cement")
+    lib = load_library(cement)
     wb = instantiate_chain(lib, "cement_chain")
     assert any(wb.get("measures", [])), "chain instance should inherit kiln measures"
     sc = ScenarioConfig.from_dict({"economics": {"base_year": 2025, "discount_rate": 0.0}})
@@ -102,21 +102,21 @@ def test_chain_with_measures_still_solves() -> None:
 
 
 def test_missing_reference_is_rejected() -> None:
-    lib = json.loads((SECTOR_FILES[0]).read_text(encoding="utf-8"))
+    lib = json.loads((LIBRARY_FILES[0]).read_text(encoding="utf-8"))
     del lib["facilities"][0]["source"]
     with pytest.raises(Exception, match="source"):
-        SectorLibrary.model_validate(lib)
+        Library.model_validate(lib)
 
 
 def test_non_http_reference_is_rejected() -> None:
-    lib = json.loads((SECTOR_FILES[0]).read_text(encoding="utf-8"))
+    lib = json.loads((LIBRARY_FILES[0]).read_text(encoding="utf-8"))
     lib["facilities"][0]["source"]["url"] = "see internal memo"
     with pytest.raises(Exception, match="http"):
-        SectorLibrary.model_validate(lib)
+        Library.model_validate(lib)
 
 
 def test_broken_chain_feed_raises() -> None:
-    lib = load_sector(SECTOR_FILES[0])
+    lib = load_library(LIBRARY_FILES[0])
     # Reverse a chain so a stage feeds from a facility that shares no commodity.
     chain = lib.chains[0]
     if len(chain.stages) < 3:
@@ -132,8 +132,8 @@ def test_broken_chain_feed_raises() -> None:
 def test_add_replacement_writes_transition_not_facility() -> None:
     from pathwise.data.library import add_facility, add_replacement
 
-    aluminium = next(p for p in SECTOR_FILES if p.stem == "aluminium")
-    lib = load_sector(aluminium)
+    aluminium = next(p for p in LIBRARY_FILES if p.stem == "aluminium")
+    lib = load_library(aluminium)
     wb = add_facility({"periods": [{"year": 2025}]}, lib, "alumina_refinery", company="C")
     pid = str(wb["processes"][-1]["process_id"])
     n_procs = len(wb["processes"])
@@ -154,8 +154,8 @@ def test_add_replacement_writes_transition_not_facility() -> None:
 
 
 def test_add_replacement_unknown_process_raises() -> None:
-    aluminium = next(p for p in SECTOR_FILES if p.stem == "aluminium")
-    lib = load_sector(aluminium)
+    aluminium = next(p for p in LIBRARY_FILES if p.stem == "aluminium")
+    lib = load_library(aluminium)
     from pathwise.data.library import add_replacement
 
     with pytest.raises(KeyError, match="unknown facility"):

@@ -137,9 +137,12 @@ export function TopologyCanvas({
   // One pointer interaction at a time: either panning or dragging a node.
   const gesture = useRef<
     | { kind: "pan"; startX: number; startY: number; vb: ViewBox }
-    | { kind: "node"; id: string; dx: number; dy: number; moved: boolean }
+    | { kind: "node"; id: string; dx: number; dy: number; moved: boolean; startX: number; startY: number }
     | null
   >(null);
+  // Below this screen-pixel displacement a node press is treated as a click
+  // (select), not a drag — so tiny jitter doesn't swallow the selection.
+  const DRAG_THRESHOLD_PX = 3;
   const [menu, setMenu] = useState<{ x: number; y: number; nodeId?: string } | null>(null);
 
   const capture = (el: Element | null, pointerId: number) => {
@@ -156,11 +159,21 @@ export function TopologyCanvas({
   };
   const startNodeDrag = (e: React.PointerEvent, id: string) => {
     e.stopPropagation();
-    if (!editable) return;
-    capture(svgRef.current as unknown as Element, e.pointerId);
+    // Always record the press so a no-move release selects the node (handled in
+    // onPointerUp — the DOM `click` is unreliable once the pointer is captured).
+    // Capture + actual dragging only happen in editable mode.
     const at = toWorld(e.clientX, e.clientY);
-    const pos = posOf.get(id)!;
-    gesture.current = { kind: "node", id, dx: at.x - pos.x, dy: at.y - pos.y, moved: false };
+    const pos = posOf.get(id);
+    gesture.current = {
+      kind: "node",
+      id,
+      dx: pos ? at.x - pos.x : 0,
+      dy: pos ? at.y - pos.y : 0,
+      moved: false,
+      startX: e.clientX,
+      startY: e.clientY,
+    };
+    if (editable) capture(svgRef.current as unknown as Element, e.pointerId);
   };
   const onPointerMove = (e: React.PointerEvent) => {
     const g = gesture.current;
@@ -172,6 +185,9 @@ export function TopologyCanvas({
       const sy = (g.startY - e.clientY) * (vb.h / rect.height);
       setVb({ ...g.vb, x: g.vb.x + sx, y: g.vb.y + sy });
     } else {
+      // Only drag in editable mode, and only once past the click threshold.
+      if (!editable) return;
+      if (Math.hypot(e.clientX - g.startX, e.clientY - g.startY) < DRAG_THRESHOLD_PX) return;
       const at = toWorld(e.clientX, e.clientY);
       g.moved = true;
       setOverride((prev) => new Map(prev).set(g.id, { x: at.x - g.dx, y: at.y - g.dy }));
@@ -180,7 +196,14 @@ export function TopologyCanvas({
   const onPointerUp = () => {
     const g = gesture.current;
     gesture.current = null;
-    if (g?.kind === "node" && g.moved && onChange) onChange(persistLayout(workbook, nodes));
+    if (g?.kind !== "node") return;
+    if (g.moved) {
+      if (onChange) onChange(persistLayout(workbook, nodes));
+    } else {
+      // A press with no real movement is a click → select the node.
+      const nd = nodes.find((n) => n.id === g.id);
+      if (nd) click(nd);
+    }
   };
 
   const onDrop = (e: React.DragEvent) => {
@@ -263,10 +286,6 @@ export function TopologyCanvas({
               className={`topo-node topo-${nd.data.kind}${dim ? " is-dim" : ""}`}
               transform={`translate(${nd.position.x},${nd.position.y})`}
               onPointerDown={(e) => startNodeDrag(e, nd.id)}
-              onClick={(e) => {
-                e.stopPropagation();
-                click(nd);
-              }}
               onContextMenu={(e) => {
                 if (!editable) return;
                 e.preventDefault();

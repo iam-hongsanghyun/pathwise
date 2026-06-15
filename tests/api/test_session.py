@@ -88,12 +88,12 @@ def test_load_example_into_session() -> None:
 
 
 def test_library_insert_into_session() -> None:
-    sectors = {e["sector"] for e in client.get("/api/library").json()}
-    assert "aluminium" in sectors
+    libraries = {e["id"] for e in client.get("/api/library").json()}
+    assert "aluminium" in libraries
     sid = _new_session()
     res = client.post(
         f"/api/session/{sid}/library",
-        json={"sector": "aluminium", "kind": "chain", "id": "aluminium_chain"},
+        json={"library": "aluminium", "kind": "chain", "id": "aluminium_chain"},
     ).json()
     assert res["created"]
     model = client.get(f"/api/session/{sid}/model").json()["model"]
@@ -131,14 +131,14 @@ def test_library_replacement_insert() -> None:
     sid = _new_session()
     client.post(
         f"/api/session/{sid}/library",
-        json={"sector": "aluminium", "kind": "facility", "id": "alumina_refinery"},
+        json={"library": "aluminium", "kind": "facility", "id": "alumina_refinery"},
     )
     model = client.get(f"/api/session/{sid}/model").json()["model"]
     pid = model["processes"][-1]["process_id"]
     res = client.post(
         f"/api/session/{sid}/library",
         json={
-            "sector": "aluminium",
+            "library": "aluminium",
             "kind": "facility",
             "id": "smelter",
             "mode": "replacement",

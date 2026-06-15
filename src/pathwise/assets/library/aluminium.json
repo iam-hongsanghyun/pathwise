@@ -1,5 +1,5 @@
 {
-  "sector": "aluminium",
+  "id": "aluminium",
   "label": "Aluminium",
   "commodities": [
     {
@@ -105,7 +105,7 @@
       "default_capacity": 350.0,
       "source": {
         "name": "pathwise aluminium teaching example (synthetic, repo-curated)",
-        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/aluminium.py",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/src/pathwise/assets/library/aluminium.json",
         "year": 2026,
         "region": "generic",
         "basis": "illustrative",
@@ -187,7 +187,7 @@
       "default_capacity": 220.0,
       "source": {
         "name": "pathwise aluminium teaching example (synthetic, repo-curated)",
-        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/aluminium.py",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/src/pathwise/assets/library/aluminium.json",
         "year": 2026,
         "region": "generic",
         "basis": "illustrative",
@@ -271,7 +271,7 @@
       "default_capacity": 200.0,
       "source": {
         "name": "pathwise aluminium teaching example (synthetic, repo-curated)",
-        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/aluminium.py",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/src/pathwise/assets/library/aluminium.json",
         "year": 2026,
         "region": "generic",
         "basis": "illustrative",
@@ -308,7 +308,7 @@
       },
       "source": {
         "name": "pathwise aluminium teaching example (synthetic, repo-curated)",
-        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/aluminium.py",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/src/pathwise/assets/library/aluminium.json",
         "year": 2026,
         "region": "generic",
         "basis": "illustrative"

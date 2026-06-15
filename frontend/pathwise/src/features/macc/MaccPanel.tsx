@@ -161,11 +161,16 @@ function MeasureEditModal({
     lifetime: s(mRow?.lifetime),
     blocks: (workbook.measure_blocks ?? [])
       .filter((r) => s(r.measure_id) === measure)
-      .map((b) => ({ block: s(b.block), reduction: s(b.reduction), capex: s(b.capex) })),
+      .map((b) => ({
+        block: s(b.block),
+        reduction: s(b.reduction),
+        capex: s(b.capex),
+        opex: s(b.opex),
+      })),
   }));
   const targetOptions = draft.type === "energy_efficiency" ? streams : impacts;
 
-  const setBlock = (idx: number, key: "block" | "reduction" | "capex", value: string) =>
+  const setBlock = (idx: number, key: "block" | "reduction" | "capex" | "opex", value: string) =>
     setDraft((d) => ({
       ...d,
       blocks: d.blocks.map((b, i) => (i === idx ? { ...b, [key]: value } : b)),
@@ -177,6 +182,7 @@ function MeasureEditModal({
       block: num(b.block) ?? i,
       reduction: num(b.reduction) ?? 0,
       capex: num(b.capex) ?? 0,
+      opex: num(b.opex) ?? 0,
     }));
 
   const save = () => {
@@ -276,6 +282,7 @@ function MeasureEditModal({
           <span>block</span>
           <span>reduction</span>
           <span>capex</span>
+          <span>opex/yr</span>
           <span />
         </div>
         {draft.blocks.map((b, i) => (
@@ -283,6 +290,7 @@ function MeasureEditModal({
             <input value={b.block} onChange={(e) => setBlock(i, "block", e.target.value)} />
             <input value={b.reduction} onChange={(e) => setBlock(i, "reduction", e.target.value)} />
             <input value={b.capex} onChange={(e) => setBlock(i, "capex", e.target.value)} />
+            <input value={b.opex} onChange={(e) => setBlock(i, "opex", e.target.value)} />
             <button
               className="ghost"
               onClick={() =>
@@ -299,7 +307,10 @@ function MeasureEditModal({
           onClick={() =>
             setDraft((d) => ({
               ...d,
-              blocks: [...d.blocks, { block: String(d.blocks.length), reduction: "0.1", capex: "0" }],
+              blocks: [
+                ...d.blocks,
+                { block: String(d.blocks.length), reduction: "0.1", capex: "0", opex: "0" },
+              ],
             }))
           }
         >
@@ -418,6 +429,7 @@ export function MaccPanel({ workbook, macc, onChange }: Props) {
                       <th>blocks</th>
                       <th>Σ reduction</th>
                       <th>Σ capex</th>
+                      <th>Σ opex/yr</th>
                       <th />
                     </tr>
                   </thead>
@@ -428,6 +440,7 @@ export function MaccPanel({ workbook, macc, onChange }: Props) {
                       const included = members.includes(mid);
                       const totalReduction = blocks.reduce((t, b) => t + Number(b.reduction ?? 0), 0);
                       const totalCapex = blocks.reduce((t, b) => t + Number(b.capex ?? 0), 0);
+                      const totalOpex = blocks.reduce((t, b) => t + Number(b.opex ?? 0), 0);
                       return (
                         <tr key={mid} className={row ? undefined : "row-broken"}>
                           <td>
@@ -444,6 +457,7 @@ export function MaccPanel({ workbook, macc, onChange }: Props) {
                           <td>{blocks.length}</td>
                           <td>{totalReduction.toFixed(2)}</td>
                           <td>{totalCapex.toFixed(1)}</td>
+                          <td>{totalOpex.toFixed(1)}</td>
                           <td>
                             {row && (
                               <button

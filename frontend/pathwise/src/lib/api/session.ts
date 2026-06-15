@@ -128,7 +128,7 @@ export async function loadExample(sessionId: string, exampleId: string): Promise
 export async function insertTemplate(
   sessionId: string,
   body: {
-    sector: string;
+    library: string;
     kind: "facility" | "chain";
     id: string;
     /** "initial" creates a facility running the template today; "replacement"

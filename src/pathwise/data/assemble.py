@@ -408,6 +408,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 MeasureBlock(
                     reduction=_num(r.get("reduction"), 0.0) or 0.0,
                     capex=_num(r.get("capex"), 0.0) or 0.0,
+                    opex=_num(r.get("opex"), 0.0) or 0.0,
                 ),
             )
         )

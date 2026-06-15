@@ -12,8 +12,13 @@ Every field has a matching entry in ``.env.example``.
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+#: Bundled assets ship inside the backend package, so their default paths are
+#: resolved relative to it (not the CWD) and survive an installed deployment.
+_ASSETS = Path(__file__).resolve().parent / "assets"
 
 
 class Settings(BaseSettings):
@@ -50,10 +55,11 @@ class Settings(BaseSettings):
     # ── Server-side data (ragnarok pattern: the backend owns the model) ───────
     # Working sessions (one SQLite file each) live under <data_dir>/sessions.
     data_dir: str = "data"
-    # Bundled example workbooks + the facility-template library (static assets,
-    # read by the backend so the frontend never parses files itself).
-    examples_dir: str = "frontend/pathwise/public/examples"
-    library_dir: str = "frontend/pathwise/public/library"
+    # Bundled example workbooks + the facility-template library — static assets
+    # that ship inside the backend package (read server-side; the frontend never
+    # parses files itself and never serves them statically).
+    examples_dir: str = str(_ASSETS / "examples")
+    library_dir: str = str(_ASSETS / "library")
     # Paging cap for session sheet reads.
     max_sheet_page: int = 1000
 

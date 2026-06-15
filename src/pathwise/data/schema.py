@@ -226,7 +226,8 @@ SCHEMA: dict[str, Any] = {
             "measure_id": {"label": "Measure", "type": "string", "required": True, "desc": "Unique name of this retrofit measure."},
             "block": {"label": "Block", "type": "integer", "required": True, "desc": "Cost-curve step order (0,1,2,…); blocks must be adopted in order."},
             "reduction": {"label": "Reduction (frac)", "type": "number", "required": True, "desc": "Fraction of the target cut at full adoption of this block (0-1)."},
-            "capex": {"label": "CAPEX", "type": "number", "required": True, "desc": "Capital cost of this block (may be negative, e.g. subsidised)."},
+            "capex": {"label": "CAPEX", "type": "number", "required": True, "desc": "One-off capital cost of this block (may be negative, e.g. subsidised)."},
+            "opex": {"label": "Fixed O&M (/yr)", "type": "number", "desc": "Recurring operating cost per year while this block is adopted (charged in proportion to adoption)."},
         },
     },
     "transitions": {

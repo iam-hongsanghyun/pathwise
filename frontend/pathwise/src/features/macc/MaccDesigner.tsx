@@ -11,8 +11,9 @@ export interface MaccBar {
   type: string;
   target: string;
   potential: number; // abatement / energy-saving potential (per year)
-  cost: number; // marginal cost per unit potential
+  cost: number; // lifetime cost per unit potential: (capex + opex·lifetime) / potential
   capex: number;
+  opex: number; // fixed O&M per year while adopted
 }
 
 /** Best-effort reference (mirrors core/variables._references) so the designer's
@@ -68,6 +69,10 @@ export function maccBars(wb: Workbook, macc?: string): MaccBar[] {
   const blocks = new Map<string, Row[]>();
   for (const b of wb.measure_blocks ?? [])
     (blocks.get(str(b.measure_id)) ?? blocks.set(str(b.measure_id), []).get(str(b.measure_id))!).push(b);
+  // Levelise opex over the measure's lifetime alongside the one-off capex.
+  const lifetimeOf = new Map<string, number>(
+    (wb.measures ?? []).map((r) => [str(r.measure_id), num(r.lifetime, 15) || 15]),
+  );
 
   // Restricted to one MACC's member measures when given.
   const members = macc
@@ -86,10 +91,15 @@ export function maccBars(wb: Workbook, macc?: string): MaccBar[] {
     const type = m.type;
     const target = m.target;
     const ref = type === "energy_efficiency" ? refConsumption(p, target) : refImpact(p, target);
+    const lifetime = lifetimeOf.get(m.base_id) ?? 15;
     for (const blk of blocks.get(m.base_id) ?? []) {
       const reduction = num(blk.reduction);
       const capex = num(blk.capex);
+      const opex = num(blk.opex);
       const potential = reduction * ref;
+      // Lifetime cost = one-off capex + opex over the measure's life; reduces to
+      // the previous capex-only metric when opex is 0.
+      const lifetimeCost = capex + opex * lifetime;
       out.push({
         measure: id,
         machine: p,
@@ -97,7 +107,8 @@ export function maccBars(wb: Workbook, macc?: string): MaccBar[] {
         target,
         potential,
         capex,
-        cost: potential > 0 ? capex / potential : Infinity,
+        opex,
+        cost: potential > 0 ? lifetimeCost / potential : Infinity,
       });
     }
   }

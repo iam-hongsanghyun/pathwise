@@ -70,9 +70,9 @@ const HIDDEN = new Set([
   "macc_links",
 ]);
 
-/** A sector's library entries prepared for the rail (loaded by ModelView). */
+/** A library's entries prepared for the rail (loaded by ModelView). */
 export interface RailLibrarySector {
-  sector: string;
+  id: string;
   label: string;
   chains: { id: string; label: string }[];
   facilities: { id: string; label: string }[];
@@ -89,7 +89,8 @@ interface Props {
   onToggleIds?: (sheet: string, idCol: string, ids: string[], enabled: boolean) => void;
   onAdd?: (sheet: string) => void;
   library?: RailLibrarySector[];
-  onLibraryItem?: (sector: string, kind: "facility" | "chain", id: string) => void;
+  onExpandLibrary?: (id: string) => void;
+  onLibraryItem?: (library: string, kind: "facility" | "chain", id: string) => void;
   draggable?: boolean;
   width?: number;
   /** Domain schema — used to flag REQUIRED references left empty (red dot). */
@@ -111,6 +112,7 @@ export function LeftRail({
   onToggleIds,
   onAdd,
   library,
+  onExpandLibrary,
   onLibraryItem,
   draggable,
   width,
@@ -333,9 +335,9 @@ export function LeftRail({
     );
   };
 
-  // Prebuilt facility / chain templates (sector library) — click an item for a
+  // Prebuilt facility / chain templates (library) — click an item for a
   // preview card with its reference link and an "Add to model" action.
-  // The library starts fully collapsed (top group and every sector).
+  // The library starts fully collapsed (top group and every library entry).
   const [libExpanded, setLibExpanded] = useState<Set<string>>(new Set());
   const toggleLib = (key: string) =>
     setLibExpanded((prev) => {
@@ -409,29 +411,34 @@ export function LeftRail({
       <div className="rail-group rail-library">
         <div className="rail-head-row">
           <button className="rail-head" onClick={() => toggleLib("library")}>
-            Library{" "}
-            <span className="rail-count">
-              {library.reduce((n, sct) => n + sct.facilities.length + sct.chains.length, 0)}
-            </span>
+            Library <span className="rail-count">{library.length}</span>
           </button>
         </div>
         {libExpanded.has("library") &&
           library.map((sct) => {
-            const key = `lib:${sct.sector}`;
+            const key = `lib:${sct.id}`;
             const open = libExpanded.has(key);
+            const empty = sct.chains.length === 0 && sct.facilities.length === 0;
             return (
-              <div key={sct.sector}>
-                <button className="rail-grouphead" onClick={() => toggleLib(key)}>
+              <div key={sct.id}>
+                <button
+                  className="rail-grouphead"
+                  onClick={() => {
+                    if (!open) onExpandLibrary?.(sct.id); // lazy-load detail on first open
+                    toggleLib(key);
+                  }}
+                >
                   {open ? "▾" : "▸"} {sct.label}
                 </button>
                 {open && (
                   <div className="rail-indent">
+                    {empty && <div className="rail-item rail-muted">Loading…</div>}
                     {sct.chains.map((c) => (
                       <button
                         key={c.id}
                         className="rail-item"
                         title={`${c.label} — chain template (adds every stage, wired)`}
-                        onClick={() => onLibraryItem(sct.sector, "chain", c.id)}
+                        onClick={() => onLibraryItem(sct.id, "chain", c.id)}
                       >
                         <span className="dot dot-alt" />
                         {c.label}
@@ -444,10 +451,10 @@ export function LeftRail({
                         draggable
                         title={`${f.label} — facility template (click to preview, drag onto the canvas)`}
                         onDragStart={(e) => {
-                          e.dataTransfer.setData(DRAG_MIME, `libfac:${sct.sector}/${f.id}`);
+                          e.dataTransfer.setData(DRAG_MIME, `libfac:${sct.id}/${f.id}`);
                           e.dataTransfer.effectAllowed = "copy";
                         }}
-                        onClick={() => onLibraryItem(sct.sector, "facility", f.id)}
+                        onClick={() => onLibraryItem(sct.id, "facility", f.id)}
                       >
                         <span className="dot dot-avail" />
                         {f.label}

@@ -301,6 +301,12 @@ def _period_costs(ctx: Any) -> dict[int, float]:
             pt = prev[int(t)]
             inc = v - (z.get((key, pt), 0.0) if pt is not None else 0.0)
             cost[int(t)] += sl.capex * inc
+    if tog.opex and ctx.slots:
+        slot_by_key = {sl.key: sl for sl in ctx.slots}
+        for (key, t), v in z.items():
+            sl = slot_by_key.get(key)
+            if sl is not None and sl.opex:
+                cost[int(t)] += sl.opex * v
     return cost
 
 

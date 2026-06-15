@@ -1,5 +1,5 @@
 {
-  "sector": "steel",
+  "id": "steel",
   "label": "Steel",
   "commodities": [
     {
@@ -236,7 +236,7 @@
       "default_capacity": 4000000.0,
       "source": {
         "name": "PLANiT MACC steel dataset (Korea), via the pathwise steel converter",
-        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/steel.py",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/src/pathwise/assets/library/steel.json",
         "year": 2026,
         "region": "KR",
         "basis": "sector-model extraction",
@@ -358,7 +358,7 @@
       "default_capacity": 1597000.0,
       "source": {
         "name": "PLANiT MACC steel dataset (Korea), via the pathwise steel converter",
-        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/steel.py",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/src/pathwise/assets/library/steel.json",
         "year": 2026,
         "region": "KR",
         "basis": "sector-model extraction",
@@ -485,7 +485,7 @@
       "default_capacity": 4000000.0,
       "source": {
         "name": "PLANiT MACC steel dataset (Korea), via the pathwise steel converter",
-        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/steel.py",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/src/pathwise/assets/library/steel.json",
         "year": 2026,
         "region": "KR",
         "basis": "sector-model extraction",
@@ -596,7 +596,7 @@
       "default_capacity": 1597000.0,
       "source": {
         "name": "PLANiT MACC steel dataset (Korea), via the pathwise steel converter",
-        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/steel.py",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/src/pathwise/assets/library/steel.json",
         "year": 2026,
         "region": "KR",
         "basis": "sector-model extraction",
@@ -657,7 +657,7 @@
       "default_capacity": 2500000.0,
       "source": {
         "name": "PLANiT MACC steel dataset (Korea), via the pathwise steel converter",
-        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/steel.py",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/src/pathwise/assets/library/steel.json",
         "year": 2026,
         "region": "KR",
         "basis": "sector-model extraction",
@@ -719,7 +719,7 @@
       ],
       "source": {
         "name": "PLANiT MACC steel dataset (Korea), via the pathwise steel converter",
-        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/examples/converters/steel.py",
+        "url": "https://github.com/PLANiT-Institute/pathwise/blob/main/src/pathwise/assets/library/steel.json",
         "year": 2026,
         "region": "KR",
         "basis": "sector-model extraction"

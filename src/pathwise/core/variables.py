@@ -28,7 +28,9 @@ class MeasureSlot:
         measure_type: Lever (energy efficiency / emission / environmental).
         target: Target commodity id (efficiency) or impact id (reduction/env).
         reduction: Fractional reduction at full adoption of this block [—].
-        capex: Block capital cost [currency].
+        capex: Block capital cost — a one-off lump at adoption [currency].
+        opex: Block fixed operating cost per year at full adoption
+            [currency / yr], charged each period in proportion to adoption.
         lifetime: Economic lifetime [yr].
     """
 
@@ -39,6 +41,7 @@ class MeasureSlot:
     target: str
     reduction: float
     capex: float
+    opex: float
     lifetime: int
 
 
@@ -129,6 +132,7 @@ def _measure_slots(problem: Problem) -> list[MeasureSlot]:
                     target=m.target,
                     reduction=blk.reduction,
                     capex=blk.capex,
+                    opex=blk.opex,
                     lifetime=m.lifetime,
                 )
             )
