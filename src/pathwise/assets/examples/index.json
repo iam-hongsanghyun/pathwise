@@ -1,5 +1,11 @@
 [
   {
+    "id": "green_steel_chain",
+    "label": "Green steel — AU/Qatar → Korea (cross-border)",
+    "file": "green_steel_chain.sqlite",
+    "description": "A cross-border value chain: iron ore + green H2 (Australia), blue H2 (Qatar), and in Korea grid/renewable power, local green H2 (wind→electrolyser), an integrated steel mill, an automaker and a shipbuilder. Imported gas/coal/scrap and capped HBI are buyable. Each facility carries a MACC; the mill can transition iron-making (blast furnace → H2 direct reduction) and steel-making (BOF → EAF). A rising carbon price and declining CO2 cap drive the 2025→2050 transition. Solve jointly (system) or as a value chain (upstream → downstream)."
+  },
+  {
     "id": "value_chain_ccgt",
     "label": "Value chain — CCGT power + steel (KR)",
     "file": "value_chain_ccgt.sqlite",

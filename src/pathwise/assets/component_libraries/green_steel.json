@@ -1,0 +1,1104 @@
+{
+  "label": "Green steel value chain",
+  "commodities": [
+    {
+      "commodity_id": "iron_ore",
+      "kind": "material",
+      "unit": "t",
+      "price": null,
+      "sale_price": null
+    },
+    {
+      "commodity_id": "coal",
+      "kind": "energy",
+      "unit": "t",
+      "price": 90.0,
+      "sale_price": null
+    },
+    {
+      "commodity_id": "gas",
+      "kind": "energy",
+      "unit": "GJ",
+      "price": 9.0,
+      "sale_price": null
+    },
+    {
+      "commodity_id": "scrap",
+      "kind": "material",
+      "unit": "t",
+      "price": null,
+      "sale_price": null
+    },
+    {
+      "commodity_id": "hbi",
+      "kind": "material",
+      "unit": "t",
+      "price": null,
+      "sale_price": null
+    },
+    {
+      "commodity_id": "electricity",
+      "kind": "energy",
+      "unit": "MWh",
+      "price": null,
+      "sale_price": null
+    },
+    {
+      "commodity_id": "hydrogen",
+      "kind": "energy",
+      "unit": "t",
+      "price": null,
+      "sale_price": null
+    },
+    {
+      "commodity_id": "iron",
+      "kind": "material",
+      "unit": "t",
+      "price": null,
+      "sale_price": null
+    },
+    {
+      "commodity_id": "steel",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": 800.0
+    },
+    {
+      "commodity_id": "car",
+      "kind": "product",
+      "unit": "veh",
+      "price": null,
+      "sale_price": 30000.0
+    },
+    {
+      "commodity_id": "ship",
+      "kind": "product",
+      "unit": "ship",
+      "price": null,
+      "sale_price": 90000000.0
+    }
+  ],
+  "technologies": [
+    {
+      "technology_id": "IronOreMine",
+      "lifespan": 30,
+      "capex": 50,
+      "opex": 5,
+      "io": [
+        {
+          "target": "iron_ore",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "CO2",
+          "role": "impact",
+          "coefficient": 0.03,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [
+        "mine_co2"
+      ]
+    },
+    {
+      "technology_id": "WindFarm",
+      "lifespan": 25,
+      "capex": 1200,
+      "opex": 30,
+      "io": [
+        {
+          "target": "electricity",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": []
+    },
+    {
+      "technology_id": "Electrolyser",
+      "lifespan": 20,
+      "capex": 900,
+      "opex": 120,
+      "io": [
+        {
+          "target": "electricity",
+          "role": "input",
+          "coefficient": 50.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "hydrogen",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "CO2",
+          "role": "impact",
+          "coefficient": 0.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [
+        "electro_eff"
+      ]
+    },
+    {
+      "technology_id": "SMR_CCS",
+      "lifespan": 25,
+      "capex": 1100,
+      "opex": 30,
+      "io": [
+        {
+          "target": "gas",
+          "role": "input",
+          "coefficient": 165.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "hydrogen",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "CO2",
+          "role": "impact",
+          "coefficient": 2.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [
+        "smr_eff"
+      ]
+    },
+    {
+      "technology_id": "GridCCGT",
+      "lifespan": 25,
+      "capex": 700,
+      "opex": 4,
+      "io": [
+        {
+          "target": "gas",
+          "role": "input",
+          "coefficient": 7.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "electricity",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "CO2",
+          "role": "impact",
+          "coefficient": 0.4,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [
+        "grid_eff"
+      ]
+    },
+    {
+      "technology_id": "BlastFurnace",
+      "lifespan": 30,
+      "capex": 900,
+      "opex": 20,
+      "io": [
+        {
+          "target": "iron_ore",
+          "role": "input",
+          "coefficient": 1.6,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "coal",
+          "role": "input",
+          "coefficient": 0.6,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "electricity",
+          "role": "input",
+          "coefficient": 0.05,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "hydrogen",
+          "role": "input",
+          "coefficient": 0.005,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "iron",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "CO2",
+          "role": "impact",
+          "coefficient": 1.8,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [
+        "bf_abate"
+      ]
+    },
+    {
+      "technology_id": "H2_DRI",
+      "lifespan": 25,
+      "capex": 1000,
+      "opex": 25,
+      "io": [
+        {
+          "target": "iron_ore",
+          "role": "input",
+          "coefficient": 1.45,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "hydrogen",
+          "role": "input",
+          "coefficient": 0.06,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "electricity",
+          "role": "input",
+          "coefficient": 0.5,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "iron",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "CO2",
+          "role": "impact",
+          "coefficient": 0.1,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": []
+    },
+    {
+      "technology_id": "BOF",
+      "lifespan": 25,
+      "capex": 400,
+      "opex": 15,
+      "io": [
+        {
+          "target": "iron",
+          "role": "input",
+          "coefficient": 1.05,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "electricity",
+          "role": "input",
+          "coefficient": 0.1,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "steel",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "CO2",
+          "role": "impact",
+          "coefficient": 0.2,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [
+        "bof_abate"
+      ]
+    },
+    {
+      "technology_id": "EAF",
+      "lifespan": 25,
+      "capex": 500,
+      "opex": 18,
+      "io": [
+        {
+          "target": "iron",
+          "role": "input",
+          "coefficient": 1.05,
+          "is_product": false,
+          "group": "metallics",
+          "share_min": 0.0,
+          "share_max": 1.0
+        },
+        {
+          "target": "scrap",
+          "role": "input",
+          "coefficient": 0.0,
+          "is_product": false,
+          "group": "metallics",
+          "share_min": 0.0,
+          "share_max": 1.0
+        },
+        {
+          "target": "hbi",
+          "role": "input",
+          "coefficient": 0.0,
+          "is_product": false,
+          "group": "metallics",
+          "share_min": 0.0,
+          "share_max": 1.0
+        },
+        {
+          "target": "electricity",
+          "role": "input",
+          "coefficient": 0.6,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "steel",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "CO2",
+          "role": "impact",
+          "coefficient": 0.1,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": []
+    },
+    {
+      "technology_id": "Automaker",
+      "lifespan": 25,
+      "capex": 300,
+      "opex": 50,
+      "io": [
+        {
+          "target": "steel",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "electricity",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "car",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "CO2",
+          "role": "impact",
+          "coefficient": 0.05,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [
+        "auto_eff"
+      ]
+    },
+    {
+      "technology_id": "Shipbuilder",
+      "lifespan": 30,
+      "capex": 400,
+      "opex": 80,
+      "io": [
+        {
+          "target": "steel",
+          "role": "input",
+          "coefficient": 20000.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "electricity",
+          "role": "input",
+          "coefficient": 5000.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "ship",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "CO2",
+          "role": "impact",
+          "coefficient": 200.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [
+        "ship_eff"
+      ]
+    }
+  ],
+  "measures": [
+    {
+      "measure_id": "mine_co2",
+      "label": "Mine electrification",
+      "type": "emission_reduction",
+      "target": "CO2",
+      "lifetime": 15,
+      "blocks": [
+        {
+          "reduction": 0.1,
+          "capex_per_capacity": 2.0,
+          "opex_per_capacity": 0.1
+        }
+      ]
+    },
+    {
+      "measure_id": "electro_eff",
+      "label": "Electrolyser stack upgrade",
+      "type": "energy_efficiency",
+      "target": "electricity",
+      "lifetime": 15,
+      "blocks": [
+        {
+          "reduction": 0.05,
+          "capex_per_capacity": 5.0,
+          "opex_per_capacity": 0.2
+        }
+      ]
+    },
+    {
+      "measure_id": "smr_eff",
+      "label": "SMR capture uplift",
+      "type": "emission_reduction",
+      "target": "CO2",
+      "lifetime": 20,
+      "blocks": [
+        {
+          "reduction": 0.2,
+          "capex_per_capacity": 20.0,
+          "opex_per_capacity": 1.0
+        }
+      ]
+    },
+    {
+      "measure_id": "grid_ccs",
+      "label": "CCGT carbon capture",
+      "type": "emission_reduction",
+      "target": "CO2",
+      "lifetime": 20,
+      "blocks": [
+        {
+          "reduction": 0.4,
+          "capex_per_capacity": 60.0,
+          "opex_per_capacity": 2.0
+        }
+      ]
+    },
+    {
+      "measure_id": "bf_tgr",
+      "label": "Top-gas recovery + CCU",
+      "type": "emission_reduction",
+      "target": "CO2",
+      "lifetime": 15,
+      "blocks": [
+        {
+          "reduction": 0.08,
+          "capex_per_capacity": 30.0,
+          "opex_per_capacity": 1.0
+        },
+        {
+          "reduction": 0.06,
+          "capex_per_capacity": 70.0,
+          "opex_per_capacity": 2.0
+        }
+      ]
+    },
+    {
+      "measure_id": "bf_ccs",
+      "label": "Blast-furnace carbon capture",
+      "type": "emission_reduction",
+      "target": "CO2",
+      "lifetime": 20,
+      "blocks": [
+        {
+          "reduction": 0.15,
+          "capex_per_capacity": 120.0,
+          "opex_per_capacity": 4.0
+        }
+      ]
+    },
+    {
+      "measure_id": "bof_abate",
+      "label": "BOF gas recovery",
+      "type": "emission_reduction",
+      "target": "CO2",
+      "lifetime": 15,
+      "blocks": [
+        {
+          "reduction": 0.1,
+          "capex_per_capacity": 10.0,
+          "opex_per_capacity": 0.5
+        }
+      ]
+    },
+    {
+      "measure_id": "auto_eff",
+      "label": "Plant electricity efficiency",
+      "type": "energy_efficiency",
+      "target": "electricity",
+      "lifetime": 15,
+      "blocks": [
+        {
+          "reduction": 0.06,
+          "capex_per_capacity": 3.0,
+          "opex_per_capacity": 0.2
+        }
+      ]
+    },
+    {
+      "measure_id": "ship_eff",
+      "label": "Yard electricity efficiency",
+      "type": "energy_efficiency",
+      "target": "electricity",
+      "lifetime": 15,
+      "blocks": [
+        {
+          "reduction": 0.05,
+          "capex_per_capacity": 5.0,
+          "opex_per_capacity": 0.3
+        }
+      ]
+    }
+  ],
+  "maccs": [
+    {
+      "macc_id": "mine_co2",
+      "label": "Mine abatement",
+      "measures": [
+        "mine_co2"
+      ]
+    },
+    {
+      "macc_id": "electro_eff",
+      "label": "Electrolyser efficiency",
+      "measures": [
+        "electro_eff"
+      ]
+    },
+    {
+      "macc_id": "smr_eff",
+      "label": "Blue-H2 abatement",
+      "measures": [
+        "smr_eff"
+      ]
+    },
+    {
+      "macc_id": "grid_eff",
+      "label": "Grid abatement",
+      "measures": [
+        "grid_ccs"
+      ]
+    },
+    {
+      "macc_id": "bf_abate",
+      "label": "Blast-furnace abatement",
+      "measures": [
+        "bf_tgr",
+        "bf_ccs"
+      ]
+    },
+    {
+      "macc_id": "bof_abate",
+      "label": "BOF abatement",
+      "measures": [
+        "bof_abate"
+      ]
+    },
+    {
+      "macc_id": "auto_eff",
+      "label": "Automaker efficiency",
+      "measures": [
+        "auto_eff"
+      ]
+    },
+    {
+      "macc_id": "ship_eff",
+      "label": "Shipyard efficiency",
+      "measures": [
+        "ship_eff"
+      ]
+    }
+  ],
+  "machines": [
+    {
+      "name": "mine",
+      "label": "Iron-ore mine",
+      "technology": "IronOreMine",
+      "capacity": 5000000,
+      "measures": []
+    },
+    {
+      "name": "wind",
+      "label": "Wind farm",
+      "technology": "WindFarm",
+      "capacity": 30000000,
+      "measures": []
+    },
+    {
+      "name": "electrolyser",
+      "label": "Electrolyser",
+      "technology": "Electrolyser",
+      "capacity": 250000,
+      "measures": []
+    },
+    {
+      "name": "smr",
+      "label": "SMR + CCS",
+      "technology": "SMR_CCS",
+      "capacity": 250000,
+      "measures": []
+    },
+    {
+      "name": "grid",
+      "label": "CCGT grid",
+      "technology": "GridCCGT",
+      "capacity": 30000000,
+      "measures": []
+    },
+    {
+      "name": "bf",
+      "label": "Blast furnace",
+      "technology": "BlastFurnace",
+      "capacity": 2500000,
+      "measures": []
+    },
+    {
+      "name": "bof",
+      "label": "Basic oxygen furnace",
+      "technology": "BOF",
+      "capacity": 2500000,
+      "measures": []
+    },
+    {
+      "name": "assembly",
+      "label": "Vehicle assembly",
+      "technology": "Automaker",
+      "capacity": 1500000,
+      "measures": []
+    },
+    {
+      "name": "shipyard",
+      "label": "Shipyard",
+      "technology": "Shipbuilder",
+      "capacity": 100,
+      "measures": []
+    }
+  ],
+  "groups": [
+    {
+      "name": "au_ironore",
+      "label": "AU Iron Ore",
+      "level": "company",
+      "children": [
+        {
+          "component": "mine",
+          "alias": ""
+        }
+      ],
+      "connections": []
+    },
+    {
+      "name": "au_greenh2",
+      "label": "AU Green H2",
+      "level": "company",
+      "children": [
+        {
+          "component": "wind",
+          "alias": "wind"
+        },
+        {
+          "component": "electrolyser",
+          "alias": "ely"
+        }
+      ],
+      "connections": [
+        {
+          "source": "wind",
+          "target": "ely",
+          "commodity": "electricity",
+          "lag_years": 0
+        }
+      ]
+    },
+    {
+      "name": "australia",
+      "label": "Australia",
+      "level": "country",
+      "children": [
+        {
+          "component": "au_ironore",
+          "alias": ""
+        },
+        {
+          "component": "au_greenh2",
+          "alias": ""
+        }
+      ],
+      "connections": []
+    },
+    {
+      "name": "qa_blueh2",
+      "label": "Qatar Blue H2",
+      "level": "company",
+      "children": [
+        {
+          "component": "smr",
+          "alias": ""
+        }
+      ],
+      "connections": []
+    },
+    {
+      "name": "qatar",
+      "label": "Qatar",
+      "level": "country",
+      "children": [
+        {
+          "component": "qa_blueh2",
+          "alias": ""
+        }
+      ],
+      "connections": []
+    },
+    {
+      "name": "kr_power",
+      "label": "Korea Power",
+      "level": "company",
+      "children": [
+        {
+          "component": "grid",
+          "alias": "grid"
+        },
+        {
+          "component": "wind",
+          "alias": "wind"
+        }
+      ],
+      "connections": []
+    },
+    {
+      "name": "kr_greenh2",
+      "label": "Korea Green H2",
+      "level": "company",
+      "children": [
+        {
+          "component": "wind",
+          "alias": "wind"
+        },
+        {
+          "component": "electrolyser",
+          "alias": "ely"
+        }
+      ],
+      "connections": [
+        {
+          "source": "wind",
+          "target": "ely",
+          "commodity": "electricity",
+          "lag_years": 0
+        }
+      ]
+    },
+    {
+      "name": "kr_mill",
+      "label": "Integrated mill",
+      "level": "facility",
+      "children": [
+        {
+          "component": "bf",
+          "alias": "bf"
+        },
+        {
+          "component": "bof",
+          "alias": "bof"
+        }
+      ],
+      "connections": [
+        {
+          "source": "bf",
+          "target": "bof",
+          "commodity": "iron",
+          "lag_years": 0
+        }
+      ]
+    },
+    {
+      "name": "kr_steel",
+      "label": "Korea Steel",
+      "level": "company",
+      "children": [
+        {
+          "component": "kr_mill",
+          "alias": "mill"
+        }
+      ],
+      "connections": []
+    },
+    {
+      "name": "kr_auto",
+      "label": "Korea Automaker",
+      "level": "company",
+      "children": [
+        {
+          "component": "assembly",
+          "alias": ""
+        }
+      ],
+      "connections": []
+    },
+    {
+      "name": "kr_ship",
+      "label": "Korea Shipbuilder",
+      "level": "company",
+      "children": [
+        {
+          "component": "shipyard",
+          "alias": ""
+        }
+      ],
+      "connections": []
+    },
+    {
+      "name": "korea",
+      "label": "Korea",
+      "level": "country",
+      "children": [
+        {
+          "component": "kr_power",
+          "alias": ""
+        },
+        {
+          "component": "kr_greenh2",
+          "alias": ""
+        },
+        {
+          "component": "kr_steel",
+          "alias": ""
+        },
+        {
+          "component": "kr_auto",
+          "alias": ""
+        },
+        {
+          "component": "kr_ship",
+          "alias": ""
+        }
+      ],
+      "connections": [
+        {
+          "source": "kr_power",
+          "target": "kr_steel",
+          "commodity": "electricity",
+          "lag_years": 0
+        },
+        {
+          "source": "kr_power",
+          "target": "kr_auto",
+          "commodity": "electricity",
+          "lag_years": 0
+        },
+        {
+          "source": "kr_power",
+          "target": "kr_ship",
+          "commodity": "electricity",
+          "lag_years": 0
+        },
+        {
+          "source": "kr_greenh2",
+          "target": "kr_steel",
+          "commodity": "hydrogen",
+          "lag_years": 0
+        },
+        {
+          "source": "kr_steel",
+          "target": "kr_auto",
+          "commodity": "steel",
+          "lag_years": 0
+        },
+        {
+          "source": "kr_steel",
+          "target": "kr_ship",
+          "commodity": "steel",
+          "lag_years": 0
+        }
+      ]
+    },
+    {
+      "name": "green_steel_vc",
+      "label": "Green steel value chain",
+      "level": "value_chain",
+      "children": [
+        {
+          "component": "australia",
+          "alias": ""
+        },
+        {
+          "component": "qatar",
+          "alias": ""
+        },
+        {
+          "component": "korea",
+          "alias": ""
+        }
+      ],
+      "connections": [
+        {
+          "source": "australia",
+          "target": "korea",
+          "commodity": "iron_ore",
+          "lag_years": 0
+        },
+        {
+          "source": "australia",
+          "target": "korea",
+          "commodity": "hydrogen",
+          "lag_years": 0
+        },
+        {
+          "source": "qatar",
+          "target": "korea",
+          "commodity": "hydrogen",
+          "lag_years": 0
+        }
+      ]
+    }
+  ]
+}
