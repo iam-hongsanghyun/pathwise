@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from pathwise.data.hierarchy import load_hierarchy
 from pathwise.data.schema import REQUIRED_SHEETS
 from pathwise.data.workbook import Workbook
 
@@ -81,6 +82,49 @@ def validate(workbook: Workbook) -> ValidationReport:
             report.errors.append(
                 f"machine '{r.get('machine_id')}' references unknown technology '{bt}'"
             )
+
+    # Node hierarchy: structural integrity (dangling parents, parent cycles,
+    # machine/kind mismatches, connection endpoints) + connection stream refs.
+    if has_hierarchy:
+        h = load_hierarchy(workbook)
+        if h is not None:
+            report.errors.extend(h.check())  # node/cycle/kind/endpoint checks
+            for r in workbook.get("connections", []):
+                c = str(r.get("commodity_id", ""))
+                if c and c not in commodities:
+                    report.errors.append(f"connection references unknown stream '{c}'")
+            # A connection only flows if some machine in the source subtree OUTPUTS
+            # the commodity and some machine in the target subtree INPUTS it; else
+            # it silently expands to zero edges (assemble._expand_hierarchy).
+            machine_tech = {
+                str(r.get("machine_id")): str(r.get("baseline_technology") or "")
+                for r in workbook.get("machines", [])
+            }
+            io_out: dict[str, set[str]] = {}
+            io_in: dict[str, set[str]] = {}
+            for r in workbook.get("io", []):
+                tech, tgt = str(r.get("technology_id") or ""), str(r.get("target") or "")
+                role = str(r.get("role") or "input")
+                if role == "output":
+                    io_out.setdefault(tech, set()).add(tgt)
+                elif role == "input":
+                    io_in.setdefault(tech, set()).add(tgt)
+            for r in workbook.get("connections", []):
+                fn, tn = str(r.get("from_node", "")), str(r.get("to_node", ""))
+                com = str(r.get("commodity_id", ""))
+                if not (fn in h.nodes and tn in h.nodes and com):
+                    continue
+                makes = any(
+                    com in io_out.get(machine_tech.get(m, ""), set()) for m in h.leaf_machines(fn)
+                )
+                takes = any(
+                    com in io_in.get(machine_tech.get(m, ""), set()) for m in h.leaf_machines(tn)
+                )
+                if not (makes and takes):
+                    report.warnings.append(
+                        f"connection '{fn}'→'{tn}' on '{com}' expands to no edges "
+                        "(no producing/consuming machine in the subtrees)"
+                    )
 
     # Blend / slate share bounds must admit a feasible mix: per (technology,
     # role, group), each share_min ≤ share_max and Σ share_min ≤ 1 ≤ Σ share_max.

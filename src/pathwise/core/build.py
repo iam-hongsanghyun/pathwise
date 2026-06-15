@@ -627,7 +627,9 @@ def _markets(ctx: BuildContext) -> None:
         procs = (
             ctx.procs
             if "all" in scope_companies
-            else [p.process_id for p in prob.processes if p.company in scope_companies]
+            else [
+                p.process_id for p in prob.processes if any(p.in_scope(c) for c in scope_companies)
+            ]
         )
         for t in ctx.years:
             net = _lin_sum(
