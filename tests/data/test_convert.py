@@ -95,3 +95,36 @@ def test_converted_hierarchy_solves() -> None:
 def test_to_hierarchy_is_noop_when_already_hierarchy() -> None:
     wb = {"nodes": [{"node_id": "x", "kind": "group"}], "machines": []}
     assert to_hierarchy(wb) is wb
+
+
+def test_to_hierarchy_never_collides_machine_with_its_own_group() -> None:
+    # Regression: when a process' company is named after the process itself
+    # (each process its own singleton "company"), the old code emitted a group
+    # AND a machine with the same id and parented the machine to itself — a
+    # self-parent cycle that froze every downstream tree walk in the UI.
+    flat = {
+        "processes": [
+            {"process_id": "ABS", "company": "ABS", "baseline_technology": "T", "capacity": 1},
+            {"process_id": "PVC", "company": "PVC", "baseline_technology": "T", "capacity": 1},
+        ],
+    }
+    nodes = to_hierarchy(flat)["nodes"]
+    ids = [n["node_id"] for n in nodes]
+    assert len(ids) == len(set(ids)), "node ids must be unique"
+    assert all(n["parent_id"] != n["node_id"] for n in nodes), "no node is its own parent"
+    # the degenerate same-named company is collapsed: machines sit under the root
+    by_id = {n["node_id"]: n for n in nodes}
+    assert by_id["ABS"]["kind"] == "machine" and by_id["ABS"]["parent_id"] == "vc"
+
+
+def test_dedupe_nodes_breaks_duplicate_ids_and_self_parents() -> None:
+    from pathwise.data.convert import _dedupe_nodes
+
+    raw = [
+        {"node_id": "vc", "parent_id": None, "kind": "group"},
+        {"node_id": "a", "parent_id": "vc", "kind": "group"},
+        {"node_id": "a", "parent_id": "a", "kind": "machine"},  # dup id + self-parent
+    ]
+    out = _dedupe_nodes(raw, "vc")
+    assert [n["node_id"] for n in out] == ["vc", "a"]  # duplicate dropped (first wins)
+    assert out[1]["parent_id"] == "vc"  # the dropped row's self-parent never survives
