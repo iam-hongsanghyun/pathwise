@@ -34,6 +34,7 @@ from pathwise.data.library import (
     MeasureTemplate,
     TechnologyTemplate,
     _io_rows,
+    _measure_block_t_rows,
     _tech_row,
 )
 from pathwise.data.workbook import Workbook
@@ -574,6 +575,7 @@ def instantiate(
     connections: list[dict[str, Any]] = []
     measures: list[dict[str, Any]] = []
     measure_blocks: list[dict[str, Any]] = []
+    measure_blocks_t: list[dict[str, Any]] = []
 
     def place(name: str, node_id: str, parent_id: str | None) -> None:
         machine = library.machine(name)
@@ -623,6 +625,7 @@ def instantiate(
                             "opex": round(blk.opex_per_capacity * machine.capacity, 2),
                         }
                     )
+                    measure_blocks_t.extend(_measure_block_t_rows(mid, i, blk, machine.capacity))
             return
         group = library.group(name)
         if group is None:
@@ -684,6 +687,8 @@ def instantiate(
     if measures:
         out["measures"] = measures
         out["measure_blocks"] = measure_blocks
+        if measure_blocks_t:
+            out["measure_blocks_t"] = measure_blocks_t
     # Per-year cost trajectories so authored per-year capex/opex/price drive the
     # optimiser once the instance is solved (assembler reads these sheets).
     if tp := _technology_price_rows(library):
@@ -738,7 +743,16 @@ def instantiate_into(
         if row["node_id"] == root_id:
             row["parent_id"] = parent_id
 
-    append_keys = ("nodes", "machines", "connections", "measures", "measure_blocks")
+    # measure_blocks_t rows are per-instance (path-qualified measure ids), so
+    # they append cleanly like measure_blocks.
+    append_keys = (
+        "nodes",
+        "machines",
+        "connections",
+        "measures",
+        "measure_blocks",
+        "measure_blocks_t",
+    )
     for key in append_keys:
         if fresh.get(key):
             wb.setdefault(key, []).extend(fresh[key])
@@ -908,6 +922,8 @@ def place_technology(
                     "opex": round(blk.opex_per_capacity * capacity, 2),
                 }
             )
+            if t_rows := _measure_block_t_rows(mid, i, blk, capacity):
+                wb.setdefault("measure_blocks_t", []).extend(t_rows)
     return wb
 
 

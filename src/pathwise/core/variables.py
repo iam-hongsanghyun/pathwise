@@ -43,6 +43,15 @@ class MeasureSlot:
     capex: float
     opex: float
     lifetime: int
+    #: Per-year overrides of the scalar block cost (empty → scalar every year).
+    capex_by_year: dict[int, float] = field(default_factory=dict)
+    opex_by_year: dict[int, float] = field(default_factory=dict)
+
+    def capex_at(self, year: int) -> float:
+        return self.capex_by_year.get(year, self.capex)
+
+    def opex_at(self, year: int) -> float:
+        return self.opex_by_year.get(year, self.opex)
 
 
 @dataclass(slots=True)
@@ -134,6 +143,8 @@ def _measure_slots(problem: Problem) -> list[MeasureSlot]:
                     capex=blk.capex,
                     opex=blk.opex,
                     lifetime=m.lifetime,
+                    capex_by_year=blk.capex_by_year,
+                    opex_by_year=blk.opex_by_year,
                 )
             )
     return slots

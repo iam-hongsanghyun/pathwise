@@ -254,6 +254,26 @@ def _tech_row(tech: TechnologyTemplate) -> dict[str, Any]:
     return row
 
 
+def _measure_block_t_rows(
+    measure_id: str, block_index: int, blk: MeasureBlockTemplate, capacity: float
+) -> list[dict[str, Any]]:
+    """Per-year absolute block-cost rows (× capacity) for a model's ``measure_blocks_t``.
+
+    The per-year analogue of the scalar ``measure_blocks`` row a placement stamps:
+    block cost = per-capacity value × the instance capacity, one row per year the
+    block overrides. Empty when the block has no per-year cost.
+    """
+    rows: list[dict[str, Any]] = []
+    for y in sorted(set(blk.capex_per_capacity_by_year) | set(blk.opex_per_capacity_by_year)):
+        row: dict[str, Any] = {"measure_id": measure_id, "block": block_index, "year": y}
+        if y in blk.capex_per_capacity_by_year:
+            row["capex"] = round(blk.capex_per_capacity_by_year[y] * capacity, 2)
+        if y in blk.opex_per_capacity_by_year:
+            row["opex"] = round(blk.opex_per_capacity_by_year[y] * capacity, 2)
+        rows.append(row)
+    return rows
+
+
 def add_facility(
     workbook: Workbook,
     library: Library,
@@ -359,6 +379,8 @@ def add_facility(
                     "opex": blk.opex_per_capacity * f.default_capacity,
                 }
             )
+            if t_rows := _measure_block_t_rows(mid, i, blk, f.default_capacity):
+                wb.setdefault("measure_blocks_t", []).extend(t_rows)
     return wb
 
 
@@ -428,6 +450,8 @@ def apply_measures(workbook: Workbook, library: Library) -> Workbook:
                         "opex": round(blk.opex_per_capacity * capacity, 2),
                     }
                 )
+                if t_rows := _measure_block_t_rows(mid, i, blk, capacity):
+                    wb.setdefault("measure_blocks_t", []).extend(t_rows)
     return wb
 
 
