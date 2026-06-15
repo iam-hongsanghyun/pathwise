@@ -227,3 +227,47 @@ export function columnLayout(
   }
   return pos;
 }
+
+// ── Editable level connections ────────────────────────────────────────────────
+
+/** One workbook connection, projected to a level. Carries its row index so the
+ *  editor can address/delete the exact row, and keeps `lag` (unlike `levelGraph`,
+ *  which dedupes and loses it). */
+export interface LevelConnection {
+  /** Index into `wb.connections` — the addressable handle for delete. */
+  rowIndex: number;
+  /** Direct child of the level the source resolves to. */
+  from: string;
+  /** Direct child of the level the target resolves to. */
+  to: string;
+  commodity: string;
+  lag: number;
+}
+
+/** Every `connections` row whose endpoints resolve to two *distinct* children of
+ *  `groupId` — one entry per row (no dedupe), so each edge is independently
+ *  selectable/deletable and its lag is preserved. */
+export function levelConnections(wb: Workbook, groupId: string | null): LevelConnection[] {
+  const nodes = parseNodes(wb);
+  const children = childrenOf(nodes, groupId);
+  if (children.length === 0) return [];
+  const subtreeMap = buildSubtreeMap(nodes);
+
+  const out: LevelConnection[] = [];
+  (wb.connections ?? []).forEach((row, rowIndex) => {
+    const fromRaw = s(row.from_node);
+    const toRaw = s(row.to_node);
+    if (!fromRaw || !toRaw) return;
+    const fromChild = ancestorChildOf(nodes, groupId, fromRaw, subtreeMap);
+    const toChild = ancestorChildOf(nodes, groupId, toRaw, subtreeMap);
+    if (!fromChild || !toChild || fromChild === toChild) return;
+    out.push({
+      rowIndex,
+      from: fromChild,
+      to: toChild,
+      commodity: s(row.commodity_id, "—"),
+      lag: n(row.lag_years),
+    });
+  });
+  return out;
+}

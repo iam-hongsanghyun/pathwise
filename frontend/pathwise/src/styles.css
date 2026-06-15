@@ -1469,3 +1469,18 @@ table.grid td {
   vertical-align: middle;
 }
 table.grid thead th { font-weight: 600; }
+
+/* ── Directory TreeExplorer (Component + Value Chain builders) ──────────────── */
+.tree-explorer { font-size: 0.82rem; user-select: none; padding: 4px 0; }
+.tree-row {
+  display: flex;
+  align-items: center;
+  padding: 3px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+.tree-row:hover { background: var(--bg-hover); }
+.tree-row.is-active:hover { background: var(--brand-fill); }
+.tree-label { overflow: hidden; text-overflow: ellipsis; }
+.tree-level { color: var(--muted); font-size: 0.72rem; margin-left: 2px; }

@@ -14,7 +14,7 @@ import {
 } from "./lib/api/session";
 import { ActivityBar, type View } from "./layout/ActivityBar";
 import { AnalyticsView } from "./views/AnalyticsView";
-import { ComponentBuilderView } from "./views/ComponentBuilderView";
+import { ComponentTabView } from "./views/ComponentTabView";
 import { SettingsView } from "./views/SettingsView";
 import { ValueChainBuilderView } from "./views/ValueChainBuilderView";
 import type { ConfigBundle, PortfolioConfig, RunResult, Workbook } from "./types";
@@ -237,7 +237,7 @@ export function App() {
 
         {error && <div className="error" style={{ padding: "4px 16px" }}>{error}</div>}
 
-        {view === "component" && <ComponentBuilderView />}
+        {view === "component" && <ComponentTabView />}
         {view === "valuechain" && (
           <ValueChainBuilderView
             workbook={workbook}
