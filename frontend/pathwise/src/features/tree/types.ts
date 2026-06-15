@@ -17,6 +17,8 @@ export interface TreeNode {
   order?: number;
   /** Show a twisty even before the subtree is materialised (cheap, from data). */
   hasChildren: boolean;
+  /** Render dimmed/secondary (e.g. an alternative technology under a machine). */
+  muted?: boolean;
   /** Can be dragged (default true). */
   draggable?: boolean;
   /** Can accept children dropped "inside" (default: groups/libraries yes). */
