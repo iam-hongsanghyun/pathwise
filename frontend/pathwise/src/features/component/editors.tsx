@@ -1,8 +1,10 @@
 // Detail editors for the Component builder — each edits one component's core
 // substance. Pure presentational; the host maps changes back into the library.
 
+import { InfoTooltip } from "../controls/InfoTooltip";
 import { SearchableSelect } from "../controls/SearchableSelect";
 import { SearchSelect } from "../controls/SearchSelect";
+import { fieldMeta } from "./fieldMeta";
 import type {
   CommodityTemplate,
   GroupComponent,
@@ -23,12 +25,45 @@ export const inputStyle: React.CSSProperties = {
   font: "inherit",
 };
 
-export function Field({ label, children }: { label: string; children: React.ReactNode }) {
+export function Field({
+  label,
+  meta,
+  info,
+  unit,
+  children,
+}: {
+  label: string;
+  /** Data key to source the (i) explanation + unit from (see fieldMeta). */
+  meta?: string;
+  /** Explicit override of the explanation / unit. */
+  info?: string;
+  unit?: string;
+  children: React.ReactNode;
+}) {
+  const m = meta ? fieldMeta(meta) : undefined;
+  const tip = info ?? m?.info;
+  const u = unit ?? m?.unit;
   return (
     <label style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: "0.78rem" }}>
-      <span className="muted">{label}</span>
+      <span className="muted" style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+        {label}
+        {tip && <InfoTooltip text={tip} unit={u} />}
+      </span>
       {children}
     </label>
+  );
+}
+
+/** A header cell carrying the same (i) tooltip as a Field, for data tables. */
+export function Th({ label, meta, width }: { label: string; meta?: string; width?: string | number }) {
+  const m = meta ? fieldMeta(meta) : undefined;
+  return (
+    <th style={{ width }}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+        {label}
+        {m?.info && <InfoTooltip text={m.info} unit={m.unit} />}
+      </span>
+    </th>
   );
 }
 
@@ -50,7 +85,7 @@ export function CommodityEditor({
     <section>
       <h2 style={{ margin: "0 0 12px" }}>Stream</h2>
       <Row>
-        <Field label="id">
+        <Field label="id" meta="commodity_id">
           <input
             style={inputStyle}
             value={value.commodity_id}
@@ -60,14 +95,14 @@ export function CommodityEditor({
             }}
           />
         </Field>
-        <Field label="kind">
+        <Field label="kind" meta="kind">
           <SearchSelect
             value={value.kind}
             onChange={(v) => onChange({ ...value, kind: v as CommodityTemplate["kind"] })}
             options={["energy", "material", "indirect", "product", "byproduct"].map((k) => ({ value: k }))}
           />
         </Field>
-        <Field label="sector">
+        <Field label="sector" meta="sector">
           <input
             style={inputStyle}
             value={value.sector ?? ""}
@@ -75,10 +110,10 @@ export function CommodityEditor({
             onChange={(e) => onChange({ ...value, sector: e.target.value.trim() === "" ? null : e.target.value })}
           />
         </Field>
-        <Field label="unit">
+        <Field label="unit" meta="unit">
           <input style={inputStyle} value={value.unit} onChange={(e) => onChange({ ...value, unit: e.target.value })} />
         </Field>
-        <Field label="price (buy)">
+        <Field label="price (buy)" meta="price">
           <input
             style={inputStyle}
             type="number"
@@ -86,7 +121,7 @@ export function CommodityEditor({
             onChange={(e) => onChange({ ...value, price: e.target.value === "" ? null : num(e.target.value) })}
           />
         </Field>
-        <Field label="sale price">
+        <Field label="sale price" meta="sale_price">
           <input
             style={inputStyle}
             type="number"
@@ -122,7 +157,7 @@ export function TechnologyEditor({
     <section>
       <h2 style={{ margin: "0 0 12px" }}>Technology (recipe)</h2>
       <Row>
-        <Field label="id">
+        <Field label="id" meta="technology_id">
           <input
             style={inputStyle}
             value={value.technology_id}
@@ -132,20 +167,20 @@ export function TechnologyEditor({
             }}
           />
         </Field>
-        <Field label="lifespan (yr)">
+        <Field label="lifespan (yr)" meta="lifespan">
           <input style={{ ...inputStyle, width: 90 }} type="number" value={value.lifespan} onChange={(e) => onChange({ ...value, lifespan: num(e.target.value) })} />
         </Field>
-        <Field label="capex /cap">
+        <Field label="capex /cap" meta="capex">
           <input style={{ ...inputStyle, width: 100 }} type="number" value={value.capex} onChange={(e) => onChange({ ...value, capex: num(e.target.value) })} />
         </Field>
-        <Field label="opex /unit">
+        <Field label="opex /unit" meta="opex">
           <input style={{ ...inputStyle, width: 100 }} type="number" value={value.opex} onChange={(e) => onChange({ ...value, opex: num(e.target.value) })} />
         </Field>
-        <Field label="available from">
+        <Field label="available from" meta="introduction_year">
           <input style={{ ...inputStyle, width: 90 }} type="number" placeholder="any" value={value.introduction_year ?? ""}
             onChange={(e) => onChange({ ...value, introduction_year: e.target.value === "" ? null : Math.round(num(e.target.value)) })} />
         </Field>
-        <Field label="available to">
+        <Field label="available to" meta="phase_out_year">
           <input style={{ ...inputStyle, width: 90 }} type="number" placeholder="any" value={value.phase_out_year ?? ""}
             onChange={(e) => onChange({ ...value, phase_out_year: e.target.value === "" ? null : Math.round(num(e.target.value)) })} />
         </Field>
@@ -160,13 +195,13 @@ export function TechnologyEditor({
       <table className="grid" style={{ width: "100%", fontSize: "0.78rem" }}>
         <thead>
           <tr style={{ textAlign: "left", color: "var(--muted)" }}>
-            <th style={{ width: "26%" }}>target</th>
-            <th>role</th>
-            <th>coef</th>
-            <th>product?</th>
-            <th>blend group</th>
-            <th>min</th>
-            <th>max</th>
+            <Th label="target" meta="target" width="26%" />
+            <Th label="role" meta="role" />
+            <Th label="coef" meta="coefficient" />
+            <Th label="product?" meta="is_product" />
+            <Th label="blend group" meta="group" />
+            <Th label="min" meta="share_min" />
+            <Th label="max" meta="share_max" />
             <th />
           </tr>
         </thead>
@@ -378,22 +413,22 @@ export function MeasureEditor({
     <section>
       <h2 style={{ margin: "0 0 12px" }}>Measure <span className="muted" style={{ fontSize: "0.8rem" }}>(reusable)</span></h2>
       <Row>
-        <Field label="id">
+        <Field label="id" meta="measure_id">
           <input style={inputStyle} value={value.measure_id} onChange={(e) => { onChange({ ...value, measure_id: e.target.value }); onRename(e.target.value); }} />
         </Field>
-        <Field label="label">
+        <Field label="label" meta="label">
           <input style={inputStyle} value={value.label} onChange={(e) => onChange({ ...value, label: e.target.value })} />
         </Field>
-        <Field label="type">
+        <Field label="type" meta="measure_type">
           <SearchSelect value={value.type} onChange={(v) => onChange({ ...value, type: v as MeasureTemplate["type"] })}
             options={[{ value: "energy_efficiency" }, { value: "emission_reduction" }, { value: "environmental" }]} />
         </Field>
-        <Field label="target">
+        <Field label="target" meta="target">
           <div style={{ minWidth: 150 }}>
             <SearchableSelect value={value.target} options={commodityIds} onChange={(v) => onChange({ ...value, target: v })} onCreate={(name) => onChange({ ...value, target: name })} placeholder="stream / impact" />
           </div>
         </Field>
-        <Field label="lifetime">
+        <Field label="lifetime" meta="lifetime">
           <input style={{ ...inputStyle, width: 70 }} type="number" value={value.lifetime} onChange={(e) => onChange({ ...value, lifetime: num(e.target.value) })} />
         </Field>
       </Row>
@@ -403,7 +438,7 @@ export function MeasureEditor({
       </h3>
       <table className="grid" style={{ fontSize: "0.78rem" }}>
         <thead>
-          <tr style={{ textAlign: "left", color: "var(--muted)" }}><th>block</th><th>reduction</th><th>capex /cap</th><th>opex /cap</th><th /></tr>
+          <tr style={{ textAlign: "left", color: "var(--muted)" }}><th>block</th><Th label="reduction" meta="reduction" /><Th label="capex /cap" meta="capex_per_capacity" /><Th label="opex /cap" meta="opex_per_capacity" /><th /></tr>
         </thead>
         <tbody>
           {value.blocks.map((b, bi) => (
@@ -503,10 +538,10 @@ export function MaccEditor({
     <section>
       <h2 style={{ margin: "0 0 12px" }}>MACC <span className="muted" style={{ fontSize: "0.8rem" }}>(group of measures)</span></h2>
       <Row>
-        <Field label="id">
+        <Field label="id" meta="macc_id">
           <input style={inputStyle} value={value.macc_id} onChange={(e) => { onChange({ ...value, macc_id: e.target.value }); onRename(e.target.value); }} />
         </Field>
-        <Field label="label">
+        <Field label="label" meta="label">
           <input style={inputStyle} value={value.label} onChange={(e) => onChange({ ...value, label: e.target.value })} />
         </Field>
       </Row>
