@@ -17,6 +17,26 @@ def _s(v: object) -> str:
     return "" if v is None else str(v)
 
 
+def _dedupe_nodes(nodes: list[dict[str, object]], root_id: str) -> list[dict[str, object]]:
+    """Drop duplicate node ids (first wins) and break self-parent edges.
+
+    A node listed twice, or one that names itself as its own ``parent_id``, makes
+    any ancestor/descendant walk loop forever; this guarantees a well-formed tree
+    no matter how malformed the source rows are.
+    """
+    out: list[dict[str, object]] = []
+    used: set[str] = set()
+    for nd in nodes:
+        nid = _s(nd.get("node_id"))
+        if not nid or nid in used:
+            continue
+        used.add(nid)
+        if _s(nd.get("parent_id")) == nid:  # self-parent → reattach to root
+            nd = {**nd, "parent_id": None if nid == root_id else root_id}
+        out.append(nd)
+    return out
+
+
 def to_hierarchy(
     workbook: Workbook, *, root_id: str = "vc", root_label: str = "Value chain"
 ) -> Workbook:
@@ -56,6 +76,12 @@ def to_hierarchy(
             )
             seen.add(node_id)
 
+    # A machine's node id IS its process id; group ids must stay disjoint from
+    # those, or a process whose company/group is named after itself would parent
+    # the machine to a same-named group (a self-parent cycle). So a grouping
+    # level whose id collides with any machine id is skipped.
+    pids = {_s(p.get("process_id")) for p in procs if _s(p.get("process_id"))}
+
     machines: list[dict[str, object]] = []
     for p in procs:
         pid = _s(p.get("process_id"))
@@ -64,13 +90,14 @@ def to_hierarchy(
         company = _s(p.get("company")).strip()
         group = _s(p.get("group")).strip()
         parent = root_id
-        if company and company != "all":
+        if company and company != "all" and company not in pids:
             ensure(company, root_id, "company", company)
             parent = company
         if group and group not in ("", company, "all"):
-            fid = f"{company}/{group}" if company and company != "all" else group
-            ensure(fid, parent, "facility", group)
-            parent = fid
+            fid = f"{company}/{group}" if parent != root_id else group
+            if fid not in pids:
+                ensure(fid, parent, "facility", group)
+                parent = fid
         nodes.append(
             {
                 "node_id": pid,
@@ -100,7 +127,7 @@ def to_hierarchy(
             connections.append(row)
 
     out = {k: v for k, v in workbook.items() if k not in ("processes", "edges", "node_layout")}
-    out["nodes"] = nodes
+    out["nodes"] = _dedupe_nodes(nodes, root_id)
     out["machines"] = machines
     out["connections"] = connections
     return out

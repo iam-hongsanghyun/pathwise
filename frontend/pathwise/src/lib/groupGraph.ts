@@ -47,16 +47,26 @@ const n = (v: unknown, d = 0): number => (v == null || v === "" ? d : Number(v))
 /** Parse all nodes from the workbook's `nodes` sheet into typed GroupNodes.
  *  Rows with no `node_id` are silently skipped. */
 export function parseNodes(wb: Workbook): GroupNode[] {
-  return (wb.nodes ?? [])
-    .filter((r) => s(r.node_id) !== "")
-    .map((r) => ({
-      id: s(r.node_id),
-      parentId: s(r.parent_id) || null,
+  // Dedupe by id (first wins) and break self-parent edges: a duplicate node id
+  // or a node naming itself as parent would make the tree walks below
+  // (ancestor/descendant/depth) loop forever and hang the UI on malformed data.
+  const seen = new Set<string>();
+  const out: GroupNode[] = [];
+  for (const r of wb.nodes ?? []) {
+    const id = s(r.node_id);
+    if (id === "" || seen.has(id)) continue;
+    seen.add(id);
+    const parentId = s(r.parent_id) || null;
+    out.push({
+      id,
+      parentId: parentId === id ? null : parentId,
       kind: s(r.kind) === "machine" ? ("machine" as const) : ("group" as const),
       level: s(r.level),
-      label: s(r.label) || s(r.node_id),
+      label: s(r.label) || id,
       order: n(r.order),
-    }));
+    });
+  }
+  return out;
 }
 
 /** Return the ids of all root nodes (those with no parent). */

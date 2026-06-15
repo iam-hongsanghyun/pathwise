@@ -204,7 +204,9 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   // ── Market lanes for the canvas ─────────────────────────────────────────────
   const childOfGroup = (companyId: string): string | null => {
     let cur: string | null = companyId;
-    while (cur !== null) {
+    const walked = new Set<string>(); // cycle guard — never loop on malformed data
+    while (cur !== null && !walked.has(cur)) {
+      walked.add(cur);
       const parent: string | null = nodeById.get(cur)?.parentId ?? null;
       if (parent === canvasGroupId) return cur;
       if (parent === null) return null;
@@ -222,7 +224,8 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     const depthOf = (id: string): number => {
       let d = 0;
       let cur: string | null = nodeById.get(id)?.parentId ?? null;
-      while (cur) { d++; cur = nodeById.get(cur)?.parentId ?? null; }
+      const walked = new Set<string>([id]); // cycle guard — never loop on malformed data
+      while (cur && !walked.has(cur)) { walked.add(cur); d++; cur = nodeById.get(cur)?.parentId ?? null; }
       return d;
     };
     const minDepth = new Map<string, number>();
