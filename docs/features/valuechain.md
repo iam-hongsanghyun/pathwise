@@ -21,6 +21,13 @@ technologies in parallel.
   (markets) + targets (demand); for a machine, **how each required input stream
   is satisfied** (by a connection or a purchase). The recipe itself is *not*
   edited here — that's the Component tab.
+  - **Flow context** — a compact "feeds in (before) / feeds out (next)" list, so
+    even a lone machine shows what connects to it. It reads every connection
+    touching the node *or an ancestor* (so a country-level link shows on the
+    machine inside), filtered to commodities the node actually produces/consumes.
+    When one input commodity has **more than one source**, they're tagged
+    *N alternatives* — that's how you spot a competing/substitutable supply (see
+    [alternatives.md](alternatives.md)).
 
 ## Connections (commodity flows)
 

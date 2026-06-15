@@ -104,6 +104,78 @@ export function MachineInspector({
   );
 }
 
+// ── Flow context: what feeds a node, and what it feeds ────────────────────────
+// Reads the raw `connections` (which may be wired at any level — e.g. a
+// country→country link), and shows every connection touching the selected node
+// OR an ancestor of it, so even a lone machine displays its upstream/downstream.
+// When one input commodity has MORE THAN ONE source, those sources are the
+// **alternatives** the optimiser chooses between.
+export function FlowContext({ wb, nodeId }: { wb: Workbook; nodeId: string }) {
+  const anc = useMemo(() => new Set(chain(wb, nodeId)), [wb, nodeId]);
+  const labelOf = useMemo(
+    () => new Map((wb.nodes ?? []).map((r) => [s(r.node_id), s(r.label) || s(r.node_id)])),
+    [wb],
+  );
+  const lab = (id: string): string => labelOf.get(id) || id.split("/").pop() || id;
+
+  // What this node's SUBTREE actually produces / consumes — so a country-level
+  // connection is attributed to a node only for commodities it really handles
+  // (the iron-ore mine produces iron_ore, not the hydrogen its sibling makes).
+  const { produces, consumes } = useMemo(() => {
+    const childrenOf = new Map<string, string[]>();
+    for (const r of wb.nodes ?? []) {
+      const p = s(r.parent_id);
+      if (p) (childrenOf.get(p) ?? childrenOf.set(p, []).get(p)!).push(s(r.node_id));
+    }
+    const subtree = new Set<string>([nodeId]);
+    const stack = [nodeId];
+    while (stack.length) for (const ch of childrenOf.get(stack.pop()!) ?? []) if (!subtree.has(ch)) { subtree.add(ch); stack.push(ch); }
+    const techOf = new Map((wb.machines ?? []).map((m) => [s(m.machine_id), s(m.baseline_technology)]));
+    const techs = new Set([...subtree].map((id) => techOf.get(id)).filter(Boolean));
+    const prod = new Set<string>(), cons = new Set<string>();
+    for (const r of wb.io ?? []) {
+      if (!techs.has(s(r.technology_id))) continue;
+      const role = s(r.role), tgt = s(r.target);
+      if (role === "output") prod.add(tgt);
+      else if (role === "input") cons.add(tgt);
+    }
+    return { produces: prod, consumes: cons };
+  }, [wb, nodeId]);
+
+  const inByComm = new Map<string, Set<string>>(); // commodity → source nodes (before)
+  const outByComm = new Map<string, Set<string>>(); // commodity → target nodes (next)
+  for (const c of wb.connections ?? []) {
+    const f = s(c.from_node), t = s(c.to_node), cm = s(c.commodity_id);
+    if (!cm) continue;
+    if (anc.has(t) && !anc.has(f) && consumes.has(cm)) (inByComm.get(cm) ?? inByComm.set(cm, new Set()).get(cm)!).add(f);
+    if (anc.has(f) && !anc.has(t) && produces.has(cm)) (outByComm.get(cm) ?? outByComm.set(cm, new Set()).get(cm)!).add(t);
+  }
+  if (inByComm.size === 0 && outByComm.size === 0)
+    return <div className="rail-empty" style={{ fontSize: "0.78rem" }}>Not wired to other nodes yet — right-click → Connect.</div>;
+
+  const lane = (title: string, arrow: string, m: Map<string, Set<string>>) =>
+    [...m.entries()].map(([cm, nodes]) => {
+      const srcs = [...nodes];
+      return (
+        <div key={`${title}:${cm}`} style={{ fontSize: "0.78rem", padding: "2px 0" }}>
+          <span className="muted">{arrow} {cm}:</span>{" "}
+          {srcs.map((n) => lab(n)).join(", ")}
+          {title === "in" && srcs.length > 1 && (
+            <span style={{ color: "var(--brand)", fontWeight: 600 }}> · {srcs.length} alternatives</span>
+          )}
+        </div>
+      );
+    });
+
+  return (
+    <div className="rail-section">
+      <div className="rail-head">Flow context</div>
+      {inByComm.size > 0 && <div style={{ marginBottom: 4 }}><div className="muted" style={{ fontSize: "0.72rem" }}>feeds in (before)</div>{lane("in", "←", inByComm)}</div>}
+      {outByComm.size > 0 && <div><div className="muted" style={{ fontSize: "0.72rem" }}>feeds out (next)</div>{lane("out", "→", outByComm)}</div>}
+    </div>
+  );
+}
+
 // ── Ports / purchasing (markets scoped to a node) ─────────────────────────────
 export function PortsPanel({
   wb,
