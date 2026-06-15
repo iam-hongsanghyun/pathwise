@@ -219,6 +219,32 @@ export async function instantiateComponent(
   );
 }
 
+/** A technology offered by some library (the pool an alternative is drawn from). */
+export interface AvailableTechnology {
+  library: string;
+  scope: LibScope;
+  technology: string;
+}
+
+/** Every technology across the base + this session's libraries. */
+export async function listAvailableTechnologies(sessionId: string): Promise<AvailableTechnology[]> {
+  return json<AvailableTechnology[]>(await fetch(`/api/session/${sessionId}/technologies`));
+}
+
+/** Offer a technology as an alternative the optimiser may switch a machine to. */
+export async function addAlternative(
+  sessionId: string,
+  body: { library: string; technology: string; machine_id: string; scope: LibScope },
+): Promise<{ from_technology: string; to_technology: string }> {
+  return json<{ from_technology: string; to_technology: string }>(
+    await fetch(`/api/session/${sessionId}/alternative`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
 /** Place a technology as a fresh machine under a group node of the session. */
 export async function placeTechnology(
   sessionId: string,

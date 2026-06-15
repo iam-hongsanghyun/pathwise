@@ -33,6 +33,26 @@ producers all feed the Korean mill's `hydrogen` balance and compete.
 | make imports lose over time | rising commodity `price` / carbon (`impact_prices`, `commodity_impacts`) |
 | outsource a whole step | make its output **purchasable** (a market) instead of produced |
 
+## How to *add* an alternative in the value chain
+
+Alternatives are a **value-chain** choice — they are *not* baked into the
+Component library (a technology there is defined purely on its own). Select a
+machine in the Value-chain view; its right pane has an **Alternatives (optimiser
+may switch to)** section listing the technologies the machine can switch to, with
+a searchable picker drawing from the pool of *all* library technologies (base +
+this scenario's). Adding one:
+
+- merges that technology's recipe (its `io` + referenced streams) into the
+  session model, and
+- records a `transitions` row `baseline → alternative` (the engine's switch
+  mechanism — see [transitions.md](transitions.md)).
+
+Remove an alternative with the ✕. Because it's a transition, the choice is
+*tech-level*: every machine running the same baseline shares the alternatives.
+The optimiser then runs whichever route is cheapest under the carbon price / cap.
+(Adding the same recipe to two parallel machines and connecting both to a
+consumer — pattern A above — remains the way to model a continuous split.)
+
 ## How to *see* an alternative in the UI
 
 There's no special "alternative" line — an alternative is simply **one consumer

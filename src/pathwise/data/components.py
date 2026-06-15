@@ -685,6 +685,59 @@ def place_technology(
     return wb
 
 
+def add_alternative(
+    model: Workbook,
+    library: ComponentLibrary,
+    technology_id: str,
+    *,
+    from_technology: str,
+    capex_per_capacity: float = 0.0,
+) -> Workbook:
+    """Make ``technology_id`` an ALTERNATIVE the optimiser may switch to from
+    ``from_technology`` — used to offer alternatives on a machine in the value
+    chain WITHOUT baking them into the Component library.
+
+    Merges the alternative's recipe (``technologies`` / ``io`` + referenced
+    ``commodities`` / ``impacts``) into the model and adds a ``transitions`` row
+    ``from_technology → technology_id`` (any facility running ``from_technology``
+    may switch). Idempotent on the transition. Pure — returns a new workbook.
+
+    Raises:
+        KeyError: If ``technology_id`` is not in the library.
+    """
+    tech = library.technology(technology_id)
+    if tech is None:
+        raise KeyError(f"unknown technology '{technology_id}'")
+
+    wb: Workbook = {k: list(v) for k, v in model.items()}
+    _merge_row(wb, "technologies", "technology_id", _tech_row(tech))
+    if all(str(r.get("technology_id")) != technology_id for r in model.get("io", [])):
+        wb.setdefault("io", []).extend(_io_rows(tech))
+    inputs_outputs = {r.target for r in tech.io if r.role != "impact"}
+    for c in library.commodities:
+        if c.commodity_id in inputs_outputs:
+            _merge_row(wb, "commodities", "commodity_id", _commodity_row(c))
+    for imp in sorted({r.target for r in tech.io if r.role == "impact"}):
+        _merge_row(wb, "impacts", "impact_id", {"impact_id": imp, "unit": "t"})
+
+    transitions = wb.setdefault("transitions", [])
+    exists = any(
+        str(r.get("from_technology")) == from_technology
+        and str(r.get("to_technology")) == technology_id
+        for r in transitions
+    )
+    if not exists:
+        transitions.append(
+            {
+                "from_technology": from_technology,
+                "to_technology": technology_id,
+                "action": "replace",
+                "capex_per_capacity": capex_per_capacity,
+            }
+        )
+    return wb
+
+
 def _es(v: object) -> str:
     return "" if v is None else str(v)
 
