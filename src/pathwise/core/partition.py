@@ -97,6 +97,7 @@ def partition(
     signals: list[str] | None = None,
     default_lag: int = 0,
     feedback: bool = True,
+    targets: list[str] | None = None,
 ) -> tuple[ValueChainSpec, dict[str, Workbook]]:
     """Cut ``hierarchy`` at ``level`` → a coupling spec + one workbook per cut node.
 
@@ -108,12 +109,14 @@ def partition(
         default_lag: Lag for a crossing connection that sets none.
         feedback: Mark cross-cut links as feedback (downstream demand → upstream),
             so an upstream cut produces what its downstream consumes.
+        targets: Restrict the cut to these node ids (the chosen units); ``None``/
+            empty ⇒ every node at ``level``.
 
     Returns:
         ``(spec, {cut_id: sub_workbook})`` ready for ``run_value_chain``.
     """
     sig = list(signals or ["price"])
-    cut_ids = hierarchy.nodes_at_level(level)
+    cut_ids = _cut_ids(hierarchy, level, targets)
     cut_set = set(cut_ids)
     flat = _expand_hierarchy(workbook, hierarchy)
 
@@ -169,7 +172,57 @@ def partition(
     return spec, workbooks
 
 
-def is_partitionable(hierarchy: Hierarchy, level: str) -> bool:
+def _cut_ids(hierarchy: Hierarchy, level: str, targets: list[str] | None) -> list[str]:
+    """Node ids at ``level``, restricted to ``targets`` when given."""
+    at_level = hierarchy.nodes_at_level(level)
+    if not targets:
+        return at_level
+    keep = set(targets)
+    return [c for c in at_level if c in keep]
+
+
+def is_partitionable(hierarchy: Hierarchy, level: str, targets: list[str] | None = None) -> bool:
     """Whether cutting at ``level`` yields more than one independent problem."""
-    cuts = hierarchy.nodes_at_level(level)
+    cuts = _cut_ids(hierarchy, level, targets)
     return len(cuts) > 1 and set(cuts) != set(hierarchy.roots())
+
+
+def subset_workbook(workbook: Workbook, hierarchy: Hierarchy, keep: list[str]) -> Workbook:
+    """A workbook restricted to the subtrees rooted at ``keep`` (for a JOINT solve
+    of a chosen set of units). Node/machine/connection/measure/scope rows outside
+    the kept subtrees are dropped; shared catalogue + scenario sheets are kept.
+    """
+    members: set[str] = set()
+    for k in keep:
+        members.add(k)
+        members |= hierarchy.descendants(k)
+    sub: Workbook = {}
+    for sheet, rows in workbook.items():
+        if sheet == "nodes":
+            sub[sheet] = [r for r in rows if str(r.get("node_id")) in members]
+        elif sheet == "machines":
+            sub[sheet] = [r for r in rows if str(r.get("machine_id")) in members]
+        elif sheet == "connections":
+            sub[sheet] = [
+                r
+                for r in rows
+                if str(r.get("from_node")) in members and str(r.get("to_node")) in members
+            ]
+        elif sheet == "ports":
+            sub[sheet] = [r for r in rows if str(r.get("node_id")) in members]
+        elif sheet == "measures":
+            sub[sheet] = [r for r in rows if str(r.get("facility")) in members]
+        elif sheet in ("demand", "markets", "impact_caps", "min_production", "investment_budget"):
+            sub[sheet] = [
+                r
+                for r in rows
+                if str(r.get("company")) in members or str(r.get("company")) == "all"
+            ]
+        else:
+            sub[sheet] = list(rows)  # shared catalogue / scenario sheet
+    surviving = {str(r.get("measure_id")) for r in sub.get("measures", [])}
+    if "measure_blocks" in sub:
+        sub["measure_blocks"] = [
+            r for r in sub["measure_blocks"] if str(r.get("measure_id")) in surviving
+        ]
+    return sub

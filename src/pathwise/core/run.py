@@ -14,7 +14,7 @@ from typing import Any
 
 from pathwise.core.build import build
 from pathwise.core.extract import extract_results
-from pathwise.core.partition import is_partitionable, partition
+from pathwise.core.partition import is_partitionable, partition, subset_workbook
 from pathwise.core.solve import solve
 from pathwise.core.valuechain import run_value_chain
 from pathwise.data.assemble import assemble_problem
@@ -39,13 +39,29 @@ def run_model(
     """
     hierarchy = load_hierarchy(workbook)
     level = scenario.optimisation_scope
-    if hierarchy is None or level == "system" or not is_partitionable(hierarchy, level):
+    targets = scenario.optimisation_targets or None
+
+    # Whole-model joint solve (no hierarchy, or the root/system level).
+    if hierarchy is None or level == "system":
         return extract_results(
             solve(build(assemble_problem(workbook, scenario))), terminology, report
         )
 
+    units = [c for c in hierarchy.nodes_at_level(level) if not targets or c in set(targets)]
+    if not units:  # nothing matched → fall back to the whole model
+        return extract_results(
+            solve(build(assemble_problem(workbook, scenario))), terminology, report
+        )
+
+    # JOINT: solve the selected units (their subtrees) together as one problem —
+    # also the case of a single unit. INDEPENDENT: each unit is its own problem,
+    # coupled across boundaries by the value-chain cascade.
+    if scenario.optimisation_mode == "joint" or not is_partitionable(hierarchy, level, targets):
+        sub = subset_workbook(workbook, hierarchy, units)
+        return extract_results(solve(build(assemble_problem(sub, scenario))), terminology, report)
+
     c = scenario.coupling
     spec, workbooks = partition(
-        workbook, hierarchy, level, signals=c.signals, default_lag=c.default_lag
+        workbook, hierarchy, level, signals=c.signals, default_lag=c.default_lag, targets=units
     )
     return run_value_chain(spec, workbooks, scenario, iterations=c.iterations, damping=c.damping)
