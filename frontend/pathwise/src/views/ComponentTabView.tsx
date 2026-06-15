@@ -12,6 +12,7 @@ import {
   MeasureEditor,
   TechnologyEditor,
 } from "../features/component/editors";
+import { TimeSeriesRail } from "../features/component/TimeSeriesRail";
 import { useDialogs } from "../features/controls/Dialog";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
 import type { TreeAction, TreeNode } from "../features/tree/types";
@@ -459,10 +460,82 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
     );
   }
 
+  // ── Right-rail notes (editable references per entity / sector) ───────────────
+  function notesFor(): { label: string; value: string; set: (v: string) => void } | null {
+    if (!sel || !body) return null;
+    if (sel.kind === "tech") {
+      const t = body.technologies.find((x) => x.technology_id === sel.id);
+      return t == null ? null : {
+        label: `Technology · ${t.technology_id}`,
+        value: t.notes ?? "",
+        set: (v) => editLib(sel.libId, (l) => ({ ...l, technologies: l.technologies.map((x) => (x.technology_id === sel.id ? { ...x, notes: v } : x)) })),
+      };
+    }
+    if (sel.kind === "stream") {
+      const c = body.commodities.find((x) => x.commodity_id === sel.id);
+      return c == null ? null : {
+        label: `Stream · ${c.commodity_id}`,
+        value: c.notes ?? "",
+        set: (v) => editLib(sel.libId, (l) => ({ ...l, commodities: l.commodities.map((x) => (x.commodity_id === sel.id ? { ...x, notes: v } : x)) })),
+      };
+    }
+    if (sel.kind === "measure") {
+      const m = body.measures.find((x) => x.measure_id === sel.id);
+      return m == null ? null : {
+        label: `Measure · ${m.measure_id}`,
+        value: m.notes ?? "",
+        set: (v) => editLib(sel.libId, (l) => ({ ...l, measures: l.measures.map((x) => (x.measure_id === sel.id ? { ...x, notes: v } : x)) })),
+      };
+    }
+    if (sel.kind === "macc") {
+      const g = body.maccs.find((x) => x.macc_id === sel.id);
+      return g == null ? null : {
+        label: `MACC · ${g.macc_id}`,
+        value: g.notes ?? "",
+        set: (v) => editLib(sel.libId, (l) => ({ ...l, maccs: l.maccs.map((x) => (x.macc_id === sel.id ? { ...x, notes: v } : x)) })),
+      };
+    }
+    if (sel.kind === "cat" && !(sel.id ?? "").includes("/")) {
+      const sector = sel.id ?? OTHER; // a sector group, not a bucket
+      return {
+        label: `Sector · ${sector}`,
+        value: (body.notes_by_sector ?? {})[sector] ?? "",
+        set: (v) => editLib(sel.libId, (l) => {
+          const nbs = { ...(l.notes_by_sector ?? {}) };
+          if (v.trim() === "") delete nbs[sector];
+          else nbs[sector] = v;
+          return { ...l, notes_by_sector: nbs };
+        }),
+      };
+    }
+    return null;
+  }
+
+  // ── Bottom-rail per-year cost trajectories for a single selected item ────────
+  function bottomRail() {
+    if (!sel || !body) return null;
+    if (sel.kind === "tech") {
+      const t = body.technologies.find((x) => x.technology_id === sel.id);
+      return t == null ? null : <TimeSeriesRail kind="tech" value={t} onChange={(v) => editLib(sel.libId, (l) => ({ ...l, technologies: l.technologies.map((x) => (x.technology_id === sel.id ? v : x)) }))} />;
+    }
+    if (sel.kind === "stream") {
+      const c = body.commodities.find((x) => x.commodity_id === sel.id);
+      return c == null ? null : <TimeSeriesRail kind="stream" value={c} onChange={(v) => editLib(sel.libId, (l) => ({ ...l, commodities: l.commodities.map((x) => (x.commodity_id === sel.id ? v : x)) }))} />;
+    }
+    if (sel.kind === "measure") {
+      const m = body.measures.find((x) => x.measure_id === sel.id);
+      return m == null ? null : <TimeSeriesRail kind="measure" value={m} onChange={(v) => editLib(sel.libId, (l) => ({ ...l, measures: l.measures.map((x) => (x.measure_id === sel.id ? v : x)) }))} />;
+    }
+    return null;
+  }
+
+  const notes = notesFor();
+  const rail = bottomRail();
+
   return (
     <div className="view-full builder" style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       {error && <div className="error" style={{ padding: "4px 12px" }} onClick={() => setError(null)}>{error} <span className="muted">(dismiss)</span></div>}
-      <div style={{ display: "flex", height: "100%", minHeight: 0 }}>
+      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
         <aside style={{ width: 280, overflow: "auto", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", flexShrink: 0 }}>
           <div className="rail-head-row" style={{ padding: "6px 10px" }}>
             <span className="rail-head">Libraries</span>
@@ -491,7 +564,31 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
           </div>
           {renderDetail()}
         </main>
+        {/* RIGHT rail: editable notes / references for the selected item or sector. */}
+        <aside style={{ width: 264, overflow: "auto", borderLeft: "1px solid var(--border)", flexShrink: 0, padding: "14px 14px" }}>
+          <div className="eyebrow" style={{ marginBottom: 8 }}>notes &amp; references</div>
+          {notes ? (
+            <>
+              <div className="muted" style={{ fontSize: "0.74rem", marginBottom: 6 }}>{notes.label}</div>
+              <textarea
+                value={notes.value}
+                onChange={(e) => notes.set(e.target.value)}
+                placeholder="Sources, assumptions, caveats… (free text — the optimiser ignores it)"
+                style={{ ...inp, width: "100%", minHeight: 180, resize: "vertical", lineHeight: 1.45 }}
+              />
+            </>
+          ) : (
+            <p className="muted" style={{ fontSize: "0.78rem" }}>Select a technology, stream, measure, MACC, or a sector to add notes.</p>
+          )}
+        </aside>
       </div>
+      {/* BOTTOM rail: per-year cost/price trajectories for the selected item. */}
+      {rail && (
+        <div style={{ flexShrink: 0, borderTop: "1px solid var(--border)", maxHeight: 240, overflow: "auto", padding: "10px 16px", background: "var(--surface)" }}>
+          <div className="eyebrow" style={{ marginBottom: 6 }}>time series <span className="muted" style={{ textTransform: "none", letterSpacing: 0 }}>· per-year overrides of the values above</span></div>
+          {rail}
+        </div>
+      )}
       {dialogNode}
     </div>
   );

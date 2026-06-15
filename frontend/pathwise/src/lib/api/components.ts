@@ -23,23 +23,34 @@ export interface IoRow {
   share_max?: number | null;
 }
 
+/** A per-year override map: calendar year → value. JSON keys arrive as strings. */
+export type ByYear = Record<string, number>;
+
 export interface TechnologyTemplate {
   technology_id: string;
   lifespan: number;
   capex: number;
   opex: number;
+  /** Per-year overrides of the scalar capex/opex (empty = scalar every year). */
+  capex_by_year?: ByYear;
+  opex_by_year?: ByYear;
   /** Years the technology is available to adopt (null = always). */
   introduction_year?: number | null;
   phase_out_year?: number | null;
   io: IoRow[];
   /** Ids of the MACC bundles that apply to this technology. */
   maccs: string[];
+  /** Free-text notes / references (optimiser ignores it). */
+  notes?: string;
 }
 
 export interface MeasureBlock {
   reduction: number;
   capex_per_capacity: number;
   opex_per_capacity: number;
+  /** Per-year overrides of the scalar per-capacity costs (empty = scalar). */
+  capex_per_capacity_by_year?: ByYear;
+  opex_per_capacity_by_year?: ByYear;
 }
 
 export interface MeasureTemplate {
@@ -49,6 +60,8 @@ export interface MeasureTemplate {
   target: string;
   lifetime: number;
   blocks: MeasureBlock[];
+  /** Free-text notes / references (optimiser ignores it). */
+  notes?: string;
 }
 
 /** A MACC — a named, reusable bundle linking individual measures by id. */
@@ -56,6 +69,8 @@ export interface MaccGroup {
   macc_id: string;
   label: string;
   measures: string[];
+  /** Free-text notes / references (optimiser ignores it). */
+  notes?: string;
 }
 
 export interface MachineComponent {
@@ -72,9 +87,14 @@ export interface CommodityTemplate {
   unit: string;
   price?: number | null;
   sale_price?: number | null;
+  /** Per-year overrides of the scalar price/sale_price (empty = scalar). */
+  price_by_year?: ByYear;
+  sale_price_by_year?: ByYear;
   /** Owning sector (the sector that PRODUCES this stream — electricity is "power",
    *  not "steel"). Blank/null = a general, industry-agnostic stream. */
   sector?: string | null;
+  /** Free-text notes / references (optimiser ignores it). */
+  notes?: string;
 }
 
 export interface ChildRef {
@@ -95,6 +115,8 @@ export interface GroupComponent {
   level: string;
   children: ChildRef[];
   connections: ConnectionTemplate[];
+  /** Free-text notes / references (optimiser ignores it). */
+  notes?: string;
 }
 
 export interface ComponentLibrary {
@@ -108,6 +130,8 @@ export interface ComponentLibrary {
   /** Legacy composite components (no longer authored). */
   machines: MachineComponent[];
   groups: GroupComponent[];
+  /** Free-text notes / references keyed by derived sector name. */
+  notes_by_sector?: Record<string, string>;
 }
 
 /** Which catalogue a library lives in: the shared "base" set, or a scenario's
