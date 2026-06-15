@@ -98,6 +98,106 @@ def test_any_attribute_can_be_temporal() -> None:
     assert prob.technologies["T"].capex(2030) == 250.0  # temporal override
 
 
+def test_long_technologies_prices_drives_cost() -> None:
+    # Long-format technologies_prices (what the component library emits) feeds
+    # capex/opex by year, linearly interpolated onto the horizon.
+    sc = ScenarioConfig.from_dict({"economics": {"base_year": 2025}})
+    wb = {
+        "periods": [{"year": 2025}, {"year": 2030}, {"year": 2035}],
+        "commodities": [{"commodity_id": "gas", "kind": "energy"}],
+        "technologies": [{"technology_id": "T", "capex": 100, "opex": 5}],
+        "processes": [
+            {"process_id": "P", "company": "C", "baseline_technology": "T", "capacity": 1}
+        ],
+        "io": [{"technology_id": "T", "target": "gas", "role": "input", "coefficient": 1}],
+        "demand": [{"company": "C", "commodity_id": "gas", "year": 2025, "amount": 0}],
+        "technologies_prices": [
+            {"technology_id": "T", "year": 2025, "capex": 100, "opex": 5},
+            {"technology_id": "T", "year": 2035, "capex": 300, "opex": 5},
+        ],
+    }
+    t = assemble_problem(wb, sc).technologies["T"]
+    assert t.capex(2025) == 100.0
+    assert t.capex(2030) == 200.0  # linear midpoint of 100 → 300
+    assert t.capex(2035) == 300.0
+    assert t.opex(2030) == 5.0
+
+
+def test_no_technologies_prices_falls_back_to_scalar() -> None:
+    sc = ScenarioConfig.from_dict({"economics": {"base_year": 2025}})
+    wb = {
+        "periods": [{"year": 2025}, {"year": 2030}],
+        "commodities": [{"commodity_id": "gas", "kind": "energy"}],
+        "technologies": [{"technology_id": "T", "capex": 100}],
+        "processes": [
+            {"process_id": "P", "company": "C", "baseline_technology": "T", "capacity": 1}
+        ],
+        "io": [{"technology_id": "T", "target": "gas", "role": "input", "coefficient": 1}],
+        "demand": [{"company": "C", "commodity_id": "gas", "year": 2025, "amount": 0}],
+    }
+    t = assemble_problem(wb, sc).technologies["T"]
+    assert t.capex(2025) == 100.0 and t.capex(2030) == 100.0  # scalar, every year
+
+
+def test_constant_technologies_prices_equals_scalar_objective() -> None:
+    # A single flat trajectory point must give the SAME solved objective as the
+    # bare scalar — proves the long-format path coincides with the fallback.
+    def _wb() -> dict:
+        return {
+            "periods": [{"year": 2025}, {"year": 2030}],
+            "commodities": [
+                {"commodity_id": "gas", "kind": "energy", "price": 10},
+                {"commodity_id": "w", "kind": "product"},
+            ],
+            "technologies": [{"technology_id": "T", "capex": 100, "opex": 7}],
+            "processes": [
+                {"process_id": "P", "company": "C", "baseline_technology": "T", "capacity": 50}
+            ],
+            "io": [
+                {"technology_id": "T", "target": "gas", "role": "input", "coefficient": 2},
+                {
+                    "technology_id": "T",
+                    "target": "w",
+                    "role": "output",
+                    "coefficient": 1,
+                    "is_product": True,
+                },
+            ],
+            "demand": [{"company": "C", "commodity_id": "w", "year": 2025, "amount": 20}],
+        }
+
+    scalar = _solve(_wb())
+    traj = _wb()
+    traj["technologies_prices"] = [
+        {"technology_id": "T", "year": 2025, "capex": 100, "opex": 7},
+        {"technology_id": "T", "year": 2030, "capex": 100, "opex": 7},
+    ]
+    peryear = _solve(traj)
+    assert scalar["status"] == "optimal" and peryear["status"] == "optimal"
+    np.testing.assert_allclose(peryear["objective"], scalar["objective"], rtol=1e-9, atol=1e-9)
+
+
+def test_wide_tech_table_overrides_long_prices() -> None:
+    sc = ScenarioConfig.from_dict({"economics": {"base_year": 2025}})
+    wb = {
+        "periods": [{"year": 2025}, {"year": 2030}],
+        "commodities": [{"commodity_id": "gas", "kind": "energy"}],
+        "technologies": [{"technology_id": "T", "capex": 100}],
+        "processes": [
+            {"process_id": "P", "company": "C", "baseline_technology": "T", "capacity": 1}
+        ],
+        "io": [{"technology_id": "T", "target": "gas", "role": "input", "coefficient": 1}],
+        "demand": [{"company": "C", "commodity_id": "gas", "year": 2025, "amount": 0}],
+        "technologies_prices": [
+            {"technology_id": "T", "year": 2025, "capex": 100},
+            {"technology_id": "T", "year": 2030, "capex": 100},
+        ],
+        "technologies_t__capex": [{"year": 2025, "T": 100}, {"year": 2030, "T": 250}],
+    }
+    t = assemble_problem(wb, sc).technologies["T"]
+    assert t.capex(2030) == 250.0  # wide overrides long, like commodity prices
+
+
 def test_capacity_can_be_temporal() -> None:
     sc = ScenarioConfig.from_dict({"economics": {"base_year": 2025}})
     wb = {

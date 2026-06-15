@@ -306,36 +306,44 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
     return wb
 
 
-def _commodity_price_rows(lib: ComponentLibrary) -> list[dict[str, Any]]:
-    """Long-format price trajectory rows (commodity_id, year, price?, sale_price?).
+def _commodity_traj_rows(c: CommodityTemplate) -> list[dict[str, Any]]:
+    """One commodity's long-format price rows (commodity_id, year, price?, sale_price?).
 
     Matches the ``commodity_prices`` sheet the assembler already reads, so a
     commodity's per-year prices drive the optimiser as soon as the library loads.
     """
     rows: list[dict[str, Any]] = []
-    for c in lib.commodities:
-        for y in sorted(set(c.price_by_year) | set(c.sale_price_by_year)):
-            row: dict[str, Any] = {"commodity_id": c.commodity_id, "year": y}
-            if y in c.price_by_year:
-                row["price"] = c.price_by_year[y]
-            if y in c.sale_price_by_year:
-                row["sale_price"] = c.sale_price_by_year[y]
-            rows.append(row)
+    for y in sorted(set(c.price_by_year) | set(c.sale_price_by_year)):
+        row: dict[str, Any] = {"commodity_id": c.commodity_id, "year": y}
+        if y in c.price_by_year:
+            row["price"] = c.price_by_year[y]
+        if y in c.sale_price_by_year:
+            row["sale_price"] = c.sale_price_by_year[y]
+        rows.append(row)
     return rows
+
+
+def _tech_traj_rows(t: TechnologyTemplate) -> list[dict[str, Any]]:
+    """One technology's long-format cost rows (technology_id, year, capex?, opex?)."""
+    rows: list[dict[str, Any]] = []
+    for y in sorted(set(t.capex_by_year) | set(t.opex_by_year)):
+        row: dict[str, Any] = {"technology_id": t.technology_id, "year": y}
+        if y in t.capex_by_year:
+            row["capex"] = t.capex_by_year[y]
+        if y in t.opex_by_year:
+            row["opex"] = t.opex_by_year[y]
+        rows.append(row)
+    return rows
+
+
+def _commodity_price_rows(lib: ComponentLibrary) -> list[dict[str, Any]]:
+    """Long-format commodity price rows across the whole library."""
+    return [row for c in lib.commodities for row in _commodity_traj_rows(c)]
 
 
 def _technology_price_rows(lib: ComponentLibrary) -> list[dict[str, Any]]:
-    """Long-format tech cost trajectory rows (technology_id, year, capex?, opex?)."""
-    rows: list[dict[str, Any]] = []
-    for t in lib.technologies:
-        for y in sorted(set(t.capex_by_year) | set(t.opex_by_year)):
-            row: dict[str, Any] = {"technology_id": t.technology_id, "year": y}
-            if y in t.capex_by_year:
-                row["capex"] = t.capex_by_year[y]
-            if y in t.opex_by_year:
-                row["opex"] = t.opex_by_year[y]
-            rows.append(row)
-    return rows
+    """Long-format technology cost rows across the whole library."""
+    return [row for t in lib.technologies for row in _tech_traj_rows(t)]
 
 
 def _measure_block_traj_rows(lib: ComponentLibrary) -> list[dict[str, Any]]:
@@ -676,6 +684,13 @@ def instantiate(
     if measures:
         out["measures"] = measures
         out["measure_blocks"] = measure_blocks
+    # Per-year cost trajectories so authored per-year capex/opex/price drive the
+    # optimiser once the instance is solved (assembler reads these sheets).
+    if tp := _technology_price_rows(library):
+        out["technologies_prices"] = tp
+    cp = [row for c in library.commodities for row in _commodity_traj_rows(c)]
+    if cp:
+        out["commodity_prices"] = cp
     return out
 
 
@@ -738,6 +753,21 @@ def instantiate_into(
     for row in fresh.get("io", []):
         if str(row.get("technology_id")) not in have_tech:
             wb["io"].append(row)
+    # Trajectory rows are multi-row-per-entity, so merge by entity (skip an
+    # entity entirely when the model already carried it — the recipe is shared).
+    have_comm = {str(r.get("commodity_id")) for r in model.get("commodities", [])}
+    new_tp = [
+        r
+        for r in fresh.get("technologies_prices", [])
+        if str(r.get("technology_id")) not in have_tech
+    ]
+    if new_tp:
+        wb.setdefault("technologies_prices", []).extend(new_tp)
+    new_cp = [
+        r for r in fresh.get("commodity_prices", []) if str(r.get("commodity_id")) not in have_comm
+    ]
+    if new_cp:
+        wb.setdefault("commodity_prices", []).extend(new_cp)
     return wb
 
 
@@ -769,6 +799,33 @@ def _merge_row(wb: Workbook, sheet: str, id_col: str, row: dict[str, Any]) -> No
     rows = wb.setdefault(sheet, [])
     if all(str(r.get(id_col)) != str(row.get(id_col)) for r in rows):
         rows.append(row)
+
+
+def _merge_tech_traj(wb: Workbook, tech: TechnologyTemplate) -> None:
+    """Carry a technology's per-year capex/opex into the model's ``technologies_prices``.
+
+    So per-year costs authored on the library template actually reach the
+    assembler when the technology is placed. No-op when the technology has no
+    trajectory or already has rows in the model (idempotent, recipe shared).
+    """
+    traj = _tech_traj_rows(tech)
+    if not traj:
+        return
+    rows = wb.setdefault("technologies_prices", [])
+    if any(str(r.get("technology_id")) == tech.technology_id for r in rows):
+        return
+    rows.extend(traj)
+
+
+def _merge_commodity_traj(wb: Workbook, c: CommodityTemplate) -> None:
+    """Carry a commodity's per-year price/sale_price into the model's ``commodity_prices``."""
+    traj = _commodity_traj_rows(c)
+    if not traj:
+        return
+    rows = wb.setdefault("commodity_prices", [])
+    if any(str(r.get("commodity_id")) == c.commodity_id for r in rows):
+        return
+    rows.extend(traj)
 
 
 def place_technology(
@@ -817,12 +874,14 @@ def place_technology(
     )
 
     _merge_row(wb, "technologies", "technology_id", _tech_row(tech))
+    _merge_tech_traj(wb, tech)
     if all(str(r.get("technology_id")) != technology_id for r in model.get("io", [])):
         wb.setdefault("io", []).extend(_io_rows(tech))
     inputs_outputs = {r.target for r in tech.io if r.role != "impact"}
     for c in library.commodities:
         if c.commodity_id in inputs_outputs:
             _merge_row(wb, "commodities", "commodity_id", _commodity_row(c))
+            _merge_commodity_traj(wb, c)
     for imp in sorted({r.target for r in tech.io if r.role == "impact"}):
         _merge_row(wb, "impacts", "impact_id", {"impact_id": imp, "unit": "t"})
 
@@ -878,12 +937,14 @@ def add_alternative(
 
     wb: Workbook = {k: list(v) for k, v in model.items()}
     _merge_row(wb, "technologies", "technology_id", _tech_row(tech))
+    _merge_tech_traj(wb, tech)
     if all(str(r.get("technology_id")) != technology_id for r in model.get("io", [])):
         wb.setdefault("io", []).extend(_io_rows(tech))
     inputs_outputs = {r.target for r in tech.io if r.role != "impact"}
     for c in library.commodities:
         if c.commodity_id in inputs_outputs:
             _merge_row(wb, "commodities", "commodity_id", _commodity_row(c))
+            _merge_commodity_traj(wb, c)
     for imp in sorted({r.target for r in tech.io if r.role == "impact"}):
         _merge_row(wb, "impacts", "impact_id", {"impact_id": imp, "unit": "t"})
 
