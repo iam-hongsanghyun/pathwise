@@ -218,8 +218,10 @@ def instantiate(
 
     technologies = [_tech_row(t) for t in library.technologies]
     io: list[dict[str, Any]] = []
+    impact_ids: set[str] = set()
     for t in library.technologies:
         io.extend(_io_rows(t))
+        impact_ids |= {r.target for r in t.io if r.role == "impact"}
     commodities: list[dict[str, Any]] = []
     for c in library.commodities:
         row: dict[str, Any] = {"commodity_id": c.commodity_id, "kind": c.kind, "unit": c.unit}
@@ -236,6 +238,7 @@ def instantiate(
         "technologies": technologies,
         "io": io,
         "commodities": commodities,
+        "impacts": [{"impact_id": i, "unit": "t"} for i in sorted(impact_ids)],
     }
     if measures:
         out["measures"] = measures
@@ -294,6 +297,7 @@ def instantiate_into(
 
     _merge_by(wb, fresh, "technologies", "technology_id")
     _merge_by(wb, fresh, "commodities", "commodity_id")
+    _merge_by(wb, fresh, "impacts", "impact_id")
     # io rows have no single id; key on (technology_id, target, role) and only
     # add rows for technologies the model did not already carry.
     have_tech = {str(r.get("technology_id")) for r in model.get("technologies", [])}

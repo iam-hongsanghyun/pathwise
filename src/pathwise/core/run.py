@@ -23,16 +23,26 @@ from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.workbook import Workbook
 
 
-def run_model(workbook: Workbook, scenario: ScenarioConfig) -> dict[str, Any]:
+def run_model(
+    workbook: Workbook,
+    scenario: ScenarioConfig,
+    *,
+    terminology: dict[str, str] | None = None,
+    report: dict[str, list[str]] | None = None,
+) -> dict[str, Any]:
     """Solve a model, jointly or partitioned at ``scenario.optimisation_scope``.
 
     Returns the standard result for a joint solve, or the value-chain combined
     result (``{"status", "stages", "couplings", ...}``) when partitioned.
+    ``terminology`` / ``report`` are folded into the joint result (the cascade
+    result carries its own per-stage shape).
     """
     hierarchy = load_hierarchy(workbook)
     level = scenario.optimisation_scope
     if hierarchy is None or level == "system" or not is_partitionable(hierarchy, level):
-        return extract_results(solve(build(assemble_problem(workbook, scenario))))
+        return extract_results(
+            solve(build(assemble_problem(workbook, scenario))), terminology, report
+        )
 
     c = scenario.coupling
     spec, workbooks = partition(

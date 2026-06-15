@@ -48,7 +48,15 @@ def validate(workbook: Workbook) -> ValidationReport:
     """
     report = ValidationReport()
 
+    # A node hierarchy synthesises its `processes` from `machines` at assemble
+    # time, so a hierarchy model is valid without a `processes` sheet.
+    has_hierarchy = bool(workbook.get("nodes"))
+
     for sheet in REQUIRED_SHEETS:
+        if sheet == "processes" and has_hierarchy:
+            if not workbook.get("machines"):
+                report.errors.append("hierarchy model has no 'machines'")
+            continue
         if sheet not in workbook or not workbook[sheet]:
             report.errors.append(f"missing required sheet '{sheet}'")
     # Technology I/O comes from the unified `io` table OR the legacy pair.
@@ -63,8 +71,16 @@ def validate(workbook: Workbook) -> ValidationReport:
 
     techs = _ids(workbook, "technologies", "technology_id")
     commodities = _ids(workbook, "commodities", "commodity_id")
-    processes = _ids(workbook, "processes", "process_id")
+    # In a hierarchy model the machines are the facilities (one process each).
+    processes = _ids(workbook, "processes", "process_id") | _ids(workbook, "machines", "machine_id")
     impacts = _ids(workbook, "impacts", "impact_id")
+
+    for r in workbook.get("machines", []):
+        bt = str(r.get("baseline_technology", ""))
+        if bt and bt not in techs:
+            report.errors.append(
+                f"machine '{r.get('machine_id')}' references unknown technology '{bt}'"
+            )
 
     # Blend / slate share bounds must admit a feasible mix: per (technology,
     # role, group), each share_min ≤ share_max and Σ share_min ≤ 1 ≤ Σ share_max.
