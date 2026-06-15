@@ -460,14 +460,17 @@ export function MaccEditor({
 export function GroupEditor({
   value,
   componentNames,
+  commodityIds,
   onChange,
   onRename,
 }: {
   value: GroupComponent;
   componentNames: string[];
+  commodityIds: string[];
   onChange: (v: GroupComponent) => void;
   onRename: (id: string) => void;
 }) {
+  const aliases = value.children.map((c) => c.alias || c.component);
   return (
     <section>
       <h2 style={{ margin: "0 0 12px" }}>Group (bundle)</h2>
@@ -511,10 +514,35 @@ export function GroupEditor({
           </button>
         </Row>
       ))}
-      <p className="muted" style={{ fontSize: "0.74rem" }}>
-        Connections between children are drawn in the Value Chain tab (this tab defines what
-        components <i>are</i>).
-      </p>
+      <h3 style={{ margin: "12px 0 6px", fontSize: "0.85rem" }}>
+        Connections <span className="muted">(internal wiring — e.g. GT → ST on steam)</span>
+        <button className="ghost" style={{ marginLeft: 8 }} disabled={value.children.length < 2} onClick={() => onChange({ ...value, connections: [...value.connections, { source: aliases[0] ?? "", target: aliases[1] ?? "", commodity: commodityIds[0] ?? "", lag_years: 0 }] })}>
+          ＋ add connection
+        </button>
+      </h3>
+      {value.connections.map((cn, i) => (
+        <Row key={i}>
+          <Field label="from">
+            <select style={inputStyle} value={cn.source} onChange={(e) => onChange({ ...value, connections: value.connections.map((x, j) => (j === i ? { ...x, source: e.target.value } : x)) })}>
+              {aliases.map((a) => <option key={a}>{a}</option>)}
+            </select>
+          </Field>
+          <Field label="to">
+            <select style={inputStyle} value={cn.target} onChange={(e) => onChange({ ...value, connections: value.connections.map((x, j) => (j === i ? { ...x, target: e.target.value } : x)) })}>
+              {aliases.map((a) => <option key={a}>{a}</option>)}
+            </select>
+          </Field>
+          <Field label="commodity">
+            <select style={inputStyle} value={cn.commodity} onChange={(e) => onChange({ ...value, connections: value.connections.map((x, j) => (j === i ? { ...x, commodity: e.target.value } : x)) })}>
+              {commodityIds.map((a) => <option key={a}>{a}</option>)}
+            </select>
+          </Field>
+          <Field label="lag (yr)">
+            <input style={{ ...inputStyle, width: 64 }} type="number" value={cn.lag_years} onChange={(e) => onChange({ ...value, connections: value.connections.map((x, j) => (j === i ? { ...x, lag_years: num(e.target.value) } : x)) })} />
+          </Field>
+          <button className="ghost" style={{ alignSelf: "flex-end" }} onClick={() => onChange({ ...value, connections: value.connections.filter((_, j) => j !== i) })}>✕</button>
+        </Row>
+      ))}
     </section>
   );
 }

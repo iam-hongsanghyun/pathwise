@@ -8,7 +8,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CommodityEditor,
+  GroupEditor,
   MaccEditor,
+  MachineEditor,
   MeasureEditor,
   TechnologyEditor,
 } from "../features/component/editors";
@@ -20,21 +22,25 @@ import {
   deleteComponentLibrary,
   emptyLibrary,
   getComponentLibrary,
+  type GroupComponent,
   type LibrarySummary,
   listComponentLibraries,
   type MaccGroup,
+  type MachineComponent,
   type MeasureTemplate,
   saveComponentLibrary,
   type TechnologyTemplate,
 } from "../lib/api/components";
 
-type Kind = "library" | "cat" | "tech" | "stream" | "measure" | "macc";
+type Kind = "library" | "cat" | "tech" | "stream" | "measure" | "macc" | "machinecomp" | "groupcomp";
 interface Sel {
   libId: string;
   kind: Kind;
   /** For cat: the category key; for items: the item id. */
   id?: string;
 }
+const PREFIX: Record<string, Kind> = { t: "tech", s: "stream", m: "measure", g: "macc", mc: "machinecomp", gc: "groupcomp" };
+const KIND_PREFIX: Partial<Record<Kind, string>> = { tech: "t", stream: "s", measure: "m", macc: "g", machinecomp: "mc", groupcomp: "gc" };
 
 const uniq = (base: string, taken: Set<string>): string => {
   if (!taken.has(base)) return base;
@@ -49,10 +55,12 @@ function parseId(treeId: string): Sel {
   const rest = parts.slice(2).join(":");
   if (prefix === "lib") return { libId, kind: "library" };
   if (prefix === "cat") return { libId, kind: "cat", id: rest };
-  if (prefix === "t") return { libId, kind: "tech", id: rest };
-  if (prefix === "s") return { libId, kind: "stream", id: rest };
-  if (prefix === "m") return { libId, kind: "measure", id: rest };
-  return { libId, kind: "macc", id: rest };
+  return { libId, kind: PREFIX[prefix] ?? "tech", id: rest };
+}
+function treeIdOf(s: Sel): string {
+  if (s.kind === "library") return `lib:${s.libId}`;
+  if (s.kind === "cat") return `cat:${s.libId}:${s.id}`;
+  return `${KIND_PREFIX[s.kind]}:${s.libId}:${s.id}`;
 }
 
 export function ComponentTabView() {
@@ -132,6 +140,10 @@ export function ComponentTabView() {
       cat(l.id, "indiv", "Individual", `cat:${l.id}:measures`, body.measures.length > 0);
       for (const g of body.maccs) out.push({ id: `g:${l.id}:${g.macc_id}`, parentId: `cat:${l.id}:macc`, kind: "leaf", label: g.label || g.macc_id, hasChildren: false, draggable: false, droppable: false });
       for (const m of body.measures) out.push({ id: `m:${l.id}:${m.measure_id}`, parentId: `cat:${l.id}:indiv`, kind: "leaf", label: m.label || m.measure_id, hasChildren: false, draggable: false, droppable: false });
+      // Components = the placeable units: single machines + composite groups (e.g. CCGT).
+      cat(l.id, "components", "Components", `lib:${l.id}`, body.machines.length + body.groups.length > 0);
+      for (const g of body.groups) out.push({ id: `gc:${l.id}:${g.name}`, parentId: `cat:${l.id}:components`, kind: "group", label: g.label || g.name, level: g.level, hasChildren: false, draggable: false, droppable: false });
+      for (const m of body.machines) out.push({ id: `mc:${l.id}:${m.name}`, parentId: `cat:${l.id}:components`, kind: "leaf", label: m.label || m.name, hasChildren: false, draggable: false, droppable: false });
     }
     return out;
   }, [libs, openLibs]);
@@ -171,22 +183,45 @@ export function ComponentTabView() {
       return { ...l, maccs: [...l.maccs, { macc_id: id, label: "", measures: [] } as MaccGroup] };
     });
   }
+  function addMachineComp(libId: string) {
+    editLib(libId, (l) => {
+      const id = uniq("machine", new Set([...l.machines.map((m) => m.name), ...l.groups.map((g) => g.name)]));
+      const m: MachineComponent = { name: id, label: "", technology: l.technologies[0]?.technology_id ?? "", capacity: 1000, measures: [] };
+      setSel({ libId, kind: "machinecomp", id });
+      setExpanded((p) => new Set(p).add(`lib:${libId}`).add(`cat:${libId}:components`));
+      return { ...l, machines: [...l.machines, m] };
+    });
+  }
+  function addGroupComp(libId: string) {
+    editLib(libId, (l) => {
+      const id = uniq("group", new Set([...l.machines.map((m) => m.name), ...l.groups.map((g) => g.name)]));
+      const g: GroupComponent = { name: id, label: "", level: "facility", children: [], connections: [] };
+      setSel({ libId, kind: "groupcomp", id });
+      setExpanded((p) => new Set(p).add(`lib:${libId}`).add(`cat:${libId}:components`));
+      return { ...l, groups: [...l.groups, g] };
+    });
+  }
   function deleteItem(s: Sel) {
     editLib(s.libId, (l) => {
       if (s.kind === "tech") return { ...l, technologies: l.technologies.filter((t) => t.technology_id !== s.id) };
       if (s.kind === "stream") return { ...l, commodities: l.commodities.filter((c) => c.commodity_id !== s.id) };
       if (s.kind === "measure") return { ...l, measures: l.measures.filter((m) => m.measure_id !== s.id), maccs: l.maccs.map((g) => ({ ...g, measures: g.measures.filter((x) => x !== s.id) })) };
       if (s.kind === "macc") return { ...l, maccs: l.maccs.filter((g) => g.macc_id !== s.id), technologies: l.technologies.map((t) => ({ ...t, maccs: t.maccs.filter((x) => x !== s.id) })) };
+      if (s.kind === "machinecomp") return { ...l, machines: l.machines.filter((m) => m.name !== s.id), groups: l.groups.map((g) => ({ ...g, children: g.children.filter((c) => c.component !== s.id) })) };
+      if (s.kind === "groupcomp") return { ...l, groups: l.groups.filter((g) => g.name !== s.id).map((g) => ({ ...g, children: g.children.filter((c) => c.component !== s.id) })) };
       return l;
     });
     setSel({ libId: s.libId, kind: "library" });
   }
   function renameItem(s: Sel, name: string) {
     editLib(s.libId, (l) => {
-      if (s.kind === "tech") return { ...l, technologies: l.technologies.map((t) => (t.technology_id === s.id ? { ...t, technology_id: name } : t)) };
+      if (s.kind === "tech") return { ...l, technologies: l.technologies.map((t) => (t.technology_id === s.id ? { ...t, technology_id: name } : t)), machines: l.machines.map((m) => (m.technology === s.id ? { ...m, technology: name } : m)) };
       if (s.kind === "stream") return { ...l, commodities: l.commodities.map((c) => (c.commodity_id === s.id ? { ...c, commodity_id: name } : c)) };
       if (s.kind === "measure") return { ...l, measures: l.measures.map((m) => (m.measure_id === s.id ? { ...m, measure_id: name } : m)), maccs: l.maccs.map((g) => ({ ...g, measures: g.measures.map((x) => (x === s.id ? name : x)) })) };
       if (s.kind === "macc") return { ...l, maccs: l.maccs.map((g) => (g.macc_id === s.id ? { ...g, macc_id: name } : g)), technologies: l.technologies.map((t) => ({ ...t, maccs: t.maccs.map((x) => (x === s.id ? name : x)) })) };
+      const fixChildren = (g: GroupComponent) => ({ ...g, children: g.children.map((c) => (c.component === s.id ? { ...c, component: name } : c)) });
+      if (s.kind === "machinecomp") return { ...l, machines: l.machines.map((m) => (m.name === s.id ? { ...m, name } : m)), groups: l.groups.map(fixChildren) };
+      if (s.kind === "groupcomp") return { ...l, groups: l.groups.map((g) => (g.name === s.id ? { ...g, name } : g)).map(fixChildren) };
       return l;
     });
     setSel({ ...s, id: name });
@@ -227,6 +262,8 @@ export function ComponentTabView() {
         { id: "add-stream", label: "Add stream" },
         { id: "add-measure", label: "Add measure" },
         { id: "add-macc", label: "Add MACC" },
+        { id: "add-machine", label: "Add component (single)" },
+        { id: "add-group", label: "Add component (group)" },
         { id: "rename-lib", label: "Rename library", separatorBefore: true },
         { id: "delete-lib", label: "Delete library", danger: true },
       ];
@@ -237,6 +274,7 @@ export function ComponentTabView() {
         measures: [{ id: "add-measure", label: "Add measure" }, { id: "add-macc", label: "Add MACC" }],
         macc: [{ id: "add-macc", label: "Add MACC" }],
         indiv: [{ id: "add-measure", label: "Add measure" }],
+        components: [{ id: "add-machine", label: "Add single component" }, { id: "add-group", label: "Add group component" }],
       };
       return map[s.id ?? ""] ?? [];
     }
@@ -251,6 +289,8 @@ export function ComponentTabView() {
     else if (actionId === "add-stream") addStream(s.libId);
     else if (actionId === "add-measure") addMeasure(s.libId);
     else if (actionId === "add-macc") addMacc(s.libId);
+    else if (actionId === "add-machine") addMachineComp(s.libId);
+    else if (actionId === "add-group") addGroupComp(s.libId);
     else if (actionId === "delete-lib") void removeLibrary(s.libId);
     else if (actionId === "rename-lib") {
       const label = window.prompt("Library label:", libs.find((l) => l.id === s.libId)?.label ?? s.libId);
@@ -282,6 +322,8 @@ export function ComponentTabView() {
             <button className="ghost" onClick={() => addStream(sel.libId)}>＋ Stream</button>
             <button className="ghost" onClick={() => addMeasure(sel.libId)}>＋ Measure</button>
             <button className="ghost" onClick={() => addMacc(sel.libId)}>＋ MACC</button>
+            <button className="ghost" onClick={() => addMachineComp(sel.libId)}>＋ Component</button>
+            <button className="ghost" onClick={() => addGroupComp(sel.libId)}>＋ Group</button>
           </div>
           <p className="muted" style={{ fontSize: "0.78rem" }}>
             {l?.technologies ?? 0} technologies · {l?.commodities ?? 0} streams · {l?.measures ?? 0} measures · {l?.maccs ?? 0} MACCs.
@@ -347,6 +389,32 @@ export function ComponentTabView() {
         />
       );
     }
+    if (sel.kind === "machinecomp") {
+      const m = body.machines.find((x) => x.name === sel.id);
+      if (!m) return null;
+      return (
+        <MachineEditor
+          value={m}
+          techIds={body.technologies.map((t) => t.technology_id)}
+          commodityIds={commodityIds}
+          onChange={(v) => editLib(sel.libId, (l) => ({ ...l, machines: l.machines.map((x) => (x.name === sel.id ? v : x)) }))}
+          onRename={(id) => setSel({ libId: sel.libId, kind: "machinecomp", id })}
+        />
+      );
+    }
+    if (sel.kind === "groupcomp") {
+      const gc = body.groups.find((x) => x.name === sel.id);
+      if (!gc) return null;
+      return (
+        <GroupEditor
+          value={gc}
+          componentNames={[...body.machines.map((m) => m.name), ...body.groups.map((x) => x.name)].filter((n) => n !== sel.id)}
+          commodityIds={commodityIds}
+          onChange={(v) => editLib(sel.libId, (l) => ({ ...l, groups: l.groups.map((x) => (x.name === sel.id ? v : x)) }))}
+          onRename={(id) => setSel({ libId: sel.libId, kind: "groupcomp", id })}
+        />
+      );
+    }
     // macc
     const g = body.maccs.find((x) => x.macc_id === sel.id);
     if (!g) return null;
@@ -371,7 +439,7 @@ export function ComponentTabView() {
           </div>
           <TreeExplorer
             nodes={treeNodes}
-            selectedId={sel ? (sel.kind === "library" ? `lib:${sel.libId}` : sel.kind === "cat" ? `cat:${sel.libId}:${sel.id}` : `${sel.kind === "tech" ? "t" : sel.kind === "stream" ? "s" : sel.kind === "measure" ? "m" : "g"}:${sel.libId}:${sel.id}`) : null}
+            selectedId={sel ? treeIdOf(sel) : null}
             expandedIds={expanded}
             onToggle={(id, exp) => {
               setExpanded((p) => { const m = new Set(p); if (exp) m.add(id); else m.delete(id); return m; });
