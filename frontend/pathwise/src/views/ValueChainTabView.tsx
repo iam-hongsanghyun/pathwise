@@ -11,8 +11,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { RelationshipCanvas } from "../features/topology/RelationshipCanvas";
 import { CascadeSummary, FlowContext, MachineInspector, PortsPanel, type CascadeResult } from "../features/valuechain/panels";
+import { useDialogs } from "../features/controls/Dialog";
 import { MultiSelect } from "../features/controls/MultiSelect";
 import { SearchableSelect } from "../features/controls/SearchableSelect";
+import { SearchSelect } from "../features/controls/SearchSelect";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
 import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types";
 import {
@@ -64,6 +66,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   const [picker, setPicker] = useState<{ parentId: string } | null>(null);
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { prompt, confirm, node: dialogNode } = useDialogs();
 
   useEffect(() => {
     listComponentLibraries().then(setLibs).catch((e) => setError(String(e)));
@@ -93,18 +96,18 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   };
 
   // ── Structure mutations ─────────────────────────────────────────────────────
-  function addSubgroup(parentId: string | null) {
-    const label = window.prompt("Subgroup name (e.g. 'Korea', 'Steel Co'):", "")?.trim();
+  async function addSubgroup(parentId: string | null) {
+    const label = (await prompt({ title: "Add subgroup", label: "name", placeholder: "e.g. Korea, Steel Co" }))?.trim();
     if (!label) return;
-    const level = window.prompt("Level (free text: value_chain, country, company, facility…):", parentId ? "company" : "value_chain")?.trim() || "";
+    const level = (await prompt({ title: "Level for this group", label: "level", defaultValue: parentId ? "company" : "value_chain", placeholder: "value_chain / country / company / facility" }))?.trim() || "";
     const id = genId("grp");
     setWorkbook(setSheet(workbook, "nodes", [...(workbook.nodes ?? []), { node_id: id, parent_id: parentId, kind: "group", level, label }]));
     if (parentId) setExpanded((p) => new Set(p).add(parentId));
     setSelId(id);
   }
 
-  function deleteNode(id: string) {
-    if (!window.confirm(`Delete '${nodeById.get(id)?.label ?? id}' and everything inside it?`)) return;
+  async function deleteNode(id: string) {
+    if (!(await confirm({ title: "Delete item", message: `Delete '${nodeById.get(id)?.label ?? id}' and everything inside it?`, danger: true, confirmLabel: "Delete" }))) return;
     const doomed = descendantsOf(id);
     const deadMeasures = new Set((workbook.measures ?? []).filter((r) => doomed.has(s(r.facility))).map((r) => s(r.measure_id)));
     let wb = setSheet(workbook, "nodes", (workbook.nodes ?? []).filter((r) => !doomed.has(s(r.node_id))));
@@ -119,8 +122,8 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     if (selId && doomed.has(selId)) setSelId(null);
   }
 
-  function renameNode(id: string, label?: string) {
-    const next = (label ?? window.prompt("Rename:", nodeById.get(id)?.label ?? id) ?? "").trim();
+  async function renameNode(id: string, label?: string) {
+    const next = (label ?? (await prompt({ title: "Rename", label: "name", defaultValue: nodeById.get(id)?.label ?? id })) ?? "").trim();
     if (!next) return;
     setWorkbook(setSheet(workbook, "nodes", (workbook.nodes ?? []).map((r) => (s(r.node_id) === id ? { ...r, label: next } : r))));
   }
@@ -327,25 +330,26 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
         </label>
         <label style={{ fontSize: "0.78rem", display: "flex", gap: 4, alignItems: "center" }}>
           <span className="muted">optimise at</span>
-          <select value={scope} onChange={(e) => setScope(e.target.value)} style={inp} title="the level whose items become optimisation units (System = whole model)">
-            {levelOptions.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
-          </select>
+          <span style={{ display: "inline-block", width: 200 }} title="the level whose items become optimisation units (System = whole model)">
+            <SearchSelect value={scope} onChange={setScope} options={levelOptions.map((l) => ({ value: l.value, label: l.label }))} />
+          </span>
         </label>
         {scope !== "system" && unitsAtLevel.length > 0 && (
           <>
             <MultiSelect label="units" options={unitsAtLevel} selected={units} onChange={setUnits} />
             <label style={{ fontSize: "0.78rem", display: "flex", gap: 4, alignItems: "center" }}>
               <span className="muted">solve</span>
-              <select
-                value={mode}
-                onChange={(e) => setMode(e.target.value as "valuechain" | "joint" | "independent")}
-                style={inp}
-                title="Value chain = in series upstream→downstream, coupled; Joint = all selected units as one problem; Independent = each on its own, no coupling"
-              >
-                <option value="valuechain">Value chain (upstream → downstream)</option>
-                <option value="joint">Joint (all together)</option>
-                <option value="independent">Independent (each on its own)</option>
-              </select>
+              <span style={{ display: "inline-block", width: 230 }} title="Value chain = in series upstream→downstream, coupled; Joint = all selected units as one problem; Independent = each on its own, no coupling">
+                <SearchSelect
+                  value={mode}
+                  onChange={(v) => setMode(v as "valuechain" | "joint" | "independent")}
+                  options={[
+                    { value: "valuechain", label: "Value chain (upstream → downstream)" },
+                    { value: "joint", label: "Joint (all together)" },
+                    { value: "independent", label: "Independent (each on its own)" },
+                  ]}
+                />
+              </span>
             </label>
           </>
         )}
@@ -434,10 +438,10 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 </div>
                 {demandFor(selId!).map(({ idx, r }) => (
                   <div key={idx} style={{ display: "flex", gap: 4, padding: "2px 8px", alignItems: "center" }}>
-                    <select value={s(r.commodity_id)} onChange={(e) => setDemandRow(idx, { commodity_id: e.target.value })} style={{ ...inp, flex: 1 }}>
-                      <option value="">stream…</option>
-                      {products.map((p) => <option key={p}>{p}</option>)}
-                    </select>
+                    <span style={{ flex: 1 }}>
+                      <SearchSelect value={s(r.commodity_id)} onChange={(v) => setDemandRow(idx, { commodity_id: v })}
+                        options={products.map((p) => ({ value: p }))} placeholder="stream…" />
+                    </span>
                     <input type="number" value={Number(r.amount) || 0} onChange={(e) => setDemandRow(idx, { amount: Number(e.target.value) || 0 })} style={{ ...inp, width: 70 }} />
                     <button className="ghost" onClick={() => delDemandRow(idx)}>✕</button>
                   </div>
@@ -459,6 +463,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
           onClose={() => setConnectFrom(null)}
         />
       )}
+      {dialogNode}
     </div>
   );
 }
@@ -510,10 +515,8 @@ function ConnectDialog({ fromLabel, targets, commodities, onConfirm, onClose }: 
       <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: "0.82rem" }}>
         <label style={{ display: "flex", flexDirection: "column", gap: 3 }}>
           <span className="muted">to</span>
-          <select value={to} onChange={(e) => setTo(e.target.value)} style={inp}>
-            <option value="">choose a node…</option>
-            {targets.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-          </select>
+          <SearchSelect value={to} onChange={setTo} placeholder="choose a node…"
+            options={targets.map((t) => ({ value: t.id, label: t.label }))} />
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 3 }}>
           <span className="muted">stream</span>
