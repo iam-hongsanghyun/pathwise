@@ -145,6 +145,8 @@ export function TreeExplorer({
             outline: hint === "inside" ? "2px solid var(--brand)" : "none",
             outlineOffset: -2,
             background: isSel ? "var(--brand-fill)" : undefined,
+            opacity: nd.muted ? 0.55 : undefined,
+            fontStyle: nd.muted ? "italic" : undefined,
           }}
         >
           <span
@@ -158,7 +160,7 @@ export function TreeExplorer({
             {nd.hasChildren ? (expanded ? "▾" : "▸") : ""}
           </span>
           <span className="tree-glyph" style={{ marginRight: 5, opacity: 0.7 }}>
-            {nd.kind === "library" ? "▣" : nd.kind === "group" ? "▾" : "▪"}
+            {nd.muted ? "↳" : nd.kind === "library" ? "▣" : nd.kind === "group" ? "▾" : "▪"}
           </span>
           <span className="tree-label">{nd.label}</span>
           {nd.level && <span className="tree-level"> · {nd.level}</span>}

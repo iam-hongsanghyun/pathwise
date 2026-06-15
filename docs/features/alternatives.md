@@ -36,22 +36,31 @@ producers all feed the Korean mill's `hydrogen` balance and compete.
 ## How to *add* an alternative in the value chain
 
 Alternatives are a **value-chain** choice — they are *not* baked into the
-Component library (a technology there is defined purely on its own). Select a
-machine in the Value-chain view; its right pane has an **Alternatives (optimiser
-may switch to)** section listing the technologies the machine can switch to, with
-a searchable picker drawing from the pool of *all* library technologies (base +
-this scenario's). Adding one:
+Component library (a technology there is defined purely on its own). Two equivalent
+ways to attach one to a machine in the Value-chain view:
+
+- **Right-click the machine → "Add alternative…"** — opens a searchable picker
+  drawing from the pool of *all* library technologies (base + this scenario's).
+- Select the machine and use the **Alternatives (optimiser may switch to)**
+  section in its right pane (same picker, plus the current list).
+
+Either way, adding one:
 
 - merges that technology's recipe (its `io` + referenced streams) into the
-  session model, and
+  session model — shared streams are reused, only the technology's own
+  inputs/outputs are added as needed, and
 - records a `transitions` row `baseline → alternative` (the engine's switch
   mechanism — see [transitions.md](transitions.md)).
 
-Remove an alternative with the ✕. Because it's a transition, the choice is
-*tech-level*: every machine running the same baseline shares the alternatives.
-The optimiser then runs whichever route is cheapest under the carbon price / cap.
-(Adding the same recipe to two parallel machines and connecting both to a
-consumer — pattern A above — remains the way to model a continuous split.)
+Each attached alternative then appears in the structure tree as a **greyed-out,
+italic child row** (`↳ <technology> · alternative`) under its machine — so you can
+see at a glance which machines have switch options. Remove one by right-clicking
+that greyed row → **"Remove this alternative"** (or the ✕ in the right pane).
+Because it's a transition, the choice is *tech-level*: every machine running the
+same baseline shares the alternatives. The optimiser then runs whichever route is
+cheapest under the carbon price / cap. (Adding the same recipe to two parallel
+machines and connecting both to a consumer — pattern A above — remains the way to
+model a continuous split.)
 
 ## How to *see* an alternative in the UI
 

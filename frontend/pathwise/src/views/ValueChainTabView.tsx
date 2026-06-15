@@ -23,6 +23,7 @@ import {
   type ComponentLibrary,
   getComponentLibrary,
   instantiateComponent,
+  type LibScope,
   type LibrarySummary,
   listAvailableTechnologies,
   listComponentLibraries,
@@ -47,6 +48,19 @@ const genId = (p: string): string => `${p}_${Date.now().toString(36)}${(_ctr++).
 const isCascade = (r: unknown): r is CascadeResult =>
   !!r && typeof r === "object" && "stages" in (r as Record<string, unknown>);
 
+// Alternative technologies are shown as synthetic, muted child rows under a
+// machine (they are not real nodes — they live in the `transitions` sheet). The
+// row id encodes which machine + which target technology so the context menu can
+// act on it without a separate lookup.
+const ALT_PREFIX = "alt:";
+const altRowId = (machineId: string, technology: string): string => `${ALT_PREFIX}${machineId}::${technology}`;
+function parseAltId(id: string): { machineId: string; technology: string } | null {
+  if (!id.startsWith(ALT_PREFIX)) return null;
+  const rest = id.slice(ALT_PREFIX.length);
+  const sep = rest.indexOf("::");
+  return sep < 0 ? null : { machineId: rest.slice(0, sep), technology: rest.slice(sep + 2) };
+}
+
 const inp: React.CSSProperties = {
   padding: "3px 6px",
   border: "1px solid var(--border-strong)",
@@ -68,6 +82,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   const [libs, setLibs] = useState<LibrarySummary[]>([]);
   const [availableTechs, setAvailableTechs] = useState<AvailableTechnology[]>([]);
   const [picker, setPicker] = useState<{ parentId: string } | null>(null);
+  const [altPicker, setAltPicker] = useState<{ machineId: string } | null>(null);
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { prompt, confirm, node: dialogNode } = useDialogs();
@@ -314,6 +329,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
 
   // ── Context menu ──────────────────────────────────────────────────────────────
   function actionsFor(node: TreeNode): TreeAction[] {
+    if (parseAltId(node.id)) return [{ id: "remove-alternative", label: "Remove this alternative", danger: true }];
     const common: TreeAction[] = [
       { id: "connect", label: "Connect to…" },
       { id: "up", label: "Move up", separatorBefore: true },
@@ -321,7 +337,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
       { id: "rename", label: "Rename", separatorBefore: true },
       { id: "delete", label: "Delete", danger: true },
     ];
-    if (node.kind === "machine") return common;
+    if (node.kind === "machine") return [{ id: "add-alternative", label: "Add alternative…" }, ...common];
     return [
       { id: "add-subgroup", label: "Add subgroup" },
       { id: "add-component", label: "Add component…" },
@@ -330,9 +346,19 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     ];
   }
   function onContextAction(actionId: string, node: TreeNode) {
+    const alt = parseAltId(node.id);
+    if (alt) {
+      if (actionId === "remove-alternative") {
+        const baseline = s((workbook.machines ?? []).find((m) => s(m.machine_id) === alt.machineId)?.baseline_technology);
+        removeAlt(baseline, alt.technology);
+      }
+      setSelId(alt.machineId);
+      return;
+    }
     setSelId(node.id);
     if (actionId === "add-subgroup") addSubgroup(node.id);
     else if (actionId === "add-component") setPicker({ parentId: node.id });
+    else if (actionId === "add-alternative") { setExpanded((p) => new Set(p).add(node.id)); setAltPicker({ machineId: node.id }); }
     else if (actionId === "add-target") addTarget(node.id);
     else if (actionId === "connect") setConnectFrom(node.id);
     else if (actionId === "up") moveNode(node.id, "up");
@@ -341,10 +367,37 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     else if (actionId === "delete") deleteNode(node.id);
   }
 
-  const treeNodes = useMemo<TreeNode[]>(
-    () => nodes.map((n) => ({ id: n.id, parentId: n.parentId, kind: n.kind, label: n.label, level: n.level || undefined, order: n.order, hasChildren: nodes.some((c) => c.parentId === n.id), droppable: n.kind === "group" })),
-    [nodes],
-  );
+  const treeNodes = useMemo<TreeNode[]>(() => {
+    const baselineOf = new Map<string, string>();
+    for (const m of workbook.machines ?? []) baselineOf.set(s(m.machine_id), s(m.baseline_technology));
+    const altsOf = (machineId: string): string[] => {
+      const base = baselineOf.get(machineId);
+      if (!base) return [];
+      return (workbook.transitions ?? []).filter((r) => s(r.from_technology) === base).map((r) => s(r.to_technology)).filter(Boolean);
+    };
+    const out: TreeNode[] = [];
+    for (const n of nodes) {
+      const alts = n.kind === "machine" ? altsOf(n.id) : [];
+      out.push({
+        id: n.id, parentId: n.parentId, kind: n.kind, label: n.label,
+        level: n.level || undefined, order: n.order,
+        hasChildren: nodes.some((c) => c.parentId === n.id) || alts.length > 0,
+        droppable: n.kind === "group",
+      });
+      // Alternatives the optimiser may switch this machine to — greyed-out leaves.
+      alts.forEach((tech, i) =>
+        out.push({ id: altRowId(n.id, tech), parentId: n.id, kind: "leaf", label: tech, level: "alternative", order: i, hasChildren: false, muted: true, draggable: false, droppable: false }),
+      );
+    }
+    return out;
+  }, [nodes, workbook]);
+
+  // Selecting an alternative leaf selects its owning machine (alternatives are
+  // not real nodes), so the right-hand inspector shows the machine + its options.
+  function selectNode(id: string) {
+    const alt = parseAltId(id);
+    setSelId(alt ? alt.machineId : id);
+  }
 
   return (
     <div className="view-full builder" style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
@@ -398,7 +451,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
             selectedId={selId}
             expandedIds={expanded}
             onToggle={(id, exp) => setExpanded((p) => { const m = new Set(p); if (exp) m.add(id); else m.delete(id); return m; })}
-            onSelect={setSelId}
+            onSelect={selectNode}
             actionsFor={actionsFor}
             onContextAction={onContextAction}
             onMove={onMove}
@@ -497,6 +550,20 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
       </div>
 
       {picker && <ComponentPicker libs={libs} onPick={(lib, name, kind) => { void dropPick(lib, name, kind, picker.parentId); setPicker(null); }} onClose={() => setPicker(null)} />}
+      {altPicker && (() => {
+        const baseline = s((workbook.machines ?? []).find((m) => s(m.machine_id) === altPicker.machineId)?.baseline_technology);
+        const existing = new Set((workbook.transitions ?? []).filter((r) => s(r.from_technology) === baseline).map((r) => s(r.to_technology)));
+        return (
+          <AltPicker
+            machineLabel={nodeById.get(altPicker.machineId)?.label ?? altPicker.machineId}
+            baseline={baseline}
+            available={availableTechs}
+            exclude={existing}
+            onPick={(tech, library, scope) => { void addAlt(altPicker.machineId, tech, library, scope); setAltPicker(null); }}
+            onClose={() => setAltPicker(null)}
+          />
+        );
+      })()}
       {connectFrom && (
         <ConnectDialog
           fromLabel={nodeById.get(connectFrom)?.label ?? connectFrom}
@@ -543,6 +610,36 @@ function ComponentPicker({ libs, onPick, onClose }: { libs: LibrarySummary[]; on
             </div>
           )}
         </div>
+      ))}
+    </Modal>
+  );
+}
+
+// ── Alternative picker (right-click a machine → attach an alternative tech) ─────
+// The pool is every technology across the base + session libraries, minus the
+// machine's current technology and ones already attached.
+function AltPicker({ machineLabel, baseline, available, exclude, onPick, onClose }: {
+  machineLabel: string;
+  baseline: string;
+  available: AvailableTechnology[];
+  exclude: Set<string>;
+  onPick: (technology: string, library: string, scope: LibScope) => void;
+  onClose: () => void;
+}) {
+  const [q, setQ] = useState("");
+  const opts = available.filter((a) => a.technology !== baseline && !exclude.has(a.technology));
+  const filtered = q ? opts.filter((a) => a.technology.toLowerCase().includes(q.toLowerCase())) : opts;
+  return (
+    <Modal onClose={onClose} title={`Add alternative — ${machineLabel}`}>
+      <p className="muted" style={{ fontSize: "0.78rem", marginTop: 0 }}>
+        Currently runs <strong>{baseline || "—"}</strong>. Pick a technology the optimiser may switch it to. Shared streams are reused automatically; the technology's own inputs/outputs are added as needed.
+      </p>
+      <input autoFocus placeholder="search technologies…" value={q} onChange={(e) => setQ(e.target.value)} style={{ ...inp, width: "100%", marginBottom: 8 }} />
+      {filtered.length === 0 && <p className="muted">{opts.length === 0 ? "No other technologies available — add some in the Component tab." : "No matches."}</p>}
+      {filtered.map((a) => (
+        <button key={`${a.scope}/${a.library}/${a.technology}`} className="rail-item" style={{ width: "100%", textAlign: "left" }} onClick={() => onPick(a.technology, a.library, a.scope)}>
+          ▫ {a.technology} <span className="muted">· {a.library}</span>
+        </button>
       ))}
     </Modal>
   );
