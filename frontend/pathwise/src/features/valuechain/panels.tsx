@@ -4,7 +4,7 @@
 
 import { useMemo } from "react";
 import { SearchableSelect } from "../controls/SearchableSelect";
-import type { Row, Workbook } from "../../types";
+import type { Workbook } from "../../types";
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
 const inp: React.CSSProperties = {
@@ -147,48 +147,6 @@ function PortAdder({ commodities, onAdd }: { commodities: string[]; onAdd: (c: s
       <div style={{ flex: 1 }}>
         <SearchableSelect value="" options={commodities} onChange={(c) => c && onAdd(c, "sell")} placeholder="sell stream…" />
       </div>
-    </div>
-  );
-}
-
-// ── Demand targets ────────────────────────────────────────────────────────────
-export function DemandPanel({
-  rows,
-  products,
-  scopes,
-  onAdd,
-  onSet,
-  onDel,
-}: {
-  rows: Row[];
-  products: string[];
-  /** Where the demand is owned (a group node, or "all"). Drives per-level runs. */
-  scopes: { id: string; label: string }[];
-  onAdd: () => void;
-  onSet: (i: number, patch: Record<string, string | number>) => void;
-  onDel: (i: number) => void;
-}) {
-  return (
-    <div className="rail-section">
-      <div className="rail-head-row">
-        <span className="rail-head">Targets (demand)</span>
-        <button className="rail-add" onClick={onAdd}>＋</button>
-      </div>
-      {rows.map((r, i) => (
-        <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 64px 18px", gap: 4, padding: "2px 8px", alignItems: "center" }}>
-          <select value={s(r.commodity_id)} onChange={(e) => onSet(i, { commodity_id: e.target.value })} style={inp}>
-            <option value="">stream…</option>
-            {products.map((p) => <option key={p}>{p}</option>)}
-          </select>
-          <input type="number" value={Number(r.amount) || 0} onChange={(e) => onSet(i, { amount: Number(e.target.value) || 0 })} style={inp} />
-          <button className="ghost" onClick={() => onDel(i)}>✕</button>
-          <select value={s(r.company) || "all"} onChange={(e) => onSet(i, { company: e.target.value })} style={{ ...inp, gridColumn: "1 / span 3" }} title="who owns this demand (for per-level optimisation)">
-            <option value="all">owner: whole model</option>
-            {scopes.map((sc) => <option key={sc.id} value={sc.id}>owner: {sc.label}</option>)}
-          </select>
-        </div>
-      ))}
-      {rows.length === 0 && <div className="rail-empty">no targets — add what the chain must produce</div>}
     </div>
   );
 }

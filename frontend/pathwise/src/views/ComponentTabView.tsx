@@ -289,9 +289,15 @@ export function ComponentTabView() {
               onChange={(e) => editLib(sel.libId, (lib) => ({ ...lib, label: e.target.value }))}
             />
           </label>
-          <p className="muted" style={{ fontSize: "0.78rem", marginTop: 12 }}>
-            {l?.machines ?? 0} machine(s) · {l?.groups ?? 0} group(s). Right-click to add components;
-            drag a component onto another library to move it.
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "10px 0" }}>
+            <button className="ghost" onClick={() => addMachine(sel.libId)}>＋ Add component</button>
+            <button className="ghost" onClick={() => addGroup(sel.libId)}>＋ Add group</button>
+          </div>
+          <p className="muted" style={{ fontSize: "0.78rem" }}>
+            {l?.machines ?? 0} machine(s) · {l?.groups ?? 0} group(s).
+            {(l?.machines ?? 0) + (l?.groups ?? 0) === 0
+              ? " Empty — add a component above (it gets its own recipe to edit), or right-click this library."
+              : " Right-click any item for actions; drag a component onto another library to move it."}
           </p>
           <h3 style={{ margin: "16px 0 6px", fontSize: "0.85rem" }}>
             Streams <span className="muted">(prices used by the model)</span>

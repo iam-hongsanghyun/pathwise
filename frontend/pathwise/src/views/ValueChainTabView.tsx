@@ -1,20 +1,17 @@
-// Value Chain tab — assemble the model as a directory tree (left) whose leaves
-// are component instances; the main panel shows, for the selected GROUP, how its
-// children's streams connect (editable RelationshipCanvas), or for a MACHINE its
-// required-stream satisfaction. Right-click to add/rename/delete; drag to
-// reparent. Streams attach at any level: a child→child connection, or a market
-// purchase/sale at a node (a company's decision). Pick an optimisation level and
-// Run: root/system = joint (→ Analytics), a sub-level = coupled cascade.
+// Value Chain tab — a 3-pane builder.
+//   LEFT  : the structure tree ONLY. Single click = select (shows detail on the
+//           right); the twisty expands/collapses; RIGHT-CLICK carries every
+//           action (add subgroup / add component / connect / add target / move
+//           up·down / rename / delete).
+//   CENTER: the relationship canvas for the selected group — how its children's
+//           streams flow (drill by selecting a deeper group).
+//   RIGHT : details of the selected item — a group's purchasing + targets, or a
+//           machine's required-stream satisfaction.
 
 import { useEffect, useMemo, useState } from "react";
 import { RelationshipCanvas } from "../features/topology/RelationshipCanvas";
-import {
-  CascadeSummary,
-  DemandPanel,
-  MachineInspector,
-  PortsPanel,
-  type CascadeResult,
-} from "../features/valuechain/panels";
+import { CascadeSummary, MachineInspector, PortsPanel, type CascadeResult } from "../features/valuechain/panels";
+import { SearchableSelect } from "../features/controls/SearchableSelect";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
 import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types";
 import {
@@ -43,13 +40,16 @@ const genId = (p: string): string => `${p}_${Date.now().toString(36)}${(_ctr++).
 const isCascade = (r: unknown): r is CascadeResult =>
   !!r && typeof r === "object" && "stages" in (r as Record<string, unknown>);
 
-export function ValueChainTabView({
-  workbook,
-  setWorkbook,
-  sessionId,
-  adoptServerModel,
-  onJointResult,
-}: Props) {
+const inp: React.CSSProperties = {
+  padding: "3px 6px",
+  border: "1px solid var(--border-strong)",
+  borderRadius: "var(--radius-button)",
+  background: "var(--surface)",
+  font: "inherit",
+  fontSize: "0.78rem",
+};
+
+export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServerModel, onJointResult }: Props) {
   const [selId, setSelId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [scope, setScope] = useState("system");
@@ -58,6 +58,7 @@ export function ValueChainTabView({
   const [cascade, setCascade] = useState<CascadeResult | null>(null);
   const [libs, setLibs] = useState<LibrarySummary[]>([]);
   const [picker, setPicker] = useState<{ parentId: string } | null>(null);
+  const [connectFrom, setConnectFrom] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -67,54 +68,41 @@ export function ValueChainTabView({
   const nodes = useMemo(() => parseNodes(workbook), [workbook]);
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const selNode = selId ? nodeById.get(selId) : null;
-  const groupId = selNode?.kind === "machine" ? selNode.parentId : selId;
+  // The canvas always shows a group's children: the selected group, or a selected
+  // machine's parent (so the machine is shown in context).
+  const canvasGroupId = selNode?.kind === "machine" ? selNode.parentId : selId;
 
   const setSheet = (wb: Workbook, sheet: string, rows: Row[]): Workbook => ({ ...wb, [sheet]: rows });
 
-  // ── Tree adapter ──────────────────────────────────────────────────────────────
-  const treeNodes = useMemo<TreeNode[]>(
-    () =>
-      nodes.map((n) => ({
-        id: n.id,
-        parentId: n.parentId,
-        kind: n.kind,
-        label: n.label,
-        level: n.level || undefined,
-        order: n.order,
-        hasChildren: nodes.some((c) => c.parentId === n.id),
-        droppable: n.kind === "group",
-      })),
-    [nodes],
-  );
+  const descendantsOf = (id: string): Set<string> => {
+    const out = new Set<string>([id]);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const n of nodes)
+        if (n.parentId && out.has(n.parentId) && !out.has(n.id)) {
+          out.add(n.id);
+          grew = true;
+        }
+    }
+    return out;
+  };
 
   // ── Structure mutations ─────────────────────────────────────────────────────
   function addSubgroup(parentId: string | null) {
     const label = window.prompt("Subgroup name (e.g. 'Korea', 'Steel Co'):", "")?.trim();
     if (!label) return;
-    const level =
-      window.prompt("Level (free text: value_chain, country, company, facility…):", parentId ? "company" : "value_chain")?.trim() || "";
+    const level = window.prompt("Level (free text: value_chain, country, company, facility…):", parentId ? "company" : "value_chain")?.trim() || "";
     const id = genId("grp");
-    const row: Row = { node_id: id, parent_id: parentId, kind: "group", level, label };
-    setWorkbook(setSheet(workbook, "nodes", [...(workbook.nodes ?? []), row]));
+    setWorkbook(setSheet(workbook, "nodes", [...(workbook.nodes ?? []), { node_id: id, parent_id: parentId, kind: "group", level, label }]));
     if (parentId) setExpanded((p) => new Set(p).add(parentId));
     setSelId(id);
   }
 
   function deleteNode(id: string) {
     if (!window.confirm(`Delete '${nodeById.get(id)?.label ?? id}' and everything inside it?`)) return;
-    const doomed = new Set<string>([id]);
-    let grew = true;
-    while (grew) {
-      grew = false;
-      for (const n of nodes)
-        if (n.parentId && doomed.has(n.parentId) && !doomed.has(n.id)) {
-          doomed.add(n.id);
-          grew = true;
-        }
-    }
-    const deadMeasures = new Set(
-      (workbook.measures ?? []).filter((r) => doomed.has(s(r.facility))).map((r) => s(r.measure_id)),
-    );
+    const doomed = descendantsOf(id);
+    const deadMeasures = new Set((workbook.measures ?? []).filter((r) => doomed.has(s(r.facility))).map((r) => s(r.measure_id)));
     let wb = setSheet(workbook, "nodes", (workbook.nodes ?? []).filter((r) => !doomed.has(s(r.node_id))));
     wb = setSheet(wb, "machines", (wb.machines ?? []).filter((r) => !doomed.has(s(r.machine_id))));
     wb = setSheet(wb, "connections", (wb.connections ?? []).filter((r) => !doomed.has(s(r.from_node)) && !doomed.has(s(r.to_node))));
@@ -127,15 +115,32 @@ export function ValueChainTabView({
     if (selId && doomed.has(selId)) setSelId(null);
   }
 
-  function renameNode(id: string) {
-    const label = window.prompt("Rename:", nodeById.get(id)?.label ?? id)?.trim();
-    if (!label) return;
-    setWorkbook(setSheet(workbook, "nodes", (workbook.nodes ?? []).map((r) => (s(r.node_id) === id ? { ...r, label } : r))));
+  function renameNode(id: string, label?: string) {
+    const next = (label ?? window.prompt("Rename:", nodeById.get(id)?.label ?? id) ?? "").trim();
+    if (!next) return;
+    setWorkbook(setSheet(workbook, "nodes", (workbook.nodes ?? []).map((r) => (s(r.node_id) === id ? { ...r, label: next } : r))));
+  }
+
+  function setLevel(id: string, level: string) {
+    setWorkbook(setSheet(workbook, "nodes", (workbook.nodes ?? []).map((r) => (s(r.node_id) === id ? { ...r, level } : r))));
+  }
+
+  /** Reorder a node among its siblings (writes the `order` column). */
+  function moveNode(id: string, dir: "up" | "down") {
+    const node = nodeById.get(id);
+    if (!node) return;
+    const sibs = nodes.filter((n) => n.parentId === node.parentId);
+    const idx = sibs.findIndex((n) => n.id === id);
+    const j = dir === "up" ? idx - 1 : idx + 1;
+    if (j < 0 || j >= sibs.length) return;
+    const ordered = [...sibs];
+    [ordered[idx], ordered[j]] = [ordered[j], ordered[idx]];
+    const orderMap = new Map(ordered.map((n, i) => [n.id, i]));
+    setWorkbook(setSheet(workbook, "nodes", (workbook.nodes ?? []).map((r) => (orderMap.has(s(r.node_id)) ? { ...r, order: orderMap.get(s(r.node_id)) ?? 0 } : r))));
   }
 
   function onMove(e: TreeMoveEvent) {
-    const newParent =
-      e.position === "inside" ? e.targetId : (e.beforeSiblingId ? nodeById.get(e.beforeSiblingId)?.parentId ?? null : null);
+    const newParent = e.position === "inside" ? e.targetId : e.beforeSiblingId ? nodeById.get(e.beforeSiblingId)?.parentId ?? null : null;
     setWorkbook(setSheet(workbook, "nodes", (workbook.nodes ?? []).map((r) => (s(r.node_id) === e.dragId ? { ...r, parent_id: newParent } : r))));
   }
 
@@ -143,7 +148,7 @@ export function ValueChainTabView({
     if (!sessionId) return;
     setError(null);
     try {
-      await putModel(sessionId, workbook); // authoritative: parent node must exist server-side
+      await putModel(sessionId, workbook);
       await instantiateComponent(sessionId, { library, component, parent_id: parentId });
       adoptServerModel(await getFullModel(sessionId));
       setExpanded((p) => new Set(p).add(parentId));
@@ -152,10 +157,10 @@ export function ValueChainTabView({
     }
   }
 
-  // ── Connections (relationship canvas) ───────────────────────────────────────
+  // ── Connections ─────────────────────────────────────────────────────────────
   function addConnection(from: string, to: string, commodity: string, lag: number) {
-    const row: Row = { from_node: from, to_node: to, commodity_id: commodity, lag_years: lag };
-    setWorkbook(setSheet(workbook, "connections", [...(workbook.connections ?? []), row]));
+    if (!from || !to || from === to || !commodity) return;
+    setWorkbook(setSheet(workbook, "connections", [...(workbook.connections ?? []), { from_node: from, to_node: to, commodity_id: commodity, lag_years: lag }]));
   }
   function deleteConnection(rowIndex: number) {
     setWorkbook(setSheet(workbook, "connections", (workbook.connections ?? []).filter((_, i) => i !== rowIndex)));
@@ -163,72 +168,67 @@ export function ValueChainTabView({
 
   // ── Purchasing (markets scoped to a node) ───────────────────────────────────
   function addMarket(nodeId: string, commodity: string, kind: "buy" | "sell") {
-    const row: Row =
-      kind === "buy"
-        ? { market_id: genId("buy"), target: commodity, company: nodeId, price: 0 }
-        : { market_id: genId("sell"), target: commodity, company: nodeId, sell_price: 0 };
+    const row: Row = kind === "buy"
+      ? { market_id: genId("buy"), target: commodity, company: nodeId, price: 0 }
+      : { market_id: genId("sell"), target: commodity, company: nodeId, sell_price: 0 };
     setWorkbook(setSheet(workbook, "markets", [...(workbook.markets ?? []), row]));
   }
   function removeMarket(rowIndex: number) {
     setWorkbook(setSheet(workbook, "markets", (workbook.markets ?? []).filter((_, i) => i !== rowIndex)));
   }
 
-  // ── Demand ──────────────────────────────────────────────────────────────────
+  // ── Targets / demand (owned by a node) ──────────────────────────────────────
   const products = useMemo(() => {
     const out = new Set<string>();
     for (const r of workbook.io ?? []) if (s(r.role) === "output" && r.is_product) out.add(s(r.target));
     for (const c of workbook.commodities ?? []) if (s(c.kind) === "product") out.add(s(c.commodity_id));
     return [...out];
   }, [workbook]);
-  const demandRows = workbook.demand ?? [];
-  const setDemand = (i: number, patch: Record<string, Cell>) =>
-    setWorkbook(setSheet(workbook, "demand", demandRows.map((r, j) => (j === i ? { ...r, ...patch } : r))));
+  const demandFor = (nodeId: string) =>
+    (workbook.demand ?? []).map((r, idx) => ({ idx, r })).filter(({ r }) => s(r.company) === nodeId);
+  function addTarget(nodeId: string) {
+    setWorkbook(setSheet(workbook, "demand", [...(workbook.demand ?? []), { company: nodeId, commodity_id: products[0] ?? "", year: baseYear, amount: 100 }]));
+  }
+  function setDemandRow(idx: number, patch: Record<string, Cell>) {
+    setWorkbook(setSheet(workbook, "demand", (workbook.demand ?? []).map((r, j) => (j === idx ? { ...r, ...patch } : r))));
+  }
+  function delDemandRow(idx: number) {
+    setWorkbook(setSheet(workbook, "demand", (workbook.demand ?? []).filter((_, j) => j !== idx)));
+  }
 
-  // ── Market lanes for the canvas (map a market's company → a child of groupId) ─
+  // ── Market lanes for the canvas ─────────────────────────────────────────────
   const childOfGroup = (companyId: string): string | null => {
     let cur: string | null = companyId;
     while (cur !== null) {
       const parent: string | null = nodeById.get(cur)?.parentId ?? null;
-      if (parent === groupId) return cur;
+      if (parent === canvasGroupId) return cur;
       if (parent === null) return null;
       cur = parent;
     }
     return null;
   };
-  const externalIn = (workbook.markets ?? [])
-    .filter((r) => s(r.price) !== "")
-    .map((r) => ({ childId: childOfGroup(s(r.company)), commodity: s(r.target) }))
-    .filter((x): x is { childId: string; commodity: string } => x.childId !== null);
-  const externalOut = (workbook.markets ?? [])
-    .filter((r) => s(r.sell_price) !== "")
-    .map((r) => ({ childId: childOfGroup(s(r.company)), commodity: s(r.target) }))
-    .filter((x): x is { childId: string; commodity: string } => x.childId !== null);
+  const externalIn = (workbook.markets ?? []).filter((r) => s(r.price) !== "").map((r) => ({ childId: childOfGroup(s(r.company)), commodity: s(r.target) })).filter((x): x is { childId: string; commodity: string } => x.childId !== null);
+  const externalOut = (workbook.markets ?? []).filter((r) => s(r.sell_price) !== "").map((r) => ({ childId: childOfGroup(s(r.company)), commodity: s(r.target) })).filter((x): x is { childId: string; commodity: string } => x.childId !== null);
 
-  // ── Run ──────────────────────────────────────────────────────────────────────
+  const commodities = useMemo(() => (workbook.commodities ?? []).map((c) => s(c.commodity_id)), [workbook]);
   const levels = useMemo(() => {
     const set = new Set<string>(["system"]);
     for (const n of nodes) if (n.kind === "group" && n.level) set.add(n.level);
     return [...set];
   }, [nodes]);
+  const hasHierarchy = (workbook.nodes ?? []).length > 0;
 
+  // ── Run ──────────────────────────────────────────────────────────────────────
   async function run() {
     if (!sessionId) return;
     setError(null);
     setCascade(null);
     setRunning("submitting");
     try {
-      // Sync the EXACT current model (with a periods row) authoritatively — the
-      // debounced flush closes over a stale workbook, so putModel directly.
-      const wb = (workbook.periods ?? []).length
-        ? workbook
-        : setSheet(workbook, "periods", [{ year: baseYear, duration_years: 1 }]);
+      const wb = (workbook.periods ?? []).length ? workbook : setSheet(workbook, "periods", [{ year: baseYear, duration_years: 1 }]);
       if (wb !== workbook) setWorkbook(wb);
       await putModel(sessionId, wb);
-      const scenario = {
-        economics: { base_year: baseYear },
-        optimisation_scope: scope,
-        coupling: { signals: ["price", "carbon_intensity"], iterations: 3, damping: 0.5 },
-      };
+      const scenario = { economics: { base_year: baseYear }, optimisation_scope: scope, coupling: { signals: ["price", "carbon_intensity"], iterations: 3, damping: 0.5 } };
       const result = await runToCompletion(sessionId, scenario, { domain: "process", backend: "linopy" }, setRunning);
       if (isCascade(result)) setCascade(result);
       else onJointResult(result);
@@ -239,27 +239,39 @@ export function ValueChainTabView({
     }
   }
 
-  const commodities = useMemo(() => (workbook.commodities ?? []).map((c) => s(c.commodity_id)), [workbook]);
-  const hasHierarchy = (workbook.nodes ?? []).length > 0;
-
+  // ── Context menu ──────────────────────────────────────────────────────────────
   function actionsFor(node: TreeNode): TreeAction[] {
-    if (node.kind === "machine") return [
-      { id: "rename", label: "Rename" },
+    const common: TreeAction[] = [
+      { id: "connect", label: "Connect to…" },
+      { id: "up", label: "Move up", separatorBefore: true },
+      { id: "down", label: "Move down" },
+      { id: "rename", label: "Rename", separatorBefore: true },
       { id: "delete", label: "Delete", danger: true },
     ];
+    if (node.kind === "machine") return common;
     return [
       { id: "add-subgroup", label: "Add subgroup" },
       { id: "add-component", label: "Add component…" },
-      { id: "rename", label: "Rename" },
-      { id: "delete", label: "Delete", danger: true, separatorBefore: true },
+      { id: "add-target", label: "Add target (demand)" },
+      ...common,
     ];
   }
   function onContextAction(actionId: string, node: TreeNode) {
+    setSelId(node.id);
     if (actionId === "add-subgroup") addSubgroup(node.id);
     else if (actionId === "add-component") setPicker({ parentId: node.id });
+    else if (actionId === "add-target") addTarget(node.id);
+    else if (actionId === "connect") setConnectFrom(node.id);
+    else if (actionId === "up") moveNode(node.id, "up");
+    else if (actionId === "down") moveNode(node.id, "down");
     else if (actionId === "rename") renameNode(node.id);
     else if (actionId === "delete") deleteNode(node.id);
   }
+
+  const treeNodes = useMemo<TreeNode[]>(
+    () => nodes.map((n) => ({ id: n.id, parentId: n.parentId, kind: n.kind, label: n.label, level: n.level || undefined, order: n.order, hasChildren: nodes.some((c) => c.parentId === n.id), droppable: n.kind === "group" })),
+    [nodes],
+  );
 
   return (
     <div className="view-full builder" style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
@@ -277,20 +289,14 @@ export function ValueChainTabView({
             {levels.map((l) => <option key={l} value={l}>{l}</option>)}
           </select>
         </label>
-        <button className="run-button" onClick={run} disabled={running != null || !sessionId}>
-          {running ? `▶ ${running}…` : "▶ Run"}
-        </button>
+        <button className="run-button" onClick={run} disabled={running != null || !sessionId}>{running ? `▶ ${running}…` : "▶ Run"}</button>
       </div>
 
-      {error && (
-        <div className="error" style={{ padding: "4px 12px" }} onClick={() => setError(null)}>
-          {error} <span className="muted">(dismiss)</span>
-        </div>
-      )}
+      {error && <div className="error" style={{ padding: "4px 12px" }} onClick={() => setError(null)}>{error} <span className="muted">(dismiss)</span></div>}
 
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-        {/* left: tree + add + demand + ports */}
-        <aside style={{ width: 276, overflow: "auto", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column" }}>
+        {/* LEFT: structure only */}
+        <aside style={{ width: 240, overflow: "auto", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", flexShrink: 0 }}>
           <div className="rail-head-row" style={{ padding: "6px 10px" }}>
             <span className="rail-head">Structure</span>
             <button className="rail-add" title="add top-level subgroup" onClick={() => addSubgroup(null)}>＋</button>
@@ -299,64 +305,34 @@ export function ValueChainTabView({
             nodes={treeNodes}
             selectedId={selId}
             expandedIds={expanded}
-            onToggle={(id, exp) =>
-              setExpanded((p) => {
-                const m = new Set(p);
-                if (exp) m.add(id);
-                else m.delete(id);
-                return m;
-              })
-            }
+            onToggle={(id, exp) => setExpanded((p) => { const m = new Set(p); if (exp) m.add(id); else m.delete(id); return m; })}
             onSelect={setSelId}
             actionsFor={actionsFor}
             onContextAction={onContextAction}
             onMove={onMove}
-            emptyHint="Empty — click ＋ to add a value chain / sector."
+            emptyHint="Empty — click ＋ (or right-click) to add a value chain / sector."
           />
-          {selNode?.kind === "group" && (
-            <PortsPanel
-              wb={workbook}
-              nodeId={selId!}
-              commodities={commodities}
-              onAdd={(c, k) => addMarket(selId!, c, k)}
-              onRemove={removeMarket}
-            />
-          )}
-          <DemandPanel
-            rows={demandRows}
-            products={products}
-            scopes={nodes.filter((n) => n.kind === "group").map((n) => ({ id: n.id, label: n.label }))}
-            onAdd={() => setWorkbook(setSheet(workbook, "demand", [...demandRows, { company: "all", commodity_id: products[0] ?? "", year: baseYear, amount: 100 }]))}
-            onSet={setDemand}
-            onDel={(i) => setWorkbook(setSheet(workbook, "demand", demandRows.filter((_, j) => j !== i)))}
-          />
+          <div className="muted" style={{ fontSize: "0.7rem", padding: "8px 10px", borderTop: "1px solid var(--border)" }}>
+            Right-click an item for actions · drag to move
+          </div>
         </aside>
 
-        {/* main: relationship canvas or machine inspector */}
-        <main style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        {/* CENTER: relationship canvas */}
+        <main style={{ flex: 1, minWidth: 220, overflow: "hidden", display: "flex", flexDirection: "column" }}>
           {!hasHierarchy ? (
             <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
-              <p className="muted" style={{ maxWidth: 380, textAlign: "center" }}>
-                Empty model. Add a subgroup (a value chain, a country, a company…) on the left, then
-                right-click it to add subgroups or drop components.
-              </p>
+              <p className="muted" style={{ maxWidth: 380, textAlign: "center" }}>Empty model. Click ＋ on the left to add a value chain, then right-click it to add subgroups or components.</p>
               <button className="run-button" onClick={() => addSubgroup(null)}>＋ Add value chain</button>
             </div>
-          ) : selNode?.kind === "machine" ? (
-            <MachineInspector
-              wb={workbook}
-              machineId={selId!}
-              onCapacity={(v) => setWorkbook(setSheet(workbook, "machines", (workbook.machines ?? []).map((r) => (s(r.machine_id) === selId ? { ...r, capacity: v } : r))))}
-            />
           ) : (
             <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-              <div style={{ padding: "4px 14px", fontSize: "0.78rem", color: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
-                {selNode ? `Inside ${selNode.label} — how its children connect` : "Top level — how the value chains / sectors connect"} · drag a child's right dot to another's left dot to link
+              <div style={{ padding: "4px 14px", fontSize: "0.78rem", color: "var(--muted)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title="drag a child's right dot to another's left dot to link, or right-click a node → Connect">
+                {canvasGroupId ? `Inside ${nodeById.get(canvasGroupId)?.label ?? canvasGroupId} — how its children connect` : "Top level — how the value chains connect"}
               </div>
               <RelationshipCanvas
                 wb={workbook}
-                groupId={groupId}
-                selectedChildId={null}
+                groupId={canvasGroupId}
+                selectedChildId={selNode?.kind === "machine" ? selId : null}
                 onSelectChild={setSelId}
                 onAddConnection={addConnection}
                 onDeleteConnection={deleteConnection}
@@ -368,74 +344,131 @@ export function ValueChainTabView({
           )}
           {cascade && <CascadeSummary cascade={cascade} label={(id) => nodeById.get(id)?.label ?? id} />}
         </main>
+
+        {/* RIGHT: detail of the selected item */}
+        <aside style={{ width: 300, overflow: "auto", borderLeft: "1px solid var(--border)", flexShrink: 0 }}>
+          {!selNode ? (
+            <div className="muted" style={{ padding: 16, fontSize: "0.82rem" }}>Select an item on the left to see its details. Right-click for actions.</div>
+          ) : selNode.kind === "machine" ? (
+            <MachineInspector wb={workbook} machineId={selId!} onCapacity={(v) => setWorkbook(setSheet(workbook, "machines", (workbook.machines ?? []).map((r) => (s(r.machine_id) === selId ? { ...r, capacity: v } : r))))} />
+          ) : (
+            <div style={{ padding: "14px 16px" }}>
+              <div className="eyebrow">group</div>
+              <input value={selNode.label} onChange={(e) => renameNode(selId!, e.target.value)} style={{ ...inp, fontSize: "1rem", fontWeight: 600, width: "100%", margin: "4px 0 8px", border: "none", padding: 0 }} />
+              <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.78rem", marginBottom: 12 }}>
+                <span className="muted">level</span>
+                <input value={selNode.level} onChange={(e) => setLevel(selId!, e.target.value)} style={{ ...inp, flex: 1 }} placeholder="value_chain / company / facility" />
+              </label>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+                <button className="ghost" onClick={() => addSubgroup(selId!)}>＋ Subgroup</button>
+                <button className="ghost" onClick={() => setPicker({ parentId: selId! })}>＋ Component</button>
+                <button className="ghost" onClick={() => setConnectFrom(selId!)}>↔ Connect</button>
+              </div>
+
+              <PortsPanel wb={workbook} nodeId={selId!} commodities={commodities} onAdd={(c, k) => addMarket(selId!, c, k)} onRemove={removeMarket} />
+
+              <div className="rail-section">
+                <div className="rail-head-row">
+                  <span className="rail-head">Targets (this node)</span>
+                  <button className="rail-add" onClick={() => addTarget(selId!)}>＋</button>
+                </div>
+                {demandFor(selId!).map(({ idx, r }) => (
+                  <div key={idx} style={{ display: "flex", gap: 4, padding: "2px 8px", alignItems: "center" }}>
+                    <select value={s(r.commodity_id)} onChange={(e) => setDemandRow(idx, { commodity_id: e.target.value })} style={{ ...inp, flex: 1 }}>
+                      <option value="">stream…</option>
+                      {products.map((p) => <option key={p}>{p}</option>)}
+                    </select>
+                    <input type="number" value={Number(r.amount) || 0} onChange={(e) => setDemandRow(idx, { amount: Number(e.target.value) || 0 })} style={{ ...inp, width: 70 }} />
+                    <button className="ghost" onClick={() => delDemandRow(idx)}>✕</button>
+                  </div>
+                ))}
+                {demandFor(selId!).length === 0 && <div className="rail-empty">no targets here — what must this node deliver?</div>}
+              </div>
+            </div>
+          )}
+        </aside>
       </div>
 
-      {picker && (
-        <ComponentPicker
-          libs={libs}
-          onPick={(lib, comp) => {
-            void dropComponent(lib, comp, picker.parentId);
-            setPicker(null);
-          }}
-          onClose={() => setPicker(null)}
+      {picker && <ComponentPicker libs={libs} onPick={(lib, comp) => { void dropComponent(lib, comp, picker.parentId); setPicker(null); }} onClose={() => setPicker(null)} />}
+      {connectFrom && (
+        <ConnectDialog
+          fromLabel={nodeById.get(connectFrom)?.label ?? connectFrom}
+          targets={nodes.filter((n) => n.id !== connectFrom).map((n) => ({ id: n.id, label: `${n.label}${n.level ? ` · ${n.level}` : ""}` }))}
+          commodities={commodities}
+          onConfirm={(to, commodity, lag) => { addConnection(connectFrom, to, commodity, lag); setConnectFrom(null); }}
+          onClose={() => setConnectFrom(null)}
         />
       )}
     </div>
   );
 }
 
-const inp: React.CSSProperties = {
-  padding: "3px 6px",
-  border: "1px solid var(--border-strong)",
-  borderRadius: "var(--radius-button)",
-  background: "var(--surface)",
-  font: "inherit",
-  fontSize: "0.78rem",
-};
-
-// ── Library → component picker modal ──────────────────────────────────────────
-function ComponentPicker({
-  libs,
-  onPick,
-  onClose,
-}: {
-  libs: LibrarySummary[];
-  onPick: (library: string, component: string) => void;
-  onClose: () => void;
-}) {
+// ── Library → component picker ────────────────────────────────────────────────
+function ComponentPicker({ libs, onPick, onClose }: { libs: LibrarySummary[]; onPick: (library: string, component: string) => void; onClose: () => void }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [body, setBody] = useState<ComponentLibrary | null>(null);
   useEffect(() => {
-    if (!openId) {
-      setBody(null);
-      return;
-    }
+    if (!openId) { setBody(null); return; }
     getComponentLibrary(openId).then(setBody).catch(() => setBody(null));
   }, [openId]);
   return (
+    <Modal onClose={onClose} title="Add a component (fresh copy)">
+      {libs.length === 0 && <p className="muted">No component libraries — build one in the Component tab.</p>}
+      {libs.map((l) => (
+        <div key={l.id} style={{ marginBottom: 4 }}>
+          <button className="ghost" style={{ width: "100%", textAlign: "left" }} onClick={() => setOpenId(openId === l.id ? null : l.id)}>{openId === l.id ? "▾" : "▸"} {l.label}</button>
+          {openId === l.id && body && (
+            <div style={{ paddingLeft: 14 }}>
+              {[...body.groups.map((g) => ({ name: g.name, label: g.label || g.name, kind: "group" })), ...body.machines.map((m) => ({ name: m.name, label: m.label || m.name, kind: "machine" }))].map((c) => (
+                <button key={c.kind + c.name} className="rail-item" style={{ width: "100%", textAlign: "left" }} onClick={() => onPick(l.id, c.name)}>{c.kind === "group" ? "▦" : "▪"} {c.label}</button>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </Modal>
+  );
+}
+
+// ── Connect dialog ────────────────────────────────────────────────────────────
+function ConnectDialog({ fromLabel, targets, commodities, onConfirm, onClose }: { fromLabel: string; targets: { id: string; label: string }[]; commodities: string[]; onConfirm: (to: string, commodity: string, lag: number) => void; onClose: () => void }) {
+  const [to, setTo] = useState("");
+  const [commodity, setCommodity] = useState("");
+  const [lag, setLag] = useState(0);
+  return (
+    <Modal onClose={onClose} title={`Connect from ${fromLabel}`}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: "0.82rem" }}>
+        <label style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          <span className="muted">to</span>
+          <select value={to} onChange={(e) => setTo(e.target.value)} style={inp}>
+            <option value="">choose a node…</option>
+            {targets.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+          </select>
+        </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          <span className="muted">stream</span>
+          <SearchableSelect value={commodity} options={commodities} onChange={setCommodity} onCreate={setCommodity} placeholder="commodity" />
+        </label>
+        <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span className="muted">lag (yr)</span>
+          <input type="number" value={lag} onChange={(e) => setLag(Number(e.target.value) || 0)} style={{ ...inp, width: 64 }} />
+        </label>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 4 }}>
+          <button className="ghost" onClick={onClose}>cancel</button>
+          <button className="run-button" disabled={!to || !commodity} onClick={() => onConfirm(to, commodity, lag)}>↔ Connect</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
+  return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.25)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
       <div style={{ background: "var(--surface)", border: "1px solid var(--border-strong)", borderRadius: 6, width: 420, maxHeight: "70vh", overflow: "auto", padding: 16 }} onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ margin: "0 0 10px" }}>Add a component (fresh copy)</h3>
-        {libs.length === 0 && <p className="muted">No component libraries — build one in the Component tab.</p>}
-        {libs.map((l) => (
-          <div key={l.id} style={{ marginBottom: 4 }}>
-            <button className="ghost" style={{ width: "100%", textAlign: "left" }} onClick={() => setOpenId(openId === l.id ? null : l.id)}>
-              {openId === l.id ? "▾" : "▸"} {l.label}
-            </button>
-            {openId === l.id && body && (
-              <div style={{ paddingLeft: 14 }}>
-                {[...body.groups.map((g) => ({ name: g.name, label: g.label || g.name, kind: "group" })), ...body.machines.map((m) => ({ name: m.name, label: m.label || m.name, kind: "machine" }))].map((c) => (
-                  <button key={c.kind + c.name} className="rail-item" style={{ width: "100%", textAlign: "left" }} onClick={() => onPick(l.id, c.name)}>
-                    {c.kind === "group" ? "▦" : "▪"} {c.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-        <div style={{ textAlign: "right", marginTop: 10 }}>
-          <button className="ghost" onClick={onClose}>close</button>
-        </div>
+        <h3 style={{ margin: "0 0 10px" }}>{title}</h3>
+        {children}
+        <div style={{ textAlign: "right", marginTop: 10 }}><button className="ghost" onClick={onClose}>close</button></div>
       </div>
     </div>
   );
