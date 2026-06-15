@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { RelationshipCanvas } from "../features/topology/RelationshipCanvas";
 import { CascadeSummary, MachineInspector, PortsPanel, type CascadeResult } from "../features/valuechain/panels";
+import { MultiSelect } from "../features/controls/MultiSelect";
 import { SearchableSelect } from "../features/controls/SearchableSelect";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
 import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types";
@@ -54,6 +55,8 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   const [selId, setSelId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [scope, setScope] = useState("system");
+  const [units, setUnits] = useState<Set<string>>(new Set()); // selected unit ids at the level
+  const [mode, setMode] = useState<"independent" | "joint">("independent");
   const [baseYear, setBaseYear] = useState(2025);
   const [running, setRunning] = useState<string | null>(null);
   const [cascade, setCascade] = useState<CascadeResult | null>(null);
@@ -213,11 +216,36 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   const externalOut = (workbook.markets ?? []).filter((r) => s(r.sell_price) !== "").map((r) => ({ childId: childOfGroup(s(r.company)), commodity: s(r.target) })).filter((x): x is { childId: string; commodity: string } => x.childId !== null);
 
   const commodities = useMemo(() => (workbook.commodities ?? []).map((c) => s(c.commodity_id)), [workbook]);
-  const levels = useMemo(() => {
-    const set = new Set<string>(["system"]);
-    for (const n of nodes) if (n.kind === "group" && n.level) set.add(n.level);
-    return [...set];
-  }, [nodes]);
+
+  // Designed levels, labelled L0…Ln by their depth in the tree (+ whole-model).
+  const levelOptions = useMemo(() => {
+    const depthOf = (id: string): number => {
+      let d = 0;
+      let cur: string | null = nodeById.get(id)?.parentId ?? null;
+      while (cur) { d++; cur = nodeById.get(cur)?.parentId ?? null; }
+      return d;
+    };
+    const minDepth = new Map<string, number>();
+    for (const n of nodes) if (n.kind === "group" && n.level) {
+      const d = depthOf(n.id);
+      minDepth.set(n.level, Math.min(minDepth.get(n.level) ?? d, d));
+    }
+    const sorted = [...minDepth.entries()].sort((a, b) => a[1] - b[1]);
+    return [{ value: "system", label: "System (whole model)" }, ...sorted.map(([name, d]) => ({ value: name, label: `L${d} · ${name}` }))];
+  }, [nodes, nodeById]);
+
+  // The units (group nodes) at the chosen level.
+  const unitsAtLevel = useMemo(
+    () => (scope === "system" ? [] : nodes.filter((n) => n.kind === "group" && n.level === scope).map((n) => ({ id: n.id, label: n.label }))),
+    [nodes, scope],
+  );
+  const unitKey = unitsAtLevel.map((u) => u.id).join("|");
+  // Default to optimising every unit at the level; reset when the level changes.
+  useEffect(() => {
+    setUnits(new Set(unitsAtLevel.map((u) => u.id)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope, unitKey]);
+
   const hasHierarchy = (workbook.nodes ?? []).length > 0;
 
   // ── Run ──────────────────────────────────────────────────────────────────────
@@ -230,7 +258,16 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
       const wb = (workbook.periods ?? []).length ? workbook : setSheet(workbook, "periods", [{ year: baseYear, duration_years: 1 }]);
       if (wb !== workbook) setWorkbook(wb);
       await putModel(sessionId, wb);
-      const scenario = { economics: { base_year: baseYear }, optimisation_scope: scope, coupling: { signals: ["price", "carbon_intensity"], iterations: 3, damping: 0.5 } };
+      // all units selected ⇒ empty targets (= all); a subset ⇒ those ids.
+      const allIds = unitsAtLevel.map((u) => u.id);
+      const targets = scope === "system" || units.size === 0 || units.size === allIds.length ? [] : [...units];
+      const scenario = {
+        economics: { base_year: baseYear },
+        optimisation_scope: scope,
+        optimisation_targets: targets,
+        optimisation_mode: mode,
+        coupling: { signals: ["price", "carbon_intensity"], iterations: 3, damping: 0.5 },
+      };
       const result = await runToCompletion(sessionId, scenario, { domain: "process", backend: "linopy" }, setRunning);
       if (isCascade(result)) setCascade(result);
       else onJointResult(result);
@@ -287,10 +324,22 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
         </label>
         <label style={{ fontSize: "0.78rem", display: "flex", gap: 4, alignItems: "center" }}>
           <span className="muted">optimise at</span>
-          <select value={scope} onChange={(e) => setScope(e.target.value)} style={inp} title="root/system = joint; a sub-level = coupled per-level cascade">
-            {levels.map((l) => <option key={l} value={l}>{l}</option>)}
+          <select value={scope} onChange={(e) => setScope(e.target.value)} style={inp} title="the level whose items become optimisation units (System = whole model)">
+            {levelOptions.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
           </select>
         </label>
+        {scope !== "system" && unitsAtLevel.length > 0 && (
+          <>
+            <MultiSelect label="units" options={unitsAtLevel} selected={units} onChange={setUnits} />
+            <label style={{ fontSize: "0.78rem", display: "flex", gap: 4, alignItems: "center" }}>
+              <span className="muted">solve</span>
+              <select value={mode} onChange={(e) => setMode(e.target.value as "independent" | "joint")} style={inp} title="Independent = each unit on its own, coupled across boundaries; Joint = all selected units as one problem">
+                <option value="independent">Independent (each on its own)</option>
+                <option value="joint">Joint (all together)</option>
+              </select>
+            </label>
+          </>
+        )}
         <button className="run-button" onClick={run} disabled={running != null || !sessionId}>{running ? `▶ ${running}…` : "▶ Run"}</button>
       </div>
 
