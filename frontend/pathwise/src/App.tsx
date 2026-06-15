@@ -12,6 +12,7 @@ import {
   replaceSheet,
   uploadWorkbook,
 } from "./lib/api/session";
+import { SearchSelect } from "./features/controls/SearchSelect";
 import { ActivityBar, type View } from "./layout/ActivityBar";
 import { AnalyticsView } from "./views/AnalyticsView";
 import { ComponentTabView } from "./views/ComponentTabView";
@@ -195,18 +196,15 @@ export function App() {
           <span className="spacer" />
           <label>
             Example library
-            <select
-              value=""
-              onChange={(e) => e.target.value && onPickExample(e.target.value)}
-              disabled={examples.length === 0}
-            >
-              <option value="">{examples.length ? "Open a model…" : "no examples"}</option>
-              {examples.map((m) => (
-                <option key={m.id} value={m.id} title={m.description}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
+            <span style={{ display: "inline-block", width: 260 }}>
+              <SearchSelect
+                value=""
+                onChange={(v) => v && onPickExample(v)}
+                disabled={examples.length === 0}
+                placeholder={examples.length ? "Open a model…" : "no examples"}
+                options={examples.map((m) => ({ value: m.id, label: m.label }))}
+              />
+            </span>
           </label>
           <label>
             Upload

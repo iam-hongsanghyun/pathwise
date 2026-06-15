@@ -2,6 +2,7 @@
 // substance. Pure presentational; the host maps changes back into the library.
 
 import { SearchableSelect } from "../controls/SearchableSelect";
+import { SearchSelect } from "../controls/SearchSelect";
 import type {
   CommodityTemplate,
   GroupComponent,
@@ -60,15 +61,11 @@ export function CommodityEditor({
           />
         </Field>
         <Field label="kind">
-          <select
-            style={inputStyle}
+          <SearchSelect
             value={value.kind}
-            onChange={(e) => onChange({ ...value, kind: e.target.value as CommodityTemplate["kind"] })}
-          >
-            {["energy", "material", "indirect", "product", "byproduct"].map((k) => (
-              <option key={k}>{k}</option>
-            ))}
-          </select>
+            onChange={(v) => onChange({ ...value, kind: v as CommodityTemplate["kind"] })}
+            options={["energy", "material", "indirect", "product", "byproduct"].map((k) => ({ value: k }))}
+          />
         </Field>
         <Field label="sector">
           <input
@@ -185,11 +182,8 @@ export function TechnologyEditor({
                 />
               </td>
               <td>
-                <select style={inputStyle} value={r.role} onChange={(e) => setIo(i, { role: e.target.value as IoRow["role"] })}>
-                  <option value="input">input</option>
-                  <option value="output">output</option>
-                  <option value="impact">impact</option>
-                </select>
+                <SearchSelect value={r.role} onChange={(v) => setIo(i, { role: v as IoRow["role"] })}
+                  options={[{ value: "input" }, { value: "output" }, { value: "impact" }]} />
               </td>
               <td>
                 <input style={{ ...inputStyle, width: 70 }} type="number" value={r.coefficient} onChange={(e) => setIo(i, { coefficient: num(e.target.value) })} />
@@ -303,11 +297,8 @@ export function MachineEditor({
               <input style={inputStyle} value={m.label} onChange={(e) => setMeasure(i, { label: e.target.value })} />
             </Field>
             <Field label="type">
-              <select style={inputStyle} value={m.type} onChange={(e) => setMeasure(i, { type: e.target.value as MeasureTemplate["type"] })}>
-                <option value="energy_efficiency">energy_efficiency</option>
-                <option value="emission_reduction">emission_reduction</option>
-                <option value="environmental">environmental</option>
-              </select>
+              <SearchSelect value={m.type} onChange={(v) => setMeasure(i, { type: v as MeasureTemplate["type"] })}
+                options={[{ value: "energy_efficiency" }, { value: "emission_reduction" }, { value: "environmental" }]} />
             </Field>
             <Field label="target">
               <div style={{ minWidth: 140 }}>
@@ -386,11 +377,8 @@ export function MeasureEditor({
           <input style={inputStyle} value={value.label} onChange={(e) => onChange({ ...value, label: e.target.value })} />
         </Field>
         <Field label="type">
-          <select style={inputStyle} value={value.type} onChange={(e) => onChange({ ...value, type: e.target.value as MeasureTemplate["type"] })}>
-            <option value="energy_efficiency">energy_efficiency</option>
-            <option value="emission_reduction">emission_reduction</option>
-            <option value="environmental">environmental</option>
-          </select>
+          <SearchSelect value={value.type} onChange={(v) => onChange({ ...value, type: v as MeasureTemplate["type"] })}
+            options={[{ value: "energy_efficiency" }, { value: "emission_reduction" }, { value: "environmental" }]} />
         </Field>
         <Field label="target">
           <div style={{ minWidth: 150 }}>
@@ -595,19 +583,16 @@ export function GroupEditor({
       {value.connections.map((cn, i) => (
         <Row key={i}>
           <Field label="from">
-            <select style={inputStyle} value={cn.source} onChange={(e) => onChange({ ...value, connections: value.connections.map((x, j) => (j === i ? { ...x, source: e.target.value } : x)) })}>
-              {aliases.map((a) => <option key={a}>{a}</option>)}
-            </select>
+            <SearchSelect value={cn.source} onChange={(v) => onChange({ ...value, connections: value.connections.map((x, j) => (j === i ? { ...x, source: v } : x)) })}
+              options={aliases.map((a) => ({ value: a }))} />
           </Field>
           <Field label="to">
-            <select style={inputStyle} value={cn.target} onChange={(e) => onChange({ ...value, connections: value.connections.map((x, j) => (j === i ? { ...x, target: e.target.value } : x)) })}>
-              {aliases.map((a) => <option key={a}>{a}</option>)}
-            </select>
+            <SearchSelect value={cn.target} onChange={(v) => onChange({ ...value, connections: value.connections.map((x, j) => (j === i ? { ...x, target: v } : x)) })}
+              options={aliases.map((a) => ({ value: a }))} />
           </Field>
           <Field label="commodity">
-            <select style={inputStyle} value={cn.commodity} onChange={(e) => onChange({ ...value, connections: value.connections.map((x, j) => (j === i ? { ...x, commodity: e.target.value } : x)) })}>
-              {commodityIds.map((a) => <option key={a}>{a}</option>)}
-            </select>
+            <SearchSelect value={cn.commodity} onChange={(v) => onChange({ ...value, connections: value.connections.map((x, j) => (j === i ? { ...x, commodity: v } : x)) })}
+              options={commodityIds.map((a) => ({ value: a }))} />
           </Field>
           <Field label="lag (yr)">
             <input style={{ ...inputStyle, width: 64 }} type="number" value={cn.lag_years} onChange={(e) => onChange({ ...value, connections: value.connections.map((x, j) => (j === i ? { ...x, lag_years: num(e.target.value) } : x)) })} />

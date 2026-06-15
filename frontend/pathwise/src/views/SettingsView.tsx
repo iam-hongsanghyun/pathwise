@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { SearchSelect } from "../features/controls/SearchSelect";
 import { RailList, type RailItem } from "../layout/RailList";
 import { Resizer } from "../layout/Resizer";
 import type {
@@ -87,11 +88,12 @@ export function SettingsView({
               </label>
               <label className="inspector-field">
                 <span>Optimise cost for</span>
-                <select value={objScope} onChange={(e) => onObjScope(e.target.value as Scope)}>
-                  <option value="company">Each company (independent targets)</option>
-                  <option value="system">The whole economy (one shared target)</option>
-                  <option value="facility">Each facility (independent targets)</option>
-                </select>
+                <SearchSelect value={objScope} onChange={(v) => onObjScope(v as Scope)}
+                  options={[
+                    { value: "company", label: "Each company (independent targets)" },
+                    { value: "system", label: "The whole economy (one shared target)" },
+                    { value: "facility", label: "Each facility (independent targets)" },
+                  ]} />
               </label>
               <p className="muted">
                 The objective is always to minimise total discounted cost. This sets the level the
@@ -109,13 +111,8 @@ export function SettingsView({
               <h3>Optimisation method</h3>
               <label className="inspector-field">
                 <span>Backend</span>
-                <select value={backend} onChange={(e) => onBackend(e.target.value)}>
-                  {backends.map((b) => (
-                    <option key={b.name} value={b.name}>
-                      {b.label}
-                    </option>
-                  ))}
-                </select>
+                <SearchSelect value={backend} onChange={onBackend}
+                  options={backends.map((b) => ({ value: b.name, label: b.label }))} />
               </label>
               {!isPortfolio ? (
                 <p className="muted">
@@ -127,38 +124,26 @@ export function SettingsView({
                 <>
                   <label className="inspector-field">
                     <span>Method</span>
-                    <select
-                      value={portfolio.method}
-                      onChange={(e) => set({ method: e.target.value as PortfolioMethod })}
-                    >
-                      {(Object.keys(METHOD_LABEL) as PortfolioMethod[]).map((m) => (
-                        <option key={m} value={m}>
-                          {METHOD_LABEL[m]}
-                        </option>
-                      ))}
-                    </select>
+                    <SearchSelect value={portfolio.method} onChange={(v) => set({ method: v as PortfolioMethod })}
+                      options={(Object.keys(METHOD_LABEL) as PortfolioMethod[]).map((m) => ({ value: m, label: METHOD_LABEL[m] }))} />
                   </label>
                   <label className="inspector-field">
                     <span>Reward basis</span>
-                    <select
-                      value={portfolio.reward_mode}
-                      onChange={(e) => set({ reward_mode: e.target.value as RewardMode })}
-                    >
-                      <option value="cost_reduction">Cost reduction vs baseline</option>
-                      <option value="profit">Profit (revenue − cost)</option>
-                    </select>
+                    <SearchSelect value={portfolio.reward_mode} onChange={(v) => set({ reward_mode: v as RewardMode })}
+                      options={[
+                        { value: "cost_reduction", label: "Cost reduction vs baseline" },
+                        { value: "profit", label: "Profit (revenue − cost)" },
+                      ]} />
                   </label>
                   <label className="inspector-field">
                     <span>Asset granularity</span>
-                    <select
-                      value={portfolio.asset_level}
-                      onChange={(e) => set({ asset_level: e.target.value as AssetLevel })}
-                    >
-                      <option value="facility">Per facility × technology</option>
-                      <option value="technology">Per technology (economy-wide)</option>
-                      <option value="company">Per company</option>
-                      <option value="economy">Whole economy (by technology)</option>
-                    </select>
+                    <SearchSelect value={portfolio.asset_level} onChange={(v) => set({ asset_level: v as AssetLevel })}
+                      options={[
+                        { value: "facility", label: "Per facility × technology" },
+                        { value: "technology", label: "Per technology (economy-wide)" },
+                        { value: "company", label: "Per company" },
+                        { value: "economy", label: "Whole economy (by technology)" },
+                      ]} />
                   </label>
                   <label className="inspector-field">
                     <span>Monte Carlo scenarios</span>
@@ -184,15 +169,9 @@ export function SettingsView({
                     <>
                       <label className="inspector-field">
                         <span>Optimise by</span>
-                        <select
-                          value={byTarget ? "target" : "aversion"}
-                          onChange={(e) =>
-                            set({ target_return: e.target.value === "target" ? 0 : null })
-                          }
-                        >
-                          <option value="aversion">Risk aversion</option>
-                          <option value="target">Target return</option>
-                        </select>
+                        <SearchSelect value={byTarget ? "target" : "aversion"}
+                          onChange={(v) => set({ target_return: v === "target" ? 0 : null })}
+                          options={[{ value: "aversion", label: "Risk aversion" }, { value: "target", label: "Target return" }]} />
                       </label>
                       {byTarget ? (
                         <label className="inspector-field">
@@ -262,9 +241,8 @@ export function SettingsView({
               </p>
               <label className="inspector-field">
                 <span>Resolution</span>
-                <select disabled value="annual">
-                  <option value="annual">Annual (per period)</option>
-                </select>
+                <SearchSelect disabled value="annual" onChange={() => undefined}
+                  options={[{ value: "annual", label: "Annual (per period)" }]} />
               </label>
             </section>
           )}

@@ -12,6 +12,7 @@ import {
   MeasureEditor,
   TechnologyEditor,
 } from "../features/component/editors";
+import { useDialogs } from "../features/controls/Dialog";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
 import type { TreeAction, TreeNode } from "../features/tree/types";
 import {
@@ -84,6 +85,7 @@ function treeIdOf(s: Sel): string {
 }
 
 export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
+  const { prompt, confirm, node: dialogNode } = useDialogs();
   const [libs, setLibs] = useState<LibrarySummary[]>([]);
   const [openLibs, setOpenLibs] = useState<Map<string, ComponentLibrary>>(new Map());
   const [dirty, setDirty] = useState<Set<string>>(new Set());
@@ -277,7 +279,7 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
   }
 
   async function newLibrary() {
-    const id = window.prompt("New library id (letters, digits, -_.):", "")?.trim();
+    const id = (await prompt({ title: "New library", label: "id", placeholder: "letters, digits, -_." }))?.trim();
     if (!id) return;
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id)) return setError(`invalid library id '${id}'`);
     const libId = `base/${id}`; // new libraries go in the shared base catalogue
@@ -293,7 +295,7 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
   }
   async function removeLibrary(libId: string) {
     const [, plain] = splitLib(libId);
-    if (!window.confirm(`Delete library '${plain}'?`)) return;
+    if (!(await confirm({ title: "Delete library", message: `Delete library '${plain}'?`, danger: true, confirmLabel: "Delete" }))) return;
     try {
       await removeLib(libId, sessionId);
       setLibs(await listAllComponentLibraries(sessionId));
@@ -339,7 +341,7 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
       { id: "delete", label: "Delete", danger: true },
     ];
   }
-  function onContextAction(actionId: string, node: TreeNode) {
+  async function onContextAction(actionId: string, node: TreeNode) {
     const s = parseId(node.id);
     if (actionId === "add-tech") addTech(s.libId);
     else if (actionId === "add-stream") {
@@ -349,11 +351,11 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
     else if (actionId === "add-macc") addMacc(s.libId);
     else if (actionId === "delete-lib") void removeLibrary(s.libId);
     else if (actionId === "rename-lib") {
-      const label = window.prompt("Library label:", libs.find((l) => keyOf(l) === s.libId)?.label ?? s.libId);
+      const label = await prompt({ title: "Rename library", label: "label", defaultValue: libs.find((l) => keyOf(l) === s.libId)?.label ?? s.libId });
       if (label != null) editLib(s.libId, (l) => ({ ...l, label }));
     } else if (actionId === "delete") deleteItem(s);
     else if (actionId === "rename") {
-      const name = window.prompt("New id:", s.id)?.trim();
+      const name = (await prompt({ title: "Rename", label: "id", defaultValue: s.id }))?.trim();
       if (name) renameItem(s, name);
     }
   }
@@ -490,6 +492,7 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
           {renderDetail()}
         </main>
       </div>
+      {dialogNode}
     </div>
   );
 }
