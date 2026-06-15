@@ -29,6 +29,8 @@ export interface TechnologyTemplate {
   capex: number;
   opex: number;
   io: IoRow[];
+  /** Ids of the MACC bundles that apply to this technology. */
+  maccs: string[];
 }
 
 export interface MeasureBlock {
@@ -44,6 +46,13 @@ export interface MeasureTemplate {
   target: string;
   lifetime: number;
   blocks: MeasureBlock[];
+}
+
+/** A MACC — a named, reusable bundle linking individual measures by id. */
+export interface MaccGroup {
+  macc_id: string;
+  label: string;
+  measures: string[];
 }
 
 export interface MachineComponent {
@@ -86,6 +95,11 @@ export interface ComponentLibrary {
   label: string;
   commodities: CommodityTemplate[];
   technologies: TechnologyTemplate[];
+  /** Standalone, reusable measures. */
+  measures: MeasureTemplate[];
+  /** MACC bundles grouping measures. */
+  maccs: MaccGroup[];
+  /** Legacy composite components (no longer authored). */
   machines: MachineComponent[];
   groups: GroupComponent[];
 }
@@ -95,13 +109,15 @@ export interface LibrarySummary {
   label: string;
   commodities: number;
   technologies: number;
+  measures: number;
+  maccs: number;
   machines: number;
   groups: number;
 }
 
 /** A blank library — every list defaults to empty. */
 export function emptyLibrary(label = ""): ComponentLibrary {
-  return { label, commodities: [], technologies: [], machines: [], groups: [] };
+  return { label, commodities: [], technologies: [], measures: [], maccs: [], machines: [], groups: [] };
 }
 
 // ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -133,13 +149,27 @@ export async function deleteComponentLibrary(id: string): Promise<void> {
   );
 }
 
-/** Drop a fresh copy of a component under a group node of the session model. */
+/** Drop a fresh copy of a (legacy) composite component under a group node. */
 export async function instantiateComponent(
   sessionId: string,
   body: { library: string; component: string; parent_id: string; instance_id?: string },
 ): Promise<{ created: string[]; root: string | null }> {
   return json<{ created: string[]; root: string | null }>(
     await fetch(`/api/session/${sessionId}/instantiate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+/** Place a technology as a fresh machine under a group node of the session. */
+export async function placeTechnology(
+  sessionId: string,
+  body: { library: string; technology: string; parent_id: string; capacity?: number; instance_id?: string },
+): Promise<{ created: string[]; root: string | null }> {
+  return json<{ created: string[]; root: string | null }>(
+    await fetch(`/api/session/${sessionId}/place-technology`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

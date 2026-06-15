@@ -1,37 +1,39 @@
-// Component tab — a directory tree of many libraries → groups → components, with
-// a selection-driven detail editor. Components carry all their core substance
-// (recipe streams, capacity, MACC measures). Drag a component onto another
-// library to move it (with its dependencies). Persisted server-side, debounced.
+// Component tab — each library has THREE fixed structures:
+//   Technology  (recipe: properties + input/output streams + linked MACCs)
+//   Stream      (commodity properties)
+//   Measures    (MACC = a group of measures · Individual = reusable measures)
+// Left = the structure tree; right-click adds/renames/deletes; the right (main)
+// detail shows the properties of the selected item.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CommodityEditor,
-  GroupEditor,
-  MachineEditor,
+  MaccEditor,
+  MeasureEditor,
   TechnologyEditor,
 } from "../features/component/editors";
-// CommodityEditor is used in the library detail (stream prices).
 import { TreeExplorer } from "../features/tree/TreeExplorer";
-import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types";
+import type { TreeAction, TreeNode } from "../features/tree/types";
 import {
   type CommodityTemplate,
   type ComponentLibrary,
   deleteComponentLibrary,
   emptyLibrary,
   getComponentLibrary,
-  type GroupComponent,
   type LibrarySummary,
   listComponentLibraries,
-  type MachineComponent,
+  type MaccGroup,
+  type MeasureTemplate,
   saveComponentLibrary,
   type TechnologyTemplate,
 } from "../lib/api/components";
 
-type Kind = "library" | "machine" | "group";
+type Kind = "library" | "cat" | "tech" | "stream" | "measure" | "macc";
 interface Sel {
   libId: string;
   kind: Kind;
-  name?: string;
+  /** For cat: the category key; for items: the item id. */
+  id?: string;
 }
 
 const uniq = (base: string, taken: Set<string>): string => {
@@ -41,47 +43,16 @@ const uniq = (base: string, taken: Set<string>): string => {
   return `${base}_${i}`;
 };
 
-function parseTreeId(id: string): Sel {
-  if (id.startsWith("lib:")) return { libId: id.slice(4), kind: "library" };
-  const rest = id.slice(4); // after "cmp:"
-  const i1 = rest.indexOf(":");
-  const libId = rest.slice(0, i1);
-  const rest2 = rest.slice(i1 + 1);
-  const i2 = rest2.indexOf(":");
-  return { libId, kind: rest2.slice(0, i2) as Kind, name: rest2.slice(i2 + 1) };
-}
-const treeIdOf = (s: Sel): string =>
-  s.kind === "library" ? `lib:${s.libId}` : `cmp:${s.libId}:${s.kind}:${s.name}`;
-
-/** Names of every machine/group/technology/commodity a component depends on (so
- *  a cross-library move carries them and references don't break). */
-function collectDeps(lib: ComponentLibrary, kind: Kind, name: string) {
-  const machines = new Set<string>();
-  const groups = new Set<string>();
-  const techs = new Set<string>();
-  const commodities = new Set<string>();
-  const visit = (k: Kind, nm: string) => {
-    if (k === "machine") {
-      const m = lib.machines.find((x) => x.name === nm);
-      if (!m || machines.has(nm)) return;
-      machines.add(nm);
-      const t = lib.technologies.find((x) => x.technology_id === m.technology);
-      if (t) {
-        techs.add(t.technology_id);
-        for (const io of t.io) if (io.role !== "impact") commodities.add(io.target);
-      }
-      for (const meas of m.measures) commodities.add(meas.target);
-    } else {
-      const g = lib.groups.find((x) => x.name === nm);
-      if (!g || groups.has(nm)) return;
-      groups.add(nm);
-      for (const c of g.children)
-        visit(lib.machines.some((x) => x.name === c.component) ? "machine" : "group", c.component);
-      for (const cn of g.connections) commodities.add(cn.commodity);
-    }
-  };
-  visit(kind, name);
-  return { machines, groups, techs, commodities };
+function parseId(treeId: string): Sel {
+  const parts = treeId.split(":");
+  const [prefix, libId] = parts;
+  const rest = parts.slice(2).join(":");
+  if (prefix === "lib") return { libId, kind: "library" };
+  if (prefix === "cat") return { libId, kind: "cat", id: rest };
+  if (prefix === "t") return { libId, kind: "tech", id: rest };
+  if (prefix === "s") return { libId, kind: "stream", id: rest };
+  if (prefix === "m") return { libId, kind: "measure", id: rest };
+  return { libId, kind: "macc", id: rest };
 }
 
 export function ComponentTabView() {
@@ -92,12 +63,10 @@ export function ComponentTabView() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
-  const saved = useRef<Map<string, string>>(new Map()); // libId → last-saved JSON
+  const saved = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
-    listComponentLibraries()
-      .then(setLibs)
-      .catch((e) => setError(String(e)));
+    listComponentLibraries().then(setLibs).catch((e) => setError(String(e)));
   }, []);
 
   async function loadLib(id: string) {
@@ -111,7 +80,6 @@ export function ComponentTabView() {
     }
   }
 
-  // Debounced save of every dirty library.
   useEffect(() => {
     if (dirty.size === 0) return;
     setStatus("saving…");
@@ -138,37 +106,92 @@ export function ComponentTabView() {
     setOpenLibs((prev) => {
       const cur = prev.get(libId);
       if (!cur) return prev;
-      const next = fn(structuredClone(cur));
-      const m = new Map(prev).set(libId, next);
-      return m;
+      return new Map(prev).set(libId, fn(structuredClone(cur)));
     });
     setDirty((prev) => new Set(prev).add(libId));
   }
 
-  // ── Tree adapter ────────────────────────────────────────────────────────────
+  // ── Tree adapter: library → {Technology, Stream, Measures{MACC, Individual}} ──
   const treeNodes = useMemo<TreeNode[]>(() => {
     const out: TreeNode[] = [];
+    const cat = (libId: string, key: string, label: string, parent: string, has: boolean): void => {
+      out.push({ id: `cat:${libId}:${key}`, parentId: parent, kind: "group", label, hasChildren: has, draggable: false, droppable: false });
+    };
     for (const l of libs) {
-      out.push({
-        id: `lib:${l.id}`,
-        parentId: null,
-        kind: "library",
-        label: l.label || l.id,
-        hasChildren: l.machines + l.groups > 0,
-        droppable: true,
-        draggable: false,
-      });
+      out.push({ id: `lib:${l.id}`, parentId: null, kind: "library", label: l.label || l.id, hasChildren: true, draggable: false, droppable: false });
       const body = openLibs.get(l.id);
+      const tn = body ? body.technologies.length : l.technologies;
+      const sn = body ? body.commodities.length : l.commodities;
+      cat(l.id, "tech", "Technology", `lib:${l.id}`, tn > 0);
+      cat(l.id, "stream", "Stream", `lib:${l.id}`, sn > 0);
+      cat(l.id, "measures", "Measures", `lib:${l.id}`, true);
       if (!body) continue;
-      for (const g of body.groups)
-        out.push({ id: `cmp:${l.id}:group:${g.name}`, parentId: `lib:${l.id}`, kind: "group", label: g.label || g.name, level: g.level, hasChildren: false, droppable: false });
-      for (const m of body.machines)
-        out.push({ id: `cmp:${l.id}:machine:${m.name}`, parentId: `lib:${l.id}`, kind: "machine", label: m.label || m.name, hasChildren: false, droppable: false });
+      for (const t of body.technologies) out.push({ id: `t:${l.id}:${t.technology_id}`, parentId: `cat:${l.id}:tech`, kind: "leaf", label: t.technology_id, hasChildren: false, draggable: false, droppable: false });
+      for (const c of body.commodities) out.push({ id: `s:${l.id}:${c.commodity_id}`, parentId: `cat:${l.id}:stream`, kind: "leaf", label: c.commodity_id, hasChildren: false, draggable: false, droppable: false });
+      cat(l.id, "macc", "MACC", `cat:${l.id}:measures`, body.maccs.length > 0);
+      cat(l.id, "indiv", "Individual", `cat:${l.id}:measures`, body.measures.length > 0);
+      for (const g of body.maccs) out.push({ id: `g:${l.id}:${g.macc_id}`, parentId: `cat:${l.id}:macc`, kind: "leaf", label: g.label || g.macc_id, hasChildren: false, draggable: false, droppable: false });
+      for (const m of body.measures) out.push({ id: `m:${l.id}:${m.measure_id}`, parentId: `cat:${l.id}:indiv`, kind: "leaf", label: m.label || m.measure_id, hasChildren: false, draggable: false, droppable: false });
     }
     return out;
   }, [libs, openLibs]);
 
-  // ── Library + component actions ──────────────────────────────────────────────
+  // ── Add / rename / delete ────────────────────────────────────────────────────
+  function addTech(libId: string) {
+    editLib(libId, (l) => {
+      const id = uniq("Technology", new Set(l.technologies.map((t) => t.technology_id)));
+      const tech: TechnologyTemplate = { technology_id: id, lifespan: 20, capex: 0, opex: 0, io: [], maccs: [] };
+      setSel({ libId, kind: "tech", id });
+      setExpanded((p) => new Set(p).add(`lib:${libId}`).add(`cat:${libId}:tech`));
+      return { ...l, technologies: [...l.technologies, tech] };
+    });
+  }
+  function addStream(libId: string) {
+    editLib(libId, (l) => {
+      const id = uniq("stream", new Set(l.commodities.map((c) => c.commodity_id)));
+      setSel({ libId, kind: "stream", id });
+      setExpanded((p) => new Set(p).add(`lib:${libId}`).add(`cat:${libId}:stream`));
+      return { ...l, commodities: [...l.commodities, { commodity_id: id, kind: "material", unit: "unit" } as CommodityTemplate] };
+    });
+  }
+  function addMeasure(libId: string) {
+    editLib(libId, (l) => {
+      const id = uniq("measure", new Set(l.measures.map((m) => m.measure_id)));
+      const m: MeasureTemplate = { measure_id: id, label: "", type: "energy_efficiency", target: l.commodities[0]?.commodity_id ?? "", lifetime: 15, blocks: [{ reduction: 0.05, capex_per_capacity: 0, opex_per_capacity: 0 }] };
+      setSel({ libId, kind: "measure", id });
+      setExpanded((p) => new Set(p).add(`lib:${libId}`).add(`cat:${libId}:measures`).add(`cat:${libId}:indiv`));
+      return { ...l, measures: [...l.measures, m] };
+    });
+  }
+  function addMacc(libId: string) {
+    editLib(libId, (l) => {
+      const id = uniq("macc", new Set(l.maccs.map((g) => g.macc_id)));
+      setSel({ libId, kind: "macc", id });
+      setExpanded((p) => new Set(p).add(`lib:${libId}`).add(`cat:${libId}:measures`).add(`cat:${libId}:macc`));
+      return { ...l, maccs: [...l.maccs, { macc_id: id, label: "", measures: [] } as MaccGroup] };
+    });
+  }
+  function deleteItem(s: Sel) {
+    editLib(s.libId, (l) => {
+      if (s.kind === "tech") return { ...l, technologies: l.technologies.filter((t) => t.technology_id !== s.id) };
+      if (s.kind === "stream") return { ...l, commodities: l.commodities.filter((c) => c.commodity_id !== s.id) };
+      if (s.kind === "measure") return { ...l, measures: l.measures.filter((m) => m.measure_id !== s.id), maccs: l.maccs.map((g) => ({ ...g, measures: g.measures.filter((x) => x !== s.id) })) };
+      if (s.kind === "macc") return { ...l, maccs: l.maccs.filter((g) => g.macc_id !== s.id), technologies: l.technologies.map((t) => ({ ...t, maccs: t.maccs.filter((x) => x !== s.id) })) };
+      return l;
+    });
+    setSel({ libId: s.libId, kind: "library" });
+  }
+  function renameItem(s: Sel, name: string) {
+    editLib(s.libId, (l) => {
+      if (s.kind === "tech") return { ...l, technologies: l.technologies.map((t) => (t.technology_id === s.id ? { ...t, technology_id: name } : t)) };
+      if (s.kind === "stream") return { ...l, commodities: l.commodities.map((c) => (c.commodity_id === s.id ? { ...c, commodity_id: name } : c)) };
+      if (s.kind === "measure") return { ...l, measures: l.measures.map((m) => (m.measure_id === s.id ? { ...m, measure_id: name } : m)), maccs: l.maccs.map((g) => ({ ...g, measures: g.measures.map((x) => (x === s.id ? name : x)) })) };
+      if (s.kind === "macc") return { ...l, maccs: l.maccs.map((g) => (g.macc_id === s.id ? { ...g, macc_id: name } : g)), technologies: l.technologies.map((t) => ({ ...t, maccs: t.maccs.map((x) => (x === s.id ? name : x)) })) };
+      return l;
+    });
+    setSel({ ...s, id: name });
+  }
+
   async function newLibrary() {
     const id = window.prompt("New library id (letters, digits, -_.):", "")?.trim();
     if (!id) return;
@@ -178,6 +201,7 @@ export function ComponentTabView() {
       setLibs(await listComponentLibraries());
       setExpanded((p) => new Set(p).add(`lib:${id}`));
       await loadLib(id);
+      setSel({ libId: id, kind: "library" });
     } catch (e) {
       setError(String(e));
     }
@@ -187,267 +211,179 @@ export function ComponentTabView() {
     try {
       await deleteComponentLibrary(id);
       setLibs(await listComponentLibraries());
-      setOpenLibs((p) => {
-        const m = new Map(p);
-        m.delete(id);
-        return m;
-      });
+      setOpenLibs((p) => { const m = new Map(p); m.delete(id); return m; });
       if (sel?.libId === id) setSel(null);
     } catch (e) {
       setError(String(e));
     }
   }
-  function addMachine(libId: string) {
-    editLib(libId, (l) => {
-      const taken = new Set([...l.machines.map((m) => m.name), ...l.groups.map((g) => g.name)]);
-      const name = uniq("machine", taken);
-      const techId = uniq(name, new Set(l.technologies.map((t) => t.technology_id)));
-      const tech: TechnologyTemplate = { technology_id: techId, lifespan: 20, capex: 0, opex: 0, io: [] };
-      const machine: MachineComponent = { name, label: "", technology: techId, capacity: 1000, measures: [] };
-      setSel({ libId, kind: "machine", name });
-      return { ...l, technologies: [...l.technologies, tech], machines: [...l.machines, machine] };
-    });
-  }
-  function addGroup(libId: string) {
-    editLib(libId, (l) => {
-      const name = uniq("group", new Set([...l.machines.map((m) => m.name), ...l.groups.map((g) => g.name)]));
-      const group: GroupComponent = { name, label: "", level: "facility", children: [], connections: [] };
-      setSel({ libId, kind: "group", name });
-      return { ...l, groups: [...l.groups, group] };
-    });
-  }
-  function deleteComponent(s: Sel) {
-    editLib(s.libId, (l) =>
-      s.kind === "machine"
-        ? { ...l, machines: l.machines.filter((m) => m.name !== s.name) }
-        : { ...l, groups: l.groups.filter((g) => g.name !== s.name) },
-    );
-    setSel({ libId: s.libId, kind: "library" });
-  }
 
-  async function moveComponent(e: TreeMoveEvent) {
-    const src = parseTreeId(e.dragId);
-    if (src.kind === "library") return;
-    const dstLib = e.targetId ? parseTreeId(e.targetId).libId : null;
-    if (!dstLib || dstLib === src.libId) return; // same library: no-op
-    const from = openLibs.get(src.libId);
-    if (!from || !src.name) return;
-    await loadLib(dstLib);
-    const target = openLibs.get(dstLib);
-    if (!target) return;
-    const deps = collectDeps(from, src.kind, src.name);
-    const next = structuredClone(target);
-    const has = <T,>(arr: T[], key: (t: T) => string, v: string) => arr.some((x) => key(x) === v);
-    for (const id of deps.techs) {
-      const t = from.technologies.find((x) => x.technology_id === id);
-      if (t && !has(next.technologies, (x) => x.technology_id, id)) next.technologies.push(t);
-    }
-    for (const id of deps.commodities) {
-      const c = from.commodities.find((x) => x.commodity_id === id);
-      if (c && !has(next.commodities, (x) => x.commodity_id, id)) next.commodities.push(c);
-    }
-    for (const nm of deps.machines) {
-      const m = from.machines.find((x) => x.name === nm);
-      if (m && !has(next.machines, (x) => x.name, nm)) next.machines.push(m);
-    }
-    for (const nm of deps.groups) {
-      const g = from.groups.find((x) => x.name === nm);
-      if (g && !has(next.groups, (x) => x.name, nm)) next.groups.push(g);
-    }
-    setOpenLibs((prev) => new Map(prev).set(dstLib, next));
-    // remove the top component from the source
-    editLib(src.libId, (l) =>
-      src.kind === "machine"
-        ? { ...l, machines: l.machines.filter((m) => m.name !== src.name) }
-        : { ...l, groups: l.groups.filter((g) => g.name !== src.name) },
-    );
-    setDirty((p) => new Set(p).add(dstLib));
-    setSel({ libId: dstLib, kind: src.kind, name: src.name });
-  }
-
-  // ── Detail render ─────────────────────────────────────────────────────────────
-  const body = sel ? openLibs.get(sel.libId) : undefined;
-  const commodityIds = useMemo(() => (body?.commodities ?? []).map((c) => c.commodity_id), [body]);
-  const techIds = useMemo(() => (body?.technologies ?? []).map((t) => t.technology_id), [body]);
-  const componentNames = useMemo(
-    () => [...(body?.machines ?? []).map((m) => m.name), ...(body?.groups ?? []).map((g) => g.name)],
-    [body],
-  );
-
-  function renderDetail() {
-    if (!sel || !body) return <p className="muted">Pick or create a library on the left to start building.</p>;
-    if (sel.kind === "library") {
-      const l = libs.find((x) => x.id === sel.libId);
-      return (
-        <section>
-          <h2 style={{ margin: "0 0 12px" }}>Library</h2>
-          <label style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: "0.78rem", maxWidth: 280 }}>
-            <span className="muted">label</span>
-            <input
-              style={{ padding: "4px 6px", border: "1px solid var(--border-strong)", borderRadius: 4, font: "inherit" }}
-              value={body.label}
-              onChange={(e) => editLib(sel.libId, (lib) => ({ ...lib, label: e.target.value }))}
-            />
-          </label>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "10px 0" }}>
-            <button className="ghost" onClick={() => addMachine(sel.libId)}>＋ Add component</button>
-            <button className="ghost" onClick={() => addGroup(sel.libId)}>＋ Add group</button>
-          </div>
-          <p className="muted" style={{ fontSize: "0.78rem" }}>
-            {l?.machines ?? 0} machine(s) · {l?.groups ?? 0} group(s).
-            {(l?.machines ?? 0) + (l?.groups ?? 0) === 0
-              ? " Empty — add a component above (it gets its own recipe to edit), or right-click this library."
-              : " Right-click any item for actions; drag a component onto another library to move it."}
-          </p>
-          <h3 style={{ margin: "16px 0 6px", fontSize: "0.85rem" }}>
-            Streams <span className="muted">(prices used by the model)</span>
-            <button
-              className="ghost"
-              style={{ marginLeft: 8 }}
-              onClick={() =>
-                editLib(sel.libId, (lib) => ({
-                  ...lib,
-                  commodities: [
-                    ...lib.commodities,
-                    { commodity_id: uniq("stream", new Set(lib.commodities.map((c) => c.commodity_id))), kind: "material", unit: "unit" } as CommodityTemplate,
-                  ],
-                }))
-              }
-            >
-              ＋ add stream
-            </button>
-          </h3>
-          {body.commodities.map((c) => (
-            <CommodityEditor
-              key={c.commodity_id}
-              value={c}
-              onChange={(v) => editLib(sel.libId, (lib) => ({ ...lib, commodities: lib.commodities.map((x) => (x.commodity_id === c.commodity_id ? v : x)) }))}
-              onRename={() => undefined}
-            />
-          ))}
-        </section>
-      );
-    }
-    if (sel.kind === "machine") {
-      const m = body.machines.find((x) => x.name === sel.name);
-      if (!m) return null;
-      const tech = body.technologies.find((t) => t.technology_id === m.technology);
-      const recipe = tech ? (
-        <TechnologyEditor
-          value={tech}
-          commodityIds={commodityIds}
-          onAddCommodity={(id) =>
-            editLib(sel.libId, (l) => ({ ...l, commodities: [...l.commodities, { commodity_id: id, kind: "material", unit: "unit" } as CommodityTemplate] }))
-          }
-          onChange={(v) => editLib(sel.libId, (l) => ({ ...l, technologies: l.technologies.map((t) => (t.technology_id === m.technology ? v : t)) }))}
-          onRename={(id) =>
-            editLib(sel.libId, (l) => ({
-              ...l,
-              technologies: l.technologies.map((t) => (t.technology_id === m.technology ? { ...t, technology_id: id } : t)),
-              machines: l.machines.map((mm) => (mm.name === m.name ? { ...mm, technology: id } : mm)),
-            }))
-          }
-        />
-      ) : (
-        <p className="muted" style={{ fontSize: "0.78rem" }}>No recipe — pick or type a technology above.</p>
-      );
-      return (
-        <MachineEditor
-          value={m}
-          techIds={techIds}
-          commodityIds={commodityIds}
-          embeddedTech={recipe}
-          onChange={(v) => editLib(sel.libId, (l) => ({ ...l, machines: l.machines.map((x) => (x.name === sel.name ? v : x)) }))}
-          onRename={(name) => setSel({ libId: sel.libId, kind: "machine", name })}
-        />
-      );
-    }
-    // group
-    const g = body.groups.find((x) => x.name === sel.name);
-    if (!g) return null;
-    return (
-      <GroupEditor
-        value={g}
-        componentNames={componentNames.filter((nm) => nm !== sel.name)}
-        onChange={(v) => editLib(sel.libId, (l) => ({ ...l, groups: l.groups.map((x) => (x.name === sel.name ? v : x)) }))}
-        onRename={(name) => setSel({ libId: sel.libId, kind: "group", name })}
-      />
-    );
-  }
-
-  // ── Context menu actions ──────────────────────────────────────────────────────
+  // ── Context menu ──────────────────────────────────────────────────────────────
   function actionsFor(node: TreeNode): TreeAction[] {
-    if (node.kind === "library")
+    const s = parseId(node.id);
+    if (s.kind === "library")
       return [
-        { id: "add-machine", label: "Add component" },
-        { id: "add-group", label: "Add group" },
-        { id: "rename-lib", label: "Rename library" },
-        { id: "delete-lib", label: "Delete library", danger: true, separatorBefore: true },
+        { id: "add-tech", label: "Add technology" },
+        { id: "add-stream", label: "Add stream" },
+        { id: "add-measure", label: "Add measure" },
+        { id: "add-macc", label: "Add MACC" },
+        { id: "rename-lib", label: "Rename library", separatorBefore: true },
+        { id: "delete-lib", label: "Delete library", danger: true },
       ];
+    if (s.kind === "cat") {
+      const map: Record<string, TreeAction[]> = {
+        tech: [{ id: "add-tech", label: "Add technology" }],
+        stream: [{ id: "add-stream", label: "Add stream" }],
+        measures: [{ id: "add-measure", label: "Add measure" }, { id: "add-macc", label: "Add MACC" }],
+        macc: [{ id: "add-macc", label: "Add MACC" }],
+        indiv: [{ id: "add-measure", label: "Add measure" }],
+      };
+      return map[s.id ?? ""] ?? [];
+    }
     return [
       { id: "rename", label: "Rename" },
       { id: "delete", label: "Delete", danger: true },
     ];
   }
   function onContextAction(actionId: string, node: TreeNode) {
-    const s = parseTreeId(node.id);
-    if (actionId === "add-machine") addMachine(s.libId);
-    else if (actionId === "add-group") addGroup(s.libId);
+    const s = parseId(node.id);
+    if (actionId === "add-tech") addTech(s.libId);
+    else if (actionId === "add-stream") addStream(s.libId);
+    else if (actionId === "add-measure") addMeasure(s.libId);
+    else if (actionId === "add-macc") addMacc(s.libId);
     else if (actionId === "delete-lib") void removeLibrary(s.libId);
     else if (actionId === "rename-lib") {
       const label = window.prompt("Library label:", libs.find((l) => l.id === s.libId)?.label ?? s.libId);
       if (label != null) editLib(s.libId, (l) => ({ ...l, label }));
-    } else if (actionId === "delete") deleteComponent(s);
+    } else if (actionId === "delete") deleteItem(s);
     else if (actionId === "rename") {
-      const name = window.prompt("New name:", s.name)?.trim();
-      if (!name || !s.name) return;
-      editLib(s.libId, (l) =>
-        s.kind === "machine"
-          ? { ...l, machines: l.machines.map((m) => (m.name === s.name ? { ...m, name } : m)) }
-          : {
-              ...l,
-              groups: l.groups
-                .map((g) => (g.name === s.name ? { ...g, name } : g))
-                // fix references to the renamed component in other groups' children
-                .map((g) => ({ ...g, children: g.children.map((c) => (c.component === s.name ? { ...c, component: name } : c)) })),
-            },
-      );
-      setSel({ libId: s.libId, kind: s.kind, name });
+      const name = window.prompt("New id:", s.id)?.trim();
+      if (name) renameItem(s, name);
     }
+  }
+
+  // ── Detail ─────────────────────────────────────────────────────────────────────
+  const body = sel ? openLibs.get(sel.libId) : undefined;
+  const commodityIds = useMemo(() => (body?.commodities ?? []).map((c) => c.commodity_id), [body]);
+
+  function renderDetail() {
+    if (!sel || !body) return <p className="muted">Pick or create a library on the left to start building.</p>;
+    if (sel.kind === "library" || sel.kind === "cat") {
+      const l = libs.find((x) => x.id === sel.libId);
+      return (
+        <section>
+          <h2 style={{ margin: "0 0 8px" }}>{body.label || sel.libId}</h2>
+          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.8rem", marginBottom: 12 }}>
+            <span className="muted">label</span>
+            <input style={{ ...inp, flex: 1, maxWidth: 280 }} value={body.label} onChange={(e) => editLib(sel.libId, (lib) => ({ ...lib, label: e.target.value }))} />
+          </label>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+            <button className="ghost" onClick={() => addTech(sel.libId)}>＋ Technology</button>
+            <button className="ghost" onClick={() => addStream(sel.libId)}>＋ Stream</button>
+            <button className="ghost" onClick={() => addMeasure(sel.libId)}>＋ Measure</button>
+            <button className="ghost" onClick={() => addMacc(sel.libId)}>＋ MACC</button>
+          </div>
+          <p className="muted" style={{ fontSize: "0.78rem" }}>
+            {l?.technologies ?? 0} technologies · {l?.commodities ?? 0} streams · {l?.measures ?? 0} measures · {l?.maccs ?? 0} MACCs.
+            {" "}A technology gets its own input/output streams; measures are reusable and bundled into MACCs; a technology links the MACCs that apply to it.
+          </p>
+        </section>
+      );
+    }
+    if (sel.kind === "tech") {
+      const t = body.technologies.find((x) => x.technology_id === sel.id);
+      if (!t) return null;
+      const setTech = (v: TechnologyTemplate) => editLib(sel.libId, (l) => ({ ...l, technologies: l.technologies.map((x) => (x.technology_id === sel.id ? v : x)) }));
+      const toggleMacc = (mid: string, on: boolean) => setTech({ ...t, maccs: on ? [...t.maccs, mid] : t.maccs.filter((x) => x !== mid) });
+      return (
+        <>
+          <TechnologyEditor
+            value={t}
+            commodityIds={commodityIds}
+            onAddCommodity={(id) => editLib(sel.libId, (l) => ({ ...l, commodities: [...l.commodities, { commodity_id: id, kind: "material", unit: "unit" } as CommodityTemplate] }))}
+            onChange={setTech}
+            onRename={(id) => setSel({ libId: sel.libId, kind: "tech", id })}
+          />
+          <div className="rail-section" style={{ marginTop: 12 }}>
+            <div className="rail-head">Applicable MACCs</div>
+            {body.maccs.length === 0 && <div className="rail-empty" style={{ fontSize: "0.74rem" }}>no MACCs in this library yet</div>}
+            {body.maccs.map((g) => (
+              <label key={g.macc_id} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.82rem", padding: "2px 8px" }}>
+                <input type="checkbox" checked={t.maccs.includes(g.macc_id)} onChange={(e) => toggleMacc(g.macc_id, e.target.checked)} />
+                {g.label || g.macc_id}
+              </label>
+            ))}
+          </div>
+        </>
+      );
+    }
+    if (sel.kind === "stream") {
+      const c = body.commodities.find((x) => x.commodity_id === sel.id);
+      if (!c) return null;
+      const targeting = body.measures.filter((m) => m.target === sel.id).map((m) => m.label || m.measure_id);
+      return (
+        <>
+          <CommodityEditor
+            value={c}
+            onChange={(v) => editLib(sel.libId, (l) => ({ ...l, commodities: l.commodities.map((x) => (x.commodity_id === sel.id ? v : x)) }))}
+            onRename={(id) => setSel({ libId: sel.libId, kind: "stream", id })}
+          />
+          <div className="rail-section" style={{ marginTop: 12 }}>
+            <div className="rail-head">Measures targeting this stream</div>
+            <div className="rail-empty" style={{ fontSize: "0.78rem" }}>{targeting.length ? targeting.join(", ") : "none"}</div>
+          </div>
+        </>
+      );
+    }
+    if (sel.kind === "measure") {
+      const m = body.measures.find((x) => x.measure_id === sel.id);
+      if (!m) return null;
+      return (
+        <MeasureEditor
+          value={m}
+          commodityIds={commodityIds}
+          onChange={(v) => editLib(sel.libId, (l) => ({ ...l, measures: l.measures.map((x) => (x.measure_id === sel.id ? v : x)) }))}
+          onRename={(id) => setSel({ libId: sel.libId, kind: "measure", id })}
+        />
+      );
+    }
+    // macc
+    const g = body.maccs.find((x) => x.macc_id === sel.id);
+    if (!g) return null;
+    return (
+      <MaccEditor
+        value={g}
+        measures={body.measures.map((m) => ({ id: m.measure_id, label: m.label || m.measure_id }))}
+        onChange={(v) => editLib(sel.libId, (l) => ({ ...l, maccs: l.maccs.map((x) => (x.macc_id === sel.id ? v : x)) }))}
+        onRename={(id) => setSel({ libId: sel.libId, kind: "macc", id })}
+      />
+    );
   }
 
   return (
     <div className="view-full builder" style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
-      {error && (
-        <div className="error" style={{ padding: "4px 12px" }} onClick={() => setError(null)}>
-          {error} <span className="muted">(dismiss)</span>
-        </div>
-      )}
+      {error && <div className="error" style={{ padding: "4px 12px" }} onClick={() => setError(null)}>{error} <span className="muted">(dismiss)</span></div>}
       <div style={{ display: "flex", height: "100%", minHeight: 0 }}>
-        <aside style={{ width: 280, overflow: "auto", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column" }}>
+        <aside style={{ width: 280, overflow: "auto", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", flexShrink: 0 }}>
           <div className="rail-head-row" style={{ padding: "6px 10px" }}>
             <span className="rail-head">Libraries</span>
             <button className="rail-add" title="new library" onClick={newLibrary}>＋</button>
           </div>
           <TreeExplorer
             nodes={treeNodes}
-            selectedId={sel ? treeIdOf(sel) : null}
+            selectedId={sel ? (sel.kind === "library" ? `lib:${sel.libId}` : sel.kind === "cat" ? `cat:${sel.libId}:${sel.id}` : `${sel.kind === "tech" ? "t" : sel.kind === "stream" ? "s" : sel.kind === "measure" ? "m" : "g"}:${sel.libId}:${sel.id}`) : null}
             expandedIds={expanded}
             onToggle={(id, exp) => {
-              setExpanded((p) => {
-                const m = new Set(p);
-                if (exp) m.add(id);
-                else m.delete(id);
-                return m;
-              });
+              setExpanded((p) => { const m = new Set(p); if (exp) m.add(id); else m.delete(id); return m; });
               if (exp && id.startsWith("lib:")) void loadLib(id.slice(4));
             }}
-            onSelect={(id) => setSel(parseTreeId(id))}
+            onSelect={(id) => setSel(parseId(id))}
             actionsFor={actionsFor}
             onContextAction={onContextAction}
-            onMove={(e) => void moveComponent(e)}
+            onMove={() => undefined}
             emptyHint="No libraries — click ＋ to add one."
           />
+          <div className="muted" style={{ fontSize: "0.7rem", padding: "8px 10px", borderTop: "1px solid var(--border)" }}>Right-click for actions</div>
         </aside>
         <main style={{ flex: 1, overflow: "auto", padding: "16px 20px", minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
@@ -460,3 +396,11 @@ export function ComponentTabView() {
     </div>
   );
 }
+
+const inp: React.CSSProperties = {
+  padding: "4px 6px",
+  border: "1px solid var(--border-strong)",
+  borderRadius: "var(--radius-button)",
+  background: "var(--surface)",
+  font: "inherit",
+};

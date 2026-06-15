@@ -17,9 +17,9 @@ import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types
 import {
   type ComponentLibrary,
   getComponentLibrary,
-  instantiateComponent,
   type LibrarySummary,
   listComponentLibraries,
+  placeTechnology,
 } from "../lib/api/components";
 import { getFullModel, putModel } from "../lib/api/session";
 import { runToCompletion } from "../lib/api/run";
@@ -144,12 +144,12 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     setWorkbook(setSheet(workbook, "nodes", (workbook.nodes ?? []).map((r) => (s(r.node_id) === e.dragId ? { ...r, parent_id: newParent } : r))));
   }
 
-  async function dropComponent(library: string, component: string, parentId: string) {
+  async function dropTechnology(library: string, technology: string, parentId: string) {
     if (!sessionId) return;
     setError(null);
     try {
       await putModel(sessionId, workbook);
-      await instantiateComponent(sessionId, { library, component, parent_id: parentId });
+      await placeTechnology(sessionId, { library, technology, parent_id: parentId, capacity: 1000 });
       adoptServerModel(await getFullModel(sessionId));
       setExpanded((p) => new Set(p).add(parentId));
     } catch (e) {
@@ -384,7 +384,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
         </aside>
       </div>
 
-      {picker && <ComponentPicker libs={libs} onPick={(lib, comp) => { void dropComponent(lib, comp, picker.parentId); setPicker(null); }} onClose={() => setPicker(null)} />}
+      {picker && <ComponentPicker libs={libs} onPick={(lib, tech) => { void dropTechnology(lib, tech, picker.parentId); setPicker(null); }} onClose={() => setPicker(null)} />}
       {connectFrom && (
         <ConnectDialog
           fromLabel={nodeById.get(connectFrom)?.label ?? connectFrom}
@@ -398,8 +398,8 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   );
 }
 
-// ── Library → component picker ────────────────────────────────────────────────
-function ComponentPicker({ libs, onPick, onClose }: { libs: LibrarySummary[]; onPick: (library: string, component: string) => void; onClose: () => void }) {
+// ── Library → technology picker (places a technology as a machine) ────────────
+function ComponentPicker({ libs, onPick, onClose }: { libs: LibrarySummary[]; onPick: (library: string, technology: string) => void; onClose: () => void }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [body, setBody] = useState<ComponentLibrary | null>(null);
   useEffect(() => {
@@ -407,15 +407,16 @@ function ComponentPicker({ libs, onPick, onClose }: { libs: LibrarySummary[]; on
     getComponentLibrary(openId).then(setBody).catch(() => setBody(null));
   }, [openId]);
   return (
-    <Modal onClose={onClose} title="Add a component (fresh copy)">
+    <Modal onClose={onClose} title="Add a technology (becomes a machine)">
       {libs.length === 0 && <p className="muted">No component libraries — build one in the Component tab.</p>}
       {libs.map((l) => (
         <div key={l.id} style={{ marginBottom: 4 }}>
           <button className="ghost" style={{ width: "100%", textAlign: "left" }} onClick={() => setOpenId(openId === l.id ? null : l.id)}>{openId === l.id ? "▾" : "▸"} {l.label}</button>
           {openId === l.id && body && (
             <div style={{ paddingLeft: 14 }}>
-              {[...body.groups.map((g) => ({ name: g.name, label: g.label || g.name, kind: "group" })), ...body.machines.map((m) => ({ name: m.name, label: m.label || m.name, kind: "machine" }))].map((c) => (
-                <button key={c.kind + c.name} className="rail-item" style={{ width: "100%", textAlign: "left" }} onClick={() => onPick(l.id, c.name)}>{c.kind === "group" ? "▦" : "▪"} {c.label}</button>
+              {body.technologies.length === 0 && <div className="rail-empty" style={{ fontSize: "0.74rem" }}>no technologies in this library</div>}
+              {body.technologies.map((t) => (
+                <button key={t.technology_id} className="rail-item" style={{ width: "100%", textAlign: "left" }} onClick={() => onPick(l.id, t.technology_id)}>▪ {t.technology_id}</button>
               ))}
             </div>
           )}

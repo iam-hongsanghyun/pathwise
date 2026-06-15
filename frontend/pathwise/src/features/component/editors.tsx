@@ -7,6 +7,7 @@ import type {
   GroupComponent,
   IoRow,
   MachineComponent,
+  MaccGroup,
   MeasureTemplate,
   TechnologyTemplate,
 } from "../../lib/api/components";
@@ -350,6 +351,107 @@ export function MachineEditor({
         </div>
       ))}
       {value.measures.length === 0 && <p className="muted" style={{ fontSize: "0.78rem" }}>No measures — this machine has no MACC retrofits.</p>}
+    </section>
+  );
+}
+
+// ── Standalone measure (reusable) ─────────────────────────────────────────────
+export function MeasureEditor({
+  value,
+  commodityIds,
+  onChange,
+  onRename,
+}: {
+  value: MeasureTemplate;
+  commodityIds: string[];
+  onChange: (v: MeasureTemplate) => void;
+  onRename: (id: string) => void;
+}) {
+  return (
+    <section>
+      <h2 style={{ margin: "0 0 12px" }}>Measure <span className="muted" style={{ fontSize: "0.8rem" }}>(reusable)</span></h2>
+      <Row>
+        <Field label="id">
+          <input style={inputStyle} value={value.measure_id} onChange={(e) => { onChange({ ...value, measure_id: e.target.value }); onRename(e.target.value); }} />
+        </Field>
+        <Field label="label">
+          <input style={inputStyle} value={value.label} onChange={(e) => onChange({ ...value, label: e.target.value })} />
+        </Field>
+        <Field label="type">
+          <select style={inputStyle} value={value.type} onChange={(e) => onChange({ ...value, type: e.target.value as MeasureTemplate["type"] })}>
+            <option value="energy_efficiency">energy_efficiency</option>
+            <option value="emission_reduction">emission_reduction</option>
+            <option value="environmental">environmental</option>
+          </select>
+        </Field>
+        <Field label="target">
+          <div style={{ minWidth: 150 }}>
+            <SearchableSelect value={value.target} options={commodityIds} onChange={(v) => onChange({ ...value, target: v })} onCreate={(name) => onChange({ ...value, target: name })} placeholder="stream / impact" />
+          </div>
+        </Field>
+        <Field label="lifetime">
+          <input style={{ ...inputStyle, width: 70 }} type="number" value={value.lifetime} onChange={(e) => onChange({ ...value, lifetime: num(e.target.value) })} />
+        </Field>
+      </Row>
+      <h3 style={{ margin: "8px 0 6px", fontSize: "0.85rem" }}>
+        Cost curve <span className="muted">(piecewise blocks)</span>
+        <button className="ghost" style={{ marginLeft: 8 }} onClick={() => onChange({ ...value, blocks: [...value.blocks, { reduction: 0.02, capex_per_capacity: 0, opex_per_capacity: 0 }] })}>＋ add block</button>
+      </h3>
+      <table className="grid" style={{ fontSize: "0.78rem" }}>
+        <thead>
+          <tr style={{ textAlign: "left", color: "var(--muted)" }}><th>block</th><th>reduction</th><th>capex /cap</th><th>opex /cap</th><th /></tr>
+        </thead>
+        <tbody>
+          {value.blocks.map((b, bi) => (
+            <tr key={bi}>
+              <td className="muted">{bi}</td>
+              <td><input style={{ ...inputStyle, width: 70 }} type="number" step="0.01" value={b.reduction} onChange={(e) => onChange({ ...value, blocks: value.blocks.map((x, j) => (j === bi ? { ...x, reduction: num(e.target.value) } : x)) })} /></td>
+              <td><input style={{ ...inputStyle, width: 90 }} type="number" value={b.capex_per_capacity} onChange={(e) => onChange({ ...value, blocks: value.blocks.map((x, j) => (j === bi ? { ...x, capex_per_capacity: num(e.target.value) } : x)) })} /></td>
+              <td><input style={{ ...inputStyle, width: 90 }} type="number" value={b.opex_per_capacity} onChange={(e) => onChange({ ...value, blocks: value.blocks.map((x, j) => (j === bi ? { ...x, opex_per_capacity: num(e.target.value) } : x)) })} /></td>
+              <td><button className="ghost" onClick={() => onChange({ ...value, blocks: value.blocks.filter((_, j) => j !== bi) })}>✕</button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {value.blocks.length === 0 && <p className="muted" style={{ fontSize: "0.78rem" }}>No blocks — a measure needs at least one cost-curve step.</p>}
+    </section>
+  );
+}
+
+// ── MACC (a group/bundle of measures) ─────────────────────────────────────────
+export function MaccEditor({
+  value,
+  measures,
+  onChange,
+  onRename,
+}: {
+  value: MaccGroup;
+  /** All standalone measures available to bundle. */
+  measures: { id: string; label: string }[];
+  onChange: (v: MaccGroup) => void;
+  onRename: (id: string) => void;
+}) {
+  const toggle = (mid: string, on: boolean) =>
+    onChange({ ...value, measures: on ? [...value.measures, mid] : value.measures.filter((m) => m !== mid) });
+  return (
+    <section>
+      <h2 style={{ margin: "0 0 12px" }}>MACC <span className="muted" style={{ fontSize: "0.8rem" }}>(group of measures)</span></h2>
+      <Row>
+        <Field label="id">
+          <input style={inputStyle} value={value.macc_id} onChange={(e) => { onChange({ ...value, macc_id: e.target.value }); onRename(e.target.value); }} />
+        </Field>
+        <Field label="label">
+          <input style={inputStyle} value={value.label} onChange={(e) => onChange({ ...value, label: e.target.value })} />
+        </Field>
+      </Row>
+      <h3 style={{ margin: "8px 0 6px", fontSize: "0.85rem" }}>Measures in this MACC</h3>
+      {measures.length === 0 && <p className="muted" style={{ fontSize: "0.78rem" }}>No measures yet — add individual measures first.</p>}
+      {measures.map((m) => (
+        <label key={m.id} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.82rem", padding: "2px 0" }}>
+          <input type="checkbox" checked={value.measures.includes(m.id)} onChange={(e) => toggle(m.id, e.target.checked)} />
+          {m.label}
+        </label>
+      ))}
     </section>
   );
 }
