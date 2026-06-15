@@ -78,6 +78,11 @@ class TechnologyTemplate(BaseModel):
     lifespan: int = Field(default=20, ge=1)
     capex: float = 0.0  # replacement capex [currency / unit capacity]
     opex: float = 0.0  # fixed O&M [currency / unit throughput]
+    #: Years the technology is AVAILABLE to adopt: first year (introduction) and
+    #: last year (phase-out). None = always available. The optimiser only lets a
+    #: facility run / switch to the technology within this window.
+    introduction_year: int | None = None
+    phase_out_year: int | None = None
     io: list[IoRow] = Field(min_length=1)
     maccs: list[str] = Field(default_factory=list)
 
@@ -215,13 +220,18 @@ def _io_rows(tech: TechnologyTemplate) -> list[dict[str, Any]]:
 
 
 def _tech_row(tech: TechnologyTemplate) -> dict[str, Any]:
-    return {
+    row: dict[str, Any] = {
         "technology_id": tech.technology_id,
         "lifespan": tech.lifespan,
         "actions": "continue,replace,renew",
         "capex": tech.capex,
         "opex": tech.opex,
     }
+    if tech.introduction_year is not None:
+        row["introduction_year"] = tech.introduction_year
+    if tech.phase_out_year is not None:
+        row["phase_out_year"] = tech.phase_out_year
+    return row
 
 
 def add_facility(

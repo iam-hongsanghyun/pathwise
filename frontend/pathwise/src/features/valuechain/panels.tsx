@@ -33,6 +33,10 @@ function chain(wb: Workbook, nodeId: string): string[] {
 }
 
 // ── Machine inspector ─────────────────────────────────────────────────────────
+// A single technology shows its full recipe — every input / output stream with
+// its per-unit coefficient AND who provides / consumes it (the connected group,
+// a purchase, or final demand) — plus impacts and the years it is available. This
+// is the detailed view; groups get the lighter Flow context instead.
 export function MachineInspector({
   wb,
   machineId,
@@ -44,64 +48,98 @@ export function MachineInspector({
 }) {
   const machine = (wb.machines ?? []).find((m) => s(m.machine_id) === machineId);
   const tech = s(machine?.baseline_technology);
+  const techRow = (wb.technologies ?? []).find((t) => s(t.technology_id) === tech);
   const io = (wb.io ?? []).filter((r) => s(r.technology_id) === tech);
-  const inputs = io.filter((r) => s(r.role) === "input").map((r) => s(r.target));
+  const inputs = io.filter((r) => s(r.role) === "input");
+  const outputs = io.filter((r) => s(r.role) === "output");
+  const impacts = io.filter((r) => s(r.role) === "impact");
   const scope = useMemo(() => new Set(chain(wb, machineId)), [wb, machineId]);
+  const labelOf = useMemo(
+    () => new Map((wb.nodes ?? []).map((r) => [s(r.node_id), s(r.label) || s(r.node_id)])),
+    [wb],
+  );
+  const lab = (id: string): string => labelOf.get(id) || id.split("/").pop() || id;
 
-  const satisfaction = (c: string): { how: string; ok: boolean } => {
-    const byConn = (wb.connections ?? []).some(
-      (x) => s(x.commodity_id) === c && scope.has(s(x.to_node)),
-    );
-    if (byConn) return { how: "incoming connection", ok: true };
-    const buy = (wb.markets ?? []).find(
-      (x) => s(x.target) === c && s(x.price) !== "" && scope.has(s(x.company)),
-    );
-    if (buy) return { how: `purchased (${s(buy.company)})`, ok: true };
+  // Connected counterpart group(s) for a stream: who sends it in / takes it out
+  // (a connection wired at this node or any ancestor).
+  const partners = (c: string, dir: "in" | "out"): string[] => {
+    const near = dir === "in" ? "to_node" : "from_node";
+    const far = dir === "in" ? "from_node" : "to_node";
+    const g = (wb.connections ?? [])
+      .filter((x) => s(x.commodity_id) === c && scope.has(s(x[near])) && !scope.has(s(x[far])))
+      .map((x) => lab(s(x[far])));
+    return [...new Set(g)];
+  };
+  const inFrom = (c: string): { text: string; ok: boolean } => {
+    const src = partners(c, "in");
+    if (src.length) return { text: `← ${src.join(", ")}`, ok: true };
+    const buy = (wb.markets ?? []).find((x) => s(x.target) === c && s(x.price) !== "" && scope.has(s(x.company)));
+    if (buy) return { text: `purchased · ${lab(s(buy.company))}`, ok: true };
     const commodity = (wb.commodities ?? []).find((x) => s(x.commodity_id) === c);
     if (commodity && (commodity.purchasable === true || s(commodity.price) !== ""))
-      return { how: "purchasable from market", ok: true };
-    return { how: "unsatisfied", ok: false };
+      return { text: "purchased · market", ok: true };
+    return { text: "unsatisfied", ok: false };
+  };
+  const outTo = (c: string, isProduct: boolean): string => {
+    const snk = partners(c, "out");
+    if (snk.length) return `→ ${snk.join(", ")}`;
+    return isProduct ? "final product (demand)" : "—";
   };
 
-  if (!machine)
-    return <p className="muted" style={{ padding: 16 }}>Machine not found.</p>;
+  if (!machine) return <p className="muted" style={{ padding: 16 }}>Machine not found.</p>;
+
+  const yFrom = techRow?.introduction_year, yTo = techRow?.phase_out_year;
+  const avail = yFrom == null && yTo == null ? "always" : `${yFrom ?? "—"} → ${yTo ?? "—"}`;
+  const th = { textAlign: "left", color: "var(--muted)", fontWeight: 500 } as React.CSSProperties;
 
   return (
     <div style={{ padding: "16px 20px", overflow: "auto" }}>
-      <div className="eyebrow">machine</div>
-      <h2 style={{ margin: "4px 0 12px" }}>{machineId.split("/").pop()}</h2>
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 16, fontSize: "0.82rem" }}>
-        <div>
-          <span className="muted">technology</span><br />{tech || "—"}
-          <div className="muted" style={{ fontSize: "0.7rem" }}>recipe &amp; measures → Component tab</div>
-        </div>
+      <div className="eyebrow">machine · technology</div>
+      <h2 style={{ margin: "4px 0 10px" }}>{machineId.split("/").pop()}</h2>
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 12, fontSize: "0.82rem" }}>
+        <div><span className="muted">technology</span><br />{tech || "—"}</div>
         <div>
           <span className="muted">capacity</span><br />
-          <input type="number" defaultValue={Number(machine.capacity) || 0} style={{ ...inp, width: 110 }} onBlur={(e) => onCapacity(Number(e.target.value) || 0)} />
+          <input type="number" defaultValue={Number(machine.capacity) || 0} style={{ ...inp, width: 100 }} onBlur={(e) => onCapacity(Number(e.target.value) || 0)} />
         </div>
+        <div><span className="muted">available</span><br />{avail}</div>
       </div>
-      <p className="muted" style={{ fontSize: "0.75rem" }}>
-        The value chain is about <b>wiring</b>: the recipe and measures are defined in the Component
-        tab — here you check how each required input stream is satisfied (connection or purchase).
-      </p>
-      <h3 style={{ fontSize: "0.85rem", margin: "12px 0 6px" }}>Required input streams</h3>
+
+      <h3 style={{ fontSize: "0.85rem", margin: "10px 0 4px" }}>Inputs <span className="muted" style={{ fontWeight: 400 }}>(consumed)</span></h3>
       <table className="grid" style={{ fontSize: "0.78rem", width: "100%" }}>
-        <thead>
-          <tr style={{ textAlign: "left", color: "var(--muted)" }}><th>stream</th><th>satisfied by</th></tr>
-        </thead>
+        <thead><tr><th style={th}>stream</th><th style={th}>per unit</th><th style={th}>from</th></tr></thead>
         <tbody>
-          {inputs.map((c) => {
-            const sat = satisfaction(c);
-            return (
-              <tr key={c}>
-                <td>{c}</td>
-                <td style={{ color: sat.ok ? "var(--text)" : "var(--danger)" }}>{sat.how}</td>
-              </tr>
-            );
+          {inputs.map((r) => {
+            const c = s(r.target); const f = inFrom(c);
+            return <tr key={c}><td>{c}</td><td>{s(r.coefficient)}</td><td style={{ color: f.ok ? "var(--text)" : "var(--danger)" }}>{f.text}</td></tr>;
           })}
-          {inputs.length === 0 && <tr><td colSpan={2} className="muted">no inputs</td></tr>}
+          {inputs.length === 0 && <tr><td colSpan={3} className="muted">no inputs</td></tr>}
         </tbody>
       </table>
+
+      <h3 style={{ fontSize: "0.85rem", margin: "12px 0 4px" }}>Outputs <span className="muted" style={{ fontWeight: 400 }}>(produced)</span></h3>
+      <table className="grid" style={{ fontSize: "0.78rem", width: "100%" }}>
+        <thead><tr><th style={th}>stream</th><th style={th}>per unit</th><th style={th}>to</th></tr></thead>
+        <tbody>
+          {outputs.map((r) => {
+            const c = s(r.target);
+            return <tr key={c}><td>{c}{r.is_product ? " ★" : ""}</td><td>{s(r.coefficient)}</td><td>{outTo(c, !!r.is_product)}</td></tr>;
+          })}
+          {outputs.length === 0 && <tr><td colSpan={3} className="muted">no outputs</td></tr>}
+        </tbody>
+      </table>
+
+      {impacts.length > 0 && (
+        <>
+          <h3 style={{ fontSize: "0.85rem", margin: "12px 0 4px" }}>Impacts</h3>
+          <div className="muted" style={{ fontSize: "0.78rem" }}>
+            {impacts.map((r) => `${s(r.target)} ${s(r.coefficient)}`).join(" · ")}
+          </div>
+        </>
+      )}
+      <p className="muted" style={{ fontSize: "0.72rem", marginTop: 12 }}>
+        Recipe &amp; measures are edited in the Component tab; ★ = a final product (can meet demand).
+      </p>
     </div>
   );
 }
@@ -110,8 +148,8 @@ export function MachineInspector({
 // Reads the raw `connections` (which may be wired at any level — e.g. a
 // country→country link), and shows every connection touching the selected node
 // OR an ancestor of it, so even a lone machine displays its upstream/downstream.
-// When one input commodity has MORE THAN ONE source, those sources are the
-// **alternatives** the optimiser chooses between.
+// When one input commodity has MORE THAN ONE supplier, it lists them as N
+// "sources" (distinct from the alternative-technologies feature).
 export function FlowContext({ wb, nodeId }: { wb: Workbook; nodeId: string }) {
   const anc = useMemo(() => new Set(chain(wb, nodeId)), [wb, nodeId]);
   const labelOf = useMemo(
@@ -163,7 +201,7 @@ export function FlowContext({ wb, nodeId }: { wb: Workbook; nodeId: string }) {
           <span className="muted">{arrow} {cm}:</span>{" "}
           {srcs.map((n) => lab(n)).join(", ")}
           {title === "in" && srcs.length > 1 && (
-            <span style={{ color: "var(--brand)", fontWeight: 600 }}> · {srcs.length} alternatives</span>
+            <span style={{ color: "var(--brand)", fontWeight: 600 }}> · {srcs.length} sources</span>
           )}
         </div>
       );

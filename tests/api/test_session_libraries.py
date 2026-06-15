@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from pathwise.api.main import app
 from pathwise.api.workbook_io import parse_sqlite, write_sqlite
 from pathwise.data.components import (
+    ComponentLibrary,
     extract_library_from_workbook,
     library_from_workbook,
     library_to_workbook,
@@ -19,6 +20,38 @@ from pathwise.data.components import (
 )
 
 client = TestClient(app)
+
+
+def test_technology_available_years_round_trip() -> None:
+    from pathwise.data.library import _tech_row
+
+    lib = ComponentLibrary.model_validate(
+        {
+            "label": "t",
+            "commodities": [{"commodity_id": "x", "kind": "material", "unit": "t"}],
+            "technologies": [
+                {
+                    "technology_id": "T",
+                    "lifespan": 20,
+                    "introduction_year": 2030,
+                    "phase_out_year": 2050,
+                    "io": [{"target": "x", "role": "output", "coefficient": 1.0}],
+                    "maccs": [],
+                }
+            ],
+            "measures": [],
+            "maccs": [],
+            "machines": [],
+            "groups": [],
+        }
+    )
+    # carried into the workbook technologies sheet (so the optimiser sees them)
+    row = _tech_row(lib.technologies[0])
+    assert row["introduction_year"] == 2030 and row["phase_out_year"] == 2050
+    # and survive the SQLite library round-trip
+    back = library_from_workbook(parse_sqlite(write_sqlite(library_to_workbook(lib))))
+    assert back.technologies[0].introduction_year == 2030
+    assert back.technologies[0].phase_out_year == 2050
 
 
 def test_library_sqlite_round_trip_is_lossless() -> None:

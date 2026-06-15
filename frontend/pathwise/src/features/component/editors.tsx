@@ -141,6 +141,14 @@ export function TechnologyEditor({
         <Field label="opex /unit">
           <input style={{ ...inputStyle, width: 100 }} type="number" value={value.opex} onChange={(e) => onChange({ ...value, opex: num(e.target.value) })} />
         </Field>
+        <Field label="available from">
+          <input style={{ ...inputStyle, width: 90 }} type="number" placeholder="any" value={value.introduction_year ?? ""}
+            onChange={(e) => onChange({ ...value, introduction_year: e.target.value === "" ? null : Math.round(num(e.target.value)) })} />
+        </Field>
+        <Field label="available to">
+          <input style={{ ...inputStyle, width: 90 }} type="number" placeholder="any" value={value.phase_out_year ?? ""}
+            onChange={(e) => onChange({ ...value, phase_out_year: e.target.value === "" ? null : Math.round(num(e.target.value)) })} />
+        </Field>
       </Row>
 
       <h3 style={{ margin: "8px 0 6px", fontSize: "0.85rem" }}>

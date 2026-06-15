@@ -201,6 +201,8 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
                 "lifespan": t.lifespan,
                 "capex": t.capex,
                 "opex": t.opex,
+                "introduction_year": t.introduction_year,
+                "phase_out_year": t.phase_out_year,
                 "maccs": "|".join(t.maccs),
             }
             for t in lib.technologies
@@ -293,6 +295,8 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
             lifespan=int(_enum(r.get("lifespan"), 20)) or 20,
             capex=_enum(r.get("capex")),
             opex=_enum(r.get("opex")),
+            introduction_year=_year(r.get("introduction_year")),
+            phase_out_year=_year(r.get("phase_out_year")),
             io=io_by.get(_es(r.get("technology_id")), []),
             maccs=split(r.get("maccs")),
         )
@@ -751,6 +755,15 @@ def _enum(v: object, default: float = 0.0) -> float:
         return default
 
 
+def _year(v: object) -> int | None:
+    if v is None or v == "":
+        return None
+    try:
+        return int(float(v))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+
+
 def extract_library_from_workbook(workbook: Workbook, *, label: str = "") -> ComponentLibrary:
     """Recover a component library (the *details*) from an assembled workbook.
 
@@ -823,6 +836,8 @@ def extract_library_from_workbook(workbook: Workbook, *, label: str = "") -> Com
                 lifespan=int(_enum(r.get("lifespan"), 20)) or 20,
                 capex=_enum(r.get("capex")),
                 opex=_enum(r.get("opex")),
+                introduction_year=_year(r.get("introduction_year")),
+                phase_out_year=_year(r.get("phase_out_year")),
                 io=io_by_tech[tid],
                 maccs=[],
             )
