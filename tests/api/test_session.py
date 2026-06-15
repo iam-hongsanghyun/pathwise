@@ -95,6 +95,15 @@ def test_load_example_into_session() -> None:
     assert res["sheets"]["processes"] == 3
 
 
+def test_load_json_value_chain_example() -> None:
+    # a JSON-workbook example (a built node hierarchy) loads like an xlsx one
+    sid = _new_session()
+    res = client.post(f"/api/session/{sid}/example/value_chain_ccgt").json()
+    assert res["sheets"]["nodes"] >= 1
+    model = client.get(f"/api/session/{sid}/model").json()["model"]
+    assert any(str(n["node_id"]).endswith("/ccgt") for n in model["nodes"]), "the CCGT group"
+
+
 def test_library_insert_into_session() -> None:
     libraries = {e["id"] for e in client.get("/api/library").json()}
     assert "aluminium" in libraries

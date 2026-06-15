@@ -22,5 +22,11 @@
     "label": "Aluminium — 3-stage chain",
     "file": "aluminium.xlsx",
     "description": "Refinery → smelter → caster (3 routed stages); each stage has a lower-carbon transition (H2 refining / RE smelting / electric casting) under a rising carbon price and declining CO2 cap."
+  },
+  {
+    "id": "value_chain_ccgt",
+    "label": "Value chain — CCGT power + steel (KR)",
+    "file": "value_chain_ccgt.json",
+    "description": "A value chain (built as a node hierarchy): a Power company owning a CCGT (a GROUP of GT + ST wired by steam) AND a Solar farm (a single component) at the same level, supplying electricity to a Steel company's integrated mill. Open in the Value Chain tab; solves jointly (system) optimally."
   }
 ]

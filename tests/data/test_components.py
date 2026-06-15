@@ -137,6 +137,41 @@ def test_machine_measures_are_stamped_per_instance() -> None:
     assert blk["capex"] == pytest.approx(500.0) and blk["opex"] == pytest.approx(100.0)
 
 
+def test_instantiate_stamps_a_machines_technology_macc() -> None:
+    # a machine with NO embedded measures, but a technology that links a MACC
+    lib = ComponentLibrary.model_validate(
+        {
+            "commodities": [
+                {"commodity_id": "power", "kind": "energy", "price": 1.0},
+                {"commodity_id": "steel", "kind": "product"},
+            ],
+            "technologies": [
+                {
+                    "technology_id": "EAF",
+                    "maccs": ["eaf_eff"],
+                    "io": [
+                        {"target": "power", "role": "input", "coefficient": 2},
+                        {"target": "steel", "role": "output", "coefficient": 1, "is_product": True},
+                    ],
+                }
+            ],
+            "measures": [
+                {
+                    "measure_id": "vfd",
+                    "type": "energy_efficiency",
+                    "target": "power",
+                    "blocks": [{"reduction": 0.1, "capex_per_capacity": 5.0}],
+                }
+            ],
+            "maccs": [{"macc_id": "eaf_eff", "measures": ["vfd"]}],
+            "machines": [{"name": "eaf", "technology": "EAF", "capacity": 100}],
+            "groups": [{"name": "plant", "level": "facility", "children": [{"component": "eaf"}]}],
+        }
+    )
+    wb = instantiate(lib, "plant")
+    assert any(str(m["measure_id"]).endswith("· vfd") for m in wb.get("measures", []))
+
+
 def test_place_technology_makes_a_machine_with_its_macc() -> None:
     lib = ComponentLibrary.model_validate(
         {

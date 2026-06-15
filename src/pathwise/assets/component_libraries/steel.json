@@ -212,6 +212,68 @@
       ]
     }
   ],
-  "machines": [],
-  "groups": []
+  "machines": [
+    {
+      "name": "bf",
+      "label": "Blast furnace",
+      "technology": "BlastFurnace",
+      "capacity": 1000.0,
+      "measures": []
+    },
+    {
+      "name": "bof",
+      "label": "Basic oxygen furnace",
+      "technology": "BOF",
+      "capacity": 1000.0,
+      "measures": []
+    },
+    {
+      "name": "eaf",
+      "label": "Electric arc furnace",
+      "technology": "EAF",
+      "capacity": 1000.0,
+      "measures": []
+    }
+  ],
+  "groups": [
+    {
+      "name": "integrated_mill",
+      "label": "Integrated mill",
+      "level": "facility",
+      "children": [
+        {
+          "component": "bf",
+          "alias": ""
+        },
+        {
+          "component": "bof",
+          "alias": ""
+        },
+        {
+          "component": "eaf",
+          "alias": ""
+        }
+      ],
+      "connections": [
+        {
+          "source": "bf",
+          "target": "bof",
+          "commodity": "iron",
+          "lag_years": 0
+        }
+      ]
+    },
+    {
+      "name": "steel_company",
+      "label": "Steel company",
+      "level": "company",
+      "children": [
+        {
+          "component": "integrated_mill",
+          "alias": "mill"
+        }
+      ],
+      "connections": []
+    }
+  ]
 }

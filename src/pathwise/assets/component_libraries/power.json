@@ -9,6 +9,13 @@
       "sale_price": null
     },
     {
+      "commodity_id": "steam",
+      "kind": "energy",
+      "unit": "GJ",
+      "price": null,
+      "sale_price": null
+    },
+    {
       "commodity_id": "electricity",
       "kind": "energy",
       "unit": "MWh",
@@ -18,15 +25,15 @@
   ],
   "technologies": [
     {
-      "technology_id": "GasTurbine",
+      "technology_id": "GT",
       "lifespan": 25,
-      "capex": 800.0,
+      "capex": 700.0,
       "opex": 4.0,
       "io": [
         {
           "target": "gas",
           "role": "input",
-          "coefficient": 2.0,
+          "coefficient": 2.5,
           "is_product": false,
           "group": null,
           "share_min": null,
@@ -42,9 +49,18 @@
           "share_max": null
         },
         {
+          "target": "steam",
+          "role": "output",
+          "coefficient": 0.7,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
           "target": "CO2",
           "role": "impact",
-          "coefficient": 0.4,
+          "coefficient": 0.45,
           "is_product": false,
           "group": null,
           "share_min": null,
@@ -52,8 +68,35 @@
         }
       ],
       "maccs": [
-        "ccgt_eff"
+        "gt_eff"
       ]
+    },
+    {
+      "technology_id": "ST",
+      "lifespan": 30,
+      "capex": 500.0,
+      "opex": 3.0,
+      "io": [
+        {
+          "target": "steam",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "electricity",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": []
     },
     {
       "technology_id": "SolarPV",
@@ -92,13 +135,75 @@
   ],
   "maccs": [
     {
-      "macc_id": "ccgt_eff",
-      "label": "CCGT efficiency",
+      "macc_id": "gt_eff",
+      "label": "GT efficiency",
       "measures": [
         "heat_recovery"
       ]
     }
   ],
-  "machines": [],
-  "groups": []
+  "machines": [
+    {
+      "name": "gt",
+      "label": "Gas turbine",
+      "technology": "GT",
+      "capacity": 500.0,
+      "measures": []
+    },
+    {
+      "name": "st",
+      "label": "Steam turbine",
+      "technology": "ST",
+      "capacity": 350.0,
+      "measures": []
+    },
+    {
+      "name": "solar",
+      "label": "Solar farm",
+      "technology": "SolarPV",
+      "capacity": 300.0,
+      "measures": []
+    }
+  ],
+  "groups": [
+    {
+      "name": "ccgt",
+      "label": "CCGT",
+      "level": "facility",
+      "children": [
+        {
+          "component": "gt",
+          "alias": ""
+        },
+        {
+          "component": "st",
+          "alias": ""
+        }
+      ],
+      "connections": [
+        {
+          "source": "gt",
+          "target": "st",
+          "commodity": "steam",
+          "lag_years": 0
+        }
+      ]
+    },
+    {
+      "name": "power_company",
+      "label": "Power company",
+      "level": "company",
+      "children": [
+        {
+          "component": "ccgt",
+          "alias": ""
+        },
+        {
+          "component": "solar",
+          "alias": ""
+        }
+      ],
+      "connections": []
+    }
+  ]
 }

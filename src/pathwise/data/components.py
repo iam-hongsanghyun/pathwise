@@ -208,7 +208,15 @@ def instantiate(
                     "capacity": machine.capacity,
                 }
             )
-            for m in machine.measures:
+            # Measures come from the machine's technology's linked MACCs, plus
+            # any embedded directly on the machine (legacy); deduped by id.
+            applied = list(machine.measures)
+            seen_ids = {m.measure_id for m in applied}
+            for m in library.technology_measures(machine.technology):
+                if m.measure_id not in seen_ids:
+                    applied.append(m)
+                    seen_ids.add(m.measure_id)
+            for m in applied:
                 mid = f"{node_id} · {m.measure_id}"
                 measures.append(
                     {

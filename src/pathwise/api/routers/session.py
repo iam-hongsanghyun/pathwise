@@ -216,7 +216,12 @@ def load_example(session_id: str, example_id: str) -> dict[str, Any]:
     entry = next((e for e in index if e.get("id") == example_id), None)
     if entry is None:
         raise HTTPException(status_code=404, detail=f"unknown example '{example_id}'")
-    model = parse_xlsx((examples_dir / str(entry["file"])).read_bytes())
+    fpath = examples_dir / str(entry["file"])
+    # Examples ship as a JSON workbook (a built node hierarchy) or an .xlsx.
+    if fpath.suffix == ".json":
+        model = json.loads(fpath.read_text(encoding="utf-8"))
+    else:
+        model = parse_xlsx(fpath.read_bytes())
     counts = store.put_model(session_id, model)
     return {"sessionId": session_id, "sheets": counts}
 
