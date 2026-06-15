@@ -16,7 +16,7 @@ import { ActivityBar, type View } from "./layout/ActivityBar";
 import { AnalyticsView } from "./views/AnalyticsView";
 import { ComponentTabView } from "./views/ComponentTabView";
 import { SettingsView } from "./views/SettingsView";
-import { ValueChainBuilderView } from "./views/ValueChainBuilderView";
+import { ValueChainTabView } from "./views/ValueChainTabView";
 import type { ConfigBundle, PortfolioConfig, RunResult, Workbook } from "./types";
 
 export function App() {
@@ -239,12 +239,11 @@ export function App() {
 
         {view === "component" && <ComponentTabView />}
         {view === "valuechain" && (
-          <ValueChainBuilderView
+          <ValueChainTabView
             workbook={workbook}
             setWorkbook={updateWorkbook}
             sessionId={sessionId}
             adoptServerModel={adoptServerModel}
-            flush={syncNow}
             onJointResult={onJointResult}
           />
         )}
