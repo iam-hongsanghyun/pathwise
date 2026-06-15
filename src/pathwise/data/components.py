@@ -29,6 +29,8 @@ from pydantic import BaseModel, Field, model_validator
 
 from pathwise.data.library import (
     CommodityTemplate,
+    IoRow,
+    MeasureBlockTemplate,
     MeasureTemplate,
     TechnologyTemplate,
     _io_rows,
@@ -470,3 +472,134 @@ def place_technology(
                 }
             )
     return wb
+
+
+def _es(v: object) -> str:
+    return "" if v is None else str(v)
+
+
+def _enum(v: object, default: float = 0.0) -> float:
+    if v is None or v == "":
+        return default
+    try:
+        return float(v)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
+
+
+def extract_library_from_workbook(workbook: Workbook, *, label: str = "") -> ComponentLibrary:
+    """Recover a component library (the *details*) from an assembled workbook.
+
+    The near-inverse of :func:`instantiate`: an imported scenario carries its
+    component DEFINITIONS (streams, technology recipes, measures) interleaved with
+    its value-chain STRUCTURE (nodes/machines/connections). This pulls the
+    definitions back out into a :class:`ComponentLibrary` so the Component view can
+    show the scenario's components, leaving the structure to the Value-chain view.
+
+    Best-effort: ``io`` is grouped back under its technology, and per-facility
+    measures (``"<node> · <measure>"``) are de-duplicated to reusable templates.
+    The MACC *bundles* and technology→MACC links are not present in an assembled
+    workbook, so they are omitted (the individual measures are still recovered).
+    """
+    commodities: list[CommodityTemplate] = []
+    seen_c: set[str] = set()
+    for r in workbook.get("commodities", []):
+        cid = _es(r.get("commodity_id"))
+        if not cid or cid in seen_c:
+            continue
+        seen_c.add(cid)
+        kind = _es(r.get("kind")) or "material"
+        commodities.append(
+            CommodityTemplate(
+                commodity_id=cid,
+                kind=kind
+                if kind in ("energy", "material", "indirect", "product", "byproduct")
+                else "material",
+                unit=_es(r.get("unit")) or "unit",
+                price=r.get("price") if isinstance(r.get("price"), (int, float)) else None,
+                sale_price=r.get("sale_price")
+                if isinstance(r.get("sale_price"), (int, float))
+                else None,
+                sector=_es(r.get("sector")) or None,
+            )
+        )
+
+    io_by_tech: dict[str, list[IoRow]] = {}
+    for r in workbook.get("io", []):
+        tid = _es(r.get("technology_id"))
+        role = _es(r.get("role")) or "input"
+        if not tid or role not in ("input", "output", "impact"):
+            continue
+        io_by_tech.setdefault(tid, []).append(
+            IoRow(
+                target=_es(r.get("target")),
+                role=role,
+                coefficient=_enum(r.get("coefficient")),
+                is_product=bool(r.get("is_product")),
+                group=_es(r.get("group")) or None,
+                share_min=r.get("share_min")
+                if isinstance(r.get("share_min"), (int, float))
+                else None,
+                share_max=r.get("share_max")
+                if isinstance(r.get("share_max"), (int, float))
+                else None,
+            )
+        )
+
+    technologies: list[TechnologyTemplate] = []
+    seen_t: set[str] = set()
+    for r in workbook.get("technologies", []):
+        tid = _es(r.get("technology_id"))
+        if not tid or tid in seen_t or not io_by_tech.get(tid):
+            continue  # a technology with no recoverable io can't be represented
+        seen_t.add(tid)
+        technologies.append(
+            TechnologyTemplate(
+                technology_id=tid,
+                lifespan=int(_enum(r.get("lifespan"), 20)) or 20,
+                capex=_enum(r.get("capex")),
+                opex=_enum(r.get("opex")),
+                io=io_by_tech[tid],
+                maccs=[],
+            )
+        )
+
+    blocks_by_m: dict[str, list[dict[str, object]]] = {}
+    for r in workbook.get("measure_blocks", []):
+        blocks_by_m.setdefault(_es(r.get("measure_id")), []).append(r)
+    measures: list[MeasureTemplate] = []
+    seen_m: set[str] = set()
+    for r in workbook.get("measures", []):
+        mid = _es(r.get("measure_id"))
+        base = mid.split(" · ")[-1]  # de-instantiate the per-facility prefix
+        if not base or base in seen_m:
+            continue
+        blks = sorted(blocks_by_m.get(mid, []), key=lambda b: _enum(b.get("block")))
+        templates = [
+            MeasureBlockTemplate(
+                reduction=min(max(_enum(b.get("reduction"), 0.01), 1e-6), 1.0),
+                capex_per_capacity=max(_enum(b.get("capex")), 0.0),
+                opex_per_capacity=max(_enum(b.get("opex")), 0.0),
+            )
+            for b in blks
+        ]
+        if not templates:
+            continue  # a measure needs at least one block
+        seen_m.add(base)
+        mtype = _es(r.get("type")) or "energy_efficiency"
+        measures.append(
+            MeasureTemplate(
+                measure_id=base,
+                label="",
+                type=mtype
+                if mtype in ("energy_efficiency", "emission_reduction", "environmental")
+                else "energy_efficiency",
+                target=_es(r.get("target")),
+                lifetime=int(_enum(r.get("lifetime"), 15)) or 15,
+                blocks=templates,
+            )
+        )
+
+    return ComponentLibrary(
+        label=label, commodities=commodities, technologies=technologies, measures=measures
+    )

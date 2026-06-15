@@ -237,7 +237,7 @@ export function App() {
 
         {error && <div className="error" style={{ padding: "4px 16px" }}>{error}</div>}
 
-        {view === "component" && <ComponentTabView />}
+        {view === "component" && <ComponentTabView sessionId={sessionId} />}
         {view === "valuechain" && (
           <ValueChainTabView
             workbook={workbook}

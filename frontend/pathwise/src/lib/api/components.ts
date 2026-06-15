@@ -107,9 +107,14 @@ export interface ComponentLibrary {
   groups: GroupComponent[];
 }
 
+/** Which catalogue a library lives in: the shared "base" set, or a scenario's
+ *  own per-"session" set. */
+export type LibScope = "base" | "session";
+
 export interface LibrarySummary {
   id: string;
   label: string;
+  scope: LibScope;
   commodities: number;
   technologies: number;
   measures: number;
@@ -150,6 +155,54 @@ export async function deleteComponentLibrary(id: string): Promise<void> {
   await json(
     await fetch(`/api/component-library/${encodeURIComponent(id)}`, { method: "DELETE" }),
   );
+}
+
+// ── Per-session libraries (a scenario's own set) ───────────────────────────────
+
+export async function listSessionComponentLibraries(sessionId: string): Promise<LibrarySummary[]> {
+  return json<LibrarySummary[]>(await fetch(`/api/session/${sessionId}/component-libraries`));
+}
+
+export async function getSessionComponentLibrary(
+  sessionId: string,
+  id: string,
+): Promise<ComponentLibrary> {
+  return json<ComponentLibrary>(
+    await fetch(`/api/session/${sessionId}/component-library/${encodeURIComponent(id)}`),
+  );
+}
+
+export async function saveSessionComponentLibrary(
+  sessionId: string,
+  id: string,
+  library: ComponentLibrary,
+): Promise<LibrarySummary> {
+  return json<LibrarySummary>(
+    await fetch(`/api/session/${sessionId}/component-library/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(library),
+    }),
+  );
+}
+
+export async function deleteSessionComponentLibrary(sessionId: string, id: string): Promise<void> {
+  await json(
+    await fetch(`/api/session/${sessionId}/component-library/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
+  );
+}
+
+/** Base (shared) + this session's own libraries, session set first. Each summary
+ *  carries its `scope`, so callers can route get/save/delete to the right store. */
+export async function listAllComponentLibraries(
+  sessionId: string | null,
+): Promise<LibrarySummary[]> {
+  const base = await listComponentLibraries();
+  if (!sessionId) return base;
+  const session = await listSessionComponentLibraries(sessionId).catch(() => []);
+  return [...session, ...base];
 }
 
 /** Drop a fresh copy of a (legacy) composite component under a group node. */
