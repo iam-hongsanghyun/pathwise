@@ -215,6 +215,39 @@ def test_place_technology_makes_a_machine_with_its_macc() -> None:
     assert res["status"] == "optimal" and not res["outputs"]["demand_slack"]
 
 
+def test_place_technology_carries_per_year_costs() -> None:
+    # A technology authored with per-year capex must carry that trajectory into
+    # the model when placed, so the optimiser (not just the library) sees it.
+    lib = ComponentLibrary.model_validate(
+        {
+            "commodities": [{"commodity_id": "steel", "kind": "product"}],
+            "technologies": [
+                {
+                    "technology_id": "EAF",
+                    "capex": 100,
+                    "capex_by_year": {2025: 100, 2035: 300},
+                    "io": [
+                        {"target": "steel", "role": "output", "coefficient": 1, "is_product": True}
+                    ],
+                }
+            ],
+        }
+    )
+    model = {"nodes": [{"node_id": "co", "parent_id": None, "kind": "group", "level": "company"}]}
+    model = place_technology(model, lib, "EAF", parent_id="co", capacity=10)
+    # the per-year costs ride into the model on the technologies_prices sheet
+    tp = model.get("technologies_prices", [])
+    assert {(r["technology_id"], r["year"]) for r in tp} == {("EAF", 2025), ("EAF", 2035)}
+    # and the assembler turns them into a per-year capex the optimiser sees
+    from pathwise.data import assemble_problem
+
+    model["periods"] = [{"year": 2025}, {"year": 2030}, {"year": 2035}]
+    prob = assemble_problem(model, SC)
+    assert prob.technologies["EAF"].capex(2025) == 100.0
+    assert prob.technologies["EAF"].capex(2030) == 200.0  # linear midpoint
+    assert prob.technologies["EAF"].capex(2035) == 300.0
+
+
 def test_instantiate_into_drops_a_fresh_copy_under_a_parent() -> None:
     lib = _library()
     model = {

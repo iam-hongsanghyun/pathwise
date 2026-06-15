@@ -415,10 +415,27 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             ci_points.setdefault((c, i), {})[yr] = fac
     commodity_impacts_by_year = {k: interpolate(v, years) for k, v in ci_points.items()}
 
-    # Any technology scalar attribute may go temporal via technologies_t__<attr>.
-    tech_capex_t = _wide_temporal(workbook, "technologies_t__capex")
-    tech_renewal_t = _wide_temporal(workbook, "technologies_t__renewal")
-    tech_opex_t = _wide_temporal(workbook, "technologies_t__opex")
+    # Per-year technology costs. Two input conventions, like commodity prices:
+    # the long-format `technologies_prices` sheet (technology_id, year, capex,
+    # opex, renewal — what the component library emits), overridden by the
+    # PyPSA-wide `technologies_t__<attr>` tables when both are present.
+    tech_capex_t: dict[str, dict[int, float]] = {}
+    tech_opex_t: dict[str, dict[int, float]] = {}
+    tech_renewal_t: dict[str, dict[int, float]] = {}
+    for r in _rows(workbook, "technologies_prices"):
+        tid = _str(r.get("technology_id"))
+        yr = _int(r.get("year"))
+        if tid is None or yr is None:
+            continue
+        if (cap_v := _num(r.get("capex"))) is not None:
+            tech_capex_t.setdefault(tid, {})[yr] = cap_v
+        if (opx_v := _num(r.get("opex"))) is not None:
+            tech_opex_t.setdefault(tid, {})[yr] = opx_v
+        if (ren_v := _num(r.get("renewal"))) is not None:
+            tech_renewal_t.setdefault(tid, {})[yr] = ren_v
+    tech_capex_t.update(_wide_temporal(workbook, "technologies_t__capex"))
+    tech_renewal_t.update(_wide_temporal(workbook, "technologies_t__renewal"))
+    tech_opex_t.update(_wide_temporal(workbook, "technologies_t__opex"))
 
     def _attr_by_year(
         name: str, base: float, wide: dict[str, dict[int, float]]
