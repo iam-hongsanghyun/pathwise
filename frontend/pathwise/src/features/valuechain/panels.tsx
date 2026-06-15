@@ -4,6 +4,8 @@
 
 import { useMemo } from "react";
 import { SearchableSelect } from "../controls/SearchableSelect";
+import { SearchSelect } from "../controls/SearchSelect";
+import type { AvailableTechnology } from "../../lib/api/components";
 import type { Workbook } from "../../types";
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
@@ -172,6 +174,62 @@ export function FlowContext({ wb, nodeId }: { wb: Workbook; nodeId: string }) {
       <div className="rail-head">Flow context</div>
       {inByComm.size > 0 && <div style={{ marginBottom: 4 }}><div className="muted" style={{ fontSize: "0.72rem" }}>feeds in (before)</div>{lane("in", "←", inByComm)}</div>}
       {outByComm.size > 0 && <div><div className="muted" style={{ fontSize: "0.72rem" }}>feeds out (next)</div>{lane("out", "→", outByComm)}</div>}
+    </div>
+  );
+}
+
+// ── Alternatives: technologies the optimiser may switch this machine to ───────
+// Pure value-chain choice (not baked into the Component library). The list is the
+// transitions out of the machine's baseline technology; the picker draws from the
+// pool of all library technologies.
+export function Alternatives({
+  baseline,
+  alternatives,
+  available,
+  onAdd,
+  onRemove,
+}: {
+  baseline: string;
+  alternatives: string[];
+  available: AvailableTechnology[];
+  onAdd: (technology: string, library: string, scope: "base" | "session") => void;
+  onRemove: (technology: string) => void;
+}) {
+  const taken = new Set([baseline, ...alternatives]);
+  const seen = new Set<string>();
+  const fromTech = new Map<string, AvailableTechnology>();
+  const opts: { value: string; label: string }[] = [];
+  for (const a of available) {
+    if (taken.has(a.technology) || seen.has(a.technology)) continue;
+    seen.add(a.technology);
+    fromTech.set(a.technology, a);
+    opts.push({ value: a.technology, label: `${a.technology} · ${a.library}` });
+  }
+  return (
+    <div className="rail-section">
+      <div className="rail-head">Alternatives (optimiser may switch to)</div>
+      {alternatives.length === 0 && (
+        <div className="rail-empty" style={{ fontSize: "0.78rem" }}>
+          none — the optimiser only runs {baseline || "the baseline"}.
+        </div>
+      )}
+      {alternatives.map((a) => (
+        <div key={a} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.82rem", padding: "2px 0" }}>
+          <span style={{ flex: 1 }}>{a}</span>
+          <button className="ghost" title="remove alternative" onClick={() => onRemove(a)}>✕</button>
+        </div>
+      ))}
+      <div style={{ marginTop: 6 }}>
+        <SearchSelect
+          value=""
+          placeholder="add a technology…"
+          options={opts}
+          onChange={(v) => {
+            const a = fromTech.get(v);
+            if (a) onAdd(a.technology, a.library, a.scope);
+          }}
+        />
+      </div>
     </div>
   );
 }

@@ -10,7 +10,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { RelationshipCanvas } from "../features/topology/RelationshipCanvas";
-import { CascadeSummary, FlowContext, MachineInspector, PortsPanel, type CascadeResult } from "../features/valuechain/panels";
+import { Alternatives, CascadeSummary, FlowContext, MachineInspector, PortsPanel, type CascadeResult } from "../features/valuechain/panels";
 import { useDialogs } from "../features/controls/Dialog";
 import { MultiSelect } from "../features/controls/MultiSelect";
 import { SearchableSelect } from "../features/controls/SearchableSelect";
@@ -18,10 +18,13 @@ import { SearchSelect } from "../features/controls/SearchSelect";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
 import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types";
 import {
+  addAlternative,
+  type AvailableTechnology,
   type ComponentLibrary,
   getComponentLibrary,
   instantiateComponent,
   type LibrarySummary,
+  listAvailableTechnologies,
   listComponentLibraries,
   placeTechnology,
 } from "../lib/api/components";
@@ -63,6 +66,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   const [running, setRunning] = useState<string | null>(null);
   const [cascade, setCascade] = useState<CascadeResult | null>(null);
   const [libs, setLibs] = useState<LibrarySummary[]>([]);
+  const [availableTechs, setAvailableTechs] = useState<AvailableTechnology[]>([]);
   const [picker, setPicker] = useState<{ parentId: string } | null>(null);
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +75,13 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   useEffect(() => {
     listComponentLibraries().then(setLibs).catch((e) => setError(String(e)));
   }, []);
+
+  // The technology pool an alternative can be drawn from (base + session libs);
+  // refetch when the model changes so an imported scenario's techs appear.
+  useEffect(() => {
+    if (sessionId) listAvailableTechnologies(sessionId).then(setAvailableTechs).catch(() => setAvailableTechs([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, workbook]);
 
   const nodes = useMemo(() => parseNodes(workbook), [workbook]);
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
@@ -163,6 +174,23 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     } catch (e) {
       setError(String(e));
     }
+  }
+
+  // ── Alternatives (technologies the optimiser may switch a machine to) ─────────
+  async function addAlt(machineId: string, technology: string, library: string, scope: "base" | "session") {
+    if (!sessionId) return;
+    setError(null);
+    try {
+      await putModel(sessionId, workbook); // the endpoint operates on the stored model
+      await addAlternative(sessionId, { library, technology, machine_id: machineId, scope });
+      adoptServerModel(await getFullModel(sessionId));
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+  function removeAlt(baseline: string, technology: string) {
+    setWorkbook(setSheet(workbook, "transitions",
+      (workbook.transitions ?? []).filter((r) => !(s(r.from_technology) === baseline && s(r.to_technology) === technology))));
   }
 
   // ── Connections ─────────────────────────────────────────────────────────────
@@ -414,10 +442,25 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
           {!selNode ? (
             <div className="muted" style={{ padding: 16, fontSize: "0.82rem" }}>Select an item on the left to see its details. Right-click for actions.</div>
           ) : selNode.kind === "machine" ? (
-            <>
-              <MachineInspector wb={workbook} machineId={selId!} onCapacity={(v) => setWorkbook(setSheet(workbook, "machines", (workbook.machines ?? []).map((r) => (s(r.machine_id) === selId ? { ...r, capacity: v } : r))))} />
-              <div style={{ padding: "0 20px 16px" }}><FlowContext wb={workbook} nodeId={selId!} /></div>
-            </>
+            (() => {
+              const baseline = s((workbook.machines ?? []).find((m) => s(m.machine_id) === selId)?.baseline_technology);
+              const alts = (workbook.transitions ?? []).filter((r) => s(r.from_technology) === baseline).map((r) => s(r.to_technology));
+              return (
+                <>
+                  <MachineInspector wb={workbook} machineId={selId!} onCapacity={(v) => setWorkbook(setSheet(workbook, "machines", (workbook.machines ?? []).map((r) => (s(r.machine_id) === selId ? { ...r, capacity: v } : r))))} />
+                  <div style={{ padding: "0 20px 16px" }}>
+                    <Alternatives
+                      baseline={baseline}
+                      alternatives={alts}
+                      available={availableTechs}
+                      onAdd={(tech, library, scope) => void addAlt(selId!, tech, library, scope)}
+                      onRemove={(tech) => removeAlt(baseline, tech)}
+                    />
+                    <FlowContext wb={workbook} nodeId={selId!} />
+                  </div>
+                </>
+              );
+            })()
           ) : (
             <div style={{ padding: "14px 16px" }}>
               <div className="eyebrow">group</div>

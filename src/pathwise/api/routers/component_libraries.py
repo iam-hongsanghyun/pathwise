@@ -30,6 +30,7 @@ from pathwise.api.workbook_io import write_sqlite
 from pathwise.config import get_settings
 from pathwise.data.components import (
     ComponentLibrary,
+    add_alternative,
     instantiate_into,
     library_to_workbook,
     load_component_library,
@@ -280,5 +281,96 @@ def place_technology_route(session_id: str, body: PlaceTechnology) -> dict[str, 
         "sessionId": session_id,
         "created": created,
         "root": created[0] if created else None,
+        "sheets": counts,
+    }
+
+
+# ── Value-chain alternatives ──────────────────────────────────────────────────
+# An "alternative" is another technology the optimiser may switch a machine to.
+# It's a VALUE-CHAIN choice (not baked into the Component library): adding one
+# merges the technology's recipe into the session and records a transition.
+
+
+@router.get("/session/{session_id}/technologies")
+def list_available_technologies(session_id: str) -> list[dict[str, Any]]:
+    """Every technology across the base + this session's libraries — the pool an
+    alternative can be drawn from."""
+    out: list[dict[str, Any]] = []
+    for f in sorted(_components_dir().glob("*.sqlite")):
+        try:
+            lib = load_component_library(f)
+        except Exception:  # a malformed file should not break the list
+            continue
+        for t in lib.technologies:
+            out.append({"library": f.stem, "scope": "base", "technology": t.technology_id})
+    sl = _session_libs()
+    for lib_id in sl.list_ids(session_id):
+        slib = sl.get(session_id, lib_id)
+        if slib is None:
+            continue
+        for t in slib.technologies:
+            out.append({"library": lib_id, "scope": "session", "technology": t.technology_id})
+    return out
+
+
+class AddAlternative(BaseModel):
+    """Body for ``POST /api/session/{sid}/alternative`` — offer ``technology``
+    (from ``library`` in ``scope``) as a switch target for ``machine_id``."""
+
+    library: str
+    technology: str
+    machine_id: str
+    scope: str = "base"  # "base" | "session"
+    capex_per_capacity: float = 0.0
+
+
+@router.post("/session/{session_id}/alternative")
+def add_alternative_route(session_id: str, body: AddAlternative) -> dict[str, Any]:
+    """Make a technology an alternative the optimiser may switch the machine to."""
+    if body.scope == "session":
+        maybe = _session_libs().get(session_id, body.library)
+        if maybe is None:
+            raise HTTPException(status_code=404, detail=f"unknown session library '{body.library}'")
+        lib = maybe
+    else:
+        path = _lib_path(body.library)
+        if not path.exists():
+            raise HTTPException(
+                status_code=404, detail=f"unknown component library '{body.library}'"
+            )
+        lib = load_component_library(path)
+
+    store = _store()
+    try:
+        model = store.get_model(session_id)
+    except SessionNotFound as exc:
+        raise HTTPException(status_code=404, detail=f"unknown session '{session_id}'") from exc
+    baseline = next(
+        (
+            str(m.get("baseline_technology"))
+            for m in model.get("machines", [])
+            if str(m.get("machine_id")) == body.machine_id
+        ),
+        None,
+    )
+    if not baseline:
+        raise HTTPException(
+            status_code=422, detail=f"machine '{body.machine_id}' has no baseline technology"
+        )
+    try:
+        model = add_alternative(
+            model,
+            lib,
+            body.technology,
+            from_technology=baseline,
+            capex_per_capacity=body.capex_per_capacity,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    counts = store.put_model(session_id, model)
+    return {
+        "sessionId": session_id,
+        "from_technology": baseline,
+        "to_technology": body.technology,
         "sheets": counts,
     }
