@@ -355,15 +355,10 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
             <div style={{ padding: "14px 16px" }}>
               <div className="eyebrow">group</div>
               <input value={selNode.label} onChange={(e) => renameNode(selId!, e.target.value)} style={{ ...inp, fontSize: "1rem", fontWeight: 600, width: "100%", margin: "4px 0 8px", border: "none", padding: 0 }} />
-              <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.78rem", marginBottom: 12 }}>
+              <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.78rem", marginBottom: 14 }}>
                 <span className="muted">level</span>
                 <input value={selNode.level} onChange={(e) => setLevel(selId!, e.target.value)} style={{ ...inp, flex: 1 }} placeholder="value_chain / company / facility" />
               </label>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-                <button className="ghost" onClick={() => addSubgroup(selId!)}>＋ Subgroup</button>
-                <button className="ghost" onClick={() => setPicker({ parentId: selId! })}>＋ Component</button>
-                <button className="ghost" onClick={() => setConnectFrom(selId!)}>↔ Connect</button>
-              </div>
 
               <PortsPanel wb={workbook} nodeId={selId!} commodities={commodities} onAdd={(c, k) => addMarket(selId!, c, k)} onRemove={removeMarket} />
 
