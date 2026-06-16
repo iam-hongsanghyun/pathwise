@@ -8,20 +8,12 @@ Mirrors what the frontend's old client-side ``workbook.ts`` did with SheetJS:
 from __future__ import annotations
 
 import io
-import math
 import sqlite3
 from typing import Any
 
 import pandas as pd
 
-from pathwise.data.workbook import Workbook
-
-
-def _clean(v: Any) -> Any:
-    if isinstance(v, float) and math.isnan(v):
-        return None
-    return v
-
+from pathwise.data.workbook import Workbook, _clean
 
 # ── Generic SQLite workbook I/O (one table per sheet) ─────────────────────────
 # A workbook is ``{sheet: [row, …]}``; a SQLite example DB is the same shape —

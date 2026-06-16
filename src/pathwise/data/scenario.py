@@ -7,8 +7,6 @@ Validated with pydantic. It never contains tabular data.
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -149,9 +147,3 @@ class ScenarioConfig(BaseModel):
     def from_dict(cls, data: dict[str, Any]) -> ScenarioConfig:
         """Build and validate a scenario from a plain dict."""
         return cls.model_validate(data)
-
-    @classmethod
-    def from_json(cls, path: str | Path) -> ScenarioConfig:
-        """Load and validate a scenario from a JSON file."""
-        with open(path, encoding="utf-8") as fh:
-            return cls.model_validate(json.load(fh))

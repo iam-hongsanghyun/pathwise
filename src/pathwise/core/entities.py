@@ -320,11 +320,6 @@ class Process:
             or scope in {self.process_id, self.company, self.group or self.company}
         )
 
-    @property
-    def available_capacity(self) -> float:
-        """Throughput available after expected unplanned outages [throughput/yr]."""
-        return self.capacity * (1.0 - self.failure_rate)
-
     def available(self, year: int) -> float:
         """Available throughput in ``year`` (temporal capacity × uptime)."""
         cap = self.capacity_by_year.get(year, self.capacity)
