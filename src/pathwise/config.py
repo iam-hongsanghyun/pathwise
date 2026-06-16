@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # ── Serving ──────────────────────────────────────────────────────────────
     host: str = "127.0.0.1"
     port: int = 8077
+    # Allowed CORS origins. Default ``["*"]`` suits local single-user development;
+    # set an explicit list (JSON array in the env var) for a shared deployment.
+    cors_origins: list[str] = ["*"]
 
     # ── Solver resource limits (server-controlled; clamp user requests) ───────
     solver_name: str = "highs"

@@ -32,6 +32,7 @@ class SolverOptions:
     """HiGHS tuning forwarded by ``linopy``.
 
     Attributes:
+        solver_name: ``linopy`` solver backend name (e.g. ``"highs"``, ``"glpk"``).
         time_limit_s: Wall-clock limit [s].
         mip_rel_gap: Relative MIP optimality gap [—].
         threads: Solver threads.
@@ -42,6 +43,7 @@ class SolverOptions:
             ``None`` leaves the default.
     """
 
+    solver_name: str = "highs"
     time_limit_s: float = 600.0
     mip_rel_gap: float = 0.01
     threads: int = 4
@@ -106,7 +108,7 @@ def solve(ctx: BuildContext, options: SolverOptions | None = None) -> SolveResul
     """
     options = options or SolverOptions()
     model = ctx.model
-    status, termination = model.solve(solver_name="highs", **options.as_highs_kwargs())
+    status, termination = model.solve(solver_name=options.solver_name, **options.as_highs_kwargs())
     normalised = _STATUS_MAP.get(termination, _STATUS_MAP.get(status, SolveStatus.ERROR))
     objective = (
         float(model.objective.value)  # type: ignore[arg-type]

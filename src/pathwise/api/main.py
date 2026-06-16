@@ -38,7 +38,7 @@ logger = get_logger(__name__)
 app = FastAPI(title="pathwise", version=__version__)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=get_settings().cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

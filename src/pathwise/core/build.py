@@ -23,6 +23,18 @@ from pathwise.logger import get_logger
 
 logger = get_logger(__name__)
 
+#: Big-M for the indicator/throughput links: a value safely above any feasible
+#: throughput. Scaled off the largest nameplate capacity plus a floor so it stays
+#: valid even when every capacity is tiny.
+_BIG_M_CAPACITY_SCALE = 1.0e3
+_BIG_M_FLOOR = 1.0e6
+
+
+def _big_m(problem: Problem) -> float:
+    """A Big-M safely above any feasible throughput in ``problem``."""
+    peak = max((p.capacity for p in problem.processes), default=1.0) or 1.0
+    return peak * _BIG_M_CAPACITY_SCALE + _BIG_M_FLOOR
+
 
 def _lin_sum(terms: list[Any]) -> Any:
     """Sum a list of ``linopy`` expressions (``None`` if empty)."""
@@ -103,7 +115,7 @@ def _technology(ctx: BuildContext) -> None:
         coords={"process": ctx.procs, "tech": ctx.techs, "period": ctx.years},
         dims=["process", "tech", "period"],
     )
-    big = (max((p.capacity for p in prob.processes), default=1.0) or 1.0) * 1.0e3 + 1.0e6
+    big = _big_m(prob)
     m.add_constraints(ctx.u <= feas, name="ufeas")
     m.add_constraints(ctx.w <= feas, name="wfeas")
     m.add_constraints(ctx.x <= big * feas, name="xfeas")
@@ -296,7 +308,7 @@ def _blend(ctx: BuildContext) -> None:
             for li, c in enumerate(gc):
                 if c in member_set:
                     member[i, j, li] = 1.0
-    big = (max((p.capacity for p in prob.processes), default=1.0) or 1.0) * 1.0e3 + 1.0e6
+    big = _big_m(prob)
     member_da = xr.DataArray(
         member,
         coords={"process": ctx.procs, "tech": ctx.techs, "commodity": gc},
@@ -359,7 +371,7 @@ def _output_blend(ctx: BuildContext) -> None:
             for li, c in enumerate(go):
                 if c in member_set:
                     member[i, j, li] = 1.0
-    big = (max((p.capacity for p in prob.processes), default=1.0) or 1.0) * 1.0e3 + 1.0e6
+    big = _big_m(prob)
     member_da = xr.DataArray(
         member,
         coords={"process": ctx.procs, "tech": ctx.techs, "commodity": go},

@@ -81,6 +81,7 @@ class LinopyBackend:
         # `verbose: false` in options (or PATHWISE_SOLVER_VERBOSE=false) silences it.
         verbose = bool(options.get("verbose", settings.solver_verbose))
         opts = SolverOptions(
+            solver_name=settings.solver_name,
             time_limit_s=time_limit,
             mip_rel_gap=sc.solver.mip_gap,
             threads=settings.solver_threads,

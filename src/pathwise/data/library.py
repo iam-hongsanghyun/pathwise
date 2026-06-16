@@ -17,6 +17,7 @@ format — the CI test validates every shipped JSON file against them, and
 
 from __future__ import annotations
 
+import datetime
 import json
 from pathlib import Path
 from typing import Any
@@ -24,6 +25,11 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator
 
 from pathwise.data.workbook import Workbook
+
+
+def _current_year() -> int:
+    """The current calendar year — the default start for a fresh instantiation."""
+    return datetime.date.today().year
 
 
 class SourceRef(BaseModel):
@@ -577,7 +583,7 @@ def add_chain(
     wb.setdefault("demand", [])
     wb.setdefault("node_layout", [])
     if not wb["periods"]:
-        wb["periods"] = [{"year": 2025, "duration_years": 1}]
+        wb["periods"] = [{"year": _current_year(), "duration_years": 1}]
 
     base_y = 60 + len(wb.get("processes", [])) * 40
     pid_of: dict[str, str] = {}
@@ -645,7 +651,7 @@ def instantiate_chain(
     chain_id: str,
     *,
     company: str = "Library",
-    year: int = 2025,
+    year: int | None = None,
 ) -> Workbook:
     """Build a complete, runnable workbook from one chain template.
 
@@ -661,6 +667,7 @@ def instantiate_chain(
     if chain is None:
         raise KeyError(f"unknown chain '{chain_id}'")
 
+    year = year or _current_year()
     wb: Workbook = {"periods": [{"year": year, "duration_years": 1}], "impacts": []}
     impacts: set[str] = set()
     pid_of: dict[str, str] = {}

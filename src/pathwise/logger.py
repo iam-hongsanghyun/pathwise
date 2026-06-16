@@ -16,7 +16,14 @@ def _configure() -> None:
     global _CONFIGURED
     if _CONFIGURED:
         return
-    level = os.environ.get("PATHWISE_LOG_LEVEL", "INFO").upper()
+    # Funnel the level through the validated settings (single source of truth);
+    # fall back to the raw env var / INFO if settings can't load yet (bootstrap).
+    try:
+        from pathwise.config import get_settings
+
+        level = get_settings().log_level.upper()
+    except Exception:
+        level = os.environ.get("PATHWISE_LOG_LEVEL", "INFO").upper()
     logging.basicConfig(
         level=getattr(logging, level, logging.INFO),
         format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
