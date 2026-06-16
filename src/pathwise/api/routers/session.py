@@ -349,5 +349,7 @@ def run_chain(name: str, body: ValueChainRun | None = None) -> dict[str, Any]:
                 status_code=404, detail=f"stage '{stage.id}' model '{stage.model}' not found"
             )
         workbooks[stage.id] = json.loads(wb_path.read_text(encoding="utf-8"))
-    overrides = (body.scenario if body else None) or {"economics": {"base_year": 2025}}
+    # No scenario ⇒ plain defaults; base_year defers to each stage workbook's
+    # first period (don't silently pin a hardcoded calendar year).
+    overrides = (body.scenario if body else None) or {}
     return run_value_chain(spec, workbooks, ScenarioConfig.from_dict(overrides))
