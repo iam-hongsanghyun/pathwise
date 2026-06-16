@@ -347,6 +347,18 @@ SCHEMA: dict[str, Any] = {
             "capex_per_capacity": {"label": "CAPEX (/cap)", "type": "number", "required": True},
         },
     },
+    "technology_caps": {
+        "label": "Technology adoption caps",
+        "columns": {
+            "technology_id": {"label": "Technology", "type": "string", "required": True},
+            "max_count": {
+                "label": "Max facilities/yr",
+                "type": "integer",
+                "required": True,
+                "desc": "At most this many facilities may run the technology in any one year.",
+            },
+        },
+    },
     "tech_impacts": {
         "label": "Direct (process) impacts",
         "columns": {

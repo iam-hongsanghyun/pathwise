@@ -78,6 +78,7 @@ def build(problem: Problem) -> BuildContext:
     _impacts(ctx)
     _macc(ctx)
     _controls(ctx)
+    _adoption_caps(ctx)
     _objective(ctx)
     return ctx
 
@@ -890,6 +891,30 @@ def _controls(ctx: BuildContext) -> None:
         )
         if delivered is not None:
             m.add_constraints(delivered >= amount, name=f"minprod[{c},{q},{y}]")
+
+
+def _adoption_caps(ctx: BuildContext) -> None:
+    r"""Fleet-wide cap on the number of processes running a technology each year.
+
+    For a technology ``k`` with cap ``N_k`` (``Problem.technology_caps``)::
+
+        Σ_p u[p, k, t] ≤ N_k   ∀ t
+
+    i.e. at most ``N_k`` facilities may have ``k`` active in any year — e.g. a
+    limited number of greenfield plants of a new route. Inert unless caps are set.
+    """
+    if not ctx.problem.technology_caps:
+        return
+    m, prob = ctx.model, ctx.problem
+    for k, cap in prob.technology_caps.items():
+        if k not in ctx.techs:
+            continue
+        for t in ctx.years:
+            total = _lin_sum(
+                [ctx.u.sel(process=p, tech=k, period=t) for p in ctx.procs if k in ctx.feasible[p]]
+            )
+            if total is not None:
+                m.add_constraints(total <= cap, name=f"techcap[{k},{t}]")
 
 
 def _objective(ctx: BuildContext) -> None:

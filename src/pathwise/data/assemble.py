@@ -91,6 +91,7 @@ from pathwise.data.sheets import (
     TECHNOLOGIES_T_MIN_CF,
     TECHNOLOGIES_T_OPEX,
     TECHNOLOGIES_T_RENEWAL,
+    TECHNOLOGY_CAPS,
     TRANSITIONS,
     TRANSITIONS_T,
 )
@@ -840,6 +841,14 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             )
 
     # ── Transitions (replace/renew + compatibility) ──────────────────────────
+    # Fleet-wide adoption caps (technology_id, max_count): at most N processes may
+    # run the technology in any year.
+    technology_caps: dict[str, int] = {}
+    for r in _rows(workbook, TECHNOLOGY_CAPS):
+        tid, cap = _str(r.get("technology_id")), _int(r.get("max_count"))
+        if tid is not None and cap is not None:
+            technology_caps[tid] = cap
+
     # Optional year-varying transition capex (long format: from_technology,
     # to_technology, year, capex_per_capacity).
     trans_capex_t: dict[tuple[str, str], dict[int, float]] = {}
@@ -1050,6 +1059,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         impact_cap_intensity=impact_cap_intensity,
         investment_budget=investment_budget,
         min_production=min_production,
+        technology_caps=technology_caps,
         company_objective=company_objective,
         discount_rate=econ.discount_rate,
         base_year=base_year,

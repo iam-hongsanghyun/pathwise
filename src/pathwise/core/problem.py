@@ -98,6 +98,10 @@ class Problem:
     impact_cap_intensity: dict[tuple[str, str], bool] = field(default_factory=dict)
     investment_budget: dict[tuple[str, int], float] = field(default_factory=dict)
     min_production: dict[tuple[str, str, int], float] = field(default_factory=dict)
+    # Upper bound on how many processes may run a technology in any one year
+    # (fleet-wide adoption cap), keyed by technology id — e.g. only N greenfield
+    # H2-DRI plants can exist by a given year.
+    technology_caps: dict[str, int] = field(default_factory=dict)
     company_objective: dict[str, ObjectiveMode] = field(default_factory=dict)
     discount_rate: float = 0.08
     base_year: int = 0

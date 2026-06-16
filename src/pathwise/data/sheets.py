@@ -90,6 +90,10 @@ PROCESSES = "processes"
 #: Technology compatibility + transition routes (from_technology, to_technology, …).
 TRANSITIONS = "transitions"
 
+#: Fleet-wide adoption caps (technology_id, max_count) — at most N processes may
+#: run a technology in any one year.
+TECHNOLOGY_CAPS = "technology_caps"
+
 #: Long-format per-year transition capex (from_technology, to_technology, year,
 #: capex_per_capacity).
 TRANSITIONS_T = "transitions_t"
