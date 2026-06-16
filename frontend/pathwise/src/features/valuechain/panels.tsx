@@ -53,6 +53,31 @@ export function MachineInspector({
   const inputs = io.filter((r) => s(r.role) === "input");
   const outputs = io.filter((r) => s(r.role) === "output");
   const impacts = io.filter((r) => s(r.role) === "impact");
+
+  // Measures (MACC) reaching THIS facility — directly (facility/technology) or via
+  // a linked MACC set. A technology- or stream-scoped link is COPIED to every
+  // matching facility, but each facility adopts it independently (isolated), which
+  // the scope label below makes explicit.
+  const inputStreams = new Set(inputs.map((r) => s(r.target)));
+  const linkScope = new Map<string, string>(); // macc id → why it reaches this facility
+  for (const ln of wb.macc_links ?? []) {
+    const g = s(ln.macc);
+    if (s(ln.facility) === machineId) linkScope.set(g, "this facility");
+    else if (tech && s(ln.technology) === tech) linkScope.set(g, `every ${tech} · adopted independently`);
+    else if (s(ln.commodity) && inputStreams.has(s(ln.commodity)))
+      linkScope.set(g, `stream ${s(ln.commodity)} · adopted independently`);
+  }
+  const appliedMeasures = new Map<string, string>(); // measure id → scope label
+  for (const m of wb.measures ?? []) {
+    const mid = s(m.measure_id);
+    if (s(m.facility) === machineId) appliedMeasures.set(mid, "this facility");
+    else if (tech && s(m.technology) === tech) appliedMeasures.set(mid, `every ${tech} · adopted independently`);
+  }
+  for (const mm of wb.maccs ?? []) {
+    const scope = linkScope.get(s(mm.macc));
+    if (scope && !appliedMeasures.has(s(mm.measure_id))) appliedMeasures.set(s(mm.measure_id), scope);
+  }
+  const measureType = new Map((wb.measures ?? []).map((m) => [s(m.measure_id), s(m.type)]));
   const scope = useMemo(() => new Set(chain(wb, machineId)), [wb, machineId]);
   const labelOf = useMemo(
     () => new Map((wb.nodes ?? []).map((r) => [s(r.node_id), s(r.label) || s(r.node_id)])),
@@ -137,8 +162,28 @@ export function MachineInspector({
           </div>
         </>
       )}
+      <h3 style={{ fontSize: "0.85rem", margin: "12px 0 4px" }}>
+        MACC <span className="muted" style={{ fontWeight: 400 }}>(measures — abate without switching technology)</span>
+      </h3>
+      <table className="grid" style={{ fontSize: "0.78rem", width: "100%" }}>
+        <thead><tr><th style={th}>measure</th><th style={th}>type</th><th style={th}>applies to</th></tr></thead>
+        <tbody>
+          {[...appliedMeasures.entries()].map(([mid, scope]) => (
+            <tr key={mid}>
+              <td>{mid.split(" @ ")[0]}</td>
+              <td className="muted">{measureType.get(mid) || "—"}</td>
+              <td>{scope}</td>
+            </tr>
+          ))}
+          {appliedMeasures.size === 0 && <tr><td colSpan={3} className="muted">no measures</td></tr>}
+        </tbody>
+      </table>
+
       <p className="muted" style={{ fontSize: "0.72rem", marginTop: 12 }}>
         Recipe &amp; measures are edited in the Component tab; ★ = a final product (can meet demand).
+        A technology- or stream-scoped MACC is copied to every matching facility but
+        each adopts it independently (isolated); transitions (technology switches) are
+        shown separately under <em>Alternatives</em>.
       </p>
     </div>
   );
