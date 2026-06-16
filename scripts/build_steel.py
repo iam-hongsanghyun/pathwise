@@ -108,7 +108,11 @@ def build_workbook() -> dict[str, list[dict[str, Any]]]:
     ]
 
     # ── Technologies: per-tonne recipe + CO2 (technology_ei × Σ share·int·emit) ─
-    technologies, io, io_t, tech_impacts_t = [], [], [], []
+    # Intensities + technology_ei are flat over the horizon, so the recipe lives in
+    # the base `io` sheet (inputs SHOW on the facility) and CO2 in static
+    # `tech_impacts`; only fuel COSTS vary by year (handled in commodity_prices).
+    y0 = years[0]
+    technologies, io, tech_impacts = [], [], []
     for t in techs:
         acts = ",".join(a.strip() for a in avail[t].split(",")) + ",continue"
         technologies.append(
@@ -116,47 +120,21 @@ def build_workbook() -> dict[str, list[dict[str, Any]]]:
                 "technology_id": _safe(t),
                 "lifespan": life[t],
                 "actions": acts,
-                "capex": capex[t][years[0]],
+                "capex": capex[t][y0],
             }
         )
         for f, share in FUEL_SHARE[t].items():
-            for y in years:
-                io_t.append(
-                    {
-                        "technology_id": _safe(t),
-                        "target": _safe(f),
-                        "role": "input",
-                        "year": y,
-                        "coefficient": share * fuel_int[f][y],
-                    }
-                )
+            io.append({"technology_id": _safe(t), "target": _safe(f), "role": "input",
+                       "coefficient": share * fuel_int[f][y0]})
         for f, share in FEEDSTOCK_SHARE[t].items():
-            for y in years:
-                io_t.append(
-                    {
-                        "technology_id": _safe(t),
-                        "target": _safe(f),
-                        "role": "input",
-                        "year": y,
-                        "coefficient": share * fs_int[f][y],
-                    }
-                )
-        io.append(
-            {
-                "technology_id": _safe(t),
-                "target": STEEL,
-                "role": "output",
-                "coefficient": 1.0,
-                "is_product": True,
-            }
+            io.append({"technology_id": _safe(t), "target": _safe(f), "role": "input",
+                       "coefficient": share * fs_int[f][y0]})
+        io.append({"technology_id": _safe(t), "target": STEEL, "role": "output",
+                   "coefficient": 1.0, "is_product": True})
+        co2 = ei[t][y0] * sum(
+            sh * fuel_int[f][y0] * fuel_em[f][y0] for f, sh in FUEL_SHARE[t].items()
         )
-        for y in years:
-            co2 = ei[t][y] * sum(
-                sh * fuel_int[f][y] * fuel_em[f][y] for f, sh in FUEL_SHARE[t].items()
-            )
-            tech_impacts_t.append(
-                {"technology_id": _safe(t), "impact_id": "CO2", "year": y, "factor": co2}
-            )
+        tech_impacts.append({"technology_id": _safe(t), "impact_id": "CO2", "factor": co2})
 
     # per-year capex/opex/renewal trajectories (wide temporal sheets)
     tech_capex_t = [{"year": y, **{_safe(t): capex[t][y] for t in techs}} for y in years]
@@ -243,8 +221,7 @@ def build_workbook() -> dict[str, list[dict[str, Any]]]:
         "impacts": [{"impact_id": "CO2", "unit": "tCO2"}],
         "technologies": technologies,
         "io": io,
-        "io_t": io_t,
-        "tech_impacts_t": tech_impacts_t,
+        "tech_impacts": tech_impacts,
         "technologies_t__capex": tech_capex_t,
         "technologies_t__opex": tech_opex_t,
         "technologies_t__renewal": tech_renewal_t,

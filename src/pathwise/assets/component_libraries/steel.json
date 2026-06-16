@@ -218,6 +218,60 @@
       "phase_out_year": null,
       "io": [
         {
+          "target": "Coal_BB",
+          "role": "input",
+          "coefficient": 15.779537999999999,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "BF_gas_BB",
+          "role": "input",
+          "coefficient": 1.48092,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "COG_BB",
+          "role": "input",
+          "coefficient": 1.0578,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "BOF_gas_BB",
+          "role": "input",
+          "coefficient": 0.21156,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Iron_ore_BB",
+          "role": "input",
+          "coefficient": 1.4849999999999999,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Scrap_BB",
+          "role": "input",
+          "coefficient": 0.11000000000000001,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
           "target": "steel",
           "role": "output",
           "coefficient": 1.0,
@@ -240,6 +294,42 @@
       "introduction_year": null,
       "phase_out_year": null,
       "io": [
+        {
+          "target": "Coal_BX",
+          "role": "input",
+          "coefficient": 16.32366,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "BF_gas_BX",
+          "role": "input",
+          "coefficient": 1.0578,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "BOF_gas_BX",
+          "role": "input",
+          "coefficient": 1.0578,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Iron_ore_BX",
+          "role": "input",
+          "coefficient": 1.65,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
         {
           "target": "steel",
           "role": "output",
@@ -264,6 +354,33 @@
       "phase_out_year": null,
       "io": [
         {
+          "target": "Hydrogen_H2",
+          "role": "input",
+          "coefficient": 10.335,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Electricity_H2",
+          "role": "input",
+          "coefficient": 5.568499999999999,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Iron_ore_H2",
+          "role": "input",
+          "coefficient": 1.65,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
           "target": "steel",
           "role": "output",
           "coefficient": 1.0,
@@ -286,6 +403,33 @@
       "introduction_year": null,
       "phase_out_year": null,
       "io": [
+        {
+          "target": "Electricity_EAF",
+          "role": "input",
+          "coefficient": 6.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Scrap_EAF",
+          "role": "input",
+          "coefficient": 0.55,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "HBI_EAF",
+          "role": "input",
+          "coefficient": 0.525,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
         {
           "target": "steel",
           "role": "output",
