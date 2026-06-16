@@ -68,6 +68,14 @@ class SessionStore:
         """Remove a session file (no error if absent)."""
         self._path(session_id).unlink(missing_ok=True)
 
+    def clear_all(self) -> int:
+        """Delete every session file; return how many were removed."""
+        n = 0
+        for p in self.root.glob("*.db"):
+            p.unlink(missing_ok=True)
+            n += 1
+        return n
+
     def put_model(self, session_id: str, model: Workbook) -> dict[str, int]:
         """Replace the whole session model; returns per-sheet row counts."""
         with self._open(session_id) as conn:

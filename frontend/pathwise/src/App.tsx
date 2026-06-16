@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getConfig } from "./lib/api/run";
 import {
+  clearCache,
   clearModel,
   downloadResultXlsx,
   ensureSession,
@@ -137,6 +138,9 @@ export function App() {
     setError(null);
     try {
       adoptServerModel(await loadExample(sessionId, id));
+      // Switch to the optimisation method this example is authored for, so a
+      // MACC example runs under the MACC mode without a manual Settings change.
+      setBackend(examples.find((m) => m.id === id)?.backend ?? "linopy");
       setView("valuechain");
     } catch (e) {
       setError(String(e));
@@ -169,6 +173,22 @@ export function App() {
     }
   }
 
+  /** Wipe all working session data (sessions + session libraries) and adopt the
+   *  fresh empty session the server returns. NOT undoable — clears the cache. */
+  async function onClearCache() {
+    setError(null);
+    try {
+      const { sessionId: sid, model } = await clearCache();
+      setSessionId(sid);
+      synced.current = model;
+      setWorkbook(model);
+      setResult(null);
+      setBackend("linopy");
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
   return (
     <div className="studio-shell">
       <ActivityBar view={view} onChange={setView} />
@@ -192,6 +212,13 @@ export function App() {
             title="clear the session and start from an empty model (undoable)"
           >
             ✕ New model
+          </button>
+          <button
+            className="ghost"
+            onClick={onClearCache}
+            title="wipe ALL working session data (sessions + session libraries) and start fresh — not undoable"
+          >
+            🧹 Clear cache
           </button>
           <span className="spacer" />
           <label>

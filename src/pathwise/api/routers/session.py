@@ -113,12 +113,42 @@ def create_session() -> dict[str, Any]:
 
 @router.post("/session/{session_id}/clear")
 def clear_session(session_id: str) -> dict[str, Any]:
-    """Reset the session to an empty model (the core sheets, no rows)."""
+    """Reset the session to an empty model and drop its own component libraries.
+
+    Clearing the model also discards the session-scoped component libraries an
+    example/import created (they were the *scenario's* own catalogue, not the
+    shared base set), so the Component view doesn't accumulate stale libraries.
+    """
     store = _store()
     if not store.exists(session_id):
         raise HTTPException(status_code=404, detail=f"unknown session '{session_id}'")
     counts = store.put_model(session_id, {name: [] for name in CORE_SHEETS})
+    _session_libs().delete_session(session_id)
     return {"sessionId": session_id, "sheets": counts}
+
+
+@router.post("/cache/clear")
+def clear_cache() -> dict[str, Any]:
+    """Wipe ALL working session data and hand back a fresh empty session.
+
+    Removes every session model and every session-scoped component library (the
+    gitignored working state under ``<data_dir>/sessions`` and
+    ``<data_dir>/session_libraries``). The shared base component libraries and
+    bundled examples are left untouched.
+    """
+    cleared_sessions = _store().clear_all()
+    cleared_libraries = _session_libs().clear_all()
+    session_id = _store().create({name: [] for name in CORE_SHEETS})
+    logger.info(
+        "cache cleared: %d session(s), %d session-library set(s)",
+        cleared_sessions,
+        cleared_libraries,
+    )
+    return {
+        "clearedSessions": cleared_sessions,
+        "clearedSessionLibraries": cleared_libraries,
+        "sessionId": session_id,
+    }
 
 
 @router.post("/session/model")

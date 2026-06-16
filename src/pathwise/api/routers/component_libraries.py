@@ -16,8 +16,9 @@ both libraries back. The Value-Chain builder calls ``/instantiate`` to drop a
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
-import shutil
 from pathlib import Path
 from typing import Any
 
@@ -45,25 +46,86 @@ router = APIRouter(prefix="/api")
 _LIB_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
+#: Manifest tracking what each starter looked like when last seeded, so the
+#: reconciler can tell "user deleted/edited it" (leave alone) apart from "a new
+#: or updated bundled starter the user has never seen" (seed it).
+_SEED_MANIFEST = ".seeds.json"
+
+
+def _sha(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _seed_bytes(seed: Path) -> bytes:
+    """The SQLite bytes a bundled starter seeds to (``.json`` is converted)."""
+    if seed.suffix == ".sqlite":
+        return seed.read_bytes()
+    return write_sqlite(library_to_workbook(load_component_library(seed)))
+
+
+def _reconcile_seeds(d: Path) -> None:
+    """Bring bundled starters into the writable dir without trampling the user.
+
+    A plain "seed only if the directory is missing" check means starters added
+    to a release never appear for an existing install (the reported "no library"
+    bug). This reconciler instead seeds **per library**, keyed by a manifest:
+
+    - A starter the user has never seen (not in the manifest, no working copy) is
+      seeded — so newly-bundled sectors show up on the next run.
+    - A starter the user **deleted** (in the manifest, no working copy) stays
+      gone — deletions are respected.
+    - A starter whose bundled content **changed** is refreshed only if the user
+      has not edited their copy (its hash still matches what we seeded); local
+      edits always win.
+    - A pre-existing copy from before the manifest existed is adopted as-is.
+    """
+    seeds_dir = Path(get_settings().component_seeds_dir)
+    if not seeds_dir.is_dir():
+        return
+    manifest_path = d / _SEED_MANIFEST
+    try:
+        manifest: dict[str, dict[str, str]] = json.loads(manifest_path.read_text())
+    except (OSError, ValueError):
+        manifest = {}
+
+    changed = False
+    seeds = sorted(seeds_dir.glob("*.json")) + sorted(seeds_dir.glob("*.sqlite"))
+    for seed in seeds:
+        stem = seed.stem
+        working = d / f"{stem}.sqlite"
+        src_h = _sha(seed.read_bytes())
+        rec = manifest.get(stem)
+        if rec is None:
+            if working.exists():
+                # Predates the manifest — adopt the user's copy, don't overwrite.
+                manifest[stem] = {"src": src_h, "out": _sha(working.read_bytes())}
+            else:
+                out = _seed_bytes(seed)
+                working.write_bytes(out)
+                manifest[stem] = {"src": src_h, "out": _sha(out)}
+            changed = True
+        elif not working.exists():
+            continue  # user deleted it — respect that
+        elif rec.get("src") != src_h and _sha(working.read_bytes()) == rec.get("out"):
+            out = _seed_bytes(seed)  # bundled content moved on; user hasn't touched theirs
+            working.write_bytes(out)
+            manifest[stem] = {"src": src_h, "out": _sha(out)}
+            changed = True
+
+    if changed:
+        manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True))
+
+
 def _components_dir() -> Path:
-    """The writable component-library directory; seeded from bundled starters.
+    """The writable component-library directory, reconciled with bundled starters.
 
     Libraries are stored as SQLite (one table per kind). The bundled seeds may be
-    readable ``.json`` (converted to SQLite on first seed) or pre-built
-    ``.sqlite``. Seeding happens only when the directory does not yet exist, so a
-    user who deletes every library does not have the starters resurrected.
+    readable ``.json`` (converted to SQLite) or pre-built ``.sqlite``. See
+    :func:`_reconcile_seeds` for how new/updated/deleted starters are handled.
     """
     d = Path(get_settings().data_dir) / "component_libraries"
-    if not d.exists():
-        d.mkdir(parents=True, exist_ok=True)
-        seeds = Path(get_settings().component_seeds_dir)
-        if seeds.is_dir():
-            for f in sorted(seeds.glob("*.json")):
-                (d / f"{f.stem}.sqlite").write_bytes(
-                    write_sqlite(library_to_workbook(load_component_library(f)))
-                )
-            for f in sorted(seeds.glob("*.sqlite")):
-                shutil.copy(f, d / f.name)
+    d.mkdir(parents=True, exist_ok=True)
+    _reconcile_seeds(d)
     return d
 
 

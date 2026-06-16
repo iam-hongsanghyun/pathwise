@@ -65,3 +65,16 @@ class SessionLibraryStore:
             for p in d.glob("*.sqlite"):
                 p.unlink()
             d.rmdir()
+
+    def clear_all(self) -> int:
+        """Drop every session's libraries; return how many sessions were cleared."""
+        if not self.root.is_dir():
+            return 0
+        n = 0
+        for d in self.root.iterdir():
+            if d.is_dir():
+                for p in d.glob("*.sqlite"):
+                    p.unlink()
+                d.rmdir()
+                n += 1
+        return n

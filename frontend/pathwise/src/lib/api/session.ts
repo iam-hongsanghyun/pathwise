@@ -72,6 +72,16 @@ export async function clearModel(sessionId: string): Promise<Workbook> {
   return getFullModel(sessionId);
 }
 
+/** Wipe ALL working session data (sessions + session libraries) and adopt the
+ *  fresh empty session the server hands back. */
+export async function clearCache(): Promise<{ sessionId: string; model: Workbook }> {
+  const res = await json<{ sessionId: string }>(
+    await fetch("/api/cache/clear", { method: "POST" }),
+  );
+  localStorage.setItem(SESSION_KEY, res.sessionId);
+  return { sessionId: res.sessionId, model: await getFullModel(res.sessionId) };
+}
+
 /** Upload an .xlsx — parsed SERVER-side; returns the refreshed model. */
 export async function uploadWorkbook(sessionId: string, file: File): Promise<Workbook> {
   const form = new FormData();
@@ -108,6 +118,10 @@ export interface ExampleModel {
   label: string;
   file: string;
   description?: string;
+  /** Component library to surface alongside this example, if any. */
+  library?: string;
+  /** Optimisation method this example is authored for (default "linopy"). */
+  backend?: string;
 }
 
 export async function listExamples(): Promise<ExampleModel[]> {
