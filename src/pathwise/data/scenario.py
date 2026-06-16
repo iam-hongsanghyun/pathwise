@@ -21,7 +21,10 @@ class Economics(BaseModel):
 
     discount_rate: float = Field(default=0.08, ge=0.0, lt=1.0)
     base_year: int | None = None
-    capex_convention: CapexConvention = CapexConvention.ANNUITY
+    # NPV (full discounted lump at the event year) is the engine's long-standing
+    # behaviour and stays the default; ANNUITY (capital-recovery annuity over the
+    # asset life) is opt-in — see ``Problem.capex_charge``.
+    capex_convention: CapexConvention = CapexConvention.NPV
 
 
 class CostComponents(BaseModel):
@@ -91,7 +94,8 @@ class Coupling(BaseModel):
     signals, resolved by ``iterations`` of damped feedback.
 
     Attributes:
-        signals: Subset of ``price`` / ``marginal_price`` / ``carbon_intensity``.
+        signals: Subset of ``price`` / ``marginal_price`` / ``carbon_intensity``
+            / ``volume``.
         iterations: Forward passes (``1`` = forward-only; ``>1`` enables feedback).
         damping: Relaxation on fed-back demand, ``0 < damping ≤ 1``.
         default_lag: Lag [yr] applied to a connection that does not set its own.

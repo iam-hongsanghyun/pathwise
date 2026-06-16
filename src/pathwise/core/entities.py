@@ -44,10 +44,17 @@ class MeasureType(StrEnum):
 
 
 class CapexConvention(StrEnum):
-    """How lump-sum capital is charged to the objective."""
+    """How lump-sum capital is charged to the objective.
+
+    The engine default is :attr:`NPV` (the full discounted lump at the event
+    year); :attr:`ANNUITY` spreads the cost as a capital-recovery-factor annuity
+    over the asset's life and so charges less when the planning horizon ends
+    before the asset's life does. The two are present-value equivalent for an
+    asset whose full life fits inside the horizon.
+    """
 
     ANNUITY = "annuity"  # capital-recovery-factor annuity over lifetime
-    NPV = "npv"  # full discounted lump at the event year
+    NPV = "npv"  # full discounted lump at the event year (default)
 
 
 class ObjectiveMode(StrEnum):
@@ -90,6 +97,11 @@ class Commodity:
             (e.g. hydrogen infrastructure arriving in 2030).
         available_to: Last year the stream may be bought externally [yr]
             (e.g. a coal-purchase ban after 2040).
+        max_purchase_by_year: Upper bound on the total external purchase of this
+            stream across every process in a year [commodity unit / yr]; ``None``
+            for a year ⇒ unlimited. Used to cap supply availability — e.g. a
+            value-chain link feeding an upstream stage's produced volume in as
+            the downstream stage's available supply.
     """
 
     commodity_id: str
@@ -101,10 +113,15 @@ class Commodity:
     purchasable: bool | None = None
     available_from: int | None = None
     available_to: int | None = None
+    max_purchase_by_year: dict[int, float] = field(default_factory=dict)
 
     def price(self, year: int) -> float:
         """Purchase price [currency/unit] in ``year`` (0 if unpriced)."""
         return self.price_by_year.get(year, 0.0)
+
+    def max_purchase(self, year: int) -> float | None:
+        """Cap on total external purchase in ``year`` (``None`` ⇒ unlimited)."""
+        return self.max_purchase_by_year.get(year)
 
     def sale_price(self, year: int) -> float:
         """Sale/disposal price [currency/unit] in ``year`` (0 if unset)."""

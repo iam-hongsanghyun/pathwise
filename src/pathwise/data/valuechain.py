@@ -3,9 +3,9 @@
 A *value chain* links several otherwise-independent pathwise models (each a
 stage — typically a sector in a region: coal · electricity · steel · auto) into a
 directed graph. A **coupling link** says that an upstream stage's solved outcome
-for a shared commodity (its price, and — later — carbon intensity or available
-volume) feeds the downstream stage's inputs, optionally **lagged** by a number of
-years. The orchestrator in :mod:`pathwise.core.valuechain` consumes this spec.
+for a shared commodity (its price, carbon intensity, or produced volume) feeds
+the downstream stage's inputs, optionally **lagged** by a number of years. The
+orchestrator in :mod:`pathwise.core.valuechain` consumes this spec.
 
 The format mirrors the facility/chain library (:mod:`pathwise.data.library`):
 plain JSON validated by pydantic, kept sector-agnostic (a stage references a
@@ -23,7 +23,10 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 #: Signals a link may carry from an upstream stage to a downstream stage.
 #: ``price`` is the average-cost proxy; ``marginal_price`` is the true marginal
-#: cost (finite-difference on demand) and takes precedence when both are present.
+#: cost (finite-difference on demand) and takes precedence when both are present;
+#: ``carbon_intensity`` transfers the upstream emissions per unit; ``volume``
+#: transfers the upstream produced quantity as a cap on the downstream stage's
+#: external purchase of the commodity (available supply).
 SIGNALS = ("price", "marginal_price", "carbon_intensity", "volume")
 
 

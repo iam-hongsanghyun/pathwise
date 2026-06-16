@@ -34,6 +34,7 @@ def empty_result(
             "technology": [],
             "throughput": [],
             "transitions": [],
+            "renewals": [],
             "measures": [],
             "flows": [],
             "trade": [],
@@ -103,6 +104,10 @@ def extract_results(
             out["outputs"]["transitions"].append(
                 {"process": p, "to_technology": k, "period": int(t)}
             )
+    # Renewals: rebuilding the active technology at end of life (lifecycle models).
+    for (p, k, t), v in _series(ctx.ren).items():
+        if v > _ON:
+            out["outputs"]["renewals"].append({"process": p, "technology": k, "period": int(t)})
     slot_by_key = {s.key: s for s in ctx.slots}
     for (key, t), v in _series(ctx.z).items():
         if v > _EPS:
@@ -229,7 +234,7 @@ def _period_costs(ctx: Any) -> dict[int, float]:
         _series(ctx.emit),
         _series(ctx.on),
     )
-    w, z = _series(ctx.w), _series(ctx.z)
+    w, z, ren = _series(ctx.w), _series(ctx.z), _series(ctx.ren)
     mbuy, msell, abuy, asell = (
         _series(ctx.mbuy),
         _series(ctx.msell),
@@ -292,6 +297,10 @@ def _period_costs(ctx: Any) -> dict[int, float]:
             cost[years[0]] += s.capex_per_capacity * cb
             for t in years:
                 cost[t] += s.fixed_opex_per_capacity * cb
+    if tog.renewal and ren:
+        for (p, k, t), v in ren.items():
+            if v > _EPS:
+                cost[int(t)] += prob.technologies[k].renewal(int(t)) * cap[p] * v
     if tog.measure_capex:
         slot_by_key = {sl.key: sl for sl in ctx.slots}
         for (key, t), v in z.items():

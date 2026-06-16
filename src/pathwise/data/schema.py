@@ -71,6 +71,11 @@ SCHEMA: dict[str, Any] = {
             },
             "available_from": {"label": "Available from (yr)", "type": "integer"},
             "available_to": {"label": "Available until (yr)", "type": "integer"},
+            "max_purchase": {
+                "label": "Max purchase (/yr)",
+                "type": "number",
+                "desc": "Cap on total external purchase per year (blank = unlimited).",
+            },
         },
     },
     "impacts": {
@@ -230,6 +235,10 @@ SCHEMA: dict[str, Any] = {
     },
     "commodities_t__sale_price": {
         "label": "Stream sale price · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
+    "commodities_t__max_purchase": {
+        "label": "Stream purchase cap · by year",
         "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
     },
     "impacts_t__price": {

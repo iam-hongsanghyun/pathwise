@@ -66,7 +66,8 @@ class Problem:
         company_objective: Per-company goal (``cost`` default, or ``profit``).
         discount_rate: Annual discount rate ``ρ`` [1/yr].
         base_year: Baseline period ``t₀``.
-        capex_convention: Annuity (CRF) or NPV lump.
+        capex_convention: NPV lump (default) or capital-recovery annuity — see
+            :meth:`capex_charge`.
         slack_penalty: Objective penalty per unit demand/impact-cap violation.
         toggles: Which cost components are priced.
     """
@@ -100,7 +101,7 @@ class Problem:
     company_objective: dict[str, ObjectiveMode] = field(default_factory=dict)
     discount_rate: float = 0.08
     base_year: int = 0
-    capex_convention: CapexConvention = CapexConvention.ANNUITY
+    capex_convention: CapexConvention = CapexConvention.NPV
     slack_penalty: float = 1.0e9
     toggles: CostToggles = field(default_factory=CostToggles)
 
@@ -117,6 +118,53 @@ class Problem:
     def discount_factor(self, year: int) -> float:
         r"""Discount factor ``DF_t = (1+ρ)^-(year - base_year)`` [—]."""
         return (1.0 + self.discount_rate) ** (-(year - self.base_year))
+
+    def capex_charge(self, year: int, lifespan: int) -> float:
+        r"""Objective coefficient on a lump capital cost incurred in ``year``.
+
+        A capital outlay ``C`` [currency] on an asset of life ``L = lifespan``
+        [yr] enters the objective as ``capex_charge · C`` on the event variable.
+        The multiplier depends on :attr:`capex_convention`:
+
+        Algorithm:
+            $$\text{NPV: } \mathrm{DF}_{t}; \qquad
+              \text{ANNUITY: } \mathrm{CRF}^{\text{due}}(\rho, L)\;
+              \sum_{\substack{t'\in\text{years}\\ t \le t' < t+L}}
+              \mathrm{DF}_{t'}\,\Delta_{t'}$$
+
+            ASCII::
+
+                NPV      -> DF[year]
+                ANNUITY  -> CRF_due(rho, L) * sum(DF[t']*dur[t']
+                                                  for t' in years if year<=t'<year+L)
+
+            with the annuity-due recovery factor
+            ``CRF_due(ρ, L) = CRF(ρ, L)/(1+ρ)`` and
+            ``CRF(ρ, L) = ρ(1+ρ)^L / ((1+ρ)^L − 1)`` (``CRF_due → 1/L`` as ρ→0),
+            ``Δ_{t'}`` the period duration [yr]. Payments start in the build year
+            (so a last-year build is not free); the annuity-due factor makes the
+            present value of the full stream equal the NPV lump when the asset's
+            whole life lies inside the horizon. ANNUITY charges strictly less
+            when the horizon truncates the life.
+
+        Args:
+            year: Event (build / renewal) year ``t`` [yr].
+            lifespan: Asset economic life ``L`` [yr] (``< 1`` clamped to 1).
+
+        Returns:
+            The discount/annuitisation multiplier [—].
+        """
+        if self.capex_convention == CapexConvention.NPV:
+            return self.discount_factor(year)
+        life = max(int(lifespan), 1)
+        rho = self.discount_rate
+        crf = 1.0 / life if rho == 0.0 else rho * (1.0 + rho) ** life / ((1.0 + rho) ** life - 1.0)
+        crf_due = crf / (1.0 + rho)
+        dur = {p.year: p.duration_years for p in self.periods}
+        horizon = sum(
+            self.discount_factor(t) * dur.get(t, 1.0) for t in self.years if year <= t < year + life
+        )
+        return crf_due * horizon
 
     def objective_of(self, company: str) -> ObjectiveMode:
         """Objective mode for ``company`` (default :attr:`ObjectiveMode.COST`)."""

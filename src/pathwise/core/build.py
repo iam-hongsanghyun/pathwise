@@ -16,7 +16,7 @@ import numpy as np
 import xarray as xr
 from linopy import Model
 
-from pathwise.core.entities import CommodityKind, MeasureType, ObjectiveMode
+from pathwise.core.entities import CommodityKind, MeasureType, ObjectiveMode, TransitionAction
 from pathwise.core.problem import Problem
 from pathwise.core.variables import BuildContext, build_context
 from pathwise.logger import get_logger
@@ -50,9 +50,11 @@ def build(problem: Problem) -> BuildContext:
         len(ctx.slots),
     )
     _technology(ctx)
+    _lifecycle(ctx)
     _blend(ctx)
     _output_blend(ctx)
     _flow_balance(ctx)
+    _purchase_caps(ctx)
     _storage(ctx)
     _markets(ctx)
     _impacts(ctx)
@@ -156,6 +158,77 @@ def _technology(ctx: BuildContext) -> None:
                         - ctx.u.sel(process=p, tech=k, period=pt),
                         name=f"event[{p},{k},{t}]",
                     )
+
+
+def _lifecycle(ctx: BuildContext) -> None:
+    r"""Asset end-of-life: force a renewal or replacement when a vintage expires.
+
+    A technology may be active in year ``t`` only if a *live vintage* covers it:
+    the original baseline install (while ``t < introduced_year + lifespan``), a
+    replacement switch-in (``w``), or a renewal rebuild (``ren``) that happened
+    within the trailing ``lifespan`` window. Once the window lapses the facility
+    must renew the same technology, replace it, or switch off — capturing the
+    capital wear-out the engine previously ignored.
+
+    Algorithm:
+        For process ``p``, technology ``k`` of life ``L`` and year ``t``::
+
+            u[p,k,t] <= live0[p,k,t]
+                        + Σ_{t' in years, t-L < t' <= t} refresh[p,k,t']
+
+        refresh = ren                  (k is the baseline — a rebuild)
+                = w + ren              (k reached by replacement — switch-in or rebuild)
+        live0   = 1 if k is baseline and t < introduced_year + L, else 0
+
+    Only processes that declare ``introduced_year`` are lifecycle-tracked; every
+    other process (and every model with no install dates) is left untouched, so
+    existing scenarios are unchanged. A renewal is permitted only for a
+    technology whose ``actions`` include :attr:`TransitionAction.RENEW` and only
+    while it is the active technology.
+    """
+    if ctx.ren is None:
+        return
+    m, prob = ctx.model, ctx.problem
+    tracked = [p for p in prob.processes if p.introduced_year is not None]
+    if not tracked:
+        return
+    baseline = {p.process_id: p.baseline_technology for p in prob.processes}
+    for p in tracked:
+        pid = p.process_id
+        inst = p.introduced_year or ctx.years[0]
+        for k in ctx.feasible[pid]:
+            tech = prob.technologies[k]
+            life = max(int(tech.lifespan), 1)
+            can_renew = TransitionAction.RENEW in tech.actions
+            is_base = k == baseline[pid]
+            for t in ctx.years:
+                ren_kt = ctx.ren.sel(process=pid, tech=k, period=t)
+                # A renewal rebuilds the active technology; forbid it where the
+                # technology does not allow renewal, else tie it to operation.
+                if can_renew:
+                    m.add_constraints(
+                        ren_kt <= ctx.u.sel(process=pid, tech=k, period=t),
+                        name=f"renact[{pid},{k},{t}]",
+                    )
+                else:
+                    m.add_constraints(ren_kt == 0, name=f"renfeas[{pid},{k},{t}]")
+                # Live-vintage window.
+                refresh = [
+                    ctx.ren.sel(process=pid, tech=k, period=tp)
+                    for tp in ctx.years
+                    if t - life < tp <= t
+                ]
+                if not is_base:
+                    refresh += [
+                        ctx.w.sel(process=pid, tech=k, period=tp)
+                        for tp in ctx.years
+                        if t - life < tp <= t
+                    ]
+                live0 = 1.0 if (is_base and t < inst + life) else 0.0
+                u_kt = ctx.u.sel(process=pid, tech=k, period=t)
+                cover = _lin_sum(refresh)
+                rhs = live0 if cover is None else live0 + cover
+                m.add_constraints(u_kt <= rhs, name=f"life[{pid},{k},{t}]")
 
 
 def _produced(ctx: BuildContext, p: str, r: str, t: int) -> Any:
@@ -446,6 +519,41 @@ def _flow_balance(ctx: BuildContext) -> None:
                 m.add_constraints(slack >= rhs, name=f"demand[{key}]")
             else:
                 m.add_constraints(delivered + slack >= rhs, name=f"demand[{key}]")
+
+
+def _purchase_caps(ctx: BuildContext) -> None:
+    r"""Per-year ceiling on a commodity's total external purchase (volume cap).
+
+    When :attr:`Commodity.max_purchase_by_year` is set for a stream, the total
+    bought across every process (or, for a stored stream, the store's external
+    purchase) in that year is bounded::
+
+        Σ_p buy[p, r, t] <= max_purchase_r(t)
+
+    Unset commodities/years are unconstrained, so this is inert unless a model
+    (or a value-chain ``volume`` link) supplies a cap.
+    """
+    m, prob = ctx.model, ctx.problem
+    stored = {s.commodity_id: s for s in prob.storages}
+    stores_of: dict[str, list[Any]] = {}
+    for st in prob.storages:
+        stores_of.setdefault(st.commodity_id, []).append(st)
+    for r in ctx.comms:
+        comm = prob.commodities[r]
+        if not comm.max_purchase_by_year:
+            continue
+        for t in ctx.years:
+            cap = comm.max_purchase(t)
+            if cap is None:
+                continue
+            if r in stored:
+                total = _lin_sum(
+                    [ctx.extbuy.sel(store=st.storage_id, period=t) for st in stores_of[r]]
+                )
+            else:
+                total = _lin_sum([ctx.buy.sel(process=p, commodity=r, period=t) for p in ctx.procs])
+            if total is not None:
+                m.add_constraints(total <= cap, name=f"buycap[{r},{t}]")
 
 
 def _abatement(ctx: BuildContext, p: str, i: str, t: int) -> Any:
@@ -818,7 +926,8 @@ def _objective(ctx: BuildContext) -> None:
                     terms.append(
                         (-w * mk.sell_price(t)) * ctx.asell.sel(imarket=mk.market_id, period=t)
                     )
-        # Replacement capex (discounted lump at the event year).
+        # Replacement capex, charged on the switch-in event under the chosen
+        # capex convention (NPV lump by default; annuity over the asset life).
         if tog.capex:
             for p in ctx.procs:
                 for k in ctx.feasible[p]:
@@ -828,7 +937,18 @@ def _objective(ctx: BuildContext) -> None:
                     if c is None:
                         c = prob.technologies[k].capex(t) * cap[p]
                     if c:
-                        terms.append((df * c) * ctx.w.sel(process=p, tech=k, period=t))
+                        charge = prob.capex_charge(t, prob.technologies[k].lifespan)
+                        terms.append((charge * c) * ctx.w.sel(process=p, tech=k, period=t))
+        # Renewal capex: rebuilding the active technology at end of life resets
+        # its vintage (lifecycle-tracked processes only — ``ren`` is otherwise
+        # absent). Charged under the same capex convention as a replacement.
+        if tog.renewal and ctx.ren is not None:
+            for p in ctx.procs:
+                for k in ctx.feasible[p]:
+                    rc = prob.technologies[k].renewal(t) * cap[p]
+                    if rc:
+                        charge = prob.capex_charge(t, prob.technologies[k].lifespan)
+                        terms.append((charge * rc) * ctx.ren.sel(process=p, tech=k, period=t))
         # Measure capex on adoption increments (discounted lump).
         if tog.measure_capex and ctx.slots:
             for s in ctx.slots:

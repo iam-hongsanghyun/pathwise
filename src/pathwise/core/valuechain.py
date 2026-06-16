@@ -223,6 +223,13 @@ def _forward_pass(
                 if shifted:
                     _inject_ci(wbs[link.to_stage], link.commodity, link.impact, shifted)
                     couplings.append(_record(sid, link, "carbon_intensity", shifted))
+            if "volume" in link.signals:
+                shifted = _shift(
+                    _volume_signal(results[sid], link.commodity), link.lag_years, target_years
+                )
+                if shifted:
+                    _inject_volume(wbs[link.to_stage], link.commodity, shifted)
+                    couplings.append(_record(sid, link, "volume", shifted))
     return results, couplings
 
 
@@ -340,6 +347,21 @@ def _ci_signal(result: dict[str, Any], commodity: str, impact: str) -> dict[int,
     return out
 
 
+def _volume_signal(result: dict[str, Any], commodity: str) -> dict[int, float]:
+    """Upstream production volume of ``commodity`` per year [unit / yr].
+
+    The volume an upstream stage actually produces is the supply available to a
+    downstream stage; injected as a per-year cap on the downstream stage's
+    external purchase of the commodity.
+    """
+    out: dict[int, float] = {}
+    for r in result.get("summary", {}).get("commodity", []):
+        if str(r.get("commodity")) != commodity:
+            continue
+        out[int(r["period"])] = float(r.get("produced") or 0.0)
+    return out
+
+
 def _shift(signal: dict[int, float], lag: int, target_years: list[int]) -> dict[int, float]:
     """Shift a year→price signal forward by ``lag`` and interpolate onto target years."""
     if not signal or not target_years:
@@ -351,6 +373,19 @@ def _shift(signal: dict[int, float], lag: int, target_years: list[int]) -> dict[
 def _inject_price(wb: Workbook, commodity: str, by_year: dict[int, float]) -> None:
     """Upsert a per-year price column for ``commodity`` into ``commodities_t__price``."""
     rows = wb.setdefault("commodities_t__price", [])
+    index = {int(r["year"]): r for r in rows if r.get("year") is not None}
+    for y, v in by_year.items():
+        if y in index:
+            index[y][commodity] = v
+        else:
+            row: dict[str, Any] = {"year": y, commodity: v}
+            rows.append(row)
+            index[y] = row
+
+
+def _inject_volume(wb: Workbook, commodity: str, by_year: dict[int, float]) -> None:
+    """Upsert a per-year purchase cap for ``commodity`` into ``commodities_t__max_purchase``."""
+    rows = wb.setdefault("commodities_t__max_purchase", [])
     index = {int(r["year"]): r for r in rows if r.get("year") is not None}
     for y, v in by_year.items():
         if y in index:

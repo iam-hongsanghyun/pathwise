@@ -290,6 +290,10 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     # PyPSA-style wide temporal tables override the legacy long-format.
     price_traj.update(_wide_temporal(workbook, "commodities_t__price"))
     sale_traj.update(_wide_temporal(workbook, "commodities_t__sale_price"))
+    # Per-year external-purchase volume cap (used by value-chain ``volume`` links).
+    maxbuy_traj: dict[str, dict[int, float]] = _wide_temporal(
+        workbook, "commodities_t__max_purchase"
+    )
 
     commodities: dict[str, Commodity] = {}
     for r in _rows(workbook, "commodities"):
@@ -315,6 +319,14 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             else dict.fromkeys(years, base_sale)
         )
         purchasable = None if r.get("purchasable") is None else _bool(r.get("purchasable"), True)
+        # Volume cap: a temporal table wins, else a scalar column applied flat.
+        base_cap = _num(r.get("max_purchase"))
+        if cid in maxbuy_traj:
+            max_purchase = interpolate(maxbuy_traj[cid], years)
+        elif base_cap is not None:
+            max_purchase = dict.fromkeys(years, base_cap)
+        else:
+            max_purchase = {}
         commodities[cid] = Commodity(
             commodity_id=cid,
             kind=kind,
@@ -325,6 +337,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             purchasable=purchasable,
             available_from=_int(r.get("available_from")),
             available_to=_int(r.get("available_to")),
+            max_purchase_by_year=max_purchase,
         )
 
     # ── Impacts (+ price trajectory) ─────────────────────────────────────────

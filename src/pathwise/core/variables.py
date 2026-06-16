@@ -91,6 +91,7 @@ class BuildContext:
     z: Any = None  # measure adoption [slot, period]
     emit: Any = None  # impact emitted [process, impact, period]
     w: Any = None  # transition (replace) event [process, tech, period]
+    ren: Any = None  # renewal (rebuild same tech, reset life) event [process, tech, period]
     cap_built: Any = None  # storage capacity built [store]
     charge: Any = None  # commodity charged into a store [store, period]
     discharge: Any = None  # commodity discharged from a store [store, period]
@@ -230,6 +231,13 @@ def build_context(model: Model, problem: Problem) -> BuildContext:
     # Transition (replace) event: continuous in [0, 1] — w >= u_t - u_prev pins it
     # to the switch-in, and cost minimisation keeps it at the lower bound.
     ctx.w = model.add_variables(lower=0.0, upper=1.0, coords=[p_idx, k_idx, t_idx], name="w")
+    # Renewal (rebuild) event: only for lifecycle-tracked models (a process
+    # declares when its baseline was installed). Absent otherwise, so models
+    # without install dates are byte-for-byte unchanged.
+    if any(p.introduced_year is not None for p in problem.processes):
+        ctx.ren = model.add_variables(
+            lower=0.0, upper=1.0, coords=[p_idx, k_idx, t_idx], name="ren"
+        )
     ctx.buy = model.add_variables(lower=0.0, coords=[p_idx, r_idx, t_idx], name="buy")
     ctx.sell = model.add_variables(lower=0.0, coords=[p_idx, r_idx, t_idx], name="sell")
     ctx.deliver = model.add_variables(lower=0.0, coords=[p_idx, r_idx, t_idx], name="deliver")
