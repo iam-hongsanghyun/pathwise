@@ -43,6 +43,7 @@ from pathwise.data.sheets import (
     DEMAND,
     DEMAND_T_AMOUNT,
     EDGES,
+    EDGES_T,
     IMPACT_CAPS,
     IMPACT_CAPS_T_LIMIT,
     IMPACT_PRICES,
@@ -74,12 +75,19 @@ from pathwise.data.sheets import (
     PROCESS_OUTPUTS,
     PROCESSES,
     PROCESSES_T_CAPACITY,
+    PROCESSES_T_FAILURE_RATE,
     PROCESSES_T_FIXED_OPEX,
     STORAGE,
+    STORAGE_T_CAPEX,
+    STORAGE_T_CHARGE_EFFICIENCY,
+    STORAGE_T_DISCHARGE_EFFICIENCY,
+    STORAGE_T_FIXED_OPEX,
+    STORAGE_T_STANDING_LOSS,
     TECH_IMPACTS,
     TECHNOLOGIES,
     TECHNOLOGIES_PRICES,
     TECHNOLOGIES_T_CAPEX,
+    TECHNOLOGIES_T_MIN_CF,
     TECHNOLOGIES_T_OPEX,
     TECHNOLOGIES_T_RENEWAL,
     TRANSITIONS,
@@ -466,12 +474,24 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     # role, year, coefficient) — a recipe whose intensity / yield / emission
     # factor improves over the horizon. Sparse points interpolate onto the years.
     io_t_points: dict[tuple[str, str, str], dict[int, float]] = {}
+    # Year-varying share bounds, captured per (tech, target, role) as separate
+    # min/max year-series (a row may carry share_min/share_max with or without a
+    # coefficient). Member-to-group is resolved from the static share groups.
+    io_t_share_lo: dict[tuple[str, str, str], dict[int, float]] = {}
+    io_t_share_hi: dict[tuple[str, str, str], dict[int, float]] = {}
     for r in _rows(workbook, IO_T):
         k, target = _str(r.get("technology_id")), _str(r.get("target"))
         role = (_str(r.get("role")) or "input").lower()
         yv, cv = _int(r.get("year")), _num(r.get("coefficient"))
-        if k and target and yv is not None and cv is not None:
+        if k is None or target is None or yv is None:
+            continue
+        if cv is not None:
             io_t_points.setdefault((k, target, role), {})[yv] = cv
+        smin, smax = _num(r.get("share_min")), _num(r.get("share_max"))
+        if smin is not None:
+            io_t_share_lo.setdefault((k, target, role), {})[yv] = min(max(smin, 0.0), 1.0)
+        if smax is not None:
+            io_t_share_hi.setdefault((k, target, role), {})[yv] = min(max(smax, 0.0), 1.0)
 
     def _io_by_year(
         tech_id: str,
@@ -492,6 +512,27 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             else:
                 inp[target] = traj
         return inp, out, imp
+
+    def _share_by_year(
+        tech_id: str, groups: dict[str, dict[str, dict[str, tuple[float, float]]]], role: str
+    ) -> dict[str, dict[str, dict[int, tuple[float, float]]]]:
+        """Year-varying ``{group: {member: {year: (lo, hi)}}}`` for one technology.
+
+        The member→group mapping comes from the static ``share_groups`` /
+        ``output_share_groups``; min and max year-series are interpolated
+        independently and zipped, falling back to the static bound for an unset end.
+        """
+        out: dict[str, dict[str, dict[int, tuple[float, float]]]] = {}
+        for g, members in groups.get(tech_id, {}).items():
+            for c, (base_lo, base_hi) in members.items():
+                lo_pts = io_t_share_lo.get((tech_id, c, role))
+                hi_pts = io_t_share_hi.get((tech_id, c, role))
+                if not lo_pts and not hi_pts:
+                    continue
+                lo_y = interpolate(lo_pts, years) if lo_pts else dict.fromkeys(years, base_lo)
+                hi_y = interpolate(hi_pts, years) if hi_pts else dict.fromkeys(years, base_hi)
+                out.setdefault(g, {})[c] = {y: (lo_y[y], max(lo_y[y], hi_y[y])) for y in years}
+        return out
 
     commodity_impacts: dict[tuple[str, str], float] = {}
     for r in _rows(workbook, COMMODITY_IMPACTS):
@@ -531,6 +572,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     tech_capex_t.update(_wide_temporal(workbook, TECHNOLOGIES_T_CAPEX))
     tech_renewal_t.update(_wide_temporal(workbook, TECHNOLOGIES_T_RENEWAL))
     tech_opex_t.update(_wide_temporal(workbook, TECHNOLOGIES_T_OPEX))
+    tech_mincf_t = _wide_temporal(workbook, TECHNOLOGIES_T_MIN_CF)
 
     def _attr_by_year(
         name: str, base: float, wide: dict[str, dict[int, float]]
@@ -559,8 +601,13 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             output_yield_by_year=out_t,
             direct_impact_by_year=imp_t,
             min_capacity_factor=min(max(_num(r.get("min_capacity_factor"), 0.0) or 0.0, 0.0), 1.0),
+            min_capacity_factor_by_year=(
+                interpolate(tech_mincf_t[k], years) if k in tech_mincf_t else {}
+            ),
             share_groups=share_groups.get(k, {}),
             output_share_groups=output_share_groups.get(k, {}),
+            share_groups_by_year=_share_by_year(k, share_groups, "input"),
+            output_share_groups_by_year=_share_by_year(k, output_share_groups, "output"),
         )
 
     # ── Processes (4-stage inclusion via `enabled` × placement in node_layout) ─
@@ -571,6 +618,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     #   unchecked + unplaced → excluded from the optimisation
     cap_t = _wide_temporal(workbook, PROCESSES_T_CAPACITY)
     fopex_t = _wide_temporal(workbook, PROCESSES_T_FIXED_OPEX)
+    frate_t = _wide_temporal(workbook, PROCESSES_T_FAILURE_RATE)
     placed_nodes = {_str(r.get("id")) for r in _rows(workbook, NODE_LAYOUT)}
     processes = []
     for r in _rows(workbook, PROCESSES):
@@ -598,6 +646,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 scopes=frozenset(str(s) for s in (r.get("scopes") or ())),
                 capacity_by_year=interpolate(cap_t[pid], years) if pid in cap_t else {},
                 fixed_opex_by_year=interpolate(fopex_t[pid], years) if pid in fopex_t else {},
+                failure_rate_by_year=interpolate(frate_t[pid], years) if pid in frate_t else {},
             )
         )
 
@@ -609,17 +658,38 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         if c and obj in {m.value for m in ObjectiveMode}:
             company_objective[c] = ObjectiveMode(obj)
 
-    # ── Edges ────────────────────────────────────────────────────────────────
-    edges = [
-        Edge(
-            from_process=str(r["from_process"]),
-            to_process=str(r["to_process"]),
-            commodity_id=str(r["commodity_id"]),
-            max_flow=_num(r.get("max_flow")),
+    # ── Edges (+ optional per-year capacity: edges_t) ────────────────────────
+    edge_maxflow_t: dict[tuple[str, str, str], dict[int, float]] = {}
+    for r in _rows(workbook, EDGES_T):
+        frm, to, cid = (
+            _str(r.get("from_process")),
+            _str(r.get("to_process")),
+            _str(r.get("commodity_id")),
         )
-        for r in _rows(workbook, EDGES)
-        if _str(r.get("from_process")) and _str(r.get("to_process")) and _str(r.get("commodity_id"))
-    ]
+        yr, mf = _int(r.get("year")), _num(r.get("max_flow"))
+        if frm and to and cid and yr is not None and mf is not None:
+            edge_maxflow_t.setdefault((frm, to, cid), {})[yr] = mf
+    edges = []
+    for r in _rows(workbook, EDGES):
+        frm, to, cid = (
+            _str(r.get("from_process")),
+            _str(r.get("to_process")),
+            _str(r.get("commodity_id")),
+        )
+        if not frm or not to or not cid:
+            continue
+        ek = (frm, to, cid)
+        edges.append(
+            Edge(
+                from_process=frm,
+                to_process=to,
+                commodity_id=cid,
+                max_flow=_num(r.get("max_flow")),
+                max_flow_by_year=(
+                    interpolate(edge_maxflow_t[ek], years) if ek in edge_maxflow_t else {}
+                ),
+            )
+        )
 
     # ── Measures (+ blocks, + optional per-year block cost) ──────────────────
     # Long-format measure_blocks_t (measure_id, block, year, capex, opex —
@@ -635,6 +705,8 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             block_traj.setdefault((mid, bi), {}).setdefault("capex", {})[yr] = cx
         if (ox := _num(r.get("opex"))) is not None:
             block_traj.setdefault((mid, bi), {}).setdefault("opex", {})[yr] = ox
+        if (rx := _num(r.get("reduction"))) is not None:
+            block_traj.setdefault((mid, bi), {}).setdefault("reduction", {})[yr] = rx
 
     blocks_by_measure: dict[str, list[tuple[int, MeasureBlock]]] = {}
     for r in _rows(workbook, MEASURE_BLOCKS):
@@ -652,6 +724,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                     opex=_num(r.get("opex"), 0.0) or 0.0,
                     capex_by_year=interpolate(bt["capex"], years) if "capex" in bt else {},
                     opex_by_year=interpolate(bt["opex"], years) if "opex" in bt else {},
+                    reduction_by_year=(
+                        interpolate(bt["reduction"], years) if "reduction" in bt else {}
+                    ),
                 ),
             )
         )
@@ -791,6 +866,15 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         )
 
     # ── Storage (per-commodity inter-year stores) ────────────────────────────
+    sto_capex_t = _wide_temporal(workbook, STORAGE_T_CAPEX)
+    sto_fopex_t = _wide_temporal(workbook, STORAGE_T_FIXED_OPEX)
+    sto_chg_t = _wide_temporal(workbook, STORAGE_T_CHARGE_EFFICIENCY)
+    sto_dis_t = _wide_temporal(workbook, STORAGE_T_DISCHARGE_EFFICIENCY)
+    sto_loss_t = _wide_temporal(workbook, STORAGE_T_STANDING_LOSS)
+
+    def _sto_by_year(sid: str, wide: dict[str, dict[int, float]]) -> dict[int, float]:
+        return interpolate(wide[sid], years) if sid in wide else {}
+
     storages: list[Storage] = []
     for r in _rows(workbook, STORAGE):
         sid, cid = _str(r.get("storage_id")), _str(r.get("commodity_id"))
@@ -808,6 +892,11 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 discharge_efficiency=_num(r.get("discharge_efficiency"), 1.0) or 1.0,
                 standing_loss=_num(r.get("standing_loss"), 0.0) or 0.0,
                 initial_level=_num(r.get("initial_level"), 0.0) or 0.0,
+                capex_per_capacity_by_year=_sto_by_year(sid, sto_capex_t),
+                fixed_opex_per_capacity_by_year=_sto_by_year(sid, sto_fopex_t),
+                charge_efficiency_by_year=_sto_by_year(sid, sto_chg_t),
+                discharge_efficiency_by_year=_sto_by_year(sid, sto_dis_t),
+                standing_loss_by_year=_sto_by_year(sid, sto_loss_t),
             )
         )
 

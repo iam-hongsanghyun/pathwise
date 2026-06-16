@@ -66,6 +66,8 @@ periods, commodities, technologies, processes, demand
 
 ## 3. Temporal (year-varying) values
 
+**Every numeric model parameter can be given as a scalar OR a per-year trajectory** — prices, costs (capex/opex/renewal/transition/storage), I/O coefficients (intensity, yield, emission factor), blend/slate share bounds, must-run floor, outage rate, edge capacity, market volume caps, storage efficiencies, demand, caps, budgets, and measure reduction. Supply the scalar on the entity's own row for a constant; add a row to the matching temporal sheet below to make it vary by year. The only intentionally scalar (structural) values are calendar-year markers (`introduction_year`, `phase_out_year`, `introduced_year`, `decommission_year`, `available_from`/`available_to`), asset lifetimes (`lifespan`, `lifetime`), the period's own `duration_years`, and a store's one-time `max_capacity` / `initial_level`.
+
 Two conventions exist side by side. Choose one per attribute; the PyPSA-wide format wins when both are present for the same entity.
 
 ### 3a. Wide temporal sheets (`<entity>_t__<attr>`)
@@ -81,13 +83,20 @@ Sheet name convention: `<entity_base>_t__<attribute>` (double underscore). Each 
 | `technologies_t__capex` | `technology_id` | Replacement CAPEX |
 | `technologies_t__opex` | `technology_id` | Fixed O&M |
 | `technologies_t__renewal` | `technology_id` | Renewal cost |
+| `technologies_t__min_capacity_factor` | `technology_id` | Must-run floor |
 | `processes_t__capacity` | `process_id` | Capacity (nameplate throughput) |
 | `processes_t__fixed_opex` | `process_id` | Fixed O&M override |
+| `processes_t__failure_rate` | `process_id` | Forced-outage fraction |
 | `markets_t__price` | `market_id` | Market buy price |
 | `markets_t__sell_price` | `market_id` | Market sell price |
 | `markets_t__allocation` | `market_id` | ETS free allocation |
 | `markets_t__max_buy` | `market_id` | Buy volume cap |
 | `markets_t__max_sell` | `market_id` | Sell volume cap |
+| `storage_t__capex_per_capacity` | `storage_id` | Store build cost (year-0 value used) |
+| `storage_t__fixed_opex_per_capacity` | `storage_id` | Store fixed O&M |
+| `storage_t__charge_efficiency` | `storage_id` | Charge efficiency |
+| `storage_t__discharge_efficiency` | `storage_id` | Discharge efficiency |
+| `storage_t__standing_loss` | `storage_id` | Standing loss |
 | `investment_budget_t__limit` | `budget_id` | Investment budget |
 | `min_production_t__amount` | `min_id` | Minimum production floor |
 | `demand_t__amount` | `demand_id` | Demand target |
@@ -110,10 +119,11 @@ Used for multi-keyed values where a wide matrix would be sparse or ambiguous.
 |---|---|---|---|
 | `commodity_prices` | `commodity_id`, `year` | `price`, `sale_price` | Per-commodity price trajectory |
 | `technologies_prices` | `technology_id`, `year` | `capex`, `opex` | Per-technology cost trajectory (emitted by the component library) |
-| `io_t` | `technology_id`, `target`, `role`, `year` | `coefficient` | Year-varying I/O intensity / yield / emission factor |
+| `io_t` | `technology_id`, `target`, `role`, `year` | `coefficient`, `share_min`, `share_max` | Year-varying I/O intensity / yield / emission factor, and blend/slate share bounds |
 | `transitions_t` | `from_technology`, `to_technology`, `year` | `capex_per_capacity` | Year-varying transition CAPEX |
+| `edges_t` | `from_process`, `to_process`, `commodity_id`, `year` | `max_flow` | Year-varying edge capacity |
 | `commodity_impacts_t` | `commodity_id`, `impact_id`, `year` | `factor` | Year-varying upstream carbon intensity |
-| `measure_blocks_t` | `measure_id`, `block`, `year` | `capex`, `opex` | Year-varying block costs (absolute, scaled to instance capacity) |
+| `measure_blocks_t` | `measure_id`, `block`, `year` | `capex`, `opex`, `reduction` | Year-varying block costs (absolute, scaled to instance capacity) and abatement |
 | `impact_prices` | `impact_id`, `year` | `price` | Carbon price trajectory (long-format alternative to `impacts_t__price`) |
 | `market_prices` | `market_id`, `year` | `price`, `sell_price`, `allocation` | Market price trajectory (long-format alternative to `markets_t__*`) |
 

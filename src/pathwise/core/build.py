@@ -142,7 +142,7 @@ def _technology(ctx: BuildContext) -> None:
                     name=f"cap[{p},{k},{t}]",
                 )
                 # Must-run floor: when active, throughput ≥ min_cf × capacity.
-                min_cf = prob.technologies[k].min_capacity_factor
+                min_cf = prob.technologies[k].min_cf_at(t)
                 if min_cf > 0.0:
                     m.add_constraints(
                         ctx.x.sel(process=p, tech=k, period=t)
@@ -340,7 +340,8 @@ def _blend(ctx: BuildContext) -> None:
                         == req * xpkt,
                         name=f"mix[{p},{k},{g},{t}]",
                     )
-                    for c, (lo, hi) in members.items():
+                    for c in members:
+                        lo, hi = tech.input_share_at(g, c, t)
                         f = ctx.fin.sel(process=p, tech=k, commodity=c, period=t)
                         if lo > 0.0:
                             m.add_constraints(f >= lo * req * xpkt, name=f"mixlo[{p},{k},{c},{t}]")
@@ -404,7 +405,8 @@ def _output_blend(ctx: BuildContext) -> None:
                         == req * xpkt,
                         name=f"slate[{p},{k},{g},{t}]",
                     )
-                    for c, (lo, hi) in members.items():
+                    for c in members:
+                        lo, hi = tech.output_share_at(g, c, t)
                         f = ctx.fout.sel(process=p, tech=k, commodity=c, period=t)
                         if lo > 0.0:
                             m.add_constraints(
@@ -419,7 +421,7 @@ def _output_blend(ctx: BuildContext) -> None:
 def _efficiency_savings(ctx: BuildContext, p: str, r: str, t: int) -> Any:
     """MACC energy-efficiency savings on commodity ``r`` at ``p`` (LP-safe)."""
     terms = [
-        s.reduction * ctx.ref_consumption.get((p, r), 0.0) * ctx.z.sel(slot=s.key, period=t)
+        s.reduction_at(t) * ctx.ref_consumption.get((p, r), 0.0) * ctx.z.sel(slot=s.key, period=t)
         for s in ctx.slots
         if s.measure_type == MeasureType.ENERGY_EFFICIENCY and s.process == p and s.target == r
     ]
@@ -511,13 +513,12 @@ def _flow_balance(ctx: BuildContext) -> None:
                         name=f"nobuy[{p},{r},{t}]",
                     )
 
-    # Edge capacities.
+    # Edge capacities (per-year cap when given).
     for i, e in enumerate(prob.edges):
-        if e.max_flow is not None:
-            for t in ctx.years:
-                m.add_constraints(
-                    ctx.flow.sel(edge=i, period=t) <= e.max_flow, name=f"emax[{i},{t}]"
-                )
+        for t in ctx.years:
+            mf = e.max_flow_at(t)
+            if mf is not None:
+                m.add_constraints(ctx.flow.sel(edge=i, period=t) <= mf, name=f"emax[{i},{t}]")
 
     # Demand: cost companies must meet it (slack-softened); profit companies may
     # sell UP TO it (producing less is allowed — revenue handled in the objective).
@@ -577,7 +578,7 @@ def _purchase_caps(ctx: BuildContext) -> None:
 def _abatement(ctx: BuildContext, p: str, i: str, t: int) -> Any:
     """MACC emission/environmental abatement of impact ``i`` at ``p`` (LP-safe)."""
     terms = [
-        s.reduction * ctx.ref_impact.get((p, i), 0.0) * ctx.z.sel(slot=s.key, period=t)
+        s.reduction_at(t) * ctx.ref_impact.get((p, i), 0.0) * ctx.z.sel(slot=s.key, period=t)
         for s in ctx.slots
         if s.measure_type in (MeasureType.EMISSION_REDUCTION, MeasureType.ENVIRONMENTAL)
         and s.process == p
@@ -731,8 +732,10 @@ def _storage(ctx: BuildContext) -> None:
             dis_t = ctx.discharge.sel(store=sid, period=t)
             lvl_t = ctx.level.sel(store=sid, period=t)
             pt = prev[t]
-            decay = 1.0 - s.standing_loss
-            gain = s.charge_efficiency * charge_t - (1.0 / s.discharge_efficiency) * dis_t
+            decay = 1.0 - s.standing_loss_at(t)
+            gain = (
+                s.charge_efficiency_at(t) * charge_t - (1.0 / s.discharge_efficiency_at(t)) * dis_t
+            )
             prior = decay * ctx.level.sel(store=sid, period=pt) if pt is not None else None
             rhs = (gain + prior) if prior is not None else (gain + decay * s.initial_level)
             m.add_constraints(lvl_t == rhs, name=f"slevel[{sid},{t}]")
@@ -873,8 +876,9 @@ def _controls(ctx: BuildContext) -> None:
             terms.append(s.capex_at(y) * inc)
         if y == ctx.years[0]:
             for st in prob.storages:
-                if _in_scope(c, st.company) and st.capex_per_capacity:
-                    terms.append(st.capex_per_capacity * ctx.cap_built.sel(store=st.storage_id))
+                build_cost = st.capex_per_capacity_at(y)
+                if _in_scope(c, st.company) and build_cost:
+                    terms.append(build_cost * ctx.cap_built.sel(store=st.storage_id))
         total = _lin_sum(terms)
         if total is not None:
             m.add_constraints(total <= limit, name=f"budget[{c},{y}]")
@@ -947,10 +951,9 @@ def _objective(ctx: BuildContext) -> None:
                     price = prob.commodities[st.commodity_id].price(t)
                     if price:
                         terms.append((w * price) * ctx.extbuy.sel(store=st.storage_id, period=t))
-                if st.fixed_opex_per_capacity:
-                    terms.append(
-                        (w * st.fixed_opex_per_capacity) * ctx.cap_built.sel(store=st.storage_id)
-                    )
+                st_fox = st.fixed_opex_per_capacity_at(t)
+                if st_fox:
+                    terms.append((w * st_fox) * ctx.cap_built.sel(store=st.storage_id))
         # Markets: commodity buy/sell + tradable ETS allowance buy/sell.
         if tog.commodity_cost:
             for mk in ctx.cmarkets:
@@ -1018,12 +1021,14 @@ def _objective(ctx: BuildContext) -> None:
         if delivered is not None:
             terms.append((-(prob.discount_factor(y) * dur[y] * price)) * delivered)
 
-    # Storage build capex — one-time, discounted at the first year.
+    # Storage build capex — one-time, discounted at the first year (year-0 value).
     if tog.capex and prob.storages:
-        df0 = prob.discount_factor(ctx.years[0])
+        y0 = ctx.years[0]
+        df0 = prob.discount_factor(y0)
         for st in prob.storages:
-            if st.capex_per_capacity:
-                terms.append((df0 * st.capex_per_capacity) * ctx.cap_built.sel(store=st.storage_id))
+            build_cost = st.capex_per_capacity_at(y0)
+            if build_cost:
+                terms.append((df0 * build_cost) * ctx.cap_built.sel(store=st.storage_id))
 
     # Slack penalties (keep the model well-posed and diagnosable).
     if ctx.demand_keys:

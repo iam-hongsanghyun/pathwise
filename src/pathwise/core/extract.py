@@ -300,9 +300,9 @@ def _period_costs(ctx: Any) -> dict[int, float]:
                 cost[int(t)] += _repl_capex(p, k, int(t)) * v
         for s in prob.storages:
             cb = cap_built.get(s.storage_id, 0.0)
-            cost[years[0]] += s.capex_per_capacity * cb
+            cost[years[0]] += s.capex_per_capacity_at(years[0]) * cb
             for t in years:
-                cost[t] += s.fixed_opex_per_capacity * cb
+                cost[t] += s.fixed_opex_per_capacity_at(t) * cb
     if tog.renewal and ren:
         for (p, k, t), v in ren.items():
             if v > _EPS:

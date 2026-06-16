@@ -211,6 +211,10 @@ SCHEMA: dict[str, Any] = {
         "label": "Technology renewal · by year",
         "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
     },
+    "technologies_t__min_capacity_factor": {
+        "label": "Technology must-run floor · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
     "io": {
         "label": "Technology I/O (unified)",
         "columns": {
@@ -236,7 +240,9 @@ SCHEMA: dict[str, Any] = {
             "target": {"label": "Stream / impact", "type": "string", "required": True},
             "role": {"label": "Role (input|output|impact)", "type": "string", "required": True},
             "year": {"label": "Year", "type": "integer", "required": True},
-            "coefficient": {"label": "Per throughput", "type": "number", "required": True},
+            "coefficient": {"label": "Per throughput", "type": "number"},
+            "share_min": {"label": "Min share (0-1)", "type": "number"},
+            "share_max": {"label": "Max share (0-1)", "type": "number"},
         },
     },
     "commodities_t__price": {
@@ -278,6 +284,51 @@ SCHEMA: dict[str, Any] = {
     "processes_t__fixed_opex": {
         "label": "Facility fixed O&M · by year",
         "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
+    "processes_t__failure_rate": {
+        "label": "Facility outage rate · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
+    "edges_t": {
+        "label": "Edge capacity · by year",
+        "columns": {
+            "from_process": {"label": "From", "type": "string", "required": True},
+            "to_process": {"label": "To", "type": "string", "required": True},
+            "commodity_id": {"label": "Stream", "type": "string", "required": True},
+            "year": {"label": "Year", "type": "integer", "required": True},
+            "max_flow": {"label": "Max flow (/yr)", "type": "number", "required": True},
+        },
+    },
+    "storage_t__capex_per_capacity": {
+        "label": "Store build cost · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
+    "storage_t__fixed_opex_per_capacity": {
+        "label": "Store fixed O&M · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
+    "storage_t__charge_efficiency": {
+        "label": "Store charge efficiency · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
+    "storage_t__discharge_efficiency": {
+        "label": "Store discharge efficiency · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
+    "storage_t__standing_loss": {
+        "label": "Store standing loss · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
+    "measure_blocks_t": {
+        "label": "Measure block cost / reduction · by year",
+        "columns": {
+            "measure_id": {"label": "Measure", "type": "string", "required": True},
+            "block": {"label": "Block", "type": "integer", "required": True},
+            "year": {"label": "Year", "type": "integer", "required": True},
+            "capex": {"label": "Block CAPEX", "type": "number"},
+            "opex": {"label": "Block O&M", "type": "number"},
+            "reduction": {"label": "Reduction (0-1)", "type": "number"},
+        },
     },
     "transitions_t": {
         "label": "Transition CAPEX · by year",

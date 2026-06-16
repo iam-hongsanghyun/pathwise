@@ -115,6 +115,10 @@ NODE_LAYOUT = "node_layout"
 #: Directed commodity flows between flat processes (from_process, to_process, …).
 EDGES = "edges"
 
+#: Long-format per-year edge capacity (from_process, to_process, commodity_id,
+#: year, max_flow).
+EDGES_T = "edges_t"
+
 # ── Measures and MACCs ───────────────────────────────────────────────────────
 
 #: Individual retrofit measure definitions (measure_id, type, target, …).
@@ -141,6 +145,13 @@ MEASURE_LINKS = "measure_links"
 
 #: Inter-year commodity stores (storage_id, commodity_id, company, …).
 STORAGE = "storage"
+
+#: Wide temporal store build cost / O&M / efficiencies (keyed by storage_id).
+STORAGE_T_CAPEX = "storage_t__capex_per_capacity"
+STORAGE_T_FIXED_OPEX = "storage_t__fixed_opex_per_capacity"
+STORAGE_T_CHARGE_EFFICIENCY = "storage_t__charge_efficiency"
+STORAGE_T_DISCHARGE_EFFICIENCY = "storage_t__discharge_efficiency"
+STORAGE_T_STANDING_LOSS = "storage_t__standing_loss"
 
 # ── Markets ───────────────────────────────────────────────────────────────────
 
@@ -194,6 +205,9 @@ TECHNOLOGIES_T_OPEX = "technologies_t__opex"
 #: Wide temporal technology renewal cost.
 TECHNOLOGIES_T_RENEWAL = "technologies_t__renewal"
 
+#: Wide temporal technology must-run capacity-factor floor.
+TECHNOLOGIES_T_MIN_CF = "technologies_t__min_capacity_factor"
+
 #: Wide temporal market buy prices.
 MARKETS_T_PRICE = "markets_t__price"
 
@@ -208,6 +222,9 @@ PROCESSES_T_CAPACITY = "processes_t__capacity"
 
 #: Wide temporal facility fixed-O&M overrides.
 PROCESSES_T_FIXED_OPEX = "processes_t__fixed_opex"
+
+#: Wide temporal facility forced-outage (failure-rate) overrides.
+PROCESSES_T_FAILURE_RATE = "processes_t__failure_rate"
 
 #: Wide temporal market buy-volume caps.
 MARKETS_T_MAX_BUY = "markets_t__max_buy"

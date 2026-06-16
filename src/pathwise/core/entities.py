@@ -235,12 +235,50 @@ class Technology:
     output_yield_by_year: dict[str, dict[int, float]] = field(default_factory=dict)
     direct_impact_by_year: dict[str, dict[int, float]] = field(default_factory=dict)
     min_capacity_factor: float = 0.0
+    #: Optional year-varying must-run floor; falls back to ``min_capacity_factor``.
+    min_capacity_factor_by_year: dict[int, float] = field(default_factory=dict)
     share_groups: dict[str, dict[str, tuple[float, float]]] = field(default_factory=dict)
     output_share_groups: dict[str, dict[str, tuple[float, float]]] = field(default_factory=dict)
+    # Optional year-varying share bounds ``{group: {commodity: {year: (min, max)}}}``
+    # — e.g. a max coal share that declines over the horizon. Falls back to the
+    # static ``share_groups`` / ``output_share_groups`` bounds.
+    share_groups_by_year: dict[str, dict[str, dict[int, tuple[float, float]]]] = field(
+        default_factory=dict
+    )
+    output_share_groups_by_year: dict[str, dict[str, dict[int, tuple[float, float]]]] = field(
+        default_factory=dict
+    )
 
     def grouped_inputs(self) -> set[str]:
         """Input commodities that belong to a blend (share) group."""
         return {c for members in self.share_groups.values() for c in members}
+
+    def min_cf_at(self, year: int) -> float:
+        """Must-run capacity-factor floor in ``year`` (year override, else scalar)."""
+        return self.min_capacity_factor_by_year.get(year, self.min_capacity_factor)
+
+    @staticmethod
+    def _share_at(
+        by_year: dict[str, dict[str, dict[int, tuple[float, float]]]],
+        static: dict[str, dict[str, tuple[float, float]]],
+        group: str,
+        commodity: str,
+        year: int,
+    ) -> tuple[float, float]:
+        traj = by_year.get(group, {}).get(commodity)
+        if traj is not None and year in traj:
+            return traj[year]
+        return static.get(group, {}).get(commodity, (0.0, 1.0))
+
+    def input_share_at(self, group: str, commodity: str, year: int) -> tuple[float, float]:
+        """Blend-member ``(min, max)`` share bounds in ``year`` [—]."""
+        return self._share_at(self.share_groups_by_year, self.share_groups, group, commodity, year)
+
+    def output_share_at(self, group: str, commodity: str, year: int) -> tuple[float, float]:
+        """Slate-member ``(min, max)`` share bounds in ``year`` [—]."""
+        return self._share_at(
+            self.output_share_groups_by_year, self.output_share_groups, group, commodity, year
+        )
 
     def input_intensity_at(self, commodity: str, year: int) -> float:
         """Input use of ``commodity`` per throughput in ``year`` [commodity unit]."""
@@ -340,6 +378,8 @@ class Process:
     capacity_by_year: dict[int, float] = field(default_factory=dict)
     #: Optional year-varying fixed O&M [currency / yr]; falls back to ``fixed_opex``.
     fixed_opex_by_year: dict[int, float] = field(default_factory=dict)
+    #: Optional year-varying forced-outage fraction; falls back to ``failure_rate``.
+    failure_rate_by_year: dict[int, float] = field(default_factory=dict)
     group: str = ""
     decommission_year: int | None = None
     scopes: frozenset[str] = frozenset()
@@ -365,7 +405,8 @@ class Process:
     def available(self, year: int) -> float:
         """Available throughput in ``year`` (temporal capacity × uptime)."""
         cap = self.capacity_by_year.get(year, self.capacity)
-        return cap * (1.0 - self.failure_rate)
+        fr = self.failure_rate_by_year.get(year, self.failure_rate)
+        return cap * (1.0 - fr)
 
 
 @dataclass(slots=True, frozen=True)
@@ -398,6 +439,34 @@ class Storage:
     discharge_efficiency: float = 1.0
     standing_loss: float = 0.0
     initial_level: float = 0.0
+    # Optional year-varying overrides; each falls back to the scalar above.
+    # (``max_capacity`` and ``initial_level`` are one-time/structural and stay
+    # scalar by design.)
+    capex_per_capacity_by_year: dict[int, float] = field(default_factory=dict)
+    fixed_opex_per_capacity_by_year: dict[int, float] = field(default_factory=dict)
+    charge_efficiency_by_year: dict[int, float] = field(default_factory=dict)
+    discharge_efficiency_by_year: dict[int, float] = field(default_factory=dict)
+    standing_loss_by_year: dict[int, float] = field(default_factory=dict)
+
+    def capex_per_capacity_at(self, year: int) -> float:
+        """Overnight build cost in ``year`` [currency / unit] (override, else scalar)."""
+        return self.capex_per_capacity_by_year.get(year, self.capex_per_capacity)
+
+    def fixed_opex_per_capacity_at(self, year: int) -> float:
+        """Annual fixed cost in ``year`` [currency / (unit·yr)] (override, else scalar)."""
+        return self.fixed_opex_per_capacity_by_year.get(year, self.fixed_opex_per_capacity)
+
+    def charge_efficiency_at(self, year: int) -> float:
+        """Charge efficiency in ``year`` [—] (override, else scalar)."""
+        return self.charge_efficiency_by_year.get(year, self.charge_efficiency)
+
+    def discharge_efficiency_at(self, year: int) -> float:
+        """Discharge efficiency in ``year`` [—] (override, else scalar)."""
+        return self.discharge_efficiency_by_year.get(year, self.discharge_efficiency)
+
+    def standing_loss_at(self, year: int) -> float:
+        """Standing loss in ``year`` [—] (override, else scalar)."""
+        return self.standing_loss_by_year.get(year, self.standing_loss)
 
 
 @dataclass(slots=True, frozen=True)
@@ -409,12 +478,18 @@ class Edge:
         to_process: Consumer process id.
         commodity_id: The commodity routed along this edge.
         max_flow: Optional per-period capacity [commodity unit / yr] (``None`` ⇒ ∞).
+        max_flow_by_year: Optional year-varying cap; falls back to ``max_flow``.
     """
 
     from_process: str
     to_process: str
     commodity_id: str
     max_flow: float | None = None
+    max_flow_by_year: dict[int, float] = field(default_factory=dict)
+
+    def max_flow_at(self, year: int) -> float | None:
+        """Edge capacity in ``year`` [commodity unit / yr] (override, else scalar; ``None`` ⇒ ∞)."""
+        return self.max_flow_by_year.get(year, self.max_flow)
 
 
 @dataclass(slots=True, frozen=True)
@@ -433,9 +508,10 @@ class MeasureBlock:
     capex: float
     opex: float = 0.0
     #: Per-year overrides of the scalar block cost (absolute currency, already
-    #: scaled to the instance). Empty → the scalar applies every year.
+    #: scaled to the instance) and reduction. Empty → the scalar applies every year.
     capex_by_year: dict[int, float] = field(default_factory=dict)
     opex_by_year: dict[int, float] = field(default_factory=dict)
+    reduction_by_year: dict[int, float] = field(default_factory=dict)
 
     def capex_at(self, year: int) -> float:
         """Block adoption capex in ``year`` (per-year override, else the scalar)."""
@@ -444,6 +520,10 @@ class MeasureBlock:
     def opex_at(self, year: int) -> float:
         """Block fixed O&M in ``year`` (per-year override, else the scalar)."""
         return self.opex_by_year.get(year, self.opex)
+
+    def reduction_at(self, year: int) -> float:
+        """Block reduction fraction in ``year`` (per-year override, else the scalar)."""
+        return self.reduction_by_year.get(year, self.reduction)
 
 
 @dataclass(slots=True, frozen=True)
