@@ -72,10 +72,29 @@ def build_workbook() -> dict[str, list[dict[str, Any]]]:
     products = sorted(recipes)
     prod_safe = {p: _safe(p) for p in products}
 
+    # Downstream (Utility-process) plants consume the cracker's olefin output as
+    # feedstock at ~1 t/t — standard mass-conserving polymerisation. The source's
+    # energy table omits material flow, so this is textbook stoichiometry, not a
+    # source number: ethylene is the default building block; the propylene family
+    # routes to propylene. Crackers/BTX make their olefins/aromatics from naphtha
+    # (no monomer input). The olefins are sourceable (crackers → downstream).
+    PROPYLENE_FAMILY = {"PP", "PPG", "Octanol", "Butanol", "Acetone", "Phenol", "AN", "Cumene"}
+    OLEFINS = {"Ethylene", "Propylene"}
+
+    def monomer_of(product: str) -> str | None:
+        if recipes[product]["process"] != "Utility":
+            return None
+        mono = "Propylene" if product in PROPYLENE_FAMILY else "Ethylene"
+        return mono if mono in recipes else None
+
     # ── Streams: fuels (purchasable inputs, real prices) + products ───────────
     commodities = [{"commodity_id": f, "kind": "energy", "purchasable": True} for f in fuels]
     commodities += [
-        {"commodity_id": prod_safe[p], "kind": "product", "unit": "t"} for p in products
+        # olefins are intermediates the chain routes from the crackers, but also
+        # purchasable so a model with a demand mix the crackers can't cover stays feasible.
+        {"commodity_id": prod_safe[p], "kind": "product", "unit": "t",
+         **({"purchasable": True} if p in OLEFINS else {})}
+        for p in products
     ]
     commodity_prices = [
         {"commodity_id": f, "year": y, "price": prices[f][y]}
@@ -123,6 +142,10 @@ def build_workbook() -> dict[str, list[dict[str, Any]]]:
 
     for p in products:
         add_tech(prod_safe[p], recipes[p]["inputs"], p, combustion_co2(recipes[p]["inputs"]))
+        mono = monomer_of(p)
+        if mono:  # downstream plant consumes 1 t of its cracker-olefin monomer
+            io.append({"technology_id": prod_safe[p], "target": prod_safe[mono],
+                       "role": "input", "coefficient": 1.0})
 
     # Cracker alternatives (transitions) for the olefins that have them in the source.
     alt = {(a["technology"], a["product"]): a for a in d["alt_tech"]}

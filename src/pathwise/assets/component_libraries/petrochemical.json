@@ -762,6 +762,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -791,6 +800,15 @@
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Propylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
@@ -826,6 +844,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -855,6 +882,15 @@
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Propylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
@@ -890,6 +926,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -922,6 +967,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -951,6 +1005,15 @@
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
@@ -1113,6 +1176,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Propylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -1186,6 +1258,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -1215,6 +1296,15 @@
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
@@ -1250,6 +1340,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -1279,6 +1378,15 @@
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
@@ -1314,6 +1422,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -1343,6 +1460,15 @@
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
@@ -1378,6 +1504,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -1407,6 +1542,15 @@
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
@@ -1442,6 +1586,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -1471,6 +1624,15 @@
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
@@ -1574,6 +1736,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -1606,6 +1777,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -1635,6 +1815,15 @@
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
@@ -1702,6 +1891,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -1731,6 +1929,15 @@
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
@@ -1766,6 +1973,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -1798,6 +2014,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -1827,6 +2052,15 @@
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
@@ -1894,6 +2128,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Propylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -1949,6 +2192,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -1978,6 +2230,15 @@
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
@@ -2013,6 +2274,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -2042,6 +2312,15 @@
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
@@ -2077,6 +2356,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Propylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -2106,6 +2394,15 @@
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Propylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
@@ -2141,6 +2438,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -2170,6 +2476,15 @@
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
@@ -2205,6 +2520,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -2234,6 +2558,15 @@
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Propylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
@@ -2337,6 +2670,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -2366,6 +2708,15 @@
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
@@ -2401,6 +2752,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -2430,6 +2790,15 @@
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
@@ -2465,6 +2834,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -2494,6 +2872,15 @@
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
@@ -2588,6 +2975,15 @@
           "group": null,
           "share_min": null,
           "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
       "maccs": [],
@@ -2617,6 +3013,15 @@
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
