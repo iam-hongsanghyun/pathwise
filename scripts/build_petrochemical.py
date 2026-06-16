@@ -47,22 +47,9 @@ SRC = ROOT / "scripts" / "sources" / "petrochemical" / "model.json"
 ASSETS = ROOT / "src" / "pathwise" / "assets"
 REF = ROOT / "tests" / "data" / "refs" / "petrochemical_deployment.csv"
 
-# process type → technology id → its product stream.
-TECH = {"Naphtha Cracker": "Naphtha_Cracker", "BTX Plant": "BTX_Plant", "Utility": "Utility"}
-PRODUCT = {"Naphtha_Cracker": "ethylene", "BTX_Plant": "aromatics", "Utility": "utility_heat"}
-# Which technologies each abatement measure applies to (the source's option scope).
-SUBSET = {
-    "Heat_Pump": {"BTX_Plant", "Utility"},  # non-NCC heat
-    "NCC-Electricity": {"Naphtha_Cracker"},  # the cracker
-    "RE_PPA": {"Naphtha_Cracker", "BTX_Plant", "Utility"},  # all electricity
-}
-MEASURE_ID = {"Heat_Pump": "Heat_Pump", "NCC-Electricity": "NCC_Electricity", "RE_PPA": "RE_PPA"}
-MEASURE_LABEL = {
-    "Heat_Pump": "Industrial heat pump (electrify low-temp heat)",
-    "NCC-Electricity": "Electric naphtha cracker (renewable)",
-    "RE_PPA": "Renewable PPA (grid → renewable electricity)",
-}
-LIFETIME = 20
+# All sector mappings (process→technology, technology→product, each measure's
+# technology scope + label, lifetime) live in the vendored model.json `config`
+# block — none are hardcoded here.
 
 
 def _safe(name: str) -> str:
@@ -88,13 +75,17 @@ def build_workbook() -> dict[str, list[dict[str, Any]]]:
     facs = d["facilities"]
     target = {int(k): v for k, v in d["target"].items()}
     macc = {opt: {int(k): v for k, v in by_year.items()} for opt, by_year in d["macc"].items()}
+    cfg = d["config"]
+    tech_of = cfg["tech_of_process"]  # process type → technology id
+    product_of = cfg["product_of_tech"]  # technology id → product stream
+    lifetime = cfg["lifetime"]
 
-    streams = sorted(set(PRODUCT.values()))
+    streams = sorted(set(product_of.values()))
     commodities = [{"commodity_id": s, "kind": "product", "unit": "kt"} for s in streams]
-    technologies = [{"technology_id": t, "actions": "continue"} for t in PRODUCT]
+    technologies = [{"technology_id": t, "actions": "continue"} for t in product_of]
     io = [
         {"technology_id": t, "target": p, "role": "output", "coefficient": 1.0, "is_product": True}
-        for t, p in PRODUCT.items()
+        for t, p in product_of.items()
     ]
 
     # ── Value-chain hierarchy: sector → companies → facility machines ──────────
@@ -122,7 +113,7 @@ def build_workbook() -> dict[str, list[dict[str, Any]]]:
     machines = []
     process_impacts_t = []
     for f in facs:
-        tech = TECH[f["process"]]
+        tech = tech_of[f["process"]]
         nodes.append(
             {
                 "node_id": f["id"],
@@ -149,14 +140,15 @@ def build_workbook() -> dict[str, list[dict[str, Any]]]:
 
     # ── Measures (the MACC) + per-year calibrated cost curve ───────────────────
     measures, maccs, macc_links, measure_blocks, measure_blocks_t = [], [], [], [], []
-    for opt, mid in MEASURE_ID.items():
-        subset = [f for f in facs if TECH[f["process"]] in SUBSET[opt]]
+    for opt, mcfg in cfg["measures"].items():
+        mid, techs = mcfg["id"], mcfg["applies_to_tech"]
+        subset = [f for f in facs if tech_of[f["process"]] in set(techs)]
         n = len(subset)
         measures.append(
-            {"measure_id": mid, "type": "emission_reduction", "target": "CO2", "lifetime": LIFETIME}
+            {"measure_id": mid, "type": "emission_reduction", "target": "CO2", "lifetime": lifetime}
         )
         maccs.append({"macc": mid, "measure_id": mid})
-        for tech in sorted(SUBSET[opt]):
+        for tech in sorted(techs):
             macc_links.append({"macc": mid, "technology": tech})
         measure_blocks.append(
             {"measure_id": mid, "block": 0, "reduction": 0.0, "capex": 0.0, "opex": 0.0}
@@ -168,7 +160,7 @@ def build_workbook() -> dict[str, list[dict[str, Any]]]:
             else:
                 p_src = cell["potential"]
                 sigma = sum(_emission(f, y, m, gef, gef0) for f in subset)
-                book = cell["capex_ann"] * LIFETIME
+                book = cell["capex_ann"] * lifetime
                 row = {
                     "reduction": p_src / sigma if sigma > 0 else 0.0,
                     "capex": book * p_src / n if n else 0.0,
