@@ -243,6 +243,7 @@ export function App() {
             sessionId={sessionId}
             adoptServerModel={adoptServerModel}
             onJointResult={onJointResult}
+            backend={backend}
           />
         )}
         {view === "analytics" && (

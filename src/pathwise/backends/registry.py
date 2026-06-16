@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from pathwise.backends.linopy_backend import LinopyBackend
+from pathwise.backends.macc_backend import MaccBackend
 from pathwise.backends.portfolio_backend import PortfolioBackend
 from pathwise.data.workbook import Workbook
 
@@ -42,3 +43,4 @@ def available_backends() -> list[dict[str, Any]]:
 
 register_backend(LinopyBackend())
 register_backend(PortfolioBackend())
+register_backend(MaccBackend())

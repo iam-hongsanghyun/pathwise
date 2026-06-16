@@ -615,3 +615,44 @@ uv run pytest
 If you add a new library file, add it to `index.json` and ensure the test parametrisation (`LIBRARY_FILES = sorted(p for p in LIB_DIR.glob("*.json") ...`) picks it up automatically — no test edit is needed.
 
 If you add a new example workbook, add an entry to `examples/index.json`. The example workbooks are not auto-validated by CI (they are SQLite), but the build script that generates them should assert both a system-scope and a value-chain-scope solve succeed before writing the file.
+
+## 9. Optimisation methods (backends)
+
+The optimisation *method* is a user choice in **Settings → Optimisation method**, populated from `/api/config`'s `backends` list. Each backend implements the same `run(model, scenario, options)` contract but solves a different problem:
+
+| Backend (`name`) | Label | What it does |
+|---|---|---|
+| `linopy` | linopy + HiGHS | The default MILP: co-optimises the whole fleet/network over the horizon. |
+| `portfolio` | Portfolio (risk vs reward) | Frames candidate transitions as portfolio assets and allocates by risk/reward. |
+| `macc` | MACC (greedy abatement) | Greedy marginal-cost deployment against an emission target — **not** an LP. |
+
+The run path passes the selected method through verbatim (`options.backend`), so a workbook authored for one method is run by whichever method is chosen — the backend reads only the sheets it needs.
+
+### 9a. The MACC (greedy abatement) mode
+
+This mode reproduces the marginal-abatement-cost runners common in sector decarbonisation models (e.g. the Korean petrochemical MACC): rank abatement levers by `$/tCO2`, then each year deploy the cheapest first until the year's required abatement (`BAU − target`) is met or the curve is exhausted. Deployment is **irreversible** (carried forward), so once option potentials saturate, residual emissions can drift above an ever-tightening target — the model does not force the target, it chases it.
+
+It is **sector-agnostic**: all the cost/potential maths live in your build script, which emits three sheets the backend consumes verbatim.
+
+| Sheet | Columns | Meaning |
+|---|---|---|
+| `macc_target` | `year`, `bau`, `target` | The emission line to chase. `required = max(0, bau − target)`. Pre-interpolate to every modelled year. |
+| `macc_curve` | `option_id`, `year`, `potential`, `cost`, `capex` | One row per (option, year). `potential` = max abatement available that year; `cost` = the `$/abated` **ranking key** (cheapest first); `capex` = cost **booked per unit abated** (drives cumulative CAPEX). |
+| `macc_options` | `option_id`, `label`, `available_from` | Optional metadata. `available_from` gates an option to a first year. |
+
+Algorithm, per year (ascending):
+
+```
+required  = max(0, bau − target)
+rows      = curve rows for year with potential>0 and year≥available_from, sorted by cost asc
+remaining = max(0, required − Σ deployed)          # carry-forward (irreversible)
+for option in rows:                                 # cheapest first
+    add = min(remaining, potential − deployed[option])   # ≥ 0, capped at potential
+    deployed[option] += add; remaining −= add
+    cumulative_capex += add × capex
+actual_emissions = bau − Σ deployed
+```
+
+The result carries an `outputs.macc` block (`by_year`, `options`, `cumulative_capex`); `objective` is the final-year cumulative CAPEX; the residual emission path is surfaced under `summary.impacts`. Two unit-conversion subtleties belong in the build script, **not** the backend: bake any annualisation/lifetime factor into the `capex` column (so `Σ add × capex` lands in the units you report), and resolve any mutually-exclusive option choice (e.g. pick one of two carriers) by emitting curve rows only for the chosen option.
+
+See `src/pathwise/backends/macc_backend.py` and `tests/backends/test_macc_backend.py` for the reference implementation and a hand-computed regression test.

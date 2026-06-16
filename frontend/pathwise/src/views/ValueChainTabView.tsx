@@ -40,6 +40,8 @@ interface Props {
   sessionId: string | null;
   adoptServerModel: (wb: Workbook) => void;
   onJointResult: (r: RunResult) => void;
+  /** Optimisation method chosen in Settings (linopy | portfolio | macc | …). */
+  backend?: string;
 }
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
@@ -70,7 +72,7 @@ const inp: React.CSSProperties = {
   fontSize: "0.78rem",
 };
 
-export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServerModel, onJointResult }: Props) {
+export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServerModel, onJointResult, backend = "linopy" }: Props) {
   const [selId, setSelId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [scope, setScope] = useState("system");
@@ -333,7 +335,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
         optimisation_mode: mode,
         coupling: { signals: ["price", "carbon_intensity"], iterations: 3, damping: 0.5 },
       };
-      const r = await runToCompletion(sessionId, scenario, { domain: "process", backend: "linopy" }, setRunning);
+      const r = await runToCompletion(sessionId, scenario, { domain: "process", backend }, setRunning);
       setResult(r);
       if (!isCascade(r)) onJointResult(r); // also surface joint runs in Analytics
     } catch (e) {

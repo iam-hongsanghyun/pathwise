@@ -73,6 +73,41 @@ def portfolio_result(
     return out
 
 
+def macc_result(
+    macc: dict[str, Any],
+    terminology: dict[str, str] | None = None,
+    validation: dict[str, list[str]] | None = None,
+) -> dict[str, Any]:
+    """Result dict for a greedy-MACC backend run.
+
+    Emits the full :func:`empty_result` skeleton (so generic result consumers
+    keep working) plus an ``outputs["macc"]`` block and, for charts that read the
+    standard summary, the residual emission path under ``summary["impacts"]`` and
+    the cumulative-CAPEX path under ``summary["periods"]``. ``objective`` is the
+    final-year cumulative CAPEX (total programme cost).
+
+    Args:
+        macc: The MACC block (per-year deployment, totals, options).
+        terminology: Domain label overrides.
+        validation: Validation report.
+
+    Returns:
+        pathwise's result dict with ``status="optimal"``.
+    """
+    out = empty_result("optimal", terminology, validation)
+    by_year = macc.get("by_year", [])
+    out["objective"] = by_year[-1]["cumulative_capex"] if by_year else None
+    out["outputs"]["macc"] = macc
+    impact = macc.get("impact_id", "CO2")
+    out["summary"]["impacts"] = [
+        {"period": r["year"], "impact": impact, "total": r["actual_emissions"]} for r in by_year
+    ]
+    out["summary"]["periods"] = [
+        {"period": r["year"], "cost": r["cumulative_capex"]} for r in by_year
+    ]
+    return out
+
+
 def extract_results(
     result: SolveResult,
     terminology: dict[str, str] | None = None,
