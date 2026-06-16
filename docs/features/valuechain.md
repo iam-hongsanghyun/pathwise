@@ -98,6 +98,17 @@ downstream horizon.
 }
 ```
 
+## Reading the result on the map (chain over time)
+
+A run is drawn **on the same process map as the model** — there is no separate
+result view. A **year slider** appears above the canvas; scrubbing it steps the
+whole chain through the horizon. For the selected year each machine node shows
+its **active technology** (highlighted, with a `⇄`, in the year it transitions)
+and its throughput, and each link shows the **flow** carried that year (idle
+machines / links dim out). The per-stage status + objective table stays below.
+Both joint (`system`) and cascade (`value_chain`) runs annotate the map this way —
+the result's process ids are the machine-node ids.
+
 ## Where an imported scenario lands
 
 On import the structure (nodes / connections / machines) populates this view,

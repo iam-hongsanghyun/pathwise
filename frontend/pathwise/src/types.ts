@@ -38,6 +38,7 @@ export interface RunResult {
     technology: { process: string; technology: string; period: number }[];
     throughput: { process: string; technology: string; period: number; value: number }[];
     transitions: { process: string; to_technology: string; period: number }[];
+    renewals: { process: string; technology: string; period: number }[];
     measures: {
       process: string | null;
       measure: string;

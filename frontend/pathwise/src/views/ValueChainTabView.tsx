@@ -10,7 +10,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { RelationshipCanvas } from "../features/topology/RelationshipCanvas";
-import { Alternatives, CascadeSummary, FlowContext, MachineInspector, PortsPanel, type CascadeResult } from "../features/valuechain/panels";
+import { Alternatives, buildOverlay, CascadeSummary, FlowContext, MachineInspector, PortsPanel, ResultYearBar, type CascadeResult } from "../features/valuechain/panels";
 import { useDialogs } from "../features/controls/Dialog";
 import { MultiSelect } from "../features/controls/MultiSelect";
 import { SearchableSelect } from "../features/controls/SearchableSelect";
@@ -78,7 +78,8 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   const [mode, setMode] = useState<"valuechain" | "joint" | "independent">("valuechain");
   const [baseYear, setBaseYear] = useState(2025);
   const [running, setRunning] = useState<string | null>(null);
-  const [cascade, setCascade] = useState<CascadeResult | null>(null);
+  const [result, setResult] = useState<RunResult | CascadeResult | null>(null);
+  const [year, setYear] = useState<number | null>(null);
   const [libs, setLibs] = useState<LibrarySummary[]>([]);
   const [availableTechs, setAvailableTechs] = useState<AvailableTechnology[]>([]);
   const [picker, setPicker] = useState<{ parentId: string } | null>(null);
@@ -101,6 +102,21 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   const nodes = useMemo(() => parseNodes(workbook), [workbook]);
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const selNode = selId ? nodeById.get(selId) : null;
+
+  // ── Result overlay (drawn on the same process map, per year) ─────────────────
+  const cascade = result && isCascade(result) ? result : null;
+  const overlayIdx = useMemo(() => (result ? buildOverlay(result) : null), [result]);
+  useEffect(() => {
+    if (overlayIdx && overlayIdx.years.length) {
+      setYear((y) => (y != null && overlayIdx.years.includes(y) ? y : overlayIdx.years[0]));
+    } else {
+      setYear(null);
+    }
+  }, [overlayIdx]);
+  const yearOverlay = useMemo(
+    () => (overlayIdx && year != null ? overlayIdx.at(year) : null),
+    [overlayIdx, year],
+  );
   // The canvas always shows a group's children: the selected group, or a selected
   // machine's parent (so the machine is shown in context).
   const canvasGroupId = selNode?.kind === "machine" ? selNode.parentId : selId;
@@ -301,7 +317,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   async function run() {
     if (!sessionId) return;
     setError(null);
-    setCascade(null);
+    setResult(null);
     setRunning("submitting");
     try {
       const wb = (workbook.periods ?? []).length ? workbook : setSheet(workbook, "periods", [{ year: baseYear, duration_years: 1 }]);
@@ -317,9 +333,9 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
         optimisation_mode: mode,
         coupling: { signals: ["price", "carbon_intensity"], iterations: 3, damping: 0.5 },
       };
-      const result = await runToCompletion(sessionId, scenario, { domain: "process", backend: "linopy" }, setRunning);
-      if (isCascade(result)) setCascade(result);
-      else onJointResult(result);
+      const r = await runToCompletion(sessionId, scenario, { domain: "process", backend: "linopy" }, setRunning);
+      setResult(r);
+      if (!isCascade(r)) onJointResult(r); // also surface joint runs in Analytics
     } catch (e) {
       setError(String(e));
     } finally {
@@ -474,6 +490,9 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
               <div style={{ padding: "4px 14px", fontSize: "0.78rem", color: "var(--muted)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title="drag a child's right dot to another's left dot to link, or right-click a node → Connect">
                 {canvasGroupId ? `Inside ${nodeById.get(canvasGroupId)?.label ?? canvasGroupId} — how its children connect` : "Top level — how the value chains connect"}
               </div>
+              {overlayIdx && year != null && (
+                <ResultYearBar years={overlayIdx.years} year={year} onYear={setYear} />
+              )}
               <RelationshipCanvas
                 wb={workbook}
                 groupId={canvasGroupId}
@@ -484,6 +503,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 commodities={commodities}
                 externalIn={externalIn}
                 externalOut={externalOut}
+                overlay={yearOverlay}
               />
             </div>
           )}

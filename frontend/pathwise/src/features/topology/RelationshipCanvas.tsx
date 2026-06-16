@@ -8,12 +8,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SearchableSelect } from "../controls/SearchableSelect";
 import { childrenOf, columnLayout, levelConnections, parseNodes, type GroupEdge } from "../../lib/groupGraph";
+import type { YearOverlay } from "../valuechain/panels";
 import type { Workbook } from "../../types";
 import { useViewBox } from "./useViewBox";
 
 const NODE_W = 172;
 const NODE_H = 56;
 const DRAG_PX = 3;
+
+function fmtVal(n: number): string {
+  const a = Math.abs(n);
+  if (a >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (a >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
+  return `${Math.round(n)}`;
+}
 
 export interface ExternalStream {
   childId: string;
@@ -32,6 +40,8 @@ interface Props {
   externalIn: ExternalStream[];
   /** Streams a child sells (child → market). */
   externalOut: ExternalStream[];
+  /** When a run result is loaded, per-year annotations to draw on the map. */
+  overlay?: YearOverlay | null;
 }
 
 function edgePath(a: { x: number; y: number }, b: { x: number; y: number }): string {
@@ -53,6 +63,7 @@ export function RelationshipCanvas({
   commodities,
   externalIn,
   externalOut,
+  overlay,
 }: Props) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const { vb, onWheel, onPanStart, onPanMove, onPanEnd, toWorld, fit } = useViewBox();
@@ -147,14 +158,20 @@ export function RelationshipCanvas({
             if (!a || !b) return null;
             const mid = { x: (a.x + NODE_W + b.x) / 2, y: (a.y + b.y) / 2 + NODE_H / 2 - 6 };
             const sel = selEdge === ed.rowIndex;
+            const fv = overlay?.flow(ed.from, ed.to, ed.commodity);
+            const active = fv != null && fv > 1e-6;
+            const label = active
+              ? `${ed.commodity.length > 8 ? `${ed.commodity.slice(0, 7)}…` : ed.commodity} ${fmtVal(fv)}`
+              : `${ed.commodity.length > 11 ? `${ed.commodity.slice(0, 10)}…` : ed.commodity}${ed.lag ? ` ·${ed.lag}y` : ""}`;
+            const w = active ? 84 : 60;
             return (
               <g key={`${ed.rowIndex}`} className="topo-edge" style={{ cursor: "pointer" }}>
-                <path d={edgePath(a, b)} fill="none" stroke={sel ? "#0b5d56" : "#0f766e"} strokeWidth={sel ? 2.4 : 1.4} markerEnd="url(#rc-arrow)" opacity={0.8} />
+                <path d={edgePath(a, b)} fill="none" stroke={sel ? "#0b5d56" : "#0f766e"} strokeWidth={sel ? 2.4 : active ? 2.2 : 1.4} markerEnd="url(#rc-arrow)" opacity={overlay && !active ? 0.3 : 0.8} />
                 {/* fat invisible hit area */}
                 <path d={edgePath(a, b)} fill="none" stroke="transparent" strokeWidth={12} onClick={() => setSelEdge(sel ? null : ed.rowIndex)} />
-                <rect x={mid.x - 30} y={mid.y - 10} width={60} height={15} rx={2} fill="var(--surface)" stroke="var(--border)" strokeWidth={0.8} opacity={0.95} onClick={() => setSelEdge(sel ? null : ed.rowIndex)} />
-                <text x={mid.x} y={mid.y - 1} fontSize={9} fill="var(--muted)" textAnchor="middle" dominantBaseline="middle" style={{ pointerEvents: "none" }}>
-                  {ed.commodity.length > 11 ? `${ed.commodity.slice(0, 10)}…` : ed.commodity}{ed.lag ? ` ·${ed.lag}y` : ""}
+                <rect x={mid.x - w / 2} y={mid.y - 10} width={w} height={15} rx={2} fill="var(--surface)" stroke="var(--border)" strokeWidth={0.8} opacity={0.95} onClick={() => setSelEdge(sel ? null : ed.rowIndex)} />
+                <text x={mid.x} y={mid.y - 1} fontSize={9} fill={active ? "var(--text)" : "var(--muted)"} textAnchor="middle" dominantBaseline="middle" style={{ pointerEvents: "none" }}>
+                  {label}
                 </text>
                 {sel && (
                   <g onClick={() => { onDeleteConnection(ed.rowIndex); setSelEdge(null); }} style={{ cursor: "pointer" }}>
@@ -206,11 +223,21 @@ export function RelationshipCanvas({
             if (!pos) return null;
             const isGroup = nd.kind === "group";
             const isSel = nd.id === selectedChildId;
+            // Result overlay (machine nodes only): active technology + throughput
+            // for the selected year, highlighted in the year it transitions.
+            const tech = overlay?.tech(nd.id);
+            const toTech = overlay?.transitionedTo(nd.id);
+            const tput = overlay?.throughput(nd.id);
+            const idle = !!overlay && !isGroup && tech == null; // ran the result but this machine is off
+            const sub = tech ? (toTech ? `⇄ ${tech}` : tech) : nd.level || nd.id;
+            const stroke = toTech ? "var(--warn)" : isSel ? "var(--brand)" : undefined;
+            const strokeWidth = toTech || isSel ? 2 : undefined;
             return (
               <g
                 key={nd.id}
                 className={`topo-node ${isGroup ? "topo-process" : "topo-commodity"}`}
                 transform={`translate(${pos.x},${pos.y})`}
+                opacity={idle ? 0.45 : 1}
                 onPointerDown={(e) => { e.stopPropagation(); nodeGesture.current = { id: nd.id, x: e.clientX, y: e.clientY, moved: false }; }}
                 onPointerUp={(e) => {
                   e.stopPropagation();
@@ -221,10 +248,13 @@ export function RelationshipCanvas({
                 }}
                 style={{ cursor: "pointer" }}
               >
-                <rect width={NODE_W} height={NODE_H} rx={2} stroke={isSel ? "var(--brand)" : undefined} strokeWidth={isSel ? 2 : undefined} />
+                <rect width={NODE_W} height={NODE_H} rx={2} stroke={stroke} strokeWidth={strokeWidth} />
                 <text className="topo-kind" x={8} y={14}>{isGroup ? "group" : "machine"}</text>
+                {tput != null && (
+                  <text className="topo-kind" x={NODE_W - 8} y={14} textAnchor="end">{fmtVal(tput)}</text>
+                )}
                 <text className="topo-label" x={8} y={31}>{nd.label.length > 22 ? `${nd.label.slice(0, 21)}…` : nd.label}</text>
-                <text className="topo-sub" x={8} y={46}>{nd.level || nd.id}</text>
+                <text className="topo-sub" x={8} y={46} fill={toTech ? "var(--warn-text)" : undefined}>{sub.length > 24 ? `${sub.slice(0, 23)}…` : sub}</text>
                 {/* input port (left) — drop target while connecting */}
                 <circle
                   className="topo-in"

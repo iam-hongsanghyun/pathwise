@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { SearchableSelect } from "../controls/SearchableSelect";
 import { SearchSelect } from "../controls/SearchSelect";
 import type { AvailableTechnology } from "../../lib/api/components";
-import type { Workbook } from "../../types";
+import type { RunResult, Workbook } from "../../types";
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
 const inp: React.CSSProperties = {
@@ -322,9 +322,125 @@ function PortAdder({ commodities, onAdd }: { commodities: string[]; onAdd: (c: s
 // ── Cascade (per-level) result summary ────────────────────────────────────────
 export interface CascadeResult {
   status: string;
-  stages: Record<string, { objective?: number | null; status?: string }>;
+  // Each stage is a full run result — keep all of it (per-year technology,
+  // throughput, transitions, flows) so the result can be drawn on the map.
+  stages: Record<string, RunResult>;
   couplings: { from_stage: string; to_stage: string; commodity: string; signal: string }[];
   iterations: number;
+}
+
+// ── Per-year result overlay (drawn on the process map) ────────────────────────
+
+/** What a single year's result looks like, resolved per node / edge id. */
+export interface YearOverlay {
+  /** Active technology of a machine that year (``undefined`` if it isn't running). */
+  tech: (id: string) => string | undefined;
+  /** If the machine switched technology that year, the technology it switched to. */
+  transitionedTo: (id: string) => string | undefined;
+  /** Throughput of a machine that year. */
+  throughput: (id: string) => number | undefined;
+  /** Flow along a ``from → to`` link for a commodity that year. */
+  flow: (from: string, to: string, commodity: string) => number | undefined;
+}
+
+function _resultsOf(r: RunResult | CascadeResult): RunResult[] {
+  return "stages" in r ? Object.values(r.stages) : [r];
+}
+
+/** Index a run / cascade result by ``(node, year)`` so the map can read any year.
+
+    Works for both a joint solve (one result) and a cascade (one per stage); the
+    process ids in the result are the machine-node ids on the map. */
+export function buildOverlay(r: RunResult | CascadeResult): {
+  years: number[];
+  at: (year: number) => YearOverlay;
+} {
+  const tech = new Map<string, Map<number, string>>();
+  const tput = new Map<string, Map<number, number>>();
+  const trans = new Map<string, Map<number, string>>();
+  const flow = new Map<string, Map<number, number>>();
+  const years = new Set<number>();
+  const set = (m: Map<string, Map<number, string>>, k: string, y: number, v: string) => {
+    (m.get(k) ?? m.set(k, new Map()).get(k)!).set(y, v);
+    years.add(y);
+  };
+  const add = (m: Map<string, Map<number, number>>, k: string, y: number, v: number) => {
+    const inner = m.get(k) ?? m.set(k, new Map()).get(k)!;
+    inner.set(y, (inner.get(y) ?? 0) + v);
+    years.add(y);
+  };
+  for (const res of _resultsOf(r)) {
+    const out = res?.outputs;
+    if (!out) continue;
+    for (const t of out.technology ?? []) set(tech, t.process, t.period, t.technology);
+    for (const x of out.throughput ?? []) add(tput, x.process, x.period, x.value);
+    for (const tr of out.transitions ?? []) set(trans, tr.process, tr.period, tr.to_technology);
+    for (const f of out.flows ?? []) add(flow, `${f.from}|${f.to}|${f.commodity}`, f.period, f.value);
+  }
+  const at = (year: number): YearOverlay => ({
+    tech: (id) => tech.get(id)?.get(year),
+    transitionedTo: (id) => trans.get(id)?.get(year),
+    throughput: (id) => tput.get(id)?.get(year),
+    flow: (from, to, commodity) => flow.get(`${from}|${to}|${commodity}`)?.get(year),
+  });
+  return { years: [...years].sort((a, b) => a - b), at };
+}
+
+/** A slider that scrubs through the result years (the "chain over time" control). */
+export function ResultYearBar({
+  years,
+  year,
+  onYear,
+}: {
+  years: number[];
+  year: number;
+  onYear: (y: number) => void;
+}) {
+  if (years.length === 0) return null;
+  const idx = Math.max(0, years.indexOf(year));
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "5px 14px",
+        borderBottom: "1px solid var(--border)",
+        fontSize: "0.78rem",
+        background: "var(--surface)",
+      }}
+    >
+      <span className="muted">year</span>
+      <button
+        className="ghost"
+        disabled={idx <= 0}
+        onClick={() => onYear(years[idx - 1])}
+        title="previous year"
+      >
+        ◂
+      </button>
+      <input
+        type="range"
+        min={0}
+        max={years.length - 1}
+        step={1}
+        value={idx}
+        onChange={(e) => onYear(years[Number(e.target.value)])}
+        style={{ flex: 1, maxWidth: 320 }}
+        aria-label="result year"
+      />
+      <button
+        className="ghost"
+        disabled={idx >= years.length - 1}
+        onClick={() => onYear(years[idx + 1])}
+        title="next year"
+      >
+        ▸
+      </button>
+      <b style={{ minWidth: 40, textAlign: "right" }}>{year}</b>
+      <span className="muted">· active technology &amp; flows shown on the map</span>
+    </div>
+  );
 }
 
 export function CascadeSummary({ cascade, label }: { cascade: CascadeResult; label: (id: string) => string }) {
