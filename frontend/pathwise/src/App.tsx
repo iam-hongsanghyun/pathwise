@@ -44,6 +44,9 @@ export function App() {
     views: [],
   });
   const [result, setResult] = useState<RunResult | null>(null);
+  // Run status lives here (not in the view) so switching tabs mid-run doesn't
+  // unmount the view and reset the ▶ Run button while the job is still going.
+  const [running, setRunning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [leftW, setLeftW] = useState(232);
   const [examples, setExamples] = useState<ExampleModel[]>([]);
@@ -271,6 +274,8 @@ export function App() {
             adoptServerModel={adoptServerModel}
             onJointResult={onJointResult}
             backend={backend}
+            running={running}
+            setRunning={setRunning}
           />
         )}
         {view === "analytics" && (

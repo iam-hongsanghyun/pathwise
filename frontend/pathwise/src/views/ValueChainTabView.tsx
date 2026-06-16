@@ -42,6 +42,9 @@ interface Props {
   onJointResult: (r: RunResult) => void;
   /** Optimisation method chosen in Settings (linopy | portfolio | macc | …). */
   backend?: string;
+  /** Run status, owned by App so it survives a tab switch mid-run. */
+  running: string | null;
+  setRunning: (v: string | null) => void;
 }
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
@@ -72,7 +75,7 @@ const inp: React.CSSProperties = {
   fontSize: "0.78rem",
 };
 
-export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServerModel, onJointResult, backend = "linopy" }: Props) {
+export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServerModel, onJointResult, backend = "linopy", running, setRunning }: Props) {
   const [selId, setSelId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [scope, setScope] = useState("system");
@@ -80,7 +83,6 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   const [mode, setMode] = useState<"valuechain" | "joint" | "independent">("valuechain");
   const [baseYear, setBaseYear] = useState(2025);
   const [endYear, setEndYear] = useState(2050);
-  const [running, setRunning] = useState<string | null>(null);
   const [result, setResult] = useState<RunResult | CascadeResult | null>(null);
   const [year, setYear] = useState<number | null>(null);
   const [libs, setLibs] = useState<LibrarySummary[]>([]);
