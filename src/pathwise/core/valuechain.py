@@ -40,7 +40,7 @@ import numpy as np
 
 from pathwise.core.build import build
 from pathwise.core.extract import extract_results
-from pathwise.core.solve import solve
+from pathwise.core.solve import options_from_scenario, solve
 from pathwise.data.assemble import assemble_problem
 from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.sheets import (
@@ -201,7 +201,9 @@ def _forward_pass(
     by_source = _links_by_source(spec)
     for sid in spec.order():
         sc = _stage_scenario(base, spec.stage(sid).scenario)
-        results[sid] = extract_results(solve(build(assemble_problem(wbs[sid], sc))))
+        results[sid] = extract_results(
+            solve(build(assemble_problem(wbs[sid], sc)), options_from_scenario(sc))
+        )
         for link in by_source.get(sid, []):
             target_years = _years(wbs[link.to_stage])
             # marginal_price (finite-difference) takes precedence over the
@@ -292,7 +294,8 @@ def marginal_price(wb: Workbook, scenario: ScenarioConfig, commodity: str) -> di
     demand row to perturb or a solve is non-optimal.
     """
     prob = assemble_problem(wb, scenario)
-    base = solve(build(prob))
+    opts = options_from_scenario(scenario)
+    base = solve(build(prob), opts)
     if base.objective is None:
         return {}
     duration = {p.year: p.duration_years for p in prob.periods}
@@ -322,7 +325,7 @@ def marginal_price(wb: Workbook, scenario: ScenarioConfig, commodity: str) -> di
                 and _as_int(r.get("year")) == y
             ):
                 r["amount"] = float(r.get("amount") or 0.0) + eps
-        bumped = solve(build(assemble_problem(wb2, scenario)))
+        bumped = solve(build(assemble_problem(wb2, scenario)), opts)
         if bumped.objective is None:
             continue
         out[y] = (bumped.objective - base.objective) / eps / weight

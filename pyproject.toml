@@ -76,3 +76,9 @@ disallow_any_generics = false
 testpaths = ["tests"]
 addopts = "-q"
 pythonpath = ["src"]
+# `slow` marks the heavy realistic-model solves (the multi-geography green-steel
+# example, the per-chain library solves, the steel regression). CI runs the full
+# suite; for a fast local pass skip them with:  uv run pytest -m "not slow"
+markers = [
+    "slow: heavy realistic-model solve (skip with -m 'not slow' for a fast pass)",
+]

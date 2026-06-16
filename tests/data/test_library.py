@@ -57,6 +57,7 @@ def test_library_file_is_valid_and_referenced(path: Path) -> None:
             )
 
 
+@pytest.mark.slow  # solves every shipped library chain (heavy; skip with -m "not slow")
 @pytest.mark.parametrize("path", LIBRARY_FILES, ids=lambda p: p.stem)
 def test_every_chain_solves_optimal(path: Path) -> None:
     lib = load_library(path)

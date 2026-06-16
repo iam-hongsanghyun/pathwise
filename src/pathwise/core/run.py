@@ -15,7 +15,7 @@ from typing import Any
 from pathwise.core.build import build
 from pathwise.core.extract import extract_results
 from pathwise.core.partition import is_partitionable, partition, subset_workbook
-from pathwise.core.solve import solve
+from pathwise.core.solve import options_from_scenario, solve
 from pathwise.core.valuechain import run_value_chain
 from pathwise.data.assemble import assemble_problem
 from pathwise.data.hierarchy import load_hierarchy
@@ -40,17 +40,18 @@ def run_model(
     hierarchy = load_hierarchy(workbook)
     level = scenario.optimisation_scope
     targets = scenario.optimisation_targets or None
+    opts = options_from_scenario(scenario)
 
     # Whole-model joint solve (no hierarchy, or the root/system level).
     if hierarchy is None or level == "system":
         return extract_results(
-            solve(build(assemble_problem(workbook, scenario))), terminology, report
+            solve(build(assemble_problem(workbook, scenario)), opts), terminology, report
         )
 
     units = [c for c in hierarchy.nodes_at_level(level) if not targets or c in set(targets)]
     if not units:  # nothing matched → fall back to the whole model
         return extract_results(
-            solve(build(assemble_problem(workbook, scenario))), terminology, report
+            solve(build(assemble_problem(workbook, scenario)), opts), terminology, report
         )
 
     mode = scenario.optimisation_mode
@@ -59,7 +60,9 @@ def run_model(
     # subtrees solved together as one problem.
     if mode == "joint" or not is_partitionable(hierarchy, level, targets):
         sub = subset_workbook(workbook, hierarchy, units)
-        return extract_results(solve(build(assemble_problem(sub, scenario))), terminology, report)
+        return extract_results(
+            solve(build(assemble_problem(sub, scenario)), opts), terminology, report
+        )
 
     # INDEPENDENT: each unit solved entirely on its own (no coupling; it trades
     # with the market). Reported in the same per-stage shape as the cascade.
@@ -68,7 +71,10 @@ def run_model(
         ok = True
         for u in units:
             r = extract_results(
-                solve(build(assemble_problem(subset_workbook(workbook, hierarchy, [u]), scenario)))
+                solve(
+                    build(assemble_problem(subset_workbook(workbook, hierarchy, [u]), scenario)),
+                    opts,
+                )
             )
             stages[u] = {"status": r["status"], "objective": r["objective"]}
             ok = ok and r["status"] == "optimal"

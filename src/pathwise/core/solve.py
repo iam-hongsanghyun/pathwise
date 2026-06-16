@@ -66,6 +66,25 @@ class SolverOptions:
         return kwargs
 
 
+def options_from_scenario(scenario: Any) -> SolverOptions:
+    """Build :class:`SolverOptions` from a scenario's ``solver`` sub-config.
+
+    Lets the hierarchy / value-chain solve paths honour the scenario's solver
+    tuning (name, MIP gap, threads, time limit) instead of always falling back to
+    the defaults. Duck-typed (reads attributes, no import) to avoid a
+    ``core → data`` dependency cycle; returns the defaults if no solver config.
+    """
+    s = getattr(scenario, "solver", None)
+    if s is None:
+        return SolverOptions()
+    return SolverOptions(
+        solver_name=str(getattr(s, "name", "highs")),
+        time_limit_s=float(getattr(s, "time_limit_s", 600.0)),
+        mip_rel_gap=float(getattr(s, "mip_gap", 0.01)),
+        threads=int(getattr(s, "threads", 4)),
+    )
+
+
 @dataclass(slots=True)
 class SolveResult:
     """Outcome of a solve.

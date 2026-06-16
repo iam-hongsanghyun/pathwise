@@ -8,8 +8,13 @@ uneconomic, so the least-cost pathway decarbonises by the later years.
 
 from __future__ import annotations
 
+import pytest
+
 from pathwise.core import build, extract_results, solve
 from pathwise.data import ScenarioConfig, assemble_problem
+
+# A full 6-period decarbonisation pathway — heavy; skip in fast runs.
+pytestmark = pytest.mark.slow
 
 YEARS = [2025, 2030, 2035, 2040, 2045, 2050]
 
