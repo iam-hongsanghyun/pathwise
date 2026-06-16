@@ -24,6 +24,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from pathwise.data.sheets import CONNECTIONS, MACHINES, NODES, PORTS
+
 Workbook = dict[str, list[dict[str, Any]]]
 
 
@@ -269,7 +271,7 @@ class Hierarchy:
 
 def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
     """Parse the optional node-tree sheets, or ``None`` for a flat model."""
-    node_rows = [r for r in workbook.get("nodes", []) if _str(r.get("node_id"))]
+    node_rows = [r for r in workbook.get(NODES, []) if _str(r.get("node_id"))]
     if not node_rows:
         return None
 
@@ -290,7 +292,7 @@ def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
         )
 
     machines: dict[str, Machine] = {}
-    for r in workbook.get("machines", []):
+    for r in workbook.get(MACHINES, []):
         mid = _str(r.get("machine_id"))
         if mid is None:
             continue
@@ -302,7 +304,7 @@ def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
         )
 
     connections: list[Connection] = []
-    for r in workbook.get("connections", []):
+    for r in workbook.get(CONNECTIONS, []):
         f, t, c = _str(r.get("from_node")), _str(r.get("to_node")), _str(r.get("commodity_id"))
         if f and t and c:
             connections.append(
@@ -316,7 +318,7 @@ def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
             )
 
     ports: list[Port] = []
-    for r in workbook.get("ports", []):
+    for r in workbook.get(PORTS, []):
         nid, c = _str(r.get("node_id")), _str(r.get("commodity_id"))
         direction = (_str(r.get("direction")) or "in").lower()
         if nid and c and direction in {"in", "out"}:

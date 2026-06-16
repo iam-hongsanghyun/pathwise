@@ -17,6 +17,19 @@ consumes directly.
 
 This is the "vertical" (composition) and "horizontal" (connections) design,
 together, as data.
+
+.. note:: **Two distinct "library" concepts exist in pathwise.**
+
+   This module defines :class:`ComponentLibrary` — the *component library*: the
+   editable, SQLite-backed catalogue of technologies, commodities, measures, and
+   MACCs that the authoring UI builds interactively.  It is the authorable
+   palette a user populates and then places into a value-chain model.
+
+   A separate concept is the *facility-template library* (:class:`pathwise.data.library.Library`),
+   which holds static, read-only JSON assets (prebuilt facility archetypes and
+   process chains) that users insert wholesale into a model without editing them.
+   The two libraries operate at different layers and serve different purposes;
+   neither is a subset of the other.
 """
 
 from __future__ import annotations
@@ -37,6 +50,24 @@ from pathwise.data.library import (
     _measure_block_t_rows,
     _tech_row,
 )
+from pathwise.data.sheets import (
+    COMMODITIES,
+    COMMODITY_PRICES,
+    CONNECTIONS,
+    GROUPS,
+    IMPACTS,
+    IO,
+    MACCS,
+    MACHINES,
+    MEASURE_BLOCKS,
+    MEASURE_BLOCKS_T,
+    MEASURES,
+    META,
+    NODES,
+    TECHNOLOGIES,
+    TECHNOLOGIES_PRICES,
+    TRANSITIONS,
+)
 from pathwise.data.workbook import Workbook
 
 
@@ -47,6 +78,12 @@ class MachineComponent(BaseModel):
     "MACC subgroup" authored next to the machine in the Component builder).
     Instantiating the machine stamps each measure onto the resulting node, with
     block capex/opex scaled to the instance capacity.
+
+    .. deprecated:: legacy / backward-compat
+        The builder no longer authors :class:`MachineComponent` objects; the
+        Value Chain places a technology directly as a machine node via
+        :func:`place_technology`.  This class is retained only to round-trip
+        legacy ``machines`` sheet rows from older SQLite component libraries.
     """
 
     name: str
@@ -76,7 +113,15 @@ class ConnectionTemplate(BaseModel):
 
 
 class GroupComponent(BaseModel):
-    """A composite component: named children + the connections that wire them."""
+    """A composite component: named children + the connections that wire them.
+
+    .. deprecated:: legacy / backward-compat
+        The builder no longer authors :class:`GroupComponent` objects; composite
+        structures are expressed directly in the ``nodes`` / ``connections``
+        hierarchy via :func:`instantiate_into`.  This class is retained only to
+        round-trip legacy ``groups`` sheet rows from older SQLite component
+        libraries.
+    """
 
     name: str
     label: str = ""
@@ -218,10 +263,10 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
         # Sector notes are keyed by a present-or-absent dict, so (unlike entity
         # notes, where "" is the default) an explicit empty value is meaningful
         # and must be stored — never drop a present key.
-        "meta": [{"key": "label", "value": lib.label}]
+        META: [{"key": "label", "value": lib.label}]
         + [{"key": f"sector_note:{k}", "value": v} for k, v in lib.notes_by_sector.items()],
-        "commodities": [_commodity_row(c) for c in lib.commodities],
-        "technologies": [
+        COMMODITIES: [_commodity_row(c) for c in lib.commodities],
+        TECHNOLOGIES: [
             with_notes(
                 {
                     "technology_id": t.technology_id,
@@ -236,12 +281,12 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
             )
             for t in lib.technologies
         ],
-        "io": [
+        IO: [
             {"technology_id": t.technology_id, **r.model_dump()}
             for t in lib.technologies
             for r in t.io
         ],
-        "measures": [
+        MEASURES: [
             with_notes(
                 {
                     "measure_id": m.measure_id,
@@ -254,7 +299,7 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
             )
             for m in lib.measures
         ],
-        "measure_blocks": [
+        MEASURE_BLOCKS: [
             {
                 "measure_id": m.measure_id,
                 "block": i,
@@ -265,14 +310,14 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
             for m in lib.measures
             for i, b in enumerate(m.blocks)
         ],
-        "maccs": [
+        MACCS: [
             with_notes(
                 {"macc_id": g.macc_id, "label": g.label, "measures": "|".join(g.measures)},
                 g.notes,
             )
             for g in lib.maccs
         ],
-        "machines": [
+        MACHINES: [
             {
                 "name": mc.name,
                 "label": mc.label,
@@ -282,7 +327,7 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
             }
             for mc in lib.machines
         ],
-        "groups": [
+        GROUPS: [
             with_notes(
                 {
                     "name": g.name,
@@ -299,11 +344,11 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
     # Per-year cost trajectories — only when populated (keeps trajectory-free
     # libraries byte-identical to the legacy sheets).
     if cp := _commodity_price_rows(lib):
-        wb["commodity_prices"] = cp
+        wb[COMMODITY_PRICES] = cp
     if tp := _technology_price_rows(lib):
-        wb["technologies_prices"] = tp
+        wb[TECHNOLOGIES_PRICES] = tp
     if mb := _measure_block_traj_rows(lib):
-        wb["measure_blocks_t"] = mb
+        wb[MEASURE_BLOCKS_T] = mb
     return wb
 
 
@@ -392,36 +437,36 @@ def _read_traj(
 def library_from_workbook(wb: Workbook) -> ComponentLibrary:
     """Reconstruct a component library from its ``library_to_workbook`` sheets."""
     label = next(
-        (_es(r.get("value")) for r in wb.get("meta", []) if _es(r.get("key")) == "label"), ""
+        (_es(r.get("value")) for r in wb.get(META, []) if _es(r.get("key")) == "label"), ""
     )
     notes_by_sector: dict[str, str] = {}
-    for r in wb.get("meta", []):
+    for r in wb.get(META, []):
         key = _es(r.get("key"))
         if key.startswith("sector_note:"):
             notes_by_sector[key[len("sector_note:") :]] = _es(r.get("value"))
 
     # Per-year trajectories (long-format sheets; absent → empty → scalar fallback).
     comm_traj = _read_traj(
-        [{**r, "_key": _es(r.get("commodity_id"))} for r in wb.get("commodity_prices", [])],
+        [{**r, "_key": _es(r.get("commodity_id"))} for r in wb.get(COMMODITY_PRICES, [])],
         "price",
         "sale_price",
     )
     tech_traj = _read_traj(
-        [{**r, "_key": _es(r.get("technology_id"))} for r in wb.get("technologies_prices", [])],
+        [{**r, "_key": _es(r.get("technology_id"))} for r in wb.get(TECHNOLOGIES_PRICES, [])],
         "capex",
         "opex",
     )
     block_traj = _read_traj(
         [
             {**r, "_key": (_es(r.get("measure_id")), _year(r.get("block")) or 0)}
-            for r in wb.get("measure_blocks_t", [])
+            for r in wb.get(MEASURE_BLOCKS_T, [])
         ],
         "capex_per_capacity",
         "opex_per_capacity",
     )
 
     io_by: dict[str, list[IoRow]] = {}
-    for r in wb.get("io", []):
+    for r in wb.get(IO, []):
         tid = _es(r.get("technology_id"))
         io_by.setdefault(tid, []).append(
             IoRow(
@@ -457,11 +502,11 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
             maccs=split(r.get("maccs")),
             notes=_es(r.get("notes")),
         )
-        for r in wb.get("technologies", [])
+        for r in wb.get(TECHNOLOGIES, [])
     ]
 
     blocks_by: dict[str, list[dict[str, object]]] = {}
-    for r in wb.get("measure_blocks", []):
+    for r in wb.get(MEASURE_BLOCKS, []):
         blocks_by.setdefault(_es(r.get("measure_id")), []).append(r)
     measures = [
         MeasureTemplate(
@@ -488,7 +533,7 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
             ],
             notes=_es(r.get("notes")),
         )
-        for r in wb.get("measures", [])
+        for r in wb.get(MEASURES, [])
     ]
 
     maccs = [
@@ -498,7 +543,7 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
             measures=split(r.get("measures")),
             notes=_es(r.get("notes")),
         )
-        for r in wb.get("maccs", [])
+        for r in wb.get(MACCS, [])
     ]
     commodities = [
         CommodityTemplate(
@@ -514,7 +559,7 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
             sector=_es(r.get("sector")) or None,
             notes=_es(r.get("notes")),
         )
-        for r in wb.get("commodities", [])
+        for r in wb.get(COMMODITIES, [])
     ]
     machines = [
         MachineComponent(
@@ -527,7 +572,7 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
                 for m in json.loads(_es(r.get("measures_json")) or "[]")
             ],
         )
-        for r in wb.get("machines", [])
+        for r in wb.get(MACHINES, [])
     ]
     groups = [
         GroupComponent(
@@ -543,7 +588,7 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
             ],
             notes=_es(r.get("notes")),
         )
-        for r in wb.get("groups", [])
+        for r in wb.get(GROUPS, [])
     ]
     return ComponentLibrary(
         label=label,
@@ -676,26 +721,26 @@ def instantiate(
         commodities.append(row)
 
     out: Workbook = {
-        "nodes": nodes,
-        "machines": machines,
-        "connections": connections,
-        "technologies": technologies,
-        "io": io,
-        "commodities": commodities,
-        "impacts": [{"impact_id": i, "unit": "t"} for i in sorted(impact_ids)],
+        NODES: nodes,
+        MACHINES: machines,
+        CONNECTIONS: connections,
+        TECHNOLOGIES: technologies,
+        IO: io,
+        COMMODITIES: commodities,
+        IMPACTS: [{"impact_id": i, "unit": "t"} for i in sorted(impact_ids)],
     }
     if measures:
-        out["measures"] = measures
-        out["measure_blocks"] = measure_blocks
+        out[MEASURES] = measures
+        out[MEASURE_BLOCKS] = measure_blocks
         if measure_blocks_t:
-            out["measure_blocks_t"] = measure_blocks_t
+            out[MEASURE_BLOCKS_T] = measure_blocks_t
     # Per-year cost trajectories so authored per-year capex/opex/price drive the
     # optimiser once the instance is solved (assembler reads these sheets).
     if tp := _technology_price_rows(library):
-        out["technologies_prices"] = tp
+        out[TECHNOLOGIES_PRICES] = tp
     cp = [row for c in library.commodities for row in _commodity_traj_rows(c)]
     if cp:
-        out["commodity_prices"] = cp
+        out[COMMODITY_PRICES] = cp
     return out
 
 
@@ -731,7 +776,7 @@ def instantiate_into(
         KeyError: If ``component`` (or a referenced child) is not in the library.
     """
     wb: Workbook = {k: list(v) for k, v in model.items()}
-    have_nodes = {str(r.get("node_id")) for r in wb.get("nodes", [])}
+    have_nodes = {str(r.get("node_id")) for r in wb.get(NODES, [])}
     root_id = instance_id or f"{parent_id}/{component}"
     base, n = root_id, 2
     while root_id in have_nodes:
@@ -739,49 +784,49 @@ def instantiate_into(
         n += 1
 
     fresh = instantiate(library, component, instance_id=root_id)
-    for row in fresh["nodes"]:
+    for row in fresh[NODES]:
         if row["node_id"] == root_id:
             row["parent_id"] = parent_id
 
     # measure_blocks_t rows are per-instance (path-qualified measure ids), so
     # they append cleanly like measure_blocks.
     append_keys = (
-        "nodes",
-        "machines",
-        "connections",
-        "measures",
-        "measure_blocks",
-        "measure_blocks_t",
+        NODES,
+        MACHINES,
+        CONNECTIONS,
+        MEASURES,
+        MEASURE_BLOCKS,
+        MEASURE_BLOCKS_T,
     )
     for key in append_keys:
         if fresh.get(key):
             wb.setdefault(key, []).extend(fresh[key])
 
-    _merge_by(wb, fresh, "technologies", "technology_id")
-    _merge_by(wb, fresh, "commodities", "commodity_id")
-    _merge_by(wb, fresh, "impacts", "impact_id")
+    _merge_by(wb, fresh, TECHNOLOGIES, "technology_id")
+    _merge_by(wb, fresh, COMMODITIES, "commodity_id")
+    _merge_by(wb, fresh, IMPACTS, "impact_id")
     # io rows have no single id; key on (technology_id, target, role) and only
     # add rows for technologies the model did not already carry.
-    have_tech = {str(r.get("technology_id")) for r in model.get("technologies", [])}
-    wb.setdefault("io", [])
-    for row in fresh.get("io", []):
+    have_tech = {str(r.get("technology_id")) for r in model.get(TECHNOLOGIES, [])}
+    wb.setdefault(IO, [])
+    for row in fresh.get(IO, []):
         if str(row.get("technology_id")) not in have_tech:
-            wb["io"].append(row)
+            wb[IO].append(row)
     # Trajectory rows are multi-row-per-entity, so merge by entity (skip an
     # entity entirely when the model already carried it — the recipe is shared).
-    have_comm = {str(r.get("commodity_id")) for r in model.get("commodities", [])}
+    have_comm = {str(r.get("commodity_id")) for r in model.get(COMMODITIES, [])}
     new_tp = [
         r
-        for r in fresh.get("technologies_prices", [])
+        for r in fresh.get(TECHNOLOGIES_PRICES, [])
         if str(r.get("technology_id")) not in have_tech
     ]
     if new_tp:
-        wb.setdefault("technologies_prices", []).extend(new_tp)
+        wb.setdefault(TECHNOLOGIES_PRICES, []).extend(new_tp)
     new_cp = [
-        r for r in fresh.get("commodity_prices", []) if str(r.get("commodity_id")) not in have_comm
+        r for r in fresh.get(COMMODITY_PRICES, []) if str(r.get("commodity_id")) not in have_comm
     ]
     if new_cp:
-        wb.setdefault("commodity_prices", []).extend(new_cp)
+        wb.setdefault(COMMODITY_PRICES, []).extend(new_cp)
     return wb
 
 
@@ -825,7 +870,7 @@ def _merge_tech_traj(wb: Workbook, tech: TechnologyTemplate) -> None:
     traj = _tech_traj_rows(tech)
     if not traj:
         return
-    rows = wb.setdefault("technologies_prices", [])
+    rows = wb.setdefault(TECHNOLOGIES_PRICES, [])
     if any(str(r.get("technology_id")) == tech.technology_id for r in rows):
         return
     rows.extend(traj)
@@ -836,7 +881,7 @@ def _merge_commodity_traj(wb: Workbook, c: CommodityTemplate) -> None:
     traj = _commodity_traj_rows(c)
     if not traj:
         return
-    rows = wb.setdefault("commodity_prices", [])
+    rows = wb.setdefault(COMMODITY_PRICES, [])
     if any(str(r.get("commodity_id")) == c.commodity_id for r in rows):
         return
     rows.extend(traj)
@@ -867,14 +912,14 @@ def place_technology(
         raise KeyError(f"unknown technology '{technology_id}'")
 
     wb: Workbook = {k: list(v) for k, v in model.items()}
-    have_nodes = {str(r.get("node_id")) for r in wb.get("nodes", [])}
+    have_nodes = {str(r.get("node_id")) for r in wb.get(NODES, [])}
     node_id = instance_id or f"{parent_id}/{technology_id}"
     base, n = node_id, 2
     while node_id in have_nodes:
         node_id = f"{base}-{n}"
         n += 1
 
-    wb.setdefault("nodes", []).append(
+    wb.setdefault(NODES, []).append(
         {
             "node_id": node_id,
             "parent_id": parent_id,
@@ -883,24 +928,24 @@ def place_technology(
             "label": technology_id,
         }
     )
-    wb.setdefault("machines", []).append(
+    wb.setdefault(MACHINES, []).append(
         {"machine_id": node_id, "baseline_technology": technology_id, "capacity": capacity}
     )
 
-    _merge_row(wb, "technologies", "technology_id", _tech_row(tech))
+    _merge_row(wb, TECHNOLOGIES, "technology_id", _tech_row(tech))
     _merge_tech_traj(wb, tech)
-    if all(str(r.get("technology_id")) != technology_id for r in model.get("io", [])):
-        wb.setdefault("io", []).extend(_io_rows(tech))
+    if all(str(r.get("technology_id")) != technology_id for r in model.get(IO, [])):
+        wb.setdefault(IO, []).extend(_io_rows(tech))
     inputs_outputs = {r.target for r in tech.io if r.role != "impact"}
     for c in library.commodities:
         if c.commodity_id in inputs_outputs:
-            _merge_row(wb, "commodities", "commodity_id", _commodity_row(c))
+            _merge_row(wb, COMMODITIES, "commodity_id", _commodity_row(c))
             _merge_commodity_traj(wb, c)
     for imp in sorted({r.target for r in tech.io if r.role == "impact"}):
-        _merge_row(wb, "impacts", "impact_id", {"impact_id": imp, "unit": "t"})
+        _merge_row(wb, IMPACTS, "impact_id", {"impact_id": imp, "unit": "t"})
 
-    measures = wb.setdefault("measures", [])
-    blocks = wb.setdefault("measure_blocks", [])
+    measures = wb.setdefault(MEASURES, [])
+    blocks = wb.setdefault(MEASURE_BLOCKS, [])
     for m in library.technology_measures(technology_id):
         mid = f"{node_id} · {m.measure_id}"
         measures.append(
@@ -923,7 +968,7 @@ def place_technology(
                 }
             )
             if t_rows := _measure_block_t_rows(mid, i, blk, capacity):
-                wb.setdefault("measure_blocks_t", []).extend(t_rows)
+                wb.setdefault(MEASURE_BLOCKS_T, []).extend(t_rows)
     return wb
 
 
@@ -952,19 +997,19 @@ def add_alternative(
         raise KeyError(f"unknown technology '{technology_id}'")
 
     wb: Workbook = {k: list(v) for k, v in model.items()}
-    _merge_row(wb, "technologies", "technology_id", _tech_row(tech))
+    _merge_row(wb, TECHNOLOGIES, "technology_id", _tech_row(tech))
     _merge_tech_traj(wb, tech)
-    if all(str(r.get("technology_id")) != technology_id for r in model.get("io", [])):
-        wb.setdefault("io", []).extend(_io_rows(tech))
+    if all(str(r.get("technology_id")) != technology_id for r in model.get(IO, [])):
+        wb.setdefault(IO, []).extend(_io_rows(tech))
     inputs_outputs = {r.target for r in tech.io if r.role != "impact"}
     for c in library.commodities:
         if c.commodity_id in inputs_outputs:
-            _merge_row(wb, "commodities", "commodity_id", _commodity_row(c))
+            _merge_row(wb, COMMODITIES, "commodity_id", _commodity_row(c))
             _merge_commodity_traj(wb, c)
     for imp in sorted({r.target for r in tech.io if r.role == "impact"}):
-        _merge_row(wb, "impacts", "impact_id", {"impact_id": imp, "unit": "t"})
+        _merge_row(wb, IMPACTS, "impact_id", {"impact_id": imp, "unit": "t"})
 
-    transitions = wb.setdefault("transitions", [])
+    transitions = wb.setdefault(TRANSITIONS, [])
     exists = any(
         str(r.get("from_technology")) == from_technology
         and str(r.get("to_technology")) == technology_id
@@ -1020,7 +1065,7 @@ def extract_library_from_workbook(workbook: Workbook, *, label: str = "") -> Com
     """
     commodities: list[CommodityTemplate] = []
     seen_c: set[str] = set()
-    for r in workbook.get("commodities", []):
+    for r in workbook.get(COMMODITIES, []):
         cid = _es(r.get("commodity_id"))
         if not cid or cid in seen_c:
             continue
@@ -1042,7 +1087,7 @@ def extract_library_from_workbook(workbook: Workbook, *, label: str = "") -> Com
         )
 
     io_by_tech: dict[str, list[IoRow]] = {}
-    for r in workbook.get("io", []):
+    for r in workbook.get(IO, []):
         tid = _es(r.get("technology_id"))
         role = _es(r.get("role")) or "input"
         if not tid or role not in ("input", "output", "impact"):
@@ -1065,7 +1110,7 @@ def extract_library_from_workbook(workbook: Workbook, *, label: str = "") -> Com
 
     technologies: list[TechnologyTemplate] = []
     seen_t: set[str] = set()
-    for r in workbook.get("technologies", []):
+    for r in workbook.get(TECHNOLOGIES, []):
         tid = _es(r.get("technology_id"))
         if not tid or tid in seen_t or not io_by_tech.get(tid):
             continue  # a technology with no recoverable io can't be represented
@@ -1084,11 +1129,11 @@ def extract_library_from_workbook(workbook: Workbook, *, label: str = "") -> Com
         )
 
     blocks_by_m: dict[str, list[dict[str, object]]] = {}
-    for r in workbook.get("measure_blocks", []):
+    for r in workbook.get(MEASURE_BLOCKS, []):
         blocks_by_m.setdefault(_es(r.get("measure_id")), []).append(r)
     measures: list[MeasureTemplate] = []
     seen_m: set[str] = set()
-    for r in workbook.get("measures", []):
+    for r in workbook.get(MEASURES, []):
         mid = _es(r.get("measure_id"))
         base = mid.split(" · ")[-1]  # de-instantiate the per-facility prefix
         if not base or base in seen_m:

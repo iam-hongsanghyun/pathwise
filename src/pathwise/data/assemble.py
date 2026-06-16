@@ -31,6 +31,55 @@ from pathwise.core.entities import (
 from pathwise.core.problem import CostToggles, Problem
 from pathwise.data.hierarchy import Hierarchy, load_hierarchy
 from pathwise.data.scenario import ScenarioConfig
+from pathwise.data.sheets import (
+    COMMODITIES,
+    COMMODITIES_T_MAX_PURCHASE,
+    COMMODITIES_T_PRICE,
+    COMMODITIES_T_SALE_PRICE,
+    COMMODITY_IMPACTS,
+    COMMODITY_IMPACTS_T,
+    COMMODITY_PRICES,
+    COMPANY_CONFIG,
+    DEMAND,
+    DEMAND_T_AMOUNT,
+    EDGES,
+    IMPACT_CAPS,
+    IMPACT_CAPS_T_LIMIT,
+    IMPACT_PRICES,
+    IMPACTS,
+    IMPACTS_T_PRICE,
+    INVESTMENT_BUDGET,
+    INVESTMENT_BUDGET_T_LIMIT,
+    IO,
+    MACC_LINKS,
+    MACCS,
+    MARKET_PRICES,
+    MARKETS,
+    MARKETS_T_ALLOCATION,
+    MARKETS_T_PRICE,
+    MARKETS_T_SELL_PRICE,
+    MEASURE_BLOCKS,
+    MEASURE_BLOCKS_T,
+    MEASURE_LINKS,
+    MEASURES,
+    META,
+    MIN_PRODUCTION,
+    MIN_PRODUCTION_T_AMOUNT,
+    NODE_LAYOUT,
+    PERIODS,
+    PROCESS_INPUTS,
+    PROCESS_OUTPUTS,
+    PROCESSES,
+    PROCESSES_T_CAPACITY,
+    STORAGE,
+    TECH_IMPACTS,
+    TECHNOLOGIES,
+    TECHNOLOGIES_PRICES,
+    TECHNOLOGIES_T_CAPEX,
+    TECHNOLOGIES_T_OPEX,
+    TECHNOLOGIES_T_RENEWAL,
+    TRANSITIONS,
+)
 from pathwise.data.trajectory import interpolate
 from pathwise.data.workbook import Workbook
 
@@ -90,7 +139,7 @@ def _enabled(r: dict[str, Any]) -> bool:
 
 
 def _meta(wb: Workbook) -> dict[str, Any]:
-    return {str(r.get("key")): r.get("value") for r in _rows(wb, "meta")}
+    return {str(r.get("key")): r.get("value") for r in _rows(wb, META)}
 
 
 def _wide_temporal(wb: Workbook, sheet: str) -> dict[str, dict[int, float]]:
@@ -198,7 +247,7 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
     # destination subtree (resolved via each machine's technology I/O).
     io_out: dict[str, set[str]] = {}
     io_in: dict[str, set[str]] = {}
-    for r in workbook.get("io", []):
+    for r in workbook.get(IO, []):
         tech, role, tgt = _str(r.get("technology_id")), _str(r.get("role")), _str(r.get("target"))
         coef = _num(r.get("coefficient")) or 0.0
         if not tech or not tgt:
@@ -223,7 +272,7 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
             if commodity in io_in.get(machine_tech.get(m, ""), set())
         ]
 
-    edges = list(workbook.get("edges", []))
+    edges = list(workbook.get(EDGES, []))
     seen_edges: set[tuple[str, str, str]] = set()
     for c in h.connections:
         for s in producers(c.from_node, c.commodity_id):
@@ -240,7 +289,7 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
                     edge["max_flow"] = c.max_flow
                 edges.append(edge)
 
-    return {**workbook, "processes": procs, "edges": edges}
+    return {**workbook, PROCESSES: procs, EDGES: edges}
 
 
 def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
@@ -263,14 +312,13 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     econ = scenario.economics
 
     # ── Periods / horizon ────────────────────────────────────────────────────
-    years = sorted(int(r["year"]) for r in _rows(workbook, "periods"))
+    years = sorted(int(r["year"]) for r in _rows(workbook, PERIODS))
     if scenario.horizon.start is not None:
         years = [y for y in years if y >= scenario.horizon.start]
     if scenario.horizon.end is not None:
         years = [y for y in years if y <= scenario.horizon.end]
     duration = {
-        int(r["year"]): _num(r.get("duration_years"), 1.0) or 1.0
-        for r in _rows(workbook, "periods")
+        int(r["year"]): _num(r.get("duration_years"), 1.0) or 1.0 for r in _rows(workbook, PERIODS)
     }
     periods = [Period(year=y, duration_years=duration.get(y, 1.0)) for y in years]
     base_year = econ.base_year or _int(meta.get("base_year")) or (years[0] if years else 0)
@@ -278,7 +326,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     # ── Commodities (+ optional price trajectory) ────────────────────────────
     price_traj: dict[str, dict[int, float]] = {}
     sale_traj: dict[str, dict[int, float]] = {}
-    for r in _rows(workbook, "commodity_prices"):
+    for r in _rows(workbook, COMMODITY_PRICES):
         cid = _str(r.get("commodity_id"))
         if cid is None:
             continue
@@ -288,15 +336,13 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         if (sp := _num(r.get("sale_price"))) is not None:
             sale_traj.setdefault(cid, {})[y] = sp
     # PyPSA-style wide temporal tables override the legacy long-format.
-    price_traj.update(_wide_temporal(workbook, "commodities_t__price"))
-    sale_traj.update(_wide_temporal(workbook, "commodities_t__sale_price"))
+    price_traj.update(_wide_temporal(workbook, COMMODITIES_T_PRICE))
+    sale_traj.update(_wide_temporal(workbook, COMMODITIES_T_SALE_PRICE))
     # Per-year external-purchase volume cap (used by value-chain ``volume`` links).
-    maxbuy_traj: dict[str, dict[int, float]] = _wide_temporal(
-        workbook, "commodities_t__max_purchase"
-    )
+    maxbuy_traj: dict[str, dict[int, float]] = _wide_temporal(workbook, COMMODITIES_T_MAX_PURCHASE)
 
     commodities: dict[str, Commodity] = {}
-    for r in _rows(workbook, "commodities"):
+    for r in _rows(workbook, COMMODITIES):
         cid = _str(r.get("commodity_id"))
         if cid is None:
             continue
@@ -342,13 +388,13 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
 
     # ── Impacts (+ price trajectory) ─────────────────────────────────────────
     impact_price_traj: dict[str, dict[int, float]] = {}
-    for r in _rows(workbook, "impact_prices"):
+    for r in _rows(workbook, IMPACT_PRICES):
         iid = _str(r.get("impact_id"))
         if iid is not None and (p := _num(r.get("price"))) is not None:
             impact_price_traj.setdefault(iid, {})[int(r["year"])] = p
-    impact_price_traj.update(_wide_temporal(workbook, "impacts_t__price"))
+    impact_price_traj.update(_wide_temporal(workbook, IMPACTS_T_PRICE))
     impacts: dict[str, Impact] = {}
-    for r in _rows(workbook, "impacts"):
+    for r in _rows(workbook, IMPACTS):
         iid = _str(r.get("impact_id"))
         if iid is None:
             continue
@@ -363,17 +409,17 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
 
     # ── Technologies (+ per-tech inputs/outputs/direct impacts) ──────────────
     inputs: dict[str, dict[str, float]] = {}
-    for r in _rows(workbook, "process_inputs"):
+    for r in _rows(workbook, PROCESS_INPUTS):
         k, c = _str(r.get("technology_id")), _str(r.get("commodity_id"))
         if k and c:
             inputs.setdefault(k, {})[c] = _num(r.get("intensity"), 0.0) or 0.0
     outputs: dict[str, dict[str, float]] = {}
-    for r in _rows(workbook, "process_outputs"):
+    for r in _rows(workbook, PROCESS_OUTPUTS):
         k, c = _str(r.get("technology_id")), _str(r.get("commodity_id"))
         if k and c:
             outputs.setdefault(k, {})[c] = _num(r.get("yield"), 0.0) or 0.0
     direct: dict[str, dict[str, float]] = {}
-    for r in _rows(workbook, "tech_impacts"):
+    for r in _rows(workbook, TECH_IMPACTS):
         k, i = _str(r.get("technology_id")), _str(r.get("impact_id"))
         if k and i:
             direct.setdefault(k, {})[i] = _num(r.get("factor"), 0.0) or 0.0
@@ -394,7 +440,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         hi = min(max(float(hi_raw if hi_raw is not None else 1.0), 0.0), 1.0)
         return lo, max(lo, hi)
 
-    for r in _rows(workbook, "io"):
+    for r in _rows(workbook, IO):
         k, target = _str(r.get("technology_id")), _str(r.get("target"))
         role = (_str(r.get("role")) or "input").lower()
         coef = _num(r.get("coefficient"), 0.0) or 0.0
@@ -412,7 +458,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 share_groups.setdefault(k, {}).setdefault(g, {})[target] = _share_bounds(r)
 
     commodity_impacts: dict[tuple[str, str], float] = {}
-    for r in _rows(workbook, "commodity_impacts"):
+    for r in _rows(workbook, COMMODITY_IMPACTS):
         c, i = _str(r.get("commodity_id")), _str(r.get("impact_id"))
         if c and i:
             commodity_impacts[(c, i)] = _num(r.get("factor"), 0.0) or 0.0
@@ -421,7 +467,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     # year, factor) — e.g. a greening grid, or an upstream value-chain stage's
     # pathway. Sparse points are interpolated onto the horizon (flat-hold ends).
     ci_points: dict[tuple[str, str], dict[int, float]] = {}
-    for r in _rows(workbook, "commodity_impacts_t"):
+    for r in _rows(workbook, COMMODITY_IMPACTS_T):
         c, i = _str(r.get("commodity_id")), _str(r.get("impact_id"))
         yr, fac = _int(r.get("year")), _num(r.get("factor"))
         if c and i and yr is not None and fac is not None:
@@ -435,7 +481,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     tech_capex_t: dict[str, dict[int, float]] = {}
     tech_opex_t: dict[str, dict[int, float]] = {}
     tech_renewal_t: dict[str, dict[int, float]] = {}
-    for r in _rows(workbook, "technologies_prices"):
+    for r in _rows(workbook, TECHNOLOGIES_PRICES):
         tid = _str(r.get("technology_id"))
         yr = _int(r.get("year"))
         if tid is None or yr is None:
@@ -446,9 +492,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             tech_opex_t.setdefault(tid, {})[yr] = opx_v
         if (ren_v := _num(r.get("renewal"))) is not None:
             tech_renewal_t.setdefault(tid, {})[yr] = ren_v
-    tech_capex_t.update(_wide_temporal(workbook, "technologies_t__capex"))
-    tech_renewal_t.update(_wide_temporal(workbook, "technologies_t__renewal"))
-    tech_opex_t.update(_wide_temporal(workbook, "technologies_t__opex"))
+    tech_capex_t.update(_wide_temporal(workbook, TECHNOLOGIES_T_CAPEX))
+    tech_renewal_t.update(_wide_temporal(workbook, TECHNOLOGIES_T_RENEWAL))
+    tech_opex_t.update(_wide_temporal(workbook, TECHNOLOGIES_T_OPEX))
 
     def _attr_by_year(
         name: str, base: float, wide: dict[str, dict[int, float]]
@@ -456,7 +502,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         return interpolate(wide[name], years) if name in wide else dict.fromkeys(years, base)
 
     technologies: dict[str, Technology] = {}
-    for r in _rows(workbook, "technologies"):
+    for r in _rows(workbook, TECHNOLOGIES):
         k = _str(r.get("technology_id"))
         if k is None or not _enabled(r):
             continue
@@ -483,10 +529,10 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     #   checked + unplaced → available (in the optimisation, not initial)
     #   unchecked + placed → fixed (kept but locked to baseline; replaceable=False)
     #   unchecked + unplaced → excluded from the optimisation
-    cap_t = _wide_temporal(workbook, "processes_t__capacity")
-    placed_nodes = {_str(r.get("id")) for r in _rows(workbook, "node_layout")}
+    cap_t = _wide_temporal(workbook, PROCESSES_T_CAPACITY)
+    placed_nodes = {_str(r.get("id")) for r in _rows(workbook, NODE_LAYOUT)}
     processes = []
-    for r in _rows(workbook, "processes"):
+    for r in _rows(workbook, PROCESSES):
         pid = _str(r.get("process_id"))
         if not pid:
             continue
@@ -515,7 +561,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
 
     # ── Per-company objective (cost default; profit ⇒ maximise profit) ───────
     company_objective: dict[str, ObjectiveMode] = {}
-    for r in _rows(workbook, "company_config"):
+    for r in _rows(workbook, COMPANY_CONFIG):
         c = _str(r.get("company"))
         obj = (_str(r.get("objective")) or "cost").lower()
         if c and obj in {m.value for m in ObjectiveMode}:
@@ -529,7 +575,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             commodity_id=str(r["commodity_id"]),
             max_flow=_num(r.get("max_flow")),
         )
-        for r in _rows(workbook, "edges")
+        for r in _rows(workbook, EDGES)
         if _str(r.get("from_process")) and _str(r.get("to_process")) and _str(r.get("commodity_id"))
     ]
 
@@ -537,7 +583,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     # Long-format measure_blocks_t (measure_id, block, year, capex, opex —
     # absolute, already scaled to the instance, matching measure_blocks).
     block_traj: dict[tuple[str, int], dict[str, dict[int, float]]] = {}
-    for r in _rows(workbook, "measure_blocks_t"):
+    for r in _rows(workbook, MEASURE_BLOCKS_T):
         mid = _str(r.get("measure_id"))
         yr = _int(r.get("year"))
         if mid is None or yr is None:
@@ -549,7 +595,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             block_traj.setdefault((mid, bi), {}).setdefault("opex", {})[yr] = ox
 
     blocks_by_measure: dict[str, list[tuple[int, MeasureBlock]]] = {}
-    for r in _rows(workbook, "measure_blocks"):
+    for r in _rows(workbook, MEASURE_BLOCKS):
         mid = _str(r.get("measure_id"))
         if mid is None:
             continue
@@ -580,19 +626,19 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     # Every (measure, facility) pair becomes its OWN independent Measure
     # instance — adoption is per facility, never grouped.
     links_by_set: dict[str, list[str]] = {}
-    for r in _rows(workbook, "measure_links"):  # legacy sheet
+    for r in _rows(workbook, MEASURE_LINKS):  # legacy sheet
         set_id, target = _str(r.get("set")), _str(r.get("applies_to"))
         if set_id and target:
             links_by_set.setdefault(set_id, []).append(target)
 
     maccs_by_measure: dict[str, list[str]] = {}
-    for r in _rows(workbook, "maccs"):
+    for r in _rows(workbook, MACCS):
         macc, member = _str(r.get("macc")), _str(r.get("measure_id"))
         if macc and member:
             maccs_by_measure.setdefault(member, []).append(macc)
 
     macc_targets: dict[str, list[tuple[str, str]]] = {}  # macc → [(kind, name)]
-    for r in _rows(workbook, "macc_links"):
+    for r in _rows(workbook, MACC_LINKS):
         macc = _str(r.get("macc"))
         if not macc:
             continue
@@ -612,7 +658,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         return by_baseline.get(target, [])
 
     storage_commodity: dict[str, str] = {}
-    for r in _rows(workbook, "storage"):
+    for r in _rows(workbook, STORAGE):
         sid, cid = _str(r.get("storage_id")), _str(r.get("commodity_id"))
         if sid and cid:
             storage_commodity[sid] = cid
@@ -633,7 +679,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         return _resolve(target)
 
     measures: list[Measure] = []
-    for r in _rows(workbook, "measures"):
+    for r in _rows(workbook, MEASURES):
         mid = _str(r.get("measure_id"))
         mtype_s = (_str(r.get("type")) or "energy_efficiency").lower()
         if mid is None or mtype_s not in {m.value for m in MeasureType}:
@@ -669,7 +715,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
 
     # ── Transitions (replace/renew + compatibility) ──────────────────────────
     transitions: list[Transition] = []
-    for r in _rows(workbook, "transitions"):
+    for r in _rows(workbook, TRANSITIONS):
         frm, to = _str(r.get("from_technology")), _str(r.get("to_technology"))
         if not frm or not to:
             continue
@@ -694,7 +740,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
 
     # ── Storage (per-commodity inter-year stores) ────────────────────────────
     storages: list[Storage] = []
-    for r in _rows(workbook, "storage"):
+    for r in _rows(workbook, STORAGE):
         sid, cid = _str(r.get("storage_id")), _str(r.get("commodity_id"))
         if not sid or not cid or not _enabled(r):
             continue
@@ -717,7 +763,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     mkt_price: dict[str, dict[int, float]] = {}
     mkt_sell: dict[str, dict[int, float]] = {}
     mkt_alloc: dict[str, dict[int, float]] = {}
-    for r in _rows(workbook, "market_prices"):
+    for r in _rows(workbook, MARKET_PRICES):
         mid = _str(r.get("market_id"))
         if mid is None:
             continue
@@ -728,11 +774,11 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             mkt_sell.setdefault(mid, {})[y] = v
         if (v := _num(r.get("allocation"))) is not None:
             mkt_alloc.setdefault(mid, {})[y] = v
-    mkt_price.update(_wide_temporal(workbook, "markets_t__price"))
-    mkt_sell.update(_wide_temporal(workbook, "markets_t__sell_price"))
-    mkt_alloc.update(_wide_temporal(workbook, "markets_t__allocation"))
+    mkt_price.update(_wide_temporal(workbook, MARKETS_T_PRICE))
+    mkt_sell.update(_wide_temporal(workbook, MARKETS_T_SELL_PRICE))
+    mkt_alloc.update(_wide_temporal(workbook, MARKETS_T_ALLOCATION))
     markets: list[Market] = []
-    for r in _rows(workbook, "markets"):
+    for r in _rows(workbook, MARKETS):
         mid, target = _str(r.get("market_id")), _str(r.get("target"))
         if not mid or not target or not _enabled(r):
             continue
@@ -772,32 +818,32 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     # ── Relational data: legacy long format OR named component + wide temporal ─
     investment_budget = _temporal_dict(
         workbook,
-        "investment_budget",
-        "investment_budget_t__limit",
+        INVESTMENT_BUDGET,
+        INVESTMENT_BUDGET_T_LIMIT,
         "budget_id",
         ["company"],
         "limit",
     )
     min_production = _temporal_dict(
         workbook,
-        "min_production",
-        "min_production_t__amount",
+        MIN_PRODUCTION,
+        MIN_PRODUCTION_T_AMOUNT,
         "min_id",
         ["company", "commodity_id"],
         "amount",
     )
     demand = _temporal_dict(
-        workbook, "demand", "demand_t__amount", "demand_id", ["company", "commodity_id"], "amount"
+        workbook, DEMAND, DEMAND_T_AMOUNT, "demand_id", ["company", "commodity_id"], "amount"
     )
     impact_caps = _temporal_dict(
-        workbook, "impact_caps", "impact_caps_t__limit", "cap_id", ["company", "impact_id"], "limit"
+        workbook, IMPACT_CAPS, IMPACT_CAPS_T_LIMIT, "cap_id", ["company", "impact_id"], "limit"
     )
     # Hard/soft per (company, impact): a cap row may set `soft` (default true) and
     # a `penalty` (per unit exceedance); a hard cap must hold exactly.
     impact_cap_soft: dict[tuple[str, str], bool] = {}
     impact_cap_penalty: dict[tuple[str, str], float] = {}
     impact_cap_intensity: dict[tuple[str, str], bool] = {}
-    for r in _rows(workbook, "impact_caps"):
+    for r in _rows(workbook, IMPACT_CAPS):
         ckey = (_str(r.get("company")) or "all", _str(r.get("impact_id")) or "")
         if r.get("soft") is not None:
             impact_cap_soft[ckey] = _bool(r.get("soft"), True)

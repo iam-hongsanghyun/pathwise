@@ -43,6 +43,12 @@ from pathwise.core.extract import extract_results
 from pathwise.core.solve import solve
 from pathwise.data.assemble import assemble_problem
 from pathwise.data.scenario import ScenarioConfig
+from pathwise.data.sheets import (
+    COMMODITIES_T_MAX_PURCHASE,
+    COMMODITIES_T_PRICE,
+    COMMODITY_IMPACTS_T,
+    DEMAND,
+)
 from pathwise.data.trajectory import interpolate
 from pathwise.data.valuechain import ValueChainSpec
 from pathwise.data.workbook import Workbook
@@ -372,7 +378,7 @@ def _shift(signal: dict[int, float], lag: int, target_years: list[int]) -> dict[
 
 def _inject_price(wb: Workbook, commodity: str, by_year: dict[int, float]) -> None:
     """Upsert a per-year price column for ``commodity`` into ``commodities_t__price``."""
-    rows = wb.setdefault("commodities_t__price", [])
+    rows = wb.setdefault(COMMODITIES_T_PRICE, [])
     index = {int(r["year"]): r for r in rows if r.get("year") is not None}
     for y, v in by_year.items():
         if y in index:
@@ -385,7 +391,7 @@ def _inject_price(wb: Workbook, commodity: str, by_year: dict[int, float]) -> No
 
 def _inject_volume(wb: Workbook, commodity: str, by_year: dict[int, float]) -> None:
     """Upsert a per-year purchase cap for ``commodity`` into ``commodities_t__max_purchase``."""
-    rows = wb.setdefault("commodities_t__max_purchase", [])
+    rows = wb.setdefault(COMMODITIES_T_MAX_PURCHASE, [])
     index = {int(r["year"]): r for r in rows if r.get("year") is not None}
     for y, v in by_year.items():
         if y in index:
@@ -420,7 +426,7 @@ def _apply_feedback_demands(
     for (stage_id, commodity, year), amount in demands.items():
         wb = wbs[stage_id]
         company = _upstream_company(wb, commodity)
-        rows = wb.setdefault("demand", [])
+        rows = wb.setdefault(DEMAND, [])
         for r in rows:
             if (
                 str(r.get("company")) == company
@@ -461,7 +467,7 @@ def _as_int(value: Any) -> int | None:
 
 def _inject_ci(wb: Workbook, commodity: str, impact: str, by_year: dict[int, float]) -> None:
     """Upsert per-year carbon-intensity rows for ``commodity`` into ``commodity_impacts_t``."""
-    rows = wb.setdefault("commodity_impacts_t", [])
+    rows = wb.setdefault(COMMODITY_IMPACTS_T, [])
     index = {
         (str(r.get("commodity_id")), str(r.get("impact_id")), int(r["year"])): r
         for r in rows

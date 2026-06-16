@@ -10,6 +10,7 @@ reads only the generic scope columns.
 
 from __future__ import annotations
 
+from pathwise.data.sheets import CONNECTIONS, EDGES, MACHINES, NODE_LAYOUT, NODES, PROCESSES
 from pathwise.data.workbook import Workbook
 
 
@@ -46,9 +47,9 @@ def to_hierarchy(
     The catalogue/scenario sheets are kept verbatim; ``processes`` / ``edges`` /
     ``node_layout`` are replaced by ``nodes`` / ``machines`` / ``connections``.
     """
-    if workbook.get("nodes"):
+    if workbook.get(NODES):
         return workbook
-    procs = workbook.get("processes", [])
+    procs = workbook.get(PROCESSES, [])
     if not procs:
         return workbook
 
@@ -118,7 +119,7 @@ def to_hierarchy(
         machines.append(m)
 
     connections: list[dict[str, object]] = []
-    for e in workbook.get("edges", []):
+    for e in workbook.get(EDGES, []):
         f, t, c = _s(e.get("from_process")), _s(e.get("to_process")), _s(e.get("commodity_id"))
         if f and t and c:
             row: dict[str, object] = {"from_node": f, "to_node": t, "commodity_id": c}
@@ -126,8 +127,8 @@ def to_hierarchy(
                 row["lag_years"] = e.get("lag_years")
             connections.append(row)
 
-    out = {k: v for k, v in workbook.items() if k not in ("processes", "edges", "node_layout")}
-    out["nodes"] = _dedupe_nodes(nodes, root_id)
-    out["machines"] = machines
-    out["connections"] = connections
+    out = {k: v for k, v in workbook.items() if k not in (PROCESSES, EDGES, NODE_LAYOUT)}
+    out[NODES] = _dedupe_nodes(nodes, root_id)
+    out[MACHINES] = machines
+    out[CONNECTIONS] = connections
     return out

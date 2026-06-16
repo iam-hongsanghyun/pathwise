@@ -10,6 +10,21 @@ from dataclasses import dataclass, field
 
 from pathwise.data.hierarchy import load_hierarchy
 from pathwise.data.schema import REQUIRED_SHEETS
+from pathwise.data.sheets import (
+    COMMODITIES,
+    CONNECTIONS,
+    DEMAND,
+    EDGES,
+    IMPACTS,
+    IO,
+    MACHINES,
+    MEASURES,
+    NODES,
+    PROCESS_INPUTS,
+    PROCESS_OUTPUTS,
+    PROCESSES,
+    TECHNOLOGIES,
+)
 from pathwise.data.workbook import Workbook
 
 
@@ -51,18 +66,18 @@ def validate(workbook: Workbook) -> ValidationReport:
 
     # A node hierarchy synthesises its `processes` from `machines` at assemble
     # time, so a hierarchy model is valid without a `processes` sheet.
-    has_hierarchy = bool(workbook.get("nodes"))
+    has_hierarchy = bool(workbook.get(NODES))
 
     for sheet in REQUIRED_SHEETS:
-        if sheet == "processes" and has_hierarchy:
-            if not workbook.get("machines"):
+        if sheet == PROCESSES and has_hierarchy:
+            if not workbook.get(MACHINES):
                 report.errors.append("hierarchy model has no 'machines'")
             continue
         if sheet not in workbook or not workbook[sheet]:
             report.errors.append(f"missing required sheet '{sheet}'")
     # Technology I/O comes from the unified `io` table OR the legacy pair.
-    has_io = bool(workbook.get("io"))
-    has_legacy_io = bool(workbook.get("process_inputs")) and bool(workbook.get("process_outputs"))
+    has_io = bool(workbook.get(IO))
+    has_legacy_io = bool(workbook.get(PROCESS_INPUTS)) and bool(workbook.get(PROCESS_OUTPUTS))
     if not has_io and not has_legacy_io:
         report.errors.append(
             "missing technology I/O: provide an 'io' sheet (or process_inputs + process_outputs)"
@@ -70,13 +85,13 @@ def validate(workbook: Workbook) -> ValidationReport:
     if not report.ok:
         return report  # further checks would be noise
 
-    techs = _ids(workbook, "technologies", "technology_id")
-    commodities = _ids(workbook, "commodities", "commodity_id")
+    techs = _ids(workbook, TECHNOLOGIES, "technology_id")
+    commodities = _ids(workbook, COMMODITIES, "commodity_id")
     # In a hierarchy model the machines are the facilities (one process each).
-    processes = _ids(workbook, "processes", "process_id") | _ids(workbook, "machines", "machine_id")
-    impacts = _ids(workbook, "impacts", "impact_id")
+    processes = _ids(workbook, PROCESSES, "process_id") | _ids(workbook, MACHINES, "machine_id")
+    impacts = _ids(workbook, IMPACTS, "impact_id")
 
-    for r in workbook.get("machines", []):
+    for r in workbook.get(MACHINES, []):
         bt = str(r.get("baseline_technology", ""))
         if bt and bt not in techs:
             report.errors.append(
@@ -89,7 +104,7 @@ def validate(workbook: Workbook) -> ValidationReport:
         h = load_hierarchy(workbook)
         if h is not None:
             report.errors.extend(h.check())  # node/cycle/kind/endpoint checks
-            for r in workbook.get("connections", []):
+            for r in workbook.get(CONNECTIONS, []):
                 c = str(r.get("commodity_id", ""))
                 if c and c not in commodities:
                     report.errors.append(f"connection references unknown stream '{c}'")
@@ -98,18 +113,18 @@ def validate(workbook: Workbook) -> ValidationReport:
             # it silently expands to zero edges (assemble._expand_hierarchy).
             machine_tech = {
                 str(r.get("machine_id")): str(r.get("baseline_technology") or "")
-                for r in workbook.get("machines", [])
+                for r in workbook.get(MACHINES, [])
             }
             io_out: dict[str, set[str]] = {}
             io_in: dict[str, set[str]] = {}
-            for r in workbook.get("io", []):
+            for r in workbook.get(IO, []):
                 tech, tgt = str(r.get("technology_id") or ""), str(r.get("target") or "")
                 role = str(r.get("role") or "input")
                 if role == "output":
                     io_out.setdefault(tech, set()).add(tgt)
                 elif role == "input":
                     io_in.setdefault(tech, set()).add(tgt)
-            for r in workbook.get("connections", []):
+            for r in workbook.get(CONNECTIONS, []):
                 fn, tn = str(r.get("from_node", "")), str(r.get("to_node", ""))
                 com = str(r.get("commodity_id", ""))
                 if not (fn in h.nodes and tn in h.nodes and com):
@@ -130,7 +145,7 @@ def validate(workbook: Workbook) -> ValidationReport:
     # role, group), each share_min ≤ share_max and Σ share_min ≤ 1 ≤ Σ share_max.
     group_lo: dict[tuple[str, str, str], float] = {}
     group_hi: dict[tuple[str, str, str], float] = {}
-    for r in workbook.get("io", []):
+    for r in workbook.get(IO, []):
         k = str(r.get("technology_id", ""))
         if k and k not in techs:
             report.errors.append(f"io: unknown technology '{k}'")
@@ -166,14 +181,14 @@ def validate(workbook: Workbook) -> ValidationReport:
                 "(no feasible mix)"
             )
 
-    for r in workbook.get("processes", []):
+    for r in workbook.get(PROCESSES, []):
         bt = str(r.get("baseline_technology", ""))
         if bt and bt not in techs:
             report.errors.append(
                 f"process '{r.get('process_id')}' references unknown technology '{bt}'"
             )
 
-    for sheet, col in [("process_inputs", "commodity_id"), ("process_outputs", "commodity_id")]:
+    for sheet, col in [(PROCESS_INPUTS, "commodity_id"), (PROCESS_OUTPUTS, "commodity_id")]:
         for r in workbook.get(sheet, []):
             c = str(r.get(col, ""))
             if c and c not in commodities:
@@ -182,7 +197,7 @@ def validate(workbook: Workbook) -> ValidationReport:
             if k and k not in techs:
                 report.errors.append(f"{sheet}: unknown technology '{k}'")
 
-    for r in workbook.get("edges", []):
+    for r in workbook.get(EDGES, []):
         for end in ("from_process", "to_process"):
             p = str(r.get(end, ""))
             if p and p not in processes:
@@ -191,7 +206,7 @@ def validate(workbook: Workbook) -> ValidationReport:
         if c and c not in commodities:
             report.errors.append(f"edge references unknown stream '{c}'")
 
-    for r in workbook.get("measures", []):
+    for r in workbook.get(MEASURES, []):
         ap = str(r.get("applies_to", ""))
         if ap and ap not in processes:
             report.warnings.append(
@@ -204,20 +219,20 @@ def validate(workbook: Workbook) -> ValidationReport:
 
     product_ids = {
         str(r["commodity_id"])
-        for r in workbook.get("process_outputs", [])
+        for r in workbook.get(PROCESS_OUTPUTS, [])
         if r.get("is_product") and r.get("commodity_id")
     }
     product_ids |= {
         str(r["target"])
-        for r in workbook.get("io", [])
+        for r in workbook.get(IO, [])
         if str(r.get("role", "")) == "output" and r.get("is_product") and r.get("target")
     }
     product_ids |= {
         str(r["commodity_id"])
-        for r in workbook.get("commodities", [])
+        for r in workbook.get(COMMODITIES, [])
         if str(r.get("kind", "")) == "product" and r.get("commodity_id")
     }
-    for r in workbook.get("demand", []):
+    for r in workbook.get(DEMAND, []):
         q = str(r.get("commodity_id", ""))
         if q and q not in product_ids:
             report.warnings.append(f"demand for '{q}' which is not produced as a product")
