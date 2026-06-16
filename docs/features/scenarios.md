@@ -13,6 +13,28 @@ The underlying session model still holds *everything* (structure + component
 sheets) so the optimiser can build and solve — the split is about *where you
 edit and visualise*, not about removing data.
 
+## ScenarioConfig — the run definition
+
+A scenario's *data tables* (workbook sheets) are separate from its *run
+parameters* (`ScenarioConfig`). `ScenarioConfig` travels as JSON in the `scenario`
+key of `POST /api/run` and contains no tabular data:
+
+- **`economics`** — `{discount_rate, base_year, capex_convention}`: discounting
+  and how capital outlays enter the objective (`"npv"` lump or `"annuity"` spread
+  over the asset life).
+- **`cost_components`** — toggles for which cost terms enter the objective:
+  `{capex, renewal, opex, commodity_cost, impact_price, measure_capex}`.
+- **`solver`** — `{name, threads, time_limit_s, mip_gap, seed}`.
+- **`horizon`** — `{start, end}` year bounds (null = all workbook years).
+- **`slack_penalty`** — objective penalty per unit demand/cap violation (default 1e9).
+- **`optimisation_scope`** / **`optimisation_targets`** / **`optimisation_mode`** —
+  which nodes to optimise and how to couple them. See [valuechain.md](valuechain.md).
+- **`coupling`** — value-chain signal settings (which signals, iterations, damping).
+- **`portfolio`** — settings for the portfolio backend (ignored by linopy).
+
+The full schema is in `src/pathwise/data/scenario.py` and documented in
+[API.md](../API.md).
+
 ## Two sets of component libraries
 
 | Set | Scope | Lives in | Editing it… |
@@ -62,6 +84,7 @@ PUT    /api/session/{id}/component-library/{lib_id}    # create / overwrite
 DELETE /api/session/{id}/component-library/{lib_id}    # delete
 ```
 
-Backed by `SessionLibraryStore` (one JSON file per library under the session's
-directory) — see [components.md](components.md) for the library contents and
-[valuechain.md](valuechain.md) for the structure side of the split.
+Backed by `SessionLibraryStore` (one **SQLite** file per library under
+`data/session_libraries/<session_id>/`) — see [components.md](components.md) for
+the library contents and [valuechain.md](valuechain.md) for the structure side of
+the split.

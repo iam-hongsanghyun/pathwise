@@ -5,7 +5,7 @@ least-cost transition planning of a **network of production processes**. Solved
 with `linopy` + HiGHS. This document is the contract that `src/pathwise/core/`
 implements.
 
-> Status: scaffolding. Sections below are stubs filled in during P1–P2.
+The authoritative implementation is `src/pathwise/core/build.py`.
 
 ## 1. Sets and indices
 
@@ -29,7 +29,7 @@ balance holds at every process node. Each commodity carries its own unit;
 intensities/yields/prices/impact-factors that reference a commodity all use that
 commodity's unit (no cross-unit conversion needed inside the matrix).
 
-## 2. Decision variables (stub)
+## 2. Decision variables
 
 `u[p,k,t]∈{0,1}`, `replace/renew/continue[p,k,t]∈{0,1}`, `thru[p,t]≥0` (throughput);
 `buy[r,p,t]≥0`, `sell[r,p,t]≥0` (external purchase/sale of commodity `r` at `p`);
@@ -47,8 +47,34 @@ $$\min \sum_t DF_t\Big[\sum_{p,k}\text{opex}_{k,t}\,x_{p,k,t}
 +\sum_{s}DF_t\,\text{capex}_s\,\Delta z_{s,t}
 +\sigma\!\sum(\xi^D+\xi^{cap})$$
 
-`DF_t=(1+ρ)^{-(t-t_0)}`. Operational terms scale by period duration; capex is a
-discounted lump at the event year (annuity convention is a later refinement).
+`DF_t=(1+ρ)^{-(t-t_0)}`. Operational terms scale by period duration; capex is
+multiplied by `capex_charge(year, lifespan)` — see section 3b below.
+
+## 3b. Economics / discounting
+
+### Discount factor
+
+`DF_t = (1 + ρ)^{-(t − t₀)}` where `ρ` is the annual discount rate and `t₀` is
+`base_year` (defaults to the first horizon year).
+
+### Capex convention (`economics.capex_convention`)
+
+A capital outlay `C` on an asset of life `L` in year `t` enters the objective as
+`capex_charge(t, L) · C` on the event variable. Two conventions are available:
+
+| `capex_convention` | Formula | Notes |
+|---|---|---|
+| `"npv"` (default) | `DF_t` | Full discounted lump at the event year. |
+| `"annuity"` | `CRF_due(ρ, L) · Σ_{t≤t'<t+L, t'∈years} DF_{t'} · Δ_{t'}` | Capital-recovery-factor annuity due over the asset life. |
+
+Where `CRF(ρ, L) = ρ(1+ρ)^L / ((1+ρ)^L − 1)` (= `1/L` when ρ = 0) and
+`CRF_due = CRF / (1+ρ)` (payments start in the build year). The two are
+present-value equivalent when the full asset life lies inside the horizon; ANNUITY
+charges strictly less when the horizon truncates the life, because unbuilt future
+years carry no cost.
+
+Set via `ScenarioConfig.economics.capex_convention`; the same convention applies
+to transition capex, renewal capex, and technology capex.
 
 ## 4. Constraints (implemented in `core/build.py`)
 
@@ -77,6 +103,22 @@ discounted lump at the event year (annuity convention is a later refinement).
   output rows via the same `group`/`share_min`/`share_max` columns.
 - **Replacement coupling** (incompatible swap forces neighbours): planned;
   edges currently model pure flow.
+- **Asset end-of-life lifecycle** (`_lifecycle` in `core/build.py`): a process that
+  declares `introduced_year` is lifecycle-tracked. A technology may be active in
+  year `t` only if a *live vintage* covers it:
+
+  $$u[p,k,t] \leq \underbrace{\text{live}_0[p,k,t]}_{\text{original install}} + \sum_{\substack{t' \in T \\ t-L < t' \leq t}} \text{refresh}[p,k,t']$$
+
+  ASCII: `u[p,k,t] <= live0[p,k,t] + Σ_{t-L<t'<=t} refresh[p,k,t']`
+
+  where `L` = `lifespan`, `live0 = 1` if `k` is the baseline and
+  `t < introduced_year + L`, else 0; `refresh = ren` for the baseline (a
+  same-technology rebuild) and `refresh = w + ren` for a replacement target
+  (a switch-in or a subsequent rebuild). A renewal is permitted only when the
+  technology's `actions` include `renew`. Models with no `introduced_year` are
+  unaffected. See also: `TransitionAction.RENEW`, `Technology.renewal_by_year`,
+  `Process.introduced_year`, and the new features docs in
+  [transitions.md](features/transitions.md).
 
 ## 5b. Storage, facility costs & decision controls
 

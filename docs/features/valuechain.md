@@ -62,9 +62,41 @@ units; **solve** picks how they're coupled:
 
 | `optimisation_mode` | meaning |
 |---|---|
-| `valuechain` | in series, upstream → downstream, coupled via price / carbon signals |
+| `valuechain` | in series, upstream → downstream, coupled via price / carbon / volume signals |
 | `joint` | all selected units solved together |
 | `independent` | each unit on its own, trading only with markets |
+
+## Coupling signals (value-chain mode)
+
+When two stages are connected by a `CouplingLink` (defined in `data/valuechain.py`),
+an upstream stage's solved result feeds into the downstream stage's inputs. Each link
+declares which **signals** to pass — a subset of:
+
+| Signal | What is transferred | How it is injected |
+|---|---|---|
+| `price` | Average cost of the commodity upstream [currency / unit] | Upserted as the downstream commodity's purchase price trajectory (`commodities_t__price`) |
+| `marginal_price` | True marginal cost (finite-difference on demand) — takes precedence over `price` when both requested | Same price injection |
+| `carbon_intensity` | Upstream emissions per unit of the commodity [impact unit / commodity unit] | Injected as the downstream commodity's carbon intensity trajectory (a year-varying `commodity_impacts` override) |
+| `volume` | Upstream produced quantity of the commodity [commodity unit / yr] | Injected as a per-year cap on the downstream stage's total external purchase (`Σ_p buy[p,r,t] ≤ max_purchase_r(t)` via `commodities_t__max_purchase`) |
+
+The `volume` signal is the supply-availability coupling: the downstream stage can buy
+at most as much as the upstream stage produced. It is implemented in
+`core/valuechain.py::_volume_signal` / `_inject_volume` and enforced in
+`core/build.py::_purchase_caps` via `Commodity.max_purchase_by_year`.
+
+All signals are shifted forward by the link's `lag_years` and interpolated onto the
+downstream horizon.
+
+### Configured in `ScenarioConfig.coupling`
+
+```jsonc
+"coupling": {
+  "signals": ["price"],         // which signals all links pass (default); overridden per link
+  "iterations": 1,              // 1 = forward-only; >1 enables feedback fixed-point
+  "damping": 0.5,               // relaxation on fed-back demand
+  "default_lag": 0              // lag applied when a link sets none
+}
+```
 
 ## Where an imported scenario lands
 

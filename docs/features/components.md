@@ -106,9 +106,22 @@ cheapest-first, with no-regret (negative-cost) blocks below the axis.
 
 - **Base / bundled libraries** ship with pathwise (`assets/component_libraries/`)
   and seed a writable copy on first run; they are the shared, reusable catalogue.
-- **Per-scenario libraries** (phase 2) — each imported scenario carries its own
-  components library, loaded alongside the base set, so a scenario's specific
-  recipes don't pollute the shared catalogue.
+- **Per-session libraries** — each imported scenario carries its own component
+  library, loaded alongside the base set, so a scenario's specific recipes don't
+  pollute the shared catalogue. This is fully implemented (backed by
+  `SessionLibraryStore`; see `api/routers/component_libraries.py`).
 
-See [scenarios.md](scenarios.md) (phase 2) for how an imported scenario routes its
-component *details* here and its value-chain *structure* to the Value-chain view.
+The Component view lists both sets, each tagged in the tree — `· scenario` for the
+session set, `· base` for the shared set.
+
+See [scenarios.md](scenarios.md) for how an imported scenario routes its component
+*details* here and its value-chain *structure* to the Value-chain view.
+
+## MachineComponent and GroupComponent
+
+`MachineComponent` and `GroupComponent` are legacy composite types defined in
+`data/components.py` and kept for backward compatibility with older library files.
+The current builder does **not** author them — instead, technologies are placed
+directly as machine nodes in the Value-chain view. A `ComponentLibrary` may still
+carry `machines` and `groups` fields when loaded from an old file; the engine
+handles them, but the UI does not expose them for creation.

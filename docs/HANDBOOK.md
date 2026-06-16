@@ -3,6 +3,8 @@
 The authoritative conventions live in [`CLAUDE.md`](../CLAUDE.md). This document
 expands on them as the project grows.
 
+> **Note.** The link above points to `../CLAUDE.md` — the file at the repo root.
+
 ## Docstring template (math)
 
 ```python
@@ -26,5 +28,3 @@ def f(...) -> ...:
 
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) and the `src/pathwise/` tree. Tests mirror
 `src/`. `pyproject.toml` is the single source of truth for tooling.
-
-> Status: scaffolding.
