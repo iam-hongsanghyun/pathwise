@@ -630,29 +630,24 @@ The run path passes the selected method through verbatim (`options.backend`), so
 
 ### 9a. The MACC (greedy abatement) mode
 
-This mode reproduces the marginal-abatement-cost runners common in sector decarbonisation models (e.g. the Korean petrochemical MACC): rank abatement levers by `$/tCO2`, then each year deploy the cheapest first until the year's required abatement (`BAU − target`) is met or the curve is exhausted. Deployment is **irreversible** (carried forward), so once option potentials saturate, residual emissions can drift above an ever-tightening target — the model does not force the target, it chases it.
+This mode reproduces the marginal-abatement-cost runners common in sector decarbonisation models (e.g. the Korean petrochemical MACC): rank abatement levers by `$/tCO2`, then each year deploy the cheapest first until the year's required abatement (`BAU − target`) is met or the curve is exhausted. Deployment is **irreversible** (carried forward), so once potentials saturate, residual emissions can drift above an ever-tightening target — the model does not force the target, it chases it.
 
-It is **sector-agnostic**: all the cost/potential maths live in your build script, which emits three sheets the backend consumes verbatim.
+Crucially, MACC is **a solve method over the *same value-chain model***, not a separate data format. It reads the model's own primitives — there are **no MACC-specific sheets**:
 
-| Sheet | Columns | Meaning |
-|---|---|---|
-| `macc_target` | `year`, `bau`, `target` | The emission line to chase. `required = max(0, bau − target)`. Pre-interpolate to every modelled year. |
-| `macc_curve` | `option_id`, `year`, `potential`, `cost`, `capex` | One row per (option, year). `potential` = max abatement available that year; `cost` = the `$/abated` **ranking key** (cheapest first); `capex` = cost **booked per unit abated** (drives cumulative CAPEX). |
-| `macc_options` | `option_id`, `label`, `available_from` | Optional metadata. `available_from` gates an option to a first year. |
+- The abatement levers are **measures** (`measures` + `measure_blocks`/`measure_blocks_t`, grouped via `maccs` and deployed onto facility subsets via `macc_links`). A measure abates *without changing a facility's technology* — that is exactly what a MACC option is. (A technology change is a **transition**, decided by the MILP; the two are distinct.)
+- **BAU** each year = the sum of every facility's gross emission of the capped impact at full capacity (so per-facility `process_impacts` / `process_impacts_t` and demand-driven `processes_t__capacity` shape the BAU trajectory).
+- The **target** each year is the emission `impact_caps` line.
 
-Algorithm, per year (ascending):
+Per measure (summing its per-facility instances, with baseline emission `e_f(y)` and lifetime `L`), the backend derives:
 
 ```
-required  = max(0, bau − target)
-rows      = curve rows for year with potential>0 and year≥available_from, sorted by cost asc
-remaining = max(0, required − Σ deployed)          # carry-forward (irreversible)
-for option in rows:                                 # cheapest first
-    add = min(remaining, potential − deployed[option])   # ≥ 0, capped at potential
-    deployed[option] += add; remaining −= add
-    cumulative_capex += add × capex
-actual_emissions = bau − Σ deployed
+potential(y) = Σ_f reduction_f(y) · e_f(y)                       # abatement available
+$/tCO2(y)    = (Σ_f capex_f(y)/L + Σ_f opex_f(y)) / potential(y) # ranking key
+κ(y)         = (Σ_f capex_f(y)) / potential(y)                   # CAPEX booked per unit
 ```
 
-The result carries an `outputs.macc` block (`by_year`, `options`, `cumulative_capex`); `objective` is the final-year cumulative CAPEX; the residual emission path is surfaced under `summary.impacts`. Two unit-conversion subtleties belong in the build script, **not** the backend: bake any annualisation/lifetime factor into the `capex` column (so `Σ add × capex` lands in the units you report), and resolve any mutually-exclusive option choice (e.g. pick one of two carriers) by emitting curve rows only for the chosen option.
+then greedily, per year (ascending): `required = max(0, BAU − target)`; visit measures cheapest-first; `add = min(remaining, potential − deployed)`; carry deployment forward; `cumulative_capex += add × κ`.
 
-See `src/pathwise/backends/macc_backend.py` and `tests/backends/test_macc_backend.py` for the reference implementation and a hand-computed regression test.
+The result carries an `outputs.macc` block (`by_year`, `options`, `cumulative_capex`); `objective` is the final-year cumulative CAPEX; the residual emission path is surfaced under `summary.impacts`. To reproduce a published curve **exactly**, calibrate each measure in your build script so the derived numbers match the source: `reduction(y) = potential_src(y) / Σ_subset e_f(y)`, and split the per-year capex/opex across the subset so the totals give the source `$/tCO2` and booked CAPEX (see `scripts/build_petrochemical.py`, which reproduces the petrochemical model to floating-point precision).
+
+See `src/pathwise/backends/macc_backend.py`, `tests/backends/test_macc_backend.py` (hand-computed greedy) and `tests/data/test_petrochemical_port.py` (exact source reproduction).

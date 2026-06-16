@@ -184,7 +184,7 @@ def _references(
         for r in inputs:
             ref_cons[(p.process_id, r)] = cap * tech.input_intensity_at(r, t0)
         for i in problem.impacts:
-            total = tech.direct_impact_at(i, t0) * cap
+            total = (tech.direct_impact_at(i, t0) + p.direct_impact_at(i, t0)) * cap
             for r in inputs:
                 total += problem.commodity_impacts.get((r, i), 0.0) * ref_cons.get(
                     (p.process_id, r), 0.0

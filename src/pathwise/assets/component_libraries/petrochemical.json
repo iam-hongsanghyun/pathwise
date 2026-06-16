@@ -1,71 +1,54 @@
 {
-  "label": "Petrochemical MACC (ethylene NCC)",
+  "label": "Petrochemical (ethylene NCC + MACC)",
   "commodities": [
     {
-      "commodity_id": "naphtha",
-      "kind": "energy",
-      "unit": "GJ",
-      "price": 15.0,
-      "sale_price": null,
-      "properties": {
-        "lhv_MJ_per_kg": 44.0
-      }
-    },
-    {
-      "commodity_id": "grid_elec",
-      "kind": "energy",
-      "unit": "MWh",
+      "commodity_id": "aromatics",
+      "kind": "product",
+      "unit": "kt",
       "price": null,
       "sale_price": null,
-      "properties": {
-        "voltage_kV": 154.0
-      }
-    },
-    {
-      "commodity_id": "hydrogen",
-      "kind": "energy",
-      "unit": "kg",
-      "price": null,
-      "sale_price": null,
-      "properties": {
-        "lhv_MJ_per_kg": 120.0,
-        "pressure_bar": 30.0
-      }
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
     },
     {
       "commodity_id": "ethylene",
       "kind": "product",
-      "unit": "t",
+      "unit": "kt",
       "price": null,
-      "sale_price": 1100.0,
-      "properties": {}
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "utility_heat",
+      "kind": "product",
+      "unit": "kt",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
     }
   ],
   "technologies": [
     {
-      "technology_id": "NCC",
-      "lifespan": 25,
-      "capex": 200,
-      "opex": 60,
+      "technology_id": "Naphtha_Cracker",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
       "io": [
-        {
-          "target": "naphtha",
-          "role": "input",
-          "coefficient": 116.7,
-          "is_product": false,
-          "group": null,
-          "share_min": null,
-          "share_max": null
-        },
-        {
-          "target": "grid_elec",
-          "role": "input",
-          "coefficient": 0.0218,
-          "is_product": false,
-          "group": null,
-          "share_min": null,
-          "share_max": null
-        },
         {
           "target": "ethylene",
           "role": "output",
@@ -74,110 +57,113 @@
           "group": null,
           "share_min": null,
           "share_max": null
-        },
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "BTX_Plant",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
         {
-          "target": "CO2",
-          "role": "impact",
-          "coefficient": 1.739,
-          "is_product": false,
+          "target": "aromatics",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
           "group": null,
           "share_min": null,
           "share_max": null
         }
       ],
-      "maccs": [
-        "ncc_macc"
-      ]
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Utility",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "utility_heat",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
     }
   ],
   "measures": [
     {
-      "measure_id": "heat_pump",
-      "label": "Industrial heat pump (<165\u00b0C)",
-      "type": "energy_efficiency",
-      "target": "naphtha",
+      "measure_id": "Heat_Pump",
+      "label": "",
+      "type": "emission_reduction",
+      "target": "CO2",
       "lifetime": 20,
       "blocks": [
         {
-          "reduction": 0.15,
-          "capex_per_capacity": 90.0,
-          "opex_per_capacity": 3.0
-        }
-      ]
-    },
-    {
-      "measure_id": "ncc_h2",
-      "label": "Hydrogen firing",
-      "type": "emission_reduction",
-      "target": "CO2",
-      "lifetime": 25,
-      "blocks": [
-        {
-          "reduction": 0.45,
-          "capex_per_capacity": 300.0,
-          "opex_per_capacity": 7.5
-        }
-      ]
-    },
-    {
-      "measure_id": "ncc_elec",
-      "label": "Electric cracking",
-      "type": "emission_reduction",
-      "target": "CO2",
-      "lifetime": 25,
-      "blocks": [
-        {
-          "reduction": 0.45,
-          "capex_per_capacity": 350.0,
-          "opex_per_capacity": 7.0
-        }
-      ]
-    }
-  ],
-  "maccs": [
-    {
-      "macc_id": "ncc_macc",
-      "label": "NCC abatement options",
-      "measures": [
-        "heat_pump",
-        "ncc_h2",
-        "ncc_elec"
-      ]
-    }
-  ],
-  "machines": [
-    {
-      "name": "ncc",
-      "label": "Ethylene naphtha cracker",
-      "technology": "NCC",
-      "capacity": 1500000,
-      "measures": []
-    }
-  ],
-  "groups": [
-    {
-      "name": "kr_petro",
-      "label": "Korea Petrochemical",
-      "level": "company",
-      "children": [
-        {
-          "component": "ncc",
-          "alias": ""
+          "reduction": 1e-06,
+          "capex_per_capacity": 0.0,
+          "opex_per_capacity": 0.0,
+          "capex_per_capacity_by_year": {},
+          "opex_per_capacity_by_year": {}
         }
       ],
-      "connections": []
+      "notes": ""
     },
     {
-      "name": "petro_vc",
-      "label": "Petrochemical",
-      "level": "value_chain",
-      "children": [
+      "measure_id": "NCC_Electricity",
+      "label": "",
+      "type": "emission_reduction",
+      "target": "CO2",
+      "lifetime": 20,
+      "blocks": [
         {
-          "component": "kr_petro",
-          "alias": ""
+          "reduction": 1e-06,
+          "capex_per_capacity": 0.0,
+          "opex_per_capacity": 0.0,
+          "capex_per_capacity_by_year": {},
+          "opex_per_capacity_by_year": {}
         }
       ],
-      "connections": []
+      "notes": ""
+    },
+    {
+      "measure_id": "RE_PPA",
+      "label": "",
+      "type": "emission_reduction",
+      "target": "CO2",
+      "lifetime": 20,
+      "blocks": [
+        {
+          "reduction": 1e-06,
+          "capex_per_capacity": 0.0,
+          "opex_per_capacity": 0.0,
+          "capex_per_capacity_by_year": {},
+          "opex_per_capacity_by_year": {}
+        }
+      ],
+      "notes": ""
     }
-  ]
+  ],
+  "maccs": [],
+  "machines": [],
+  "groups": [],
+  "notes_by_sector": {}
 }

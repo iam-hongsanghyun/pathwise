@@ -35,6 +35,7 @@
     "id": "petrochemical",
     "label": "Petrochemical MACC — ethylene NCC (petrochemical_macc_2025)",
     "file": "petrochemical.sqlite",
-    "description": "A naphtha cracker (NCC) making ethylene, with MACC abatement options as alternatives — an industrial heat pump (cuts fuel intensity), hydrogen firing, and electric cracking. Grid electricity greens (CO2 factor 0.436→0.07) and green-hydrogen gets cheaper over time while demand grows ~1.3%/yr; a rising carbon price drives measure adoption. Derived from PLANiT-Institute/petrochemical_macc_2025."
+    "backend": "macc",
+    "description": "An exact port of the Korean Petrochemical MACC model (PLANiT-Institute/petrochemical_macc_2025), default-demand scenario. This is a greedy marginal-abatement runner, NOT an LP: it ranks abatement options (renewable PPA, industrial heat pump, electric naphtha cracker) by $/tCO2 and deploys the cheapest first each year against a net-zero-by-2050 emission target, carrying deployment forward irreversibly. Runs under the MACC (greedy abatement) optimisation method — chosen automatically when you open this example. Reproduces the source to floating-point precision (2050: 29.85 MtCO2 residual, $36.15 B cumulative CAPEX)."
   }
 ]

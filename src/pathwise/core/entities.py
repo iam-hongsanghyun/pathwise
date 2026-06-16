@@ -391,10 +391,29 @@ class Process:
     group: str = ""
     decommission_year: int | None = None
     scopes: frozenset[str] = frozenset()
+    #: Per-FACILITY direct emission intensity [impact unit / throughput], by impact
+    #: id — added ON TOP of the baseline technology's own ``direct_impact``. Lets
+    #: two facilities running the SAME technology carry different real emission
+    #: factors (e.g. plant-specific energy intensity), without a unique technology
+    #: per facility. Empty ⇒ no facility-level term.
+    direct_impact: dict[str, float] = field(default_factory=dict)
+    #: Optional year-varying override of ``direct_impact`` (impact → {year: factor}).
+    direct_impact_by_year: dict[str, dict[int, float]] = field(default_factory=dict)
 
     def fixed_opex_at(self, year: int) -> float:
         """Fixed annual O&M in ``year`` [currency / yr] (year override, else scalar)."""
         return self.fixed_opex_by_year.get(year, self.fixed_opex)
+
+    def capacity_at(self, year: int) -> float:
+        """Nameplate throughput in ``year`` (year override, else scalar)."""
+        return self.capacity_by_year.get(year, self.capacity)
+
+    def direct_impact_at(self, impact: str, year: int) -> float:
+        """Facility-level direct emission of ``impact`` per throughput in ``year``."""
+        traj = self.direct_impact_by_year.get(impact)
+        if traj is not None and year in traj:
+            return traj[year]
+        return self.direct_impact.get(impact, 0.0)
 
     def in_scope(self, scope: str) -> bool:
         """Whether this facility is covered by a constraint ``scope``.

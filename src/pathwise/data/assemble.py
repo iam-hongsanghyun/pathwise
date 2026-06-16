@@ -72,6 +72,8 @@ from pathwise.data.sheets import (
     MIN_PRODUCTION_T_AMOUNT,
     NODE_LAYOUT,
     PERIODS,
+    PROCESS_IMPACTS,
+    PROCESS_IMPACTS_T,
     PROCESS_INPUTS,
     PROCESS_OUTPUTS,
     PROCESSES,
@@ -629,6 +631,26 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     cap_t = _wide_temporal(workbook, PROCESSES_T_CAPACITY)
     fopex_t = _wide_temporal(workbook, PROCESSES_T_FIXED_OPEX)
     frate_t = _wide_temporal(workbook, PROCESSES_T_FAILURE_RATE)
+
+    # Per-facility direct emissions (static + year-varying) — added on top of the
+    # baseline technology's own direct impact.
+    proc_direct: dict[str, dict[str, float]] = {}
+    for r in _rows(workbook, PROCESS_IMPACTS):
+        pid, imp = _str(r.get("process_id")), _str(r.get("impact_id"))
+        if pid and imp:
+            proc_direct.setdefault(pid, {})[imp] = _num(r.get("factor"), 0.0) or 0.0
+    proc_direct_raw: dict[str, dict[str, dict[int, float]]] = {}
+    for r in _rows(workbook, PROCESS_IMPACTS_T):
+        pid, imp, yr = _str(r.get("process_id")), _str(r.get("impact_id")), _int(r.get("year"))
+        if pid and imp and yr is not None:
+            proc_direct_raw.setdefault(pid, {}).setdefault(imp, {})[yr] = (
+                _num(r.get("factor"), 0.0) or 0.0
+            )
+    proc_direct_t: dict[str, dict[str, dict[int, float]]] = {
+        pid: {imp: interpolate(traj, years) for imp, traj in by_imp.items()}
+        for pid, by_imp in proc_direct_raw.items()
+    }
+
     placed_nodes = {_str(r.get("id")) for r in _rows(workbook, NODE_LAYOUT)}
     processes = []
     for r in _rows(workbook, PROCESSES):
@@ -657,6 +679,8 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 capacity_by_year=interpolate(cap_t[pid], years) if pid in cap_t else {},
                 fixed_opex_by_year=interpolate(fopex_t[pid], years) if pid in fopex_t else {},
                 failure_rate_by_year=interpolate(frate_t[pid], years) if pid in frate_t else {},
+                direct_impact=proc_direct.get(pid, {}),
+                direct_impact_by_year=proc_direct_t.get(pid, {}),
             )
         )
 

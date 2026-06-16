@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { LineChart } from "../features/charts/LineChart";
 import { MaccDesigner } from "../features/macc/MaccDesigner";
+import { MaccResult } from "../features/charts/MaccResult";
 import { PortfolioResult } from "../features/charts/PortfolioResult";
 import { TopologyCanvas } from "../features/topology/TopologyCanvas";
 import { RailList, type RailItem } from "../layout/RailList";
@@ -40,6 +41,26 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
         <Resizer width={leftW} setWidth={setLeftW} side="left" />
         <main className="main-area">
           <PortfolioResult portfolio={pf} />
+        </main>
+      </div>
+    );
+  }
+
+  // Likewise a MACC (greedy-abatement) result carries its own block.
+  const macc = result?.outputs.macc;
+  if (macc) {
+    return (
+      <div className="body-row">
+        <RailList
+          title="Analytics"
+          items={[{ id: "macc", label: "MACC" }]}
+          activeId="macc"
+          onSelect={() => undefined}
+          width={leftW}
+        />
+        <Resizer width={leftW} setWidth={setLeftW} side="left" />
+        <main className="main-area">
+          <MaccResult macc={macc} />
         </main>
       </div>
     );

@@ -71,6 +71,14 @@ PROCESS_OUTPUTS = "process_outputs"
 #: Direct process-level impact factors (technology_id, impact_id, factor).
 TECH_IMPACTS = "tech_impacts"
 
+#: Per-FACILITY direct impact factors (process_id, impact_id, factor) — added on
+#: top of the baseline technology's own direct impact, so two facilities on the
+#: same technology can carry different real emission intensities.
+PROCESS_IMPACTS = "process_impacts"
+
+#: Year-varying per-facility direct impact (process_id, impact_id, year, factor).
+PROCESS_IMPACTS_T = "process_impacts_t"
+
 #: Long-format per-year technology cost trajectory (technology_id, year, capex?, opex?).
 TECHNOLOGIES_PRICES = "technologies_prices"
 
@@ -148,25 +156,6 @@ MACC_LINKS = "macc_links"
 
 #: Legacy named-set membership for measures (set, applies_to).
 MEASURE_LINKS = "measure_links"
-
-# ── Greedy-MACC backend (precomputed abatement curves) ────────────────────────
-# These three sheets feed the standalone ``macc`` backend (greedy marginal-cost
-# abatement), which does NOT build a MILP — it reads a precomputed cost curve and
-# deploys options cheapest-first to chase an emission target each year. They are
-# distinct from the ``maccs``/``macc_links`` measure-bundle sheets above (which
-# feed the MILP). Authoring tools (e.g. the petrochemical build script) populate
-# these; the backend consumes them verbatim.
-
-#: Per-year emission target line (year, bau, target) the greedy must chase.
-MACC_TARGET = "macc_target"
-
-#: Precomputed abatement curve, one row per (option_id, year): potential (the
-#: max abatement available that year), cost (the $/tCO2 ranking key, ascending),
-#: capex (cost booked per unit of abatement deployed).
-MACC_CURVE = "macc_curve"
-
-#: Optional abatement-option metadata (option_id, label, available_from).
-MACC_OPTIONS = "macc_options"
 
 # ── Storage ───────────────────────────────────────────────────────────────────
 

@@ -372,6 +372,33 @@ SCHEMA: dict[str, Any] = {
             "factor": {"label": "Impact per throughput", "type": "number", "required": True},
         },
     },
+    "process_impacts": {
+        "label": "Per-facility direct impacts",
+        "columns": {
+            "process_id": {
+                "label": "Facility",
+                "type": "string",
+                "required": True,
+                "desc": "Facility this direct emission factor applies to.",
+            },
+            "impact_id": {"label": "Impact", "type": "string", "required": True},
+            "factor": {
+                "label": "Impact per throughput",
+                "type": "number",
+                "required": True,
+                "desc": "Direct emission per unit throughput, ADDED to the baseline technology's own direct impact — lets two facilities on the same technology differ.",
+            },
+        },
+    },
+    "process_impacts_t": {
+        "label": "Per-facility direct impacts · by year",
+        "columns": {
+            "process_id": {"label": "Facility", "type": "string", "required": True},
+            "impact_id": {"label": "Impact", "type": "string", "required": True},
+            "year": {"label": "Year", "type": "integer", "required": True},
+            "factor": {"label": "Impact per throughput", "type": "number", "required": True},
+        },
+    },
     "commodity_impacts": {
         "label": "Stream impact factors",
         "columns": {
@@ -769,65 +796,6 @@ SCHEMA: dict[str, Any] = {
             "year": {"label": "Year", "type": "integer", "required": True},
             "price": {"label": "Purchase price", "type": "number"},
             "sale_price": {"label": "Sale price", "type": "number"},
-        },
-    },
-    "macc_target": {
-        "label": "MACC emission target (greedy backend)",
-        "columns": {
-            "year": {"label": "Year", "type": "integer", "required": True},
-            "bau": {
-                "label": "BAU emissions",
-                "type": "number",
-                "required": True,
-                "desc": "Business-as-usual emissions that year (the line abatement is subtracted from).",
-            },
-            "target": {
-                "label": "Target emissions",
-                "type": "number",
-                "required": True,
-                "desc": "Policy target the greedy chases: required abatement = max(0, BAU − target).",
-            },
-        },
-    },
-    "macc_curve": {
-        "label": "MACC cost curve (greedy backend)",
-        "columns": {
-            "option_id": {
-                "label": "Option",
-                "type": "string",
-                "required": True,
-                "desc": "Abatement option this row describes (matches an option_id in macc_options).",
-            },
-            "year": {"label": "Year", "type": "integer", "required": True},
-            "potential": {
-                "label": "Abatement potential",
-                "type": "number",
-                "required": True,
-                "desc": "Maximum abatement this option can supply that year (same unit as BAU).",
-            },
-            "cost": {
-                "label": "Cost ($/abated)",
-                "type": "number",
-                "required": True,
-                "desc": "Marginal cost per unit abated — the ranking key; options deploy cheapest-first.",
-            },
-            "capex": {
-                "label": "CAPEX (/abated)",
-                "type": "number",
-                "desc": "Capital cost booked per unit of abatement deployed (drives cumulative CAPEX).",
-            },
-        },
-    },
-    "macc_options": {
-        "label": "MACC options (greedy backend)",
-        "columns": {
-            "option_id": {"label": "Option", "type": "string", "required": True},
-            "label": {"label": "Label", "type": "string"},
-            "available_from": {
-                "label": "Available from (yr)",
-                "type": "integer",
-                "desc": "First year the option may be deployed (blank = always available).",
-            },
         },
     },
 }

@@ -591,6 +591,7 @@ def _abatement(ctx: BuildContext, p: str, i: str, t: int) -> Any:
 def _impacts(ctx: BuildContext) -> None:
     """Define ``emit`` per (process, impact, period) and apply caps (slack-softened)."""
     m, prob = ctx.model, ctx.problem
+    proc_by = {p.process_id: p for p in prob.processes}
     for p in ctx.procs:
         for i in ctx.impacts:
             for t in ctx.years:
@@ -605,8 +606,12 @@ def _impacts(ctx: BuildContext) -> None:
                         terms.append(factor * cons)
                     if sav is not None:
                         terms.append((-factor) * sav)
+                # Facility-level direct emission (added on top of the technology's
+                # own direct_impact): scales with the facility's throughput across
+                # whichever technology it runs.
+                dfp = proc_by[p].direct_impact_at(i, t) if p in proc_by else 0.0
                 for k in ctx.feasible[p]:
-                    df = prob.technologies[k].direct_impact_at(i, t)
+                    df = prob.technologies[k].direct_impact_at(i, t) + dfp
                     if df != 0.0:
                         terms.append(df * ctx.x.sel(process=p, tech=k, period=t))
                 abate = _abatement(ctx, p, i, t)

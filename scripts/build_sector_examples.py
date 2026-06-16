@@ -388,104 +388,6 @@ def shipping():
     return lib, wb
 
 
-# ── 3. PETROCHEMICAL (petrochemical_macc_2025) ────────────────────────────────
-def petrochemical():
-    lib = {
-        "label": "Petrochemical MACC (ethylene NCC)",
-        "commodities": [
-            comm("naphtha", "energy", "GJ", price=15.0, properties={"lhv_MJ_per_kg": 44.0}),
-            comm("grid_elec", "energy", "MWh", properties={"voltage_kV": 154.0}),
-            comm(
-                "hydrogen",
-                "energy",
-                "kg",
-                properties={"lhv_MJ_per_kg": 120.0, "pressure_bar": 30.0},
-            ),
-            comm("ethylene", "product", "t", sale_price=1100.0),
-        ],
-        "technologies": [
-            # Baseline naphtha cracker; MACC measures cut its CO2 / energy.
-            tech(
-                "NCC",
-                25,
-                200,
-                60,
-                [
-                    inp("naphtha", 116.7),
-                    inp("grid_elec", 0.0218),
-                    out("ethylene", 1.0, True),
-                    co2(1.739),
-                ],
-                ["ncc_macc"],
-            ),
-        ],
-        "measures": [
-            meas(
-                "heat_pump",
-                "Industrial heat pump (<165°C)",
-                "energy_efficiency",
-                "naphtha",
-                [blk(0.15, 90.0, 3.0)],
-            ),
-            meas(
-                "ncc_h2",
-                "Hydrogen firing",
-                "emission_reduction",
-                "CO2",
-                [blk(0.45, 300.0, 7.5)],
-                lifetime=25,
-            ),
-            meas(
-                "ncc_elec",
-                "Electric cracking",
-                "emission_reduction",
-                "CO2",
-                [blk(0.45, 350.0, 7.0)],
-                lifetime=25,
-            ),
-        ],
-        "maccs": [macc("ncc_macc", "NCC abatement options", ["heat_pump", "ncc_h2", "ncc_elec"])],
-        "machines": [machine("ncc", "Ethylene naphtha cracker", "NCC", 1_500_000)],
-        "groups": [
-            group("kr_petro", "Korea Petrochemical", "company", [("ncc", "")]),
-            group("petro_vc", "Petrochemical", "value_chain", [("kr_petro", "")]),
-        ],
-    }
-    L = ComponentLibrary.model_validate(lib)
-    wb = instantiate(L, "petro_vc", instance_id="vc")
-    wb["periods"] = [{"year": y, "duration_years": 5} for y in YEARS]
-    wb["meta"] = [
-        {"key": "title", "value": "Petrochemical MACC (petrochemical_macc_2025)"},
-        {"key": "base_year", "value": 2025},
-    ]
-    wb["impact_prices"] = carbon_rows(
-        {2025: 30, 2030: 60, 2035: 90, 2040: 110, 2045: 130, 2050: 150}
-    )
-    # Grid electricity: rising price, greening CO2 factor (the headline driver).
-    wb["commodity_prices"] = price_rows(
-        {
-            "grid_elec": {2025: 100.0, 2050: 191.0},
-            "hydrogen": {2025: 6.73, 2050: 2.63},
-        }
-    )
-    wb["commodity_impacts_t"] = [
-        {"commodity_id": "grid_elec", "impact_id": "CO2", "year": 2025, "factor": 0.436},
-        {"commodity_id": "grid_elec", "impact_id": "CO2", "year": 2050, "factor": 0.070},
-    ]
-    # Demand grows ~1.3%/yr (ethylene).
-    growth = {2025: 1.0, 2030: 1.077, 2035: 1.149, 2040: 1.207, 2045: 1.256, 2050: 1.288}
-    wb["demand"] = [
-        {
-            "company": "vc/kr_petro",
-            "commodity_id": "ethylene",
-            "year": y,
-            "amount": round(1_100_000 * growth[y]),
-        }
-        for y in YEARS
-    ]
-    return lib, wb
-
-
 def _solve(wb):
     return run_model(
         wb,
@@ -503,7 +405,6 @@ def main() -> None:
     for sector_id, builder in [
         ("steel", steel),
         ("shipping", shipping),
-        ("petrochemical", petrochemical),
     ]:
         lib, wb = builder()
         res = _solve(wb)

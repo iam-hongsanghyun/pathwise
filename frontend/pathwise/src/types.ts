@@ -67,6 +67,7 @@ export interface RunResult {
     }[];
     demand_slack: { key: string; value: number }[];
     portfolio?: PortfolioResultBlock;
+    macc?: MaccResultBlock;
   };
   summary: {
     periods: { period: number; cost?: number }[];
@@ -126,6 +127,28 @@ export interface PortfolioResultBlock {
   frontier: { return: number; risk: number }[];
   distribution: number[];
   assets: PortfolioAsset[];
+}
+
+// ── MACC backend (greedy abatement) ───────────────────────────────────────────
+
+export interface MaccYear {
+  year: number;
+  bau: number;
+  target: number;
+  required: number;
+  abated: number;
+  actual_emissions: number;
+  shortfall: number;
+  annual_capex: number;
+  cumulative_capex: number;
+  deployed: Record<string, number>;
+}
+
+export interface MaccResultBlock {
+  impact_id: string;
+  by_year: MaccYear[];
+  options: { option_id: string; label: string; deployed: number }[];
+  cumulative_capex: number;
 }
 
 export interface JobState {

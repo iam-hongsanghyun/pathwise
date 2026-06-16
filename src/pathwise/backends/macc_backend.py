@@ -1,69 +1,65 @@
-"""MACC backend: greedy marginal-cost abatement against an emission target.
+"""MACC backend: greedy marginal-cost abatement over the framework's *measures*.
 
 A standalone optimisation *mode* — selectable alongside the MILP (``linopy``) and
-``portfolio`` backends. It does **not** build or solve a MILP. Instead it reads a
-precomputed marginal-abatement-cost (MACC) curve and an emission-target line, and
-each year deploys abatement options cheapest-first until the year's required
-abatement is met (or the curve is exhausted). Deployment is irreversible —
-capacity built in one year carries forward — so once option potentials saturate,
-residual emissions can drift above the (ever-tightening) target in later years.
+``portfolio`` backends. It is a SOLVE METHOD over the same value-chain model, not
+a separate data format: it reuses the front of the pipeline (validate → assemble
+the :class:`~pathwise.core.problem.Problem`), then — instead of building a MILP —
+reads the model's **measures** (abatement actions applied to a facility WITHOUT
+changing its technology — the framework's MACC concept) and greedily deploys them
+cheapest-first against the emission cap (``impact_caps``).
 
-This reproduces the greedy annual-deployment runner used by marginal-cost
-sector models (e.g. the Korean petrochemical MACC), which rank abatement levers
-by $/tCO2 and fill the gap to a policy target rather than co-optimising a fleet.
+This reproduces the greedy annual-deployment runners common in sector
+decarbonisation models (e.g. the Korean petrochemical MACC): rank measures by
+$/tCO2, fill the gap to the policy target each year, carry deployment forward
+irreversibly. Because deployment is irreversible, once measure potentials
+saturate the residual emissions can drift above an ever-tightening target.
 
-The backend is **sector-agnostic**: all the sector-specific cost/potential maths
-live in the authoring script that produces the three input sheets
-(:data:`~pathwise.data.sheets.MACC_TARGET`,
-:data:`~pathwise.data.sheets.MACC_CURVE`,
-:data:`~pathwise.data.sheets.MACC_OPTIONS`). The backend just runs the greedy.
+Distinction the framework draws: a **transition** changes a facility's technology
+(decided by the MILP); a **measure** abates without a technology change (this
+backend). The two are not interchangeable.
 
 Algorithm:
-    For each year ``y`` (ascending), with BAU ``b(y)`` and target ``g(y)``::
+    For each year ``y`` (ascending), with sector BAU ``b(y) = Σ_f e_f(y)`` (every
+    facility's gross emission of the capped impact at full capacity, no measures)
+    and target ``g(y)`` (the impact cap)::
 
-        $$ \\text{required}(y) = \\max(0,\\; b(y) - g(y)) $$
-        $$ \\text{remaining} = \\max\\!\\Big(0,\\; \\text{required}(y) -
-           \\textstyle\\sum_k d_k\\Big) $$
+        required(y) = max(0, b(y) - g(y))
+        remaining   = max(0, required(y) - Σ_k d_k)          # d_k carried forward
+        for measure k in ascending $/tCO2:
+            add = min(remaining, P_k(y) - d_k)                # capped at potential
+            d_k += add ; remaining -= add ; C += add · κ_k(y) # C = cumulative CAPEX
+        actual(y) = b(y) - Σ_k d_k
 
-    Then, visiting options ``k`` in ascending cost order while ``remaining > 0``::
+    where, summing a measure's facility-instances (each block on each linked
+    facility), with baseline emission ``e_f(y)`` and lifetime ``L``::
 
-        $$ a_k = \\min\\big(\\text{remaining},\\; P_k(y) - d_k\\big),\\quad a_k \\ge 0 $$
-        $$ d_k \\mathrel{+}= a_k,\\quad \\text{remaining} \\mathrel{-}= a_k,\\quad
-           C \\mathrel{+}= a_k \\cdot \\kappa_k(y) $$
+        P_k(y) = Σ_f reduction_f(y) · e_f(y)                  # abatement potential
+        $/tCO2 = (Σ_f capex_f(y)/L + Σ_f opex_f(y)) / P_k(y)  # ranking key
+        κ_k(y) = (Σ_f capex_f(y)) / P_k(y)                    # CAPEX booked per unit
 
-    where ``d_k`` is option ``k``'s carried-forward deployment, ``P_k(y)`` its
-    potential, ``κ_k(y)`` its CAPEX booked per unit abated, and ``C`` the running
-    cumulative CAPEX. Residual emissions are ``b(y) - \\sum_k d_k``.
-
-    ASCII fallback::
-
-        required = max(0, bau - target)
-        remaining = max(0, required - sum(deployed))   # carry-forward
-        for option in sorted_by_cost_ascending:
-            add = min(remaining, potential[option] - deployed[option])  # >= 0
-            deployed[option] += add; remaining -= add
-            cumulative_capex += add * capex[option]
-        actual_emissions = bau - sum(deployed)
-
-    Symbols: emissions/potential in the model's emission unit (e.g. MtCO2/yr);
-    ``cost`` in currency per unit abated (ranking only); ``capex``/``C`` in the
-    currency the authoring script booked (e.g. MUSD).
+    ASCII fallback: deploy the cheapest measure first up to its potential, carry
+    deployment forward, book CAPEX in proportion to abatement added.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from pathwise.core.entities import MeasureType
 from pathwise.core.extract import empty_result, macc_result
-from pathwise.data import sheets
+from pathwise.core.problem import Problem
+from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.workbook import Workbook
+from pathwise.domains.base import get_domain
 from pathwise.logger import get_logger
 
 logger = get_logger(__name__)
 
+_ABATING = (MeasureType.EMISSION_REDUCTION, MeasureType.ENVIRONMENTAL)
+
 
 class MaccBackend:
-    """Greedy marginal-cost abatement runner (no MILP)."""
+    """Greedy marginal-cost abatement over the model's measures (no MILP)."""
 
     name = "macc"
     label = "MACC (greedy abatement)"
@@ -76,13 +72,11 @@ class MaccBackend:
             "solver": "greedy",
             "features": {
                 "macc": True,
+                "measures": True,
                 "multiPeriod": True,
                 "transitions": False,
                 "network": False,
                 "monteCarlo": False,
-                # The three sheets this mode consumes — surfaced so the UI can
-                # gate the option on their presence.
-                "requires": [sheets.MACC_TARGET, sheets.MACC_CURVE],
             },
         }
 
@@ -92,180 +86,197 @@ class MaccBackend:
         scenario: dict[str, Any],
         options: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Read the curve + target sheets and run the greedy deployment.
+        """Validate, assemble, and greedily deploy measures against the cap.
 
         Args:
-            model: The in-memory workbook (must carry ``macc_target`` and
-                ``macc_curve`` sheets).
-            scenario: The run definition (unused beyond carrying domain labels).
-            options: Optional overrides — ``impact`` names the emission label
-                echoed into the result summary (default ``"CO2"``).
+            model: The in-memory workbook (a value-chain model with measures + an
+                impact cap).
+            scenario: The run definition (a :class:`ScenarioConfig` as a dict).
+            options: ``domain`` override and ``impact`` (the capped impact to
+                chase; default: the impact that carries a cap, else ``"CO2"``).
 
         Returns:
             pathwise's result dict with an ``outputs.macc`` block, or an
-            ``invalid`` result if the required sheets are missing/empty.
+            ``invalid`` result if the model has no measures or no emission cap.
         """
         options = options or {}
-        impact_id = str(options.get("impact") or "CO2")
+        sc = ScenarioConfig.from_dict(scenario)
+        domain = get_domain(options.get("domain") or sc.domain)
+        terminology = domain.terminology()
+        logger.info("running domain=%s backend=%s", domain.name, self.name)
 
-        target_rows = model.get(sheets.MACC_TARGET) or []
-        curve_rows = model.get(sheets.MACC_CURVE) or []
-        errors = _validate(target_rows, curve_rows)
+        report = domain.validate(model)
+        if not report.ok:
+            logger.warning("validation failed: %d error(s)", len(report.errors))
+            return empty_result("invalid", terminology, report.as_dict())
+
+        problem = domain.build_problem(model, sc)
+        impact_id = str(options.get("impact") or _target_impact(problem))
+        errors = _preflight(problem, impact_id)
         if errors:
+            report_dict = report.as_dict()
+            report_dict["errors"].extend(errors)
             logger.warning("MACC run invalid: %s", "; ".join(errors))
-            return empty_result("invalid", {}, {"errors": errors, "warnings": []})
+            return empty_result("invalid", terminology, report_dict)
 
-        targets = _targets(target_rows)
-        curve = _curve(curve_rows)
-        available_from = _available_from(model.get(sheets.MACC_OPTIONS) or [])
-        labels = _labels(model.get(sheets.MACC_OPTIONS) or [])
-
-        block = _greedy(targets, curve, available_from, labels, impact_id)
+        block = _greedy(problem, impact_id)
         logger.info(
-            "MACC greedy: %d years, %d options, cumulative CAPEX=%.3f",
+            "MACC greedy: %d years, %d measure(s), cumulative CAPEX=%.3f",
             len(block["by_year"]),
             len(block["options"]),
-            block["by_year"][-1]["cumulative_capex"] if block["by_year"] else 0.0,
+            block["cumulative_capex"],
         )
-        return macc_result(block, {}, {"errors": [], "warnings": []})
+        return macc_result(block, terminology, report.as_dict())
 
 
-# ── Parsing helpers ───────────────────────────────────────────────────────────
+# ── Problem readers ───────────────────────────────────────────────────────────
 
 
-def _validate(target_rows: list[dict[str, Any]], curve_rows: list[dict[str, Any]]) -> list[str]:
-    """Return human-readable errors that block a run (empty list = ok)."""
+def _target_impact(problem: Problem) -> str:
+    """The capped impact to chase (first impact with a cap, else ``"CO2"``)."""
+    for _company, impact, _year in problem.impact_caps:
+        return impact
+    return "CO2"
+
+
+def _cap(problem: Problem, impact: str, year: int) -> float | None:
+    """Total emission cap for ``impact`` in ``year`` (summed over scopes), or None."""
+    hits = [v for (_c, i, y), v in problem.impact_caps.items() if i == impact and y == year]
+    return sum(hits) if hits else None
+
+
+def _baseline_emission(problem: Problem, process: Any, impact: str, year: int) -> float:
+    """A facility's gross emission of ``impact`` at full capacity in ``year``.
+
+    Mirrors the MILP's emission expression but evaluated at the facility's
+    nameplate capacity with no measures applied (the BAU contribution).
+    """
+    cap = process.capacity_at(year)
+    tech = problem.technologies.get(process.baseline_technology)
+    direct = process.direct_impact_at(impact, year)
+    if tech is not None:
+        direct += tech.direct_impact_at(impact, year)
+    total = direct * cap
+    if tech is not None:
+        inputs = set(tech.input_intensity) | set(tech.input_intensity_by_year)
+        for r in inputs:
+            total += (
+                problem.commodity_impact(r, impact, year) * cap * tech.input_intensity_at(r, year)
+            )
+    return float(total)
+
+
+def _preflight(problem: Problem, impact: str) -> list[str]:
+    """Errors that block a greedy run (no measures / no cap for the impact)."""
     errors: list[str] = []
-    if not target_rows:
+    abating = [m for m in problem.measures if m.measure_type in _ABATING and m.target == impact]
+    if not abating:
         errors.append(
-            f"The MACC backend needs a '{sheets.MACC_TARGET}' sheet "
-            "(year, bau, target). None was found."
+            f"The MACC backend needs at least one abatement measure targeting '{impact}'. "
+            "Define measures (with cost-curve blocks) and link them to facilities."
         )
-    if not curve_rows:
+    if not any(i == impact for (_c, i, _y) in problem.impact_caps):
         errors.append(
-            f"The MACC backend needs a '{sheets.MACC_CURVE}' sheet "
-            "(option_id, year, potential, cost, capex). None was found."
+            f"The MACC backend needs an emission cap on '{impact}' to chase "
+            "(an impact_caps row). None was found."
         )
     return errors
 
 
-def _num(value: Any, default: float = 0.0) -> float:
-    """Coerce a cell to float, treating blanks/None as ``default``."""
-    if value is None or value == "":
-        return default
-    return float(value)
+# ── The greedy deployment ─────────────────────────────────────────────────────
 
 
-def _targets(rows: list[dict[str, Any]]) -> dict[int, tuple[float, float]]:
-    """``{year: (bau, target)}`` from the target sheet."""
-    out: dict[int, tuple[float, float]] = {}
-    for r in rows:
-        if r.get("year") in (None, ""):
-            continue
-        out[int(r["year"])] = (_num(r.get("bau")), _num(r.get("target")))
-    return out
+def _base_id(measure_id: str) -> str:
+    """The shared measure id behind a per-facility instance (``"HP @ F1"`` → ``"HP"``)."""
+    return measure_id.split(" @ ", 1)[0]
 
 
-def _curve(rows: list[dict[str, Any]]) -> dict[int, list[dict[str, Any]]]:
-    """``{year: [{option_id, potential, cost, capex}, …]}`` from the curve sheet."""
-    out: dict[int, list[dict[str, Any]]] = {}
-    for r in rows:
-        if r.get("year") in (None, "") or not r.get("option_id"):
-            continue
-        out.setdefault(int(r["year"]), []).append(
-            {
-                "option_id": str(r["option_id"]),
-                "potential": _num(r.get("potential")),
-                "cost": _num(r.get("cost")),
-                "capex": _num(r.get("capex")),
-            }
-        )
-    return out
+def _options(problem: Problem, impact: str) -> list[dict[str, Any]]:
+    """Group abatement measures into curve options (one per base measure × block).
 
-
-def _available_from(rows: list[dict[str, Any]]) -> dict[str, int]:
-    """``{option_id: first usable year}`` (only options that set one)."""
-    out: dict[str, int] = {}
-    for r in rows:
-        if r.get("option_id") and r.get("available_from") not in (None, ""):
-            out[str(r["option_id"])] = int(r["available_from"])
-    return out
-
-
-def _labels(rows: list[dict[str, Any]]) -> dict[str, str]:
-    """``{option_id: display label}`` (falls back to the id elsewhere)."""
-    return {
-        str(r["option_id"]): str(r.get("label") or r["option_id"])
-        for r in rows
-        if r.get("option_id")
-    }
-
-
-# ── The greedy deployment ───────────────────────────────────────────────────
-
-
-def _greedy(
-    targets: dict[int, tuple[float, float]],
-    curve: dict[int, list[dict[str, Any]]],
-    available_from: dict[str, int],
-    labels: dict[str, str],
-    impact_id: str,
-) -> dict[str, Any]:
-    """Run the greedy annual deployment; return the JSON-serialisable block.
-
-    See the module Algorithm section. Deployment is carried forward across years
-    (irreversible) and capped at each option's per-year potential.
+    Each option aggregates its facility-instances: per year it carries the total
+    abatement potential, total CAPEX and total OPEX, plus the measure lifetime.
     """
-    deployed: dict[str, float] = {}
+    # base id → block index → list of (measure, block, process)
+    grouped: dict[tuple[str, int], list[tuple[Any, Any, Any]]] = {}
+    proc_by = {p.process_id: p for p in problem.processes}
+    for m in problem.measures:
+        if m.measure_type not in _ABATING or m.target != impact:
+            continue
+        proc = proc_by.get(m.applies_to)
+        if proc is None:
+            continue
+        for b, blk in enumerate(m.blocks):
+            grouped.setdefault((_base_id(m.measure_id), b), []).append((m, blk, proc))
+
+    options: list[dict[str, Any]] = []
+    for (base, block_idx), instances in grouped.items():
+        lifetime = max(1, instances[0][0].lifetime)
+        per_year: dict[int, dict[str, float]] = {}
+        for y in problem.years:
+            potential = capex = opex = 0.0
+            for _m, blk, proc in instances:
+                emit = _baseline_emission(problem, proc, impact, y)
+                potential += blk.reduction_at(y) * emit
+                capex += blk.capex_at(y)
+                opex += blk.opex_at(y)
+            rank = (capex / lifetime + opex) / potential if potential > 0 else float("inf")
+            book = capex / potential if potential > 0 else 0.0
+            per_year[y] = {"potential": potential, "rank": rank, "book": book}
+        label = base if block_idx == 0 else f"{base} (block {block_idx})"
+        options.append({"id": f"{base}#{block_idx}", "label": label, "per_year": per_year})
+    return options
+
+
+def _greedy(problem: Problem, impact: str) -> dict[str, Any]:
+    """Run the greedy annual deployment over measures; return the result block."""
+    options = _options(problem, impact)
+    deployed: dict[str, float] = {o["id"]: 0.0 for o in options}
     cumulative_capex = 0.0
     by_year: list[dict[str, Any]] = []
 
-    for year in sorted(targets):
-        bau, target = targets[year]
+    for year in problem.years:
+        bau = sum(_baseline_emission(problem, p, impact, year) for p in problem.processes)
+        target = _cap(problem, impact, year)
+        target = bau if target is None else target
         required = max(0.0, bau - target)
-        rows = [
-            r
-            for r in curve.get(year, [])
-            if r["potential"] > 0 and year >= available_from.get(r["option_id"], year)
-        ]
-        rows.sort(key=lambda r: r["cost"])  # cheapest $/unit abated first
 
+        rows = sorted(options, key=lambda o: o["per_year"][year]["rank"])
         remaining = max(0.0, required - sum(deployed.values()))
         year_capex = 0.0
-        for r in rows:
+        for o in rows:
             if remaining <= 0:
                 break
-            option = r["option_id"]
-            add = min(remaining, r["potential"] - deployed.get(option, 0.0))
+            info = o["per_year"][year]
+            add = min(remaining, info["potential"] - deployed[o["id"]])
             if add > 0:
-                deployed[option] = deployed.get(option, 0.0) + add
+                deployed[o["id"]] += add
                 remaining -= add
-                year_capex += add * r["capex"]
+                year_capex += add * info["book"]
 
         cumulative_capex += year_capex
-        total_deployed = sum(deployed.values())
+        total = sum(deployed.values())
         by_year.append(
             {
                 "year": year,
                 "bau": bau,
                 "target": target,
                 "required": required,
-                "abated": total_deployed,
-                "actual_emissions": bau - total_deployed,
-                "shortfall": max(0.0, bau - total_deployed - target),
+                "abated": total,
+                "actual_emissions": bau - total,
+                "shortfall": max(0.0, bau - total - target),
                 "annual_capex": year_capex,
                 "cumulative_capex": cumulative_capex,
-                "deployed": dict(sorted(deployed.items())),
+                "deployed": {o["label"]: deployed[o["id"]] for o in options},
             }
         )
 
-    options = [
-        {"option_id": k, "label": labels.get(k, k), "deployed": deployed[k]}
-        for k in sorted(deployed)
-    ]
     return {
-        "impact_id": impact_id,
+        "impact_id": impact,
         "by_year": by_year,
-        "options": options,
+        "options": [
+            {"option_id": o["id"], "label": o["label"], "deployed": deployed[o["id"]]}
+            for o in options
+        ],
         "cumulative_capex": cumulative_capex,
     }
