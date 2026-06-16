@@ -15,8 +15,25 @@ export function storedSessionId(): string | null {
   return localStorage.getItem(SESSION_KEY);
 }
 
-/** Reuse the stored session if the backend still knows it; else create one. */
-export async function ensureSession(): Promise<{ sessionId: string; model: Workbook }> {
+let _inflight: Promise<{ sessionId: string; model: Workbook }> | null = null;
+
+/** Reuse the stored session if the backend still knows it; else create one.
+ *
+ *  De-duplicated: concurrent calls (React StrictMode runs the boot effect twice
+ *  in dev, and a remount could call again) share ONE in-flight request, so a page
+ *  load never creates a duplicate orphan session. The cache resets on failure so
+ *  a later attempt can retry. */
+export function ensureSession(): Promise<{ sessionId: string; model: Workbook }> {
+  if (!_inflight) {
+    _inflight = _ensureSession();
+    _inflight.catch(() => {
+      _inflight = null;
+    });
+  }
+  return _inflight;
+}
+
+async function _ensureSession(): Promise<{ sessionId: string; model: Workbook }> {
   const stored = storedSessionId();
   if (stored) {
     const resp = await fetch(`/api/session/${stored}/model`);
