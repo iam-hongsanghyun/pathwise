@@ -2,267 +2,244 @@
   "label": "Steel transition (KR)",
   "commodities": [
     {
-      "commodity_id": "coal",
+      "commodity_id": "BF_gas_BB",
       "kind": "energy",
-      "unit": "GJ",
-      "price": 7.4,
-      "sale_price": null,
-      "properties": {
-        "lhv_MJ_per_kg": 27.0
-      }
-    },
-    {
-      "commodity_id": "natural_gas",
-      "kind": "energy",
-      "unit": "GJ",
-      "price": 11.7,
-      "sale_price": null,
-      "properties": {
-        "lhv_MJ_per_kg": 48.0
-      }
-    },
-    {
-      "commodity_id": "electricity",
-      "kind": "energy",
-      "unit": "GJ",
+      "unit": "unit",
       "price": null,
       "sale_price": null,
-      "properties": {
-        "voltage_kV": 345.0
-      }
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
     },
     {
-      "commodity_id": "hydrogen",
+      "commodity_id": "BF_gas_BX",
       "kind": "energy",
-      "unit": "GJ",
+      "unit": "unit",
       "price": null,
       "sale_price": null,
-      "properties": {
-        "lhv_MJ_per_kg": 120.0,
-        "pressure_bar": 30.0
-      }
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
     },
     {
-      "commodity_id": "iron_ore",
+      "commodity_id": "BOF_gas_BB",
+      "kind": "energy",
+      "unit": "unit",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "BOF_gas_BX",
+      "kind": "energy",
+      "unit": "unit",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "COG_BB",
+      "kind": "energy",
+      "unit": "unit",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Coal_BB",
+      "kind": "energy",
+      "unit": "unit",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Coal_BX",
+      "kind": "energy",
+      "unit": "unit",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Electricity_EAF",
+      "kind": "energy",
+      "unit": "unit",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Electricity_H2",
+      "kind": "energy",
+      "unit": "unit",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Hydrogen_H2",
+      "kind": "energy",
+      "unit": "unit",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "HBI_EAF",
       "kind": "material",
-      "unit": "t",
-      "price": 103.0,
-      "sale_price": null,
-      "properties": {
-        "fe_content_pct": 62.0
-      }
-    },
-    {
-      "commodity_id": "scrap",
-      "kind": "material",
-      "unit": "t",
+      "unit": "unit",
       "price": null,
       "sale_price": null,
-      "properties": {
-        "fe_content_pct": 98.0
-      }
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Iron_ore_BB",
+      "kind": "material",
+      "unit": "unit",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Iron_ore_BX",
+      "kind": "material",
+      "unit": "unit",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Iron_ore_H2",
+      "kind": "material",
+      "unit": "unit",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Scrap_BB",
+      "kind": "material",
+      "unit": "unit",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Scrap_EAF",
+      "kind": "material",
+      "unit": "unit",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
     },
     {
       "commodity_id": "steel",
       "kind": "product",
       "unit": "t",
       "price": null,
-      "sale_price": 600.0,
-      "properties": {
-        "temperature_C": 1650.0
-      }
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
     }
   ],
   "technologies": [
     {
       "technology_id": "BF_BOF",
       "lifespan": 20,
-      "capex": 371,
-      "opex": 185,
+      "capex": 500700.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
       "io": [
-        {
-          "target": "coal",
-          "role": "input",
-          "coefficient": 18.0,
-          "is_product": false,
-          "group": null,
-          "share_min": null,
-          "share_max": null
-        },
-        {
-          "target": "iron_ore",
-          "role": "input",
-          "coefficient": 1.6,
-          "is_product": false,
-          "group": null,
-          "share_min": null,
-          "share_max": null
-        },
-        {
-          "target": "electricity",
-          "role": "input",
-          "coefficient": 0.5,
-          "is_product": false,
-          "group": null,
-          "share_min": null,
-          "share_max": null
-        },
         {
           "target": "steel",
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
-          "group": null,
-          "share_min": null,
-          "share_max": null
-        },
-        {
-          "target": "CO2",
-          "role": "impact",
-          "coefficient": 2.05,
-          "is_product": false,
-          "group": null,
-          "share_min": null,
-          "share_max": null
-        }
-      ],
-      "maccs": [
-        "bf_abate"
-      ]
-    },
-    {
-      "technology_id": "BF_BOF_CCS",
-      "lifespan": 20,
-      "capex": 460,
-      "opex": 210,
-      "io": [
-        {
-          "target": "coal",
-          "role": "input",
-          "coefficient": 18.0,
-          "is_product": false,
-          "group": null,
-          "share_min": null,
-          "share_max": null
-        },
-        {
-          "target": "iron_ore",
-          "role": "input",
-          "coefficient": 1.6,
-          "is_product": false,
-          "group": null,
-          "share_min": null,
-          "share_max": null
-        },
-        {
-          "target": "electricity",
-          "role": "input",
-          "coefficient": 0.8,
-          "is_product": false,
-          "group": null,
-          "share_min": null,
-          "share_max": null
-        },
-        {
-          "target": "steel",
-          "role": "output",
-          "coefficient": 1.0,
-          "is_product": true,
-          "group": null,
-          "share_min": null,
-          "share_max": null
-        },
-        {
-          "target": "CO2",
-          "role": "impact",
-          "coefficient": 0.6,
-          "is_product": false,
-          "group": null,
-          "share_min": null,
-          "share_max": null
-        }
-      ],
-      "maccs": []
-    },
-    {
-      "technology_id": "H2_DRI_ESF",
-      "lifespan": 20,
-      "capex": 815,
-      "opex": 407,
-      "io": [
-        {
-          "target": "hydrogen",
-          "role": "input",
-          "coefficient": 16.0,
-          "is_product": false,
-          "group": null,
-          "share_min": null,
-          "share_max": null
-        },
-        {
-          "target": "electricity",
-          "role": "input",
-          "coefficient": 16.0,
-          "is_product": false,
-          "group": null,
-          "share_min": null,
-          "share_max": null
-        },
-        {
-          "target": "iron_ore",
-          "role": "input",
-          "coefficient": 1.65,
-          "is_product": false,
-          "group": null,
-          "share_min": null,
-          "share_max": null
-        },
-        {
-          "target": "steel",
-          "role": "output",
-          "coefficient": 1.0,
-          "is_product": true,
-          "group": null,
-          "share_min": null,
-          "share_max": null
-        },
-        {
-          "target": "CO2",
-          "role": "impact",
-          "coefficient": 0.05,
-          "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
         }
       ],
       "maccs": [],
-      "introduction_year": 2030
+      "notes": ""
     },
     {
-      "technology_id": "Scrap_EAF",
+      "technology_id": "BF_BOF_FX",
       "lifespan": 20,
-      "capex": 178,
-      "opex": 89,
+      "capex": 425595.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
       "io": [
-        {
-          "target": "scrap",
-          "role": "input",
-          "coefficient": 1.05,
-          "is_product": false,
-          "group": null,
-          "share_min": null,
-          "share_max": null
-        },
-        {
-          "target": "electricity",
-          "role": "input",
-          "coefficient": 6.0,
-          "is_product": false,
-          "group": null,
-          "share_min": null,
-          "share_max": null
-        },
         {
           "target": "steel",
           "role": "output",
@@ -271,78 +248,61 @@
           "group": null,
           "share_min": null,
           "share_max": null
-        },
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "H2_DRI_ESF",
+      "lifespan": 20,
+      "capex": 1100000.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
         {
-          "target": "CO2",
-          "role": "impact",
-          "coefficient": 0.05,
-          "is_product": false,
+          "target": "steel",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
           "group": null,
           "share_min": null,
           "share_max": null
         }
       ],
-      "maccs": []
-    }
-  ],
-  "measures": [
-    {
-      "measure_id": "bf_ccs",
-      "label": "Top-gas recovery + CCS",
-      "type": "emission_reduction",
-      "target": "CO2",
-      "lifetime": 20,
-      "blocks": [
-        {
-          "reduction": 0.2,
-          "capex_per_capacity": 90.0,
-          "opex_per_capacity": 3.0
-        }
-      ]
-    }
-  ],
-  "maccs": [
-    {
-      "macc_id": "bf_abate",
-      "label": "Blast-furnace abatement",
-      "measures": [
-        "bf_ccs"
-      ]
-    }
-  ],
-  "machines": [
-    {
-      "name": "mill",
-      "label": "Integrated steel mill",
-      "technology": "BF_BOF",
-      "capacity": 4000000,
-      "measures": []
-    }
-  ],
-  "groups": [
-    {
-      "name": "kr_steel",
-      "label": "Korea Steel",
-      "level": "company",
-      "children": [
-        {
-          "component": "mill",
-          "alias": ""
-        }
-      ],
-      "connections": []
+      "maccs": [],
+      "notes": ""
     },
     {
-      "name": "steel_vc",
-      "label": "Steel value chain",
-      "level": "value_chain",
-      "children": [
+      "technology_id": "EAF",
+      "lifespan": 20,
+      "capex": 240000.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
         {
-          "component": "kr_steel",
-          "alias": ""
+          "target": "steel",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
         }
       ],
-      "connections": []
+      "maccs": [],
+      "notes": ""
     }
-  ]
+  ],
+  "measures": [],
+  "maccs": [],
+  "machines": [],
+  "groups": [],
+  "notes_by_sector": {}
 }

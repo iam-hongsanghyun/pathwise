@@ -1,10 +1,10 @@
 {
-  "label": "Petrochemical (ethylene NCC + MACC)",
+  "label": "Petrochemical (naphtha cracking value chain)",
   "commodities": [
     {
-      "commodity_id": "aromatics",
-      "kind": "product",
-      "unit": "kt",
+      "commodity_id": "Byproduct_Gas",
+      "kind": "energy",
+      "unit": "unit",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -14,9 +14,9 @@
       "notes": ""
     },
     {
-      "commodity_id": "ethylene",
-      "kind": "product",
-      "unit": "kt",
+      "commodity_id": "Electricity",
+      "kind": "energy",
+      "unit": "unit",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -26,9 +26,705 @@
       "notes": ""
     },
     {
-      "commodity_id": "utility_heat",
+      "commodity_id": "Fuel_Gas",
+      "kind": "energy",
+      "unit": "unit",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "H2",
+      "kind": "energy",
+      "unit": "unit",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "LNG",
+      "kind": "energy",
+      "unit": "unit",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Naphtha",
+      "kind": "energy",
+      "unit": "unit",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "ABS",
       "kind": "product",
-      "unit": "kt",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "AN",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Acetic_Acid",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Acetone",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Alkylbenzene",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "BPA",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "BR",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Benzene",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Butadiene",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Butanol",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "C_H",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "CPLM",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Carbon_Black_CB",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "DMT",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "EDC",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "EG",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "EPDM",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "EPS",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Epoxy_Resin",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Ethanol",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Ethyl_Acetate",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Ethylene",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "HDPE",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "L_LDPE",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "LDPE",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "M_X",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "MA",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "MDI",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "MMA",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "NB_Latex",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "NBR",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "O_X",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Octanol",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "P_X",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "PA",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "PC",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "PIA",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "PMMA",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "PP",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "PPG",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "PS",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "PVC",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Petroleum_Resin",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Phenol",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Propylene",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "S_SBR",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "SB_Latex",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "SBR",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "SM",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "TDI",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "TPA",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Toluene",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "VCM",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Vinyl_Acetate",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": null,
+      "price_by_year": {},
+      "sale_price_by_year": {},
+      "properties": {},
+      "sector": null,
+      "notes": ""
+    },
+    {
+      "commodity_id": "Xylene",
+      "kind": "product",
+      "unit": "t",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -40,7 +736,7 @@
   ],
   "technologies": [
     {
-      "technology_id": "Naphtha_Cracker",
+      "technology_id": "ABS",
       "lifespan": 20,
       "capex": 0.0,
       "opex": 0.0,
@@ -50,7 +746,16 @@
       "phase_out_year": null,
       "io": [
         {
-          "target": "ethylene",
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 1.1401646693762726,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "ABS",
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
@@ -63,7 +768,7 @@
       "notes": ""
     },
     {
-      "technology_id": "BTX_Plant",
+      "technology_id": "AN",
       "lifespan": 20,
       "capex": 0.0,
       "opex": 0.0,
@@ -73,7 +778,16 @@
       "phase_out_year": null,
       "io": [
         {
-          "target": "aromatics",
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 1.1527027205566127,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "AN",
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
@@ -86,7 +800,7 @@
       "notes": ""
     },
     {
-      "technology_id": "Utility",
+      "technology_id": "Acetic_Acid",
       "lifespan": 20,
       "capex": 0.0,
       "opex": 0.0,
@@ -96,7 +810,2033 @@
       "phase_out_year": null,
       "io": [
         {
-          "target": "utility_heat",
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Acetic_Acid",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Acetone",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Acetone",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Alkylbenzene",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Alkylbenzene",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "BPA",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "BPA",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "BR",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "BR",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Benzene",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 9.346179969062668,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "LNG",
+          "role": "input",
+          "coefficient": 2.540598189866875,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Fuel_Gas",
+          "role": "input",
+          "coefficient": 3.1757477373335923,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Byproduct_Gas",
+          "role": "input",
+          "coefficient": 0.6351495474667186,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Benzene",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Butadiene",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Naphtha",
+          "role": "input",
+          "coefficient": 29.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 102.15894934320028,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "LNG",
+          "role": "input",
+          "coefficient": 4.165522854885694,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Fuel_Gas",
+          "role": "input",
+          "coefficient": 5.322612536798388,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Byproduct_Gas",
+          "role": "input",
+          "coefficient": 1.1570896819126937,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Butadiene",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Butanol",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Butanol",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "C_H",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Naphtha",
+          "role": "input",
+          "coefficient": 18.8108108108108,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "C_H",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "CPLM",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "CPLM",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Carbon_Black_CB",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Carbon_Black_CB",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "DMT",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "DMT",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "EDC",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 1.1527027205566127,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "EDC",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "EG",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "EG",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "EPDM",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "EPDM",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "EPS",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 1.1401646693762726,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "EPS",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Epoxy_Resin",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Epoxy_Resin",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Ethanol",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethanol",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Ethyl_Acetate",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethyl_Acetate",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Ethylene",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Naphtha",
+          "role": "input",
+          "coefficient": 29.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 21.813940359753925,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "LNG",
+          "role": "input",
+          "coefficient": 4.49223052977869,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Fuel_Gas",
+          "role": "input",
+          "coefficient": 5.615288162223364,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Byproduct_Gas",
+          "role": "input",
+          "coefficient": 1.1230576324446726,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "HDPE",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 1.5202195591683652,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "HDPE",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "L_LDPE",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 1.7540994913481132,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "L_LDPE",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "LDPE",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 1.9002744489604553,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "LDPE",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "M_X",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.9346179969062668,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "M_X",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "MA",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "MA",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "MDI",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "MDI",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "MMA",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "MMA",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "NB_Latex",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "NB_Latex",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "NBR",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "NBR",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "O_X",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.9346179969062668,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "O_X",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Octanol",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Octanol",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "P_X",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "P_X",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "PA",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "PA",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "PC",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "PC",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "PIA",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "PIA",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "PMMA",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 1.1401646693762726,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "PMMA",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "PP",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 1.425205836720342,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "PP",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "PPG",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "PPG",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "PS",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 2.2803293387525465,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "PS",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "PVC",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 1.1527027205566127,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "PVC",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Petroleum_Resin",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Petroleum_Resin",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Phenol",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Phenol",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Propylene",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Naphtha",
+          "role": "input",
+          "coefficient": 25.394594594594576,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 48.84474765471761,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "LNG",
+          "role": "input",
+          "coefficient": 3.9341049185031576,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Fuel_Gas",
+          "role": "input",
+          "coefficient": 5.16351270553539,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Byproduct_Gas",
+          "role": "input",
+          "coefficient": 1.229407787032236,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Propylene",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "S_SBR",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "S_SBR",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "SB_Latex",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "SB_Latex",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "SBR",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "SBR",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "SM",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 1.1527027205566127,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "SM",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "TDI",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "TDI",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "TPA",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "TPA",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Toluene",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 6.853865310645958,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "LNG",
+          "role": "input",
+          "coefficient": 3.3874642531558323,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Fuel_Gas",
+          "role": "input",
+          "coefficient": 4.2343303164447885,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Byproduct_Gas",
+          "role": "input",
+          "coefficient": 0.8468660632889579,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Toluene",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "VCM",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 1.1527027205566127,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "VCM",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Vinyl_Acetate",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 0.8060312167137976,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Vinyl_Acetate",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Xylene",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 194.86785235495665,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "LNG",
+          "role": "input",
+          "coefficient": 3.810897284800313,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Fuel_Gas",
+          "role": "input",
+          "coefficient": 4.763621606000386,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Byproduct_Gas",
+          "role": "input",
+          "coefficient": 0.9527243212000776,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Xylene",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Ethylene__NCC_H2",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Naphtha",
+          "role": "input",
+          "coefficient": 29.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "H2",
+          "role": "input",
+          "coefficient": 200.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Ethylene__NCC_Electricity",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Naphtha",
+          "role": "input",
+          "coefficient": 29.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 3000.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Ethylene",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Propylene__NCC_H2",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Naphtha",
+          "role": "input",
+          "coefficient": 25.394594594594576,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "H2",
+          "role": "input",
+          "coefficient": 180.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Propylene",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "notes": ""
+    },
+    {
+      "technology_id": "Propylene__NCC_Electricity",
+      "lifespan": 20,
+      "capex": 0.0,
+      "opex": 0.0,
+      "capex_by_year": {},
+      "opex_by_year": {},
+      "introduction_year": null,
+      "phase_out_year": null,
+      "io": [
+        {
+          "target": "Naphtha",
+          "role": "input",
+          "coefficient": 25.394594594594576,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Electricity",
+          "role": "input",
+          "coefficient": 2700.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "Propylene",
           "role": "output",
           "coefficient": 1.0,
           "is_product": true,
@@ -109,59 +2849,7 @@
       "notes": ""
     }
   ],
-  "measures": [
-    {
-      "measure_id": "Heat_Pump",
-      "label": "",
-      "type": "emission_reduction",
-      "target": "CO2",
-      "lifetime": 20,
-      "blocks": [
-        {
-          "reduction": 1e-06,
-          "capex_per_capacity": 0.0,
-          "opex_per_capacity": 0.0,
-          "capex_per_capacity_by_year": {},
-          "opex_per_capacity_by_year": {}
-        }
-      ],
-      "notes": ""
-    },
-    {
-      "measure_id": "NCC_Electricity",
-      "label": "",
-      "type": "emission_reduction",
-      "target": "CO2",
-      "lifetime": 20,
-      "blocks": [
-        {
-          "reduction": 1e-06,
-          "capex_per_capacity": 0.0,
-          "opex_per_capacity": 0.0,
-          "capex_per_capacity_by_year": {},
-          "opex_per_capacity_by_year": {}
-        }
-      ],
-      "notes": ""
-    },
-    {
-      "measure_id": "RE_PPA",
-      "label": "",
-      "type": "emission_reduction",
-      "target": "CO2",
-      "lifetime": 20,
-      "blocks": [
-        {
-          "reduction": 1e-06,
-          "capex_per_capacity": 0.0,
-          "opex_per_capacity": 0.0,
-          "capex_per_capacity_by_year": {},
-          "opex_per_capacity_by_year": {}
-        }
-      ],
-      "notes": ""
-    }
-  ],
+  "measures": [],
   "maccs": [],
   "machines": [],
   "groups": [],

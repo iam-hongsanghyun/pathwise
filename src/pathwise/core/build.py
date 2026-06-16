@@ -69,6 +69,7 @@ def build(problem: Problem) -> BuildContext:
     )
     _technology(ctx)
     _lifecycle(ctx)
+    _vintage_gate(ctx)
     _blend(ctx)
     _output_blend(ctx)
     _flow_balance(ctx)
@@ -248,6 +249,43 @@ def _lifecycle(ctx: BuildContext) -> None:
                 cover = _lin_sum(refresh)
                 rhs = live0 if cover is None else live0 + cover
                 m.add_constraints(u_kt <= rhs, name=f"life[{pid},{k},{t}]")
+
+
+def _vintage_gate(ctx: BuildContext) -> None:
+    r"""Vintage timing: switch/rebuild only at end-of-life boundaries.
+
+    When ``problem.vintage_timing`` is set, a facility may replace (``w``) or renew
+    (``ren``) a technology ONLY in years where its asset reaches end of life —
+    ``(year - introduced_year) % lifespan == 0`` (lifespan of its baseline
+    technology) — and must continue in between. Off by default; opt-in for fleets
+    that turn over on a fixed vintage schedule. Facilities with no install date are
+    left free.
+
+    Algorithm:
+        boundary(p, t) ⇔ (t − introduced_year_p) mod L_p == 0
+        ¬boundary ⇒ w[p,k,t] = 0 and ren[p,k,t] = 0  for every technology k
+    """
+    if not ctx.problem.vintage_timing:
+        return
+    m, prob = ctx.model, ctx.problem
+    for p in prob.processes:
+        if p.introduced_year is None:
+            continue
+        tech = prob.technologies.get(p.baseline_technology)
+        life = max(int(tech.lifespan), 1) if tech is not None else 1
+        for t in ctx.years:
+            if (t - p.introduced_year) % life == 0:
+                continue  # end-of-life boundary — switching/renewal allowed
+            for k in ctx.feasible[p.process_id]:
+                m.add_constraints(
+                    ctx.w.sel(process=p.process_id, tech=k, period=t) == 0,
+                    name=f"vint_w[{p.process_id},{k},{t}]",
+                )
+                if ctx.ren is not None:
+                    m.add_constraints(
+                        ctx.ren.sel(process=p.process_id, tech=k, period=t) == 0,
+                        name=f"vint_ren[{p.process_id},{k},{t}]",
+                    )
 
 
 def _produced(ctx: BuildContext, p: str, r: str, t: int) -> Any:

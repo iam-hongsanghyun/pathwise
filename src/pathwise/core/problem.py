@@ -103,6 +103,12 @@ class Problem:
     # H2-DRI plants can exist by a given year.
     technology_caps: dict[str, int] = field(default_factory=dict)
     company_objective: dict[str, ObjectiveMode] = field(default_factory=dict)
+    # Vintage timing: when True, a facility may switch (replace) or rebuild (renew)
+    # ONLY at end-of-life boundaries — years where ``(year - introduced_year) %
+    # lifespan == 0`` — and must continue its current technology in between. Off by
+    # default (facilities may re-invest in any year); opt-in for fleets that turn
+    # over on a fixed vintage schedule (e.g. the steel model).
+    vintage_timing: bool = False
     discount_rate: float = 0.08
     base_year: int = 0
     capex_convention: CapexConvention = CapexConvention.NPV

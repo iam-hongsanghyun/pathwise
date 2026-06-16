@@ -1062,6 +1062,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         impact_cap_intensity = {("all", imp): imp in intensity_imps for (_s, imp, _y) in pooled}
 
     toggles = CostToggles(**scenario.cost_components.model_dump())
+    vintage_timing = _bool(_meta(workbook).get("vintage_timing"))
 
     return Problem(
         periods=periods,
@@ -1085,6 +1086,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         min_production=min_production,
         technology_caps=technology_caps,
         company_objective=company_objective,
+        vintage_timing=vintage_timing,
         discount_rate=econ.discount_rate,
         base_year=base_year,
         capex_convention=econ.capex_convention,
