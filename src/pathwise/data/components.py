@@ -53,6 +53,7 @@ from pathwise.data.library import (
 from pathwise.data.sheets import (
     COMMODITIES,
     COMMODITY_PRICES,
+    COMMODITY_PROPERTIES,
     CONNECTIONS,
     GROUPS,
     IMPACTS,
@@ -349,6 +350,12 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
         wb[TECHNOLOGIES_PRICES] = tp
     if mb := _measure_block_traj_rows(lib):
         wb[MEASURE_BLOCKS_T] = mb
+    if props := [
+        {"commodity_id": c.commodity_id, "property": k, "value": v}
+        for c in lib.commodities
+        for k, v in c.properties.items()
+    ]:
+        wb[COMMODITY_PROPERTIES] = props
     return wb
 
 
@@ -465,6 +472,14 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
         "opex_per_capacity",
     )
 
+    # Physical stream properties (long format: commodity_id, property, value).
+    props_by: dict[str, dict[str, float]] = {}
+    for r in wb.get(COMMODITY_PROPERTIES, []):
+        cid, prop = _es(r.get("commodity_id")), _es(r.get("property"))
+        val = r.get("value")
+        if cid and prop and isinstance(val, (int, float)):
+            props_by.setdefault(cid, {})[prop] = float(val)
+
     io_by: dict[str, list[IoRow]] = {}
     for r in wb.get(IO, []):
         tid = _es(r.get("technology_id"))
@@ -558,6 +573,7 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
             sale_price_by_year=comm_traj.get(_es(r.get("commodity_id")), {}).get("sale_price", {}),
             sector=_es(r.get("sector")) or None,
             notes=_es(r.get("notes")),
+            properties=props_by.get(_es(r.get("commodity_id")), {}),
         )
         for r in wb.get(COMMODITIES, [])
     ]
@@ -710,6 +726,7 @@ def instantiate(
         io.extend(_io_rows(t))
         impact_ids |= {r.target for r in t.io if r.role == "impact"}
     commodities: list[dict[str, Any]] = []
+    properties: list[dict[str, Any]] = []
     for c in library.commodities:
         row: dict[str, Any] = {"commodity_id": c.commodity_id, "kind": c.kind, "unit": c.unit}
         if c.price is not None:
@@ -719,6 +736,10 @@ def instantiate(
         if c.sector:
             row["sector"] = c.sector
         commodities.append(row)
+        properties.extend(
+            {"commodity_id": c.commodity_id, "property": k, "value": v}
+            for k, v in c.properties.items()
+        )
 
     out: Workbook = {
         NODES: nodes,
@@ -729,6 +750,8 @@ def instantiate(
         COMMODITIES: commodities,
         IMPACTS: [{"impact_id": i, "unit": "t"} for i in sorted(impact_ids)],
     }
+    if properties:
+        out[COMMODITY_PROPERTIES] = properties
     if measures:
         out[MEASURES] = measures
         out[MEASURE_BLOCKS] = measure_blocks

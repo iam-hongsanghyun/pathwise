@@ -1,0 +1,148 @@
+{
+  "label": "Marine fuel transition",
+  "commodities": [
+    {
+      "commodity_id": "ifo380",
+      "kind": "energy",
+      "unit": "MT",
+      "price": 500.0,
+      "sale_price": null,
+      "properties": {
+        "lhv_MJ_per_kg": 45.0
+      }
+    },
+    {
+      "commodity_id": "bio_diesel",
+      "kind": "energy",
+      "unit": "MT",
+      "price": 1449.0,
+      "sale_price": null,
+      "properties": {
+        "lhv_MJ_per_kg": 37.0
+      }
+    },
+    {
+      "commodity_id": "lng",
+      "kind": "energy",
+      "unit": "MT",
+      "price": 753.0,
+      "sale_price": null,
+      "properties": {
+        "lhv_MJ_per_kg": 50.0,
+        "temperature_C": -162.0
+      }
+    },
+    {
+      "commodity_id": "e_ammonia",
+      "kind": "energy",
+      "unit": "MT",
+      "price": 834.0,
+      "sale_price": null,
+      "properties": {
+        "lhv_MJ_per_kg": 18.6,
+        "temperature_C": -33.0
+      }
+    },
+    {
+      "commodity_id": "voyage",
+      "kind": "product",
+      "unit": "voyage",
+      "price": null,
+      "sale_price": 0.0,
+      "properties": {}
+    }
+  ],
+  "technologies": [
+    {
+      "technology_id": "ShipEngine",
+      "lifespan": 25,
+      "capex": 0,
+      "opex": 0,
+      "io": [
+        {
+          "target": "ifo380",
+          "role": "input",
+          "coefficient": 1.0,
+          "is_product": false,
+          "group": "marine_fuel",
+          "share_min": 0.0,
+          "share_max": 1.0
+        },
+        {
+          "target": "bio_diesel",
+          "role": "input",
+          "coefficient": 0.0,
+          "is_product": false,
+          "group": "marine_fuel",
+          "share_min": 0.0,
+          "share_max": 0.3
+        },
+        {
+          "target": "lng",
+          "role": "input",
+          "coefficient": 0.0,
+          "is_product": false,
+          "group": "marine_fuel",
+          "share_min": 0.0,
+          "share_max": 1.0
+        },
+        {
+          "target": "e_ammonia",
+          "role": "input",
+          "coefficient": 0.0,
+          "is_product": false,
+          "group": "marine_fuel",
+          "share_min": 0.0,
+          "share_max": 1.0
+        },
+        {
+          "target": "voyage",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": []
+    }
+  ],
+  "measures": [],
+  "maccs": [],
+  "machines": [
+    {
+      "name": "ship",
+      "label": "LPG carrier (46k GT)",
+      "technology": "ShipEngine",
+      "capacity": 10267,
+      "measures": []
+    }
+  ],
+  "groups": [
+    {
+      "name": "fleet",
+      "label": "Shipping fleet",
+      "level": "company",
+      "children": [
+        {
+          "component": "ship",
+          "alias": ""
+        }
+      ],
+      "connections": []
+    },
+    {
+      "name": "shipping_vc",
+      "label": "Shipping",
+      "level": "value_chain",
+      "children": [
+        {
+          "component": "fleet",
+          "alias": ""
+        }
+      ],
+      "connections": []
+    }
+  ]
+}

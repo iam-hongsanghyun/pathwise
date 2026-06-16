@@ -90,7 +90,7 @@ def test_upload_and_export_roundtrip() -> None:
 def test_examples_are_sqlite_node_hierarchies() -> None:
     # every shipped example is a SQLite workbook in the new node-hierarchy form
     examples = client.get("/api/examples").json()
-    assert {"value_chain_ccgt", "steel", "aluminium"} <= {e["id"] for e in examples}
+    assert {"value_chain_ccgt", "steel", "shipping", "petrochemical"} <= {e["id"] for e in examples}
     assert all(str(e["file"]).endswith(".sqlite") for e in examples)
     for e in examples:
         sid = _new_session()

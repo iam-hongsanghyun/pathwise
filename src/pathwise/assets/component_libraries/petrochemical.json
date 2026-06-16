@@ -1,0 +1,183 @@
+{
+  "label": "Petrochemical MACC (ethylene NCC)",
+  "commodities": [
+    {
+      "commodity_id": "naphtha",
+      "kind": "energy",
+      "unit": "GJ",
+      "price": 15.0,
+      "sale_price": null,
+      "properties": {
+        "lhv_MJ_per_kg": 44.0
+      }
+    },
+    {
+      "commodity_id": "grid_elec",
+      "kind": "energy",
+      "unit": "MWh",
+      "price": null,
+      "sale_price": null,
+      "properties": {
+        "voltage_kV": 154.0
+      }
+    },
+    {
+      "commodity_id": "hydrogen",
+      "kind": "energy",
+      "unit": "kg",
+      "price": null,
+      "sale_price": null,
+      "properties": {
+        "lhv_MJ_per_kg": 120.0,
+        "pressure_bar": 30.0
+      }
+    },
+    {
+      "commodity_id": "ethylene",
+      "kind": "product",
+      "unit": "t",
+      "price": null,
+      "sale_price": 1100.0,
+      "properties": {}
+    }
+  ],
+  "technologies": [
+    {
+      "technology_id": "NCC",
+      "lifespan": 25,
+      "capex": 200,
+      "opex": 60,
+      "io": [
+        {
+          "target": "naphtha",
+          "role": "input",
+          "coefficient": 116.7,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "grid_elec",
+          "role": "input",
+          "coefficient": 0.0218,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "ethylene",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "CO2",
+          "role": "impact",
+          "coefficient": 1.739,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [
+        "ncc_macc"
+      ]
+    }
+  ],
+  "measures": [
+    {
+      "measure_id": "heat_pump",
+      "label": "Industrial heat pump (<165\u00b0C)",
+      "type": "energy_efficiency",
+      "target": "naphtha",
+      "lifetime": 20,
+      "blocks": [
+        {
+          "reduction": 0.15,
+          "capex_per_capacity": 90.0,
+          "opex_per_capacity": 3.0
+        }
+      ]
+    },
+    {
+      "measure_id": "ncc_h2",
+      "label": "Hydrogen firing",
+      "type": "emission_reduction",
+      "target": "CO2",
+      "lifetime": 25,
+      "blocks": [
+        {
+          "reduction": 0.45,
+          "capex_per_capacity": 300.0,
+          "opex_per_capacity": 7.5
+        }
+      ]
+    },
+    {
+      "measure_id": "ncc_elec",
+      "label": "Electric cracking",
+      "type": "emission_reduction",
+      "target": "CO2",
+      "lifetime": 25,
+      "blocks": [
+        {
+          "reduction": 0.45,
+          "capex_per_capacity": 350.0,
+          "opex_per_capacity": 7.0
+        }
+      ]
+    }
+  ],
+  "maccs": [
+    {
+      "macc_id": "ncc_macc",
+      "label": "NCC abatement options",
+      "measures": [
+        "heat_pump",
+        "ncc_h2",
+        "ncc_elec"
+      ]
+    }
+  ],
+  "machines": [
+    {
+      "name": "ncc",
+      "label": "Ethylene naphtha cracker",
+      "technology": "NCC",
+      "capacity": 1500000,
+      "measures": []
+    }
+  ],
+  "groups": [
+    {
+      "name": "kr_petro",
+      "label": "Korea Petrochemical",
+      "level": "company",
+      "children": [
+        {
+          "component": "ncc",
+          "alias": ""
+        }
+      ],
+      "connections": []
+    },
+    {
+      "name": "petro_vc",
+      "label": "Petrochemical",
+      "level": "value_chain",
+      "children": [
+        {
+          "component": "kr_petro",
+          "alias": ""
+        }
+      ],
+      "connections": []
+    }
+  ]
+}

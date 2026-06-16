@@ -39,6 +39,7 @@ from pathwise.data.sheets import (
     COMMODITY_IMPACTS,
     COMMODITY_IMPACTS_T,
     COMMODITY_PRICES,
+    COMMODITY_PROPERTIES,
     COMPANY_CONFIG,
     DEMAND,
     DEMAND_T_AMOUNT,
@@ -353,6 +354,13 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     sale_traj.update(_wide_temporal(workbook, COMMODITIES_T_SALE_PRICE))
     # Per-year external-purchase volume cap (used by value-chain ``volume`` links).
     maxbuy_traj: dict[str, dict[int, float]] = _wide_temporal(workbook, COMMODITIES_T_MAX_PURCHASE)
+    # Free-form physical stream properties (long format: commodity_id, property, value).
+    props_by_commodity: dict[str, dict[str, float]] = {}
+    for r in _rows(workbook, COMMODITY_PROPERTIES):
+        cid_p, prop = _str(r.get("commodity_id")), _str(r.get("property"))
+        val = _num(r.get("value"))
+        if cid_p and prop and val is not None:
+            props_by_commodity.setdefault(cid_p, {})[prop] = val
 
     commodities: dict[str, Commodity] = {}
     for r in _rows(workbook, COMMODITIES):
@@ -397,6 +405,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             available_from=_int(r.get("available_from")),
             available_to=_int(r.get("available_to")),
             max_purchase_by_year=max_purchase,
+            properties=props_by_commodity.get(cid, {}),
         )
 
     # ── Impacts (+ price trajectory) ─────────────────────────────────────────

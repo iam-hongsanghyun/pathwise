@@ -1,96 +1,98 @@
 {
-  "label": "Steel",
+  "label": "Steel transition (KR)",
   "commodities": [
     {
       "commodity_id": "coal",
       "kind": "energy",
-      "unit": "t",
-      "price": 120.0,
+      "unit": "GJ",
+      "price": 7.4,
       "sale_price": null,
-      "sector": "energy"
+      "properties": {
+        "lhv_MJ_per_kg": 27.0
+      }
     },
     {
-      "commodity_id": "iron",
-      "kind": "material",
-      "unit": "t",
+      "commodity_id": "natural_gas",
+      "kind": "energy",
+      "unit": "GJ",
+      "price": 11.7,
+      "sale_price": null,
+      "properties": {
+        "lhv_MJ_per_kg": 48.0
+      }
+    },
+    {
+      "commodity_id": "electricity",
+      "kind": "energy",
+      "unit": "GJ",
       "price": null,
       "sale_price": null,
-      "sector": "steel"
+      "properties": {
+        "voltage_kV": 345.0
+      }
+    },
+    {
+      "commodity_id": "hydrogen",
+      "kind": "energy",
+      "unit": "GJ",
+      "price": null,
+      "sale_price": null,
+      "properties": {
+        "lhv_MJ_per_kg": 120.0,
+        "pressure_bar": 30.0
+      }
+    },
+    {
+      "commodity_id": "iron_ore",
+      "kind": "material",
+      "unit": "t",
+      "price": 103.0,
+      "sale_price": null,
+      "properties": {
+        "fe_content_pct": 62.0
+      }
     },
     {
       "commodity_id": "scrap",
       "kind": "material",
       "unit": "t",
-      "price": 300.0,
+      "price": null,
       "sale_price": null,
-      "sector": "steel"
-    },
-    {
-      "commodity_id": "electricity",
-      "kind": "energy",
-      "unit": "MWh",
-      "price": 60.0,
-      "sale_price": null,
-      "sector": "power"
+      "properties": {
+        "fe_content_pct": 98.0
+      }
     },
     {
       "commodity_id": "steel",
       "kind": "product",
       "unit": "t",
       "price": null,
-      "sale_price": 700.0,
-      "sector": "steel"
+      "sale_price": 600.0,
+      "properties": {
+        "temperature_C": 1650.0
+      }
     }
   ],
   "technologies": [
     {
-      "technology_id": "BlastFurnace",
-      "lifespan": 30,
-      "capex": 900.0,
-      "opex": 20.0,
+      "technology_id": "BF_BOF",
+      "lifespan": 20,
+      "capex": 371,
+      "opex": 185,
       "io": [
         {
           "target": "coal",
           "role": "input",
-          "coefficient": 1.5,
+          "coefficient": 18.0,
           "is_product": false,
           "group": null,
           "share_min": null,
           "share_max": null
         },
         {
-          "target": "iron",
-          "role": "output",
-          "coefficient": 1.0,
-          "is_product": true,
-          "group": null,
-          "share_min": null,
-          "share_max": null
-        },
-        {
-          "target": "CO2",
-          "role": "impact",
-          "coefficient": 1.8,
-          "is_product": false,
-          "group": null,
-          "share_min": null,
-          "share_max": null
-        }
-      ],
-      "maccs": [
-        "bf_abate"
-      ]
-    },
-    {
-      "technology_id": "BOF",
-      "lifespan": 25,
-      "capex": 400.0,
-      "opex": 15.0,
-      "io": [
-        {
-          "target": "iron",
+          "target": "iron_ore",
           "role": "input",
-          "coefficient": 1.05,
+          "coefficient": 1.6,
           "is_product": false,
           "group": null,
           "share_min": null,
@@ -99,7 +101,7 @@
         {
           "target": "electricity",
           "role": "input",
-          "coefficient": 0.2,
+          "coefficient": 0.5,
           "is_product": false,
           "group": null,
           "share_min": null,
@@ -117,7 +119,63 @@
         {
           "target": "CO2",
           "role": "impact",
-          "coefficient": 0.2,
+          "coefficient": 2.05,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [
+        "bf_abate"
+      ]
+    },
+    {
+      "technology_id": "BF_BOF_CCS",
+      "lifespan": 20,
+      "capex": 460,
+      "opex": 210,
+      "io": [
+        {
+          "target": "coal",
+          "role": "input",
+          "coefficient": 18.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "iron_ore",
+          "role": "input",
+          "coefficient": 1.6,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "electricity",
+          "role": "input",
+          "coefficient": 0.8,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "steel",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "CO2",
+          "role": "impact",
+          "coefficient": 0.6,
           "is_product": false,
           "group": null,
           "share_min": null,
@@ -127,10 +185,65 @@
       "maccs": []
     },
     {
-      "technology_id": "EAF",
-      "lifespan": 25,
-      "capex": 500.0,
-      "opex": 18.0,
+      "technology_id": "H2_DRI_ESF",
+      "lifespan": 20,
+      "capex": 815,
+      "opex": 407,
+      "io": [
+        {
+          "target": "hydrogen",
+          "role": "input",
+          "coefficient": 16.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "electricity",
+          "role": "input",
+          "coefficient": 16.0,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "iron_ore",
+          "role": "input",
+          "coefficient": 1.65,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "steel",
+          "role": "output",
+          "coefficient": 1.0,
+          "is_product": true,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        },
+        {
+          "target": "CO2",
+          "role": "impact",
+          "coefficient": 0.05,
+          "is_product": false,
+          "group": null,
+          "share_min": null,
+          "share_max": null
+        }
+      ],
+      "maccs": [],
+      "introduction_year": 2030
+    },
+    {
+      "technology_id": "Scrap_EAF",
+      "lifespan": 20,
+      "capex": 178,
+      "opex": 89,
       "io": [
         {
           "target": "scrap",
@@ -144,7 +257,7 @@
         {
           "target": "electricity",
           "role": "input",
-          "coefficient": 0.6,
+          "coefficient": 6.0,
           "is_product": false,
           "group": null,
           "share_min": null,
@@ -162,7 +275,7 @@
         {
           "target": "CO2",
           "role": "impact",
-          "coefficient": 0.1,
+          "coefficient": 0.05,
           "is_product": false,
           "group": null,
           "share_min": null,
@@ -174,35 +287,16 @@
   ],
   "measures": [
     {
-      "measure_id": "pci",
-      "label": "Pulverised coal injection",
-      "type": "energy_efficiency",
-      "target": "coal",
-      "lifetime": 15,
-      "blocks": [
-        {
-          "reduction": 0.08,
-          "capex_per_capacity": 15.0,
-          "opex_per_capacity": 1.0
-        },
-        {
-          "reduction": 0.04,
-          "capex_per_capacity": 40.0,
-          "opex_per_capacity": 2.0
-        }
-      ]
-    },
-    {
-      "measure_id": "trt",
-      "label": "Top-gas recovery turbine",
-      "type": "energy_efficiency",
-      "target": "coal",
+      "measure_id": "bf_ccs",
+      "label": "Top-gas recovery + CCS",
+      "type": "emission_reduction",
+      "target": "CO2",
       "lifetime": 20,
       "blocks": [
         {
-          "reduction": 0.03,
-          "capex_per_capacity": 25.0,
-          "opex_per_capacity": 0.5
+          "reduction": 0.2,
+          "capex_per_capacity": 90.0,
+          "opex_per_capacity": 3.0
         }
       ]
     }
@@ -212,70 +306,40 @@
       "macc_id": "bf_abate",
       "label": "Blast-furnace abatement",
       "measures": [
-        "pci",
-        "trt"
+        "bf_ccs"
       ]
     }
   ],
   "machines": [
     {
-      "name": "bf",
-      "label": "Blast furnace",
-      "technology": "BlastFurnace",
-      "capacity": 1000.0,
-      "measures": []
-    },
-    {
-      "name": "bof",
-      "label": "Basic oxygen furnace",
-      "technology": "BOF",
-      "capacity": 1000.0,
-      "measures": []
-    },
-    {
-      "name": "eaf",
-      "label": "Electric arc furnace",
-      "technology": "EAF",
-      "capacity": 1000.0,
+      "name": "mill",
+      "label": "Integrated steel mill",
+      "technology": "BF_BOF",
+      "capacity": 4000000,
       "measures": []
     }
   ],
   "groups": [
     {
-      "name": "integrated_mill",
-      "label": "Integrated mill",
-      "level": "facility",
-      "children": [
-        {
-          "component": "bf",
-          "alias": ""
-        },
-        {
-          "component": "bof",
-          "alias": ""
-        },
-        {
-          "component": "eaf",
-          "alias": ""
-        }
-      ],
-      "connections": [
-        {
-          "source": "bf",
-          "target": "bof",
-          "commodity": "iron",
-          "lag_years": 0
-        }
-      ]
-    },
-    {
-      "name": "steel_company",
-      "label": "Steel company",
+      "name": "kr_steel",
+      "label": "Korea Steel",
       "level": "company",
       "children": [
         {
-          "component": "integrated_mill",
-          "alias": "mill"
+          "component": "mill",
+          "alias": ""
+        }
+      ],
+      "connections": []
+    },
+    {
+      "name": "steel_vc",
+      "label": "Steel value chain",
+      "level": "value_chain",
+      "children": [
+        {
+          "component": "kr_steel",
+          "alias": ""
         }
       ],
       "connections": []

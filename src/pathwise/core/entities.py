@@ -102,6 +102,13 @@ class Commodity:
             for a year ⇒ unlimited. Used to cap supply availability — e.g. a
             value-chain link feeding an upstream stage's produced volume in as
             the downstream stage's available supply.
+        properties: Free-form physical characteristics of the stream, keyed by
+            name → value [property's own unit] — e.g. ``{"temperature_C": 600}``
+            for high-pressure steam, ``{"voltage_kV": 220}`` for grid power,
+            ``{"lhv_MJ_per_kg": 42.7}`` for a fuel. Carried as metadata (shown in
+            the UI, preserved on round-trip); the optimisation does not constrain
+            on them yet — they document what the stream physically is and leave
+            room for stream-matching rules later.
     """
 
     commodity_id: str
@@ -114,6 +121,7 @@ class Commodity:
     available_from: int | None = None
     available_to: int | None = None
     max_purchase_by_year: dict[int, float] = field(default_factory=dict)
+    properties: dict[str, float] = field(default_factory=dict)
 
     def price(self, year: int) -> float:
         """Purchase price [currency/unit] in ``year`` (0 if unpriced)."""

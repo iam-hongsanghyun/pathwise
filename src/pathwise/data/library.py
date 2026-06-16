@@ -148,6 +148,10 @@ class CommodityTemplate(BaseModel):
     #: for the years given (interpolated onto the horizon); empty = scalar.
     price_by_year: dict[int, float] = Field(default_factory=dict)
     sale_price_by_year: dict[int, float] = Field(default_factory=dict)
+    #: Free-form physical properties of the stream (temperature, voltage,
+    #: pressure, calorific value, …), keyed by name → value. Carried as metadata
+    #: through to the workbook's ``commodity_properties`` sheet.
+    properties: dict[str, float] = Field(default_factory=dict)
     #: Owning sector — the sector that PRODUCES this stream (electricity belongs to
     #: "power", not "steel"). Blank/None = a general, industry-agnostic stream.
     #: Purely organisational (groups streams in the Component builder); the

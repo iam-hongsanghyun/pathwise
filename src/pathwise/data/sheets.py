@@ -38,6 +38,10 @@ COMMODITIES = "commodities"
 #: Long-format per-year price trajectory (commodity_id, year, price?, sale_price?).
 COMMODITY_PRICES = "commodity_prices"
 
+#: Free-form physical stream properties (commodity_id, property, value) — e.g.
+#: temperature, voltage, pressure, calorific value. Carried as metadata.
+COMMODITY_PROPERTIES = "commodity_properties"
+
 # ── Environmental impacts ─────────────────────────────────────────────────────
 
 #: Static impact definitions (impact_id, unit).

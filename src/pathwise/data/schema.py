@@ -245,6 +245,14 @@ SCHEMA: dict[str, Any] = {
             "share_max": {"label": "Max share (0-1)", "type": "number"},
         },
     },
+    "commodity_properties": {
+        "label": "Stream properties (temperature / voltage / …)",
+        "columns": {
+            "commodity_id": {"label": "Stream", "type": "string", "required": True},
+            "property": {"label": "Property", "type": "string", "required": True},
+            "value": {"label": "Value", "type": "number", "required": True},
+        },
+    },
     "commodities_t__price": {
         "label": "Stream price · by year",
         "columns": {"year": {"label": "Year", "type": "integer", "required": True}},

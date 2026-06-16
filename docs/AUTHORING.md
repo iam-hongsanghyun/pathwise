@@ -44,6 +44,7 @@ periods, commodities, technologies, processes, demand
 |---|---|
 | `periods` | Modelled years (`year`, `duration_years`). The horizon is the union of all years in this sheet. |
 | `commodities` | Stream definitions (`commodity_id`, `kind`, `unit`, optional `price`/`sale_price`). `kind` must be one of `energy`, `material`, `indirect`, `product`, `byproduct`. |
+| `commodity_properties` | Free-form physical stream properties — `commodity_id`, `property`, `value` (e.g. `temperature_C`, `voltage_kV`, `pressure_bar`, `lhv_MJ_per_kg`). Carried as metadata (shown in the UI, preserved on round-trip); the optimiser does not constrain on them yet. |
 | `impacts` | Environmental impact definitions (`impact_id`, `unit`). |
 | `technologies` | Technology recipes (`technology_id`, `lifespan`, `capex`, `opex`, optional `introduction_year`/`phase_out_year`). |
 | `io` | Unified input/output/impact table (`technology_id`, `target`, `role`, `coefficient`). `role` is `input`, `output`, or `impact`. |

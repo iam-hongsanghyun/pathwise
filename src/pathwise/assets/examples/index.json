@@ -13,33 +13,28 @@
     "description": "A value chain (node hierarchy): a Power company owning a CCGT (a GROUP of GT + ST wired by steam) AND a Solar farm (a single component) supplying electricity to a Steel company's integrated mill. Solve jointly, per-company (value chain, upstream→downstream), or pick units."
   },
   {
-    "id": "steel",
-    "label": "Steel — Korea (POSCO + Hyundai)",
-    "file": "steel.sqlite",
-    "description": "Two steel companies (POSCO, Hyundai Steel) as a value chain: BF/BOF/EAF facilities wired by intermediate streams, fuel/feedstock blends, transitions to H2-DRI-ESF / EAF under a declining CO2 target and rising carbon price."
-  },
-  {
-    "id": "aluminium",
-    "label": "Aluminium — refinery → smelter → caster",
-    "file": "aluminium.sqlite",
-    "description": "A 3-stage value chain (refinery → smelter → caster) wired by intermediate streams; each stage has a lower-carbon transition (H2 refining / RE smelting / electric casting) under a rising carbon price and declining CO2 cap."
-  },
-  {
-    "id": "shipping",
-    "label": "Shipping — fleet fuel mix",
-    "file": "shipping.sqlite",
-    "description": "Shipping companies and engine-class fleets; fuel blend (bio / LNG / e-fuels) shifts within share bounds under a tightening well-to-wake CO2 target."
-  },
-  {
-    "id": "petrochemical",
-    "label": "Petrochemicals — Korea (PLANiT MACC)",
-    "file": "petrochemical.sqlite",
-    "description": "Process archetypes (Naphtha Cracker / BTX / Utility) as a company hierarchy; naphtha crackers may switch to H2 or electric cracking under a Policy_Target CO2 path."
-  },
-  {
     "id": "value_chain_demo",
     "label": "Value chain demo — Korea (group/component)",
     "file": "value_chain_demo.sqlite",
     "description": "A recursive group hierarchy: value chain → Korea Power / Korea Steel → facilities → machines (the mill runs a blast furnace, BOF and an EAF in parallel). Electricity couples the two companies. Open it in the Chain view to drill the levels; it solves jointly or per-company."
+  },
+  {
+    "id": "steel",
+    "label": "Steel transition — Korea (systempathway)",
+    "file": "steel.sqlite",
+    "library": "steel",
+    "description": "An integrated steel mill (BF-BOF baseline) that can switch to its alternatives — BF-BOF + CCS, H2 direct reduction (from 2030), or scrap EAF — as a rising carbon price (2025→2050) makes the coal route uneconomic. Fuels and feedstocks carry physical properties (calorific value, temperature, voltage); hydrogen gets cheaper and clean-grid electricity dearer over time; scrap is a capped import. Derived from PLANiT-Institute/systempathway."
+  },
+  {
+    "id": "shipping",
+    "label": "Shipping — marine fuel transition (shipping_operator)",
+    "file": "shipping.sqlite",
+    "description": "A ship runs one propulsion engine on a blend of marine fuels (IFO380 / bio-diesel / LNG / e-ammonia, each with calorific value and cryogenic-temperature properties and a tank-to-wake CO2 factor). The optimiser picks the mix within share bounds; the dirty-fuel cap declines and e-ammonia unlocks in 2030, so a rising carbon price shifts the blend to cleaner fuels over 2025→2050. Derived from PLANiT-Institute/shipping_operator."
+  },
+  {
+    "id": "petrochemical",
+    "label": "Petrochemical MACC — ethylene NCC (petrochemical_macc_2025)",
+    "file": "petrochemical.sqlite",
+    "description": "A naphtha cracker (NCC) making ethylene, with MACC abatement options as alternatives — an industrial heat pump (cuts fuel intensity), hydrogen firing, and electric cracking. Grid electricity greens (CO2 factor 0.436→0.07) and green-hydrogen gets cheaper over time while demand grows ~1.3%/yr; a rising carbon price drives measure adoption. Derived from PLANiT-Institute/petrochemical_macc_2025."
   }
 ]
