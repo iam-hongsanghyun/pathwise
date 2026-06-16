@@ -158,24 +158,29 @@ def _references(
 
     Used to linearise MACC savings: a measure's saving is ``reduction × ref``
     (a constant), not ``reduction × throughput`` (which would be bilinear).
-    Reference uses the process's full capacity on its baseline technology.
+    Reference uses the process's full capacity on its baseline technology, with
+    coefficients read at the first horizon year ``t₀`` (so a recipe whose
+    intensity/emission factor is supplied only as a year trajectory still has a
+    well-defined reference rather than a zero one).
 
-    ``ref_consumption[(p, r)] = capacity_p · input_intensity[baseline, r]``.
-    ``ref_impact[(p, i)] = capacity_p · direct_impact[baseline, i]
+    ``ref_consumption[(p, r)] = capacity_p · input_intensity[baseline, r](t₀)``.
+    ``ref_impact[(p, i)] = capacity_p · direct_impact[baseline, i](t₀)
         + Σ_r commodity_impacts[(r, i)] · ref_consumption[(p, r)]``.
     """
     ref_cons: dict[tuple[str, str], float] = {}
     ref_imp: dict[tuple[str, str], float] = {}
+    t0 = problem.years[0] if problem.years else 0
     for p in problem.processes:
         tech = problem.technologies.get(p.baseline_technology)
         if tech is None:
             continue
         cap = p.capacity
-        for r, intensity in tech.input_intensity.items():
-            ref_cons[(p.process_id, r)] = cap * intensity
+        inputs = set(tech.input_intensity) | set(tech.input_intensity_by_year)
+        for r in inputs:
+            ref_cons[(p.process_id, r)] = cap * tech.input_intensity_at(r, t0)
         for i in problem.impacts:
-            total = tech.direct_impact.get(i, 0.0) * cap
-            for r in tech.input_intensity:
+            total = tech.direct_impact_at(i, t0) * cap
+            for r in inputs:
                 total += problem.commodity_impacts.get((r, i), 0.0) * ref_cons.get(
                     (p.process_id, r), 0.0
                 )

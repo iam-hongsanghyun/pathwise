@@ -54,6 +54,10 @@ TECHNOLOGIES = "technologies"
 #: Unified I/O table: one row per (technology, target, role).
 IO = "io"
 
+#: Long-format per-year I/O coefficients (technology_id, target, role, year,
+#: coefficient) — year-varying intensities / yields / emission factors.
+IO_T = "io_t"
+
 #: Legacy technology inputs table (technology_id, commodity_id, intensity).
 PROCESS_INPUTS = "process_inputs"
 
@@ -81,6 +85,10 @@ PROCESSES = "processes"
 
 #: Technology compatibility + transition routes (from_technology, to_technology, …).
 TRANSITIONS = "transitions"
+
+#: Long-format per-year transition capex (from_technology, to_technology, year,
+#: capex_per_capacity).
+TRANSITIONS_T = "transitions_t"
 
 #: Company-level objective configuration (cost vs. profit).
 COMPANY_CONFIG = "company_config"
@@ -197,6 +205,15 @@ MARKETS_T_ALLOCATION = "markets_t__allocation"
 
 #: Wide temporal facility/process capacity overrides.
 PROCESSES_T_CAPACITY = "processes_t__capacity"
+
+#: Wide temporal facility fixed-O&M overrides.
+PROCESSES_T_FIXED_OPEX = "processes_t__fixed_opex"
+
+#: Wide temporal market buy-volume caps.
+MARKETS_T_MAX_BUY = "markets_t__max_buy"
+
+#: Wide temporal market sell-volume caps.
+MARKETS_T_MAX_SELL = "markets_t__max_sell"
 
 #: Wide temporal investment-budget limits.
 INVESTMENT_BUDGET_T_LIMIT = "investment_budget_t__limit"

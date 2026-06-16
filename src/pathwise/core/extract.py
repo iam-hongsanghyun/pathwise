@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from pathwise.core.entities import Transition
 from pathwise.core.solve import SolveResult
 
 _ON = 0.5
@@ -245,24 +246,31 @@ def _period_costs(ctx: Any) -> dict[int, float]:
     stored = {s.commodity_id for s in prob.storages}
     market_comms = {m.target for m in ctx.cmarkets}
     ets_impacts = {m.target for m in ctx.imarkets}
-    fixed_opex = {p.process_id: p.fixed_opex for p in prob.processes}
+    proc_by_id = {p.process_id: p for p in prob.processes}
     baseline = {p.process_id: p.baseline_technology for p in prob.processes}
     cap = {p.process_id: p.capacity for p in prob.processes}
     smap = {s.storage_id: s for s in prob.storages}
     cmap = {m.market_id: m for m in ctx.cmarkets}
     imap = {m.market_id: m for m in ctx.imarkets}
-    trans_cost: dict[tuple[str, str], float] = {}
+    # (process, target tech) → its enabling transition, for year-varying capex.
+    trans_idx: dict[tuple[str, str], Transition] = {}
     for tr in prob.transitions:
         for pr in prob.processes:
             if tr.from_technology == pr.baseline_technology:
-                trans_cost[(pr.process_id, tr.to_technology)] = tr.capex_per_capacity * pr.capacity
+                trans_idx[(pr.process_id, tr.to_technology)] = tr
+
+    def _repl_capex(p: str, k: str, year: int) -> float:
+        tr = trans_idx.get((p, k))
+        per_cap = tr.capex_at(year) if tr is not None else prob.technologies[k].capex(year)
+        return float(per_cap * cap[p])
 
     if tog.opex:
         for (_p, k, t), v in x.items():
             cost[int(t)] += prob.technologies[k].opex(int(t)) * v
         for (p, t), v in on.items():
-            if fixed_opex.get(p):
-                cost[int(t)] += fixed_opex[p] * v
+            fox = proc_by_id[p].fixed_opex_at(int(t))
+            if fox:
+                cost[int(t)] += fox * v
     if tog.commodity_cost:
         for (_p, r, t), v in buy.items():
             if r not in stored and r not in market_comms:
@@ -289,9 +297,7 @@ def _period_costs(ctx: Any) -> dict[int, float]:
     if tog.capex:
         for (p, k, t), v in w.items():
             if k != baseline[p] and v > _EPS:
-                cost[int(t)] += (
-                    trans_cost.get((p, k), prob.technologies[k].capex(int(t)) * cap[p]) * v
-                )
+                cost[int(t)] += _repl_capex(p, k, int(t)) * v
         for s in prob.storages:
             cb = cap_built.get(s.storage_id, 0.0)
             cost[years[0]] += s.capex_per_capacity * cb
@@ -327,16 +333,19 @@ def _commodity_summary(ctx: Any) -> list[dict[str, Any]]:
     prod: dict[tuple[str, int], float] = {}
     for (_p, k, t), v in x.items():
         tech = prob.technologies[k]
+        yr = int(t)
         grouped = tech.grouped_inputs()
         grouped_out = tech.grouped_outputs()
-        for r, intensity in tech.input_intensity.items():
+        # Union of scalar + year-varying ids, evaluated at the period (handles a
+        # coefficient supplied only as a trajectory).
+        for r in set(tech.input_intensity) | set(tech.input_intensity_by_year):
             if r in grouped:
                 continue  # blend members counted from the mix flow `fin` below
-            cons[(r, int(t))] = cons.get((r, int(t)), 0.0) + intensity * v
-        for r, yld in tech.output_yield.items():
+            cons[(r, yr)] = cons.get((r, yr), 0.0) + tech.input_intensity_at(r, yr) * v
+        for r in set(tech.output_yield) | set(tech.output_yield_by_year):
             if r in grouped_out:
                 continue  # slate members counted from the slate flow `fout` below
-            prod[(r, int(t))] = prod.get((r, int(t)), 0.0) + yld * v
+            prod[(r, yr)] = prod.get((r, yr), 0.0) + tech.output_yield_at(r, yr) * v
     if ctx.fin is not None:
         for (_p, _k, r, t), v in _series(ctx.fin).items():
             cons[(r, int(t))] = cons.get((r, int(t)), 0.0) + v

@@ -51,11 +51,14 @@ from pathwise.data.sheets import (
     INVESTMENT_BUDGET,
     INVESTMENT_BUDGET_T_LIMIT,
     IO,
+    IO_T,
     MACC_LINKS,
     MACCS,
     MARKET_PRICES,
     MARKETS,
     MARKETS_T_ALLOCATION,
+    MARKETS_T_MAX_BUY,
+    MARKETS_T_MAX_SELL,
     MARKETS_T_PRICE,
     MARKETS_T_SELL_PRICE,
     MEASURE_BLOCKS,
@@ -71,6 +74,7 @@ from pathwise.data.sheets import (
     PROCESS_OUTPUTS,
     PROCESSES,
     PROCESSES_T_CAPACITY,
+    PROCESSES_T_FIXED_OPEX,
     STORAGE,
     TECH_IMPACTS,
     TECHNOLOGIES,
@@ -79,6 +83,7 @@ from pathwise.data.sheets import (
     TECHNOLOGIES_T_OPEX,
     TECHNOLOGIES_T_RENEWAL,
     TRANSITIONS,
+    TRANSITIONS_T,
 )
 from pathwise.data.trajectory import interpolate
 from pathwise.data.workbook import Workbook
@@ -457,6 +462,37 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             if (g := _str(r.get("group"))) is not None:
                 share_groups.setdefault(k, {}).setdefault(g, {})[target] = _share_bounds(r)
 
+    # Optional year-varying I/O coefficients (long format: technology_id, target,
+    # role, year, coefficient) — a recipe whose intensity / yield / emission
+    # factor improves over the horizon. Sparse points interpolate onto the years.
+    io_t_points: dict[tuple[str, str, str], dict[int, float]] = {}
+    for r in _rows(workbook, IO_T):
+        k, target = _str(r.get("technology_id")), _str(r.get("target"))
+        role = (_str(r.get("role")) or "input").lower()
+        yv, cv = _int(r.get("year")), _num(r.get("coefficient"))
+        if k and target and yv is not None and cv is not None:
+            io_t_points.setdefault((k, target, role), {})[yv] = cv
+
+    def _io_by_year(
+        tech_id: str,
+    ) -> tuple[
+        dict[str, dict[int, float]], dict[str, dict[int, float]], dict[str, dict[int, float]]
+    ]:
+        inp: dict[str, dict[int, float]] = {}
+        out: dict[str, dict[int, float]] = {}
+        imp: dict[str, dict[int, float]] = {}
+        for (kk, target, role), pts in io_t_points.items():
+            if kk != tech_id:
+                continue
+            traj = interpolate(pts, years)
+            if role == "output":
+                out[target] = traj
+            elif role == "impact":
+                imp[target] = traj
+            else:
+                inp[target] = traj
+        return inp, out, imp
+
     commodity_impacts: dict[tuple[str, str], float] = {}
     for r in _rows(workbook, COMMODITY_IMPACTS):
         c, i = _str(r.get("commodity_id")), _str(r.get("impact_id"))
@@ -506,6 +542,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         k = _str(r.get("technology_id"))
         if k is None or not _enabled(r):
             continue
+        in_t, out_t, imp_t = _io_by_year(k)
         technologies[k] = Technology(
             technology_id=k,
             lifespan=_int(r.get("lifespan"), 20) or 20,
@@ -518,6 +555,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             input_intensity=inputs.get(k, {}),
             output_yield=outputs.get(k, {}),
             direct_impact=direct.get(k, {}),
+            input_intensity_by_year=in_t,
+            output_yield_by_year=out_t,
+            direct_impact_by_year=imp_t,
             min_capacity_factor=min(max(_num(r.get("min_capacity_factor"), 0.0) or 0.0, 0.0), 1.0),
             share_groups=share_groups.get(k, {}),
             output_share_groups=output_share_groups.get(k, {}),
@@ -530,6 +570,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     #   unchecked + placed → fixed (kept but locked to baseline; replaceable=False)
     #   unchecked + unplaced → excluded from the optimisation
     cap_t = _wide_temporal(workbook, PROCESSES_T_CAPACITY)
+    fopex_t = _wide_temporal(workbook, PROCESSES_T_FIXED_OPEX)
     placed_nodes = {_str(r.get("id")) for r in _rows(workbook, NODE_LAYOUT)}
     processes = []
     for r in _rows(workbook, PROCESSES):
@@ -556,6 +597,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 group=_str(r.get("group")) or "",
                 scopes=frozenset(str(s) for s in (r.get("scopes") or ())),
                 capacity_by_year=interpolate(cap_t[pid], years) if pid in cap_t else {},
+                fixed_opex_by_year=interpolate(fopex_t[pid], years) if pid in fopex_t else {},
             )
         )
 
@@ -714,6 +756,14 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             )
 
     # ── Transitions (replace/renew + compatibility) ──────────────────────────
+    # Optional year-varying transition capex (long format: from_technology,
+    # to_technology, year, capex_per_capacity).
+    trans_capex_t: dict[tuple[str, str], dict[int, float]] = {}
+    for r in _rows(workbook, TRANSITIONS_T):
+        frm, to = _str(r.get("from_technology")), _str(r.get("to_technology"))
+        yr, cx = _int(r.get("year")), _num(r.get("capex_per_capacity"))
+        if frm and to and yr is not None and cx is not None:
+            trans_capex_t.setdefault((frm, to), {})[yr] = cx
     transitions: list[Transition] = []
     for r in _rows(workbook, TRANSITIONS):
         frm, to = _str(r.get("from_technology")), _str(r.get("to_technology"))
@@ -728,12 +778,14 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             if action_s in {a.value for a in TransitionAction}
             else TransitionAction.REPLACE
         )
+        cx_t = trans_capex_t.get((frm, to))
         transitions.append(
             Transition(
                 from_technology=frm,
                 to_technology=to,
                 action=action,
                 capex_per_capacity=_num(r.get("capex_per_capacity"), 0.0) or 0.0,
+                capex_per_capacity_by_year=interpolate(cx_t, years) if cx_t else {},
                 compatible=_bool(r.get("compatible"), True),
             )
         )
@@ -777,6 +829,8 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     mkt_price.update(_wide_temporal(workbook, MARKETS_T_PRICE))
     mkt_sell.update(_wide_temporal(workbook, MARKETS_T_SELL_PRICE))
     mkt_alloc.update(_wide_temporal(workbook, MARKETS_T_ALLOCATION))
+    mkt_maxbuy = _wide_temporal(workbook, MARKETS_T_MAX_BUY)
+    mkt_maxsell = _wide_temporal(workbook, MARKETS_T_MAX_SELL)
     markets: list[Market] = []
     for r in _rows(workbook, MARKETS):
         mid, target = _str(r.get("market_id")), _str(r.get("target"))
@@ -808,6 +862,8 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 sell_price_by_year=interpolate(sells, years) if sells else {},
                 max_buy=_num(r.get("max_buy")),
                 max_sell=_num(r.get("max_sell")),
+                max_buy_by_year=interpolate(mkt_maxbuy[mid], years) if mid in mkt_maxbuy else {},
+                max_sell_by_year=interpolate(mkt_maxsell[mid], years) if mid in mkt_maxsell else {},
                 available_from=_int(r.get("available_from")),
                 available_to=_int(r.get("available_to")),
                 allocation_by_year=interpolate(allocs, years) if allocs else {},

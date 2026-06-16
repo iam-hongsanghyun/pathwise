@@ -227,6 +227,13 @@ class Technology:
     input_intensity: dict[str, float] = field(default_factory=dict)
     output_yield: dict[str, float] = field(default_factory=dict)
     direct_impact: dict[str, float] = field(default_factory=dict)
+    # Optional year-varying overrides of the scalar I/O coefficients — a recipe
+    # whose energy intensity, yield, or process-emission factor improves over the
+    # horizon (e.g. efficiency gains). Keyed by commodity/impact id → {year:
+    # value}; the scalar dict above is the fallback for any (id, year) not set.
+    input_intensity_by_year: dict[str, dict[int, float]] = field(default_factory=dict)
+    output_yield_by_year: dict[str, dict[int, float]] = field(default_factory=dict)
+    direct_impact_by_year: dict[str, dict[int, float]] = field(default_factory=dict)
     min_capacity_factor: float = 0.0
     share_groups: dict[str, dict[str, tuple[float, float]]] = field(default_factory=dict)
     output_share_groups: dict[str, dict[str, tuple[float, float]]] = field(default_factory=dict)
@@ -235,6 +242,27 @@ class Technology:
         """Input commodities that belong to a blend (share) group."""
         return {c for members in self.share_groups.values() for c in members}
 
+    def input_intensity_at(self, commodity: str, year: int) -> float:
+        """Input use of ``commodity`` per throughput in ``year`` [commodity unit]."""
+        traj = self.input_intensity_by_year.get(commodity)
+        if traj is not None and year in traj:
+            return traj[year]
+        return self.input_intensity.get(commodity, 0.0)
+
+    def output_yield_at(self, commodity: str, year: int) -> float:
+        """Output of ``commodity`` per throughput in ``year`` [commodity unit]."""
+        traj = self.output_yield_by_year.get(commodity)
+        if traj is not None and year in traj:
+            return traj[year]
+        return self.output_yield.get(commodity, 0.0)
+
+    def direct_impact_at(self, impact: str, year: int) -> float:
+        """Process (chemical) emission of ``impact`` per throughput in ``year``."""
+        traj = self.direct_impact_by_year.get(impact)
+        if traj is not None and year in traj:
+            return traj[year]
+        return self.direct_impact.get(impact, 0.0)
+
     def group_requirement(self, group: str) -> float:
         """Total input requirement of a blend group [input unit / throughput].
 
@@ -242,6 +270,10 @@ class Technology:
         stays equal to this requirement — i.e. the baseline total intensity.
         """
         return sum(self.input_intensity.get(c, 0.0) for c in self.share_groups.get(group, {}))
+
+    def group_requirement_at(self, group: str, year: int) -> float:
+        """Blend-group requirement in ``year`` (uses year-varying intensities)."""
+        return sum(self.input_intensity_at(c, year) for c in self.share_groups.get(group, {}))
 
     def grouped_outputs(self) -> set[str]:
         """Output commodities that belong to a slate (output share) group."""
@@ -254,6 +286,10 @@ class Technology:
         stays equal to this requirement — i.e. the baseline total yield.
         """
         return sum(self.output_yield.get(c, 0.0) for c in self.output_share_groups.get(group, {}))
+
+    def output_group_requirement_at(self, group: str, year: int) -> float:
+        """Slate-group requirement in ``year`` (uses year-varying yields)."""
+        return sum(self.output_yield_at(c, year) for c in self.output_share_groups.get(group, {}))
 
     def capex(self, year: int) -> float:
         """Replacement capex [currency/unit capacity] in ``year``."""
@@ -302,9 +338,15 @@ class Process:
     failure_rate: float = 0.0
     replaceable: bool = True
     capacity_by_year: dict[int, float] = field(default_factory=dict)
+    #: Optional year-varying fixed O&M [currency / yr]; falls back to ``fixed_opex``.
+    fixed_opex_by_year: dict[int, float] = field(default_factory=dict)
     group: str = ""
     decommission_year: int | None = None
     scopes: frozenset[str] = frozenset()
+
+    def fixed_opex_at(self, year: int) -> float:
+        """Fixed annual O&M in ``year`` [currency / yr] (year override, else scalar)."""
+        return self.fixed_opex_by_year.get(year, self.fixed_opex)
 
     def in_scope(self, scope: str) -> bool:
         """Whether this facility is covered by a constraint ``scope``.
@@ -464,12 +506,23 @@ class Market:
     sell_price_by_year: dict[int, float] = field(default_factory=dict)
     max_buy: float | None = None
     max_sell: float | None = None
+    #: Optional year-varying volume caps [unit / yr]; fall back to the scalars.
+    max_buy_by_year: dict[int, float] = field(default_factory=dict)
+    max_sell_by_year: dict[int, float] = field(default_factory=dict)
     allocation_by_year: dict[int, float] = field(default_factory=dict)
     tag: str | None = None
 
     def price(self, year: int) -> float:
         """Buy price [currency/unit] in ``year``."""
         return self.price_by_year.get(year, 0.0)
+
+    def max_buy_at(self, year: int) -> float | None:
+        """Max bought in ``year`` [unit] (year override, else scalar; ``None`` ⇒ ∞)."""
+        return self.max_buy_by_year.get(year, self.max_buy)
+
+    def max_sell_at(self, year: int) -> float | None:
+        """Max sold in ``year`` [unit] (year override, else scalar; ``None`` ⇒ ∞)."""
+        return self.max_sell_by_year.get(year, self.max_sell)
 
     def sell_price(self, year: int) -> float:
         """Sell price [currency/unit] in ``year`` (falls back to buy price)."""
@@ -504,4 +557,11 @@ class Transition:
     to_technology: str
     action: TransitionAction = TransitionAction.REPLACE
     capex_per_capacity: float = 0.0
+    #: Optional year-varying capital cost [currency / unit capacity]; falls back
+    #: to the scalar ``capex_per_capacity``.
+    capex_per_capacity_by_year: dict[int, float] = field(default_factory=dict)
     compatible: bool = True
+
+    def capex_at(self, year: int) -> float:
+        """Transition capital cost in ``year`` [currency/unit capacity]."""
+        return self.capex_per_capacity_by_year.get(year, self.capex_per_capacity)

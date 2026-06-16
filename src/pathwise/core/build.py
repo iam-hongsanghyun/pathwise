@@ -16,7 +16,13 @@ import numpy as np
 import xarray as xr
 from linopy import Model
 
-from pathwise.core.entities import CommodityKind, MeasureType, ObjectiveMode, TransitionAction
+from pathwise.core.entities import (
+    CommodityKind,
+    MeasureType,
+    ObjectiveMode,
+    Transition,
+    TransitionAction,
+)
 from pathwise.core.problem import Problem
 from pathwise.core.variables import BuildContext, build_context
 from pathwise.logger import get_logger
@@ -256,7 +262,7 @@ def _produced(ctx: BuildContext, p: str, r: str, t: int) -> Any:
         if r in tech.grouped_outputs():
             terms.append(ctx.fout.sel(process=p, tech=k, commodity=r, period=t))
         else:
-            coef = tech.output_yield.get(r, 0.0)
+            coef = tech.output_yield_at(r, t)
             if coef != 0.0:
                 terms.append(coef * ctx.x.sel(process=p, tech=k, period=t))
     return _lin_sum(terms)
@@ -275,7 +281,7 @@ def _gross_consumed(ctx: BuildContext, p: str, r: str, t: int) -> Any:
         if r in tech.grouped_inputs():
             terms.append(ctx.fin.sel(process=p, tech=k, commodity=r, period=t))
         else:
-            coef = tech.input_intensity.get(r, 0.0)
+            coef = tech.input_intensity_at(r, t)
             if coef != 0.0:
                 terms.append(coef * ctx.x.sel(process=p, tech=k, period=t))
     return _lin_sum(terms)
@@ -326,7 +332,7 @@ def _blend(ctx: BuildContext) -> None:
             for t in ctx.years:
                 xpkt = ctx.x.sel(process=p, tech=k, period=t)
                 for g, members in tech.share_groups.items():
-                    req = tech.group_requirement(g)
+                    req = tech.group_requirement_at(g, t)
                     m.add_constraints(
                         _lin_sum(
                             [ctx.fin.sel(process=p, tech=k, commodity=c, period=t) for c in members]
@@ -387,7 +393,7 @@ def _output_blend(ctx: BuildContext) -> None:
             for t in ctx.years:
                 xpkt = ctx.x.sel(process=p, tech=k, period=t)
                 for g, members in tech.output_share_groups.items():
-                    req = tech.output_group_requirement(g)
+                    req = tech.output_group_requirement_at(g, t)
                     m.add_constraints(
                         _lin_sum(
                             [
@@ -598,7 +604,7 @@ def _impacts(ctx: BuildContext) -> None:
                     if sav is not None:
                         terms.append((-factor) * sav)
                 for k in ctx.feasible[p]:
-                    df = prob.technologies[k].direct_impact.get(i, 0.0)
+                    df = prob.technologies[k].direct_impact_at(i, t)
                     if df != 0.0:
                         terms.append(df * ctx.x.sel(process=p, tech=k, period=t))
                 abate = _abatement(ctx, p, i, t)
@@ -669,15 +675,34 @@ def _scope_processes(ctx: BuildContext, scope: str) -> list[str]:
     return [p.process_id for p in ctx.problem.processes if p.in_scope(scope)]
 
 
-def _transition_costs(ctx: BuildContext) -> dict[tuple[str, str], float]:
-    """Nominal replacement capex per ``(process, target tech)`` = capacity × cost."""
-    prob = ctx.problem
-    out: dict[tuple[str, str], float] = {}
+def _transition_index(prob: Problem) -> dict[tuple[str, str], Transition]:
+    """Map ``(process_id, target tech)`` → the Transition that enables the switch."""
+    out: dict[tuple[str, str], Transition] = {}
     for tr in prob.transitions:
         for proc in prob.processes:
             if tr.from_technology == proc.baseline_technology:
-                out[(proc.process_id, tr.to_technology)] = tr.capex_per_capacity * proc.capacity
+                out[(proc.process_id, tr.to_technology)] = tr
     return out
+
+
+def _replacement_capex(
+    prob: Problem,
+    trans_idx: dict[tuple[str, str], Transition],
+    process_id: str,
+    tech: str,
+    capacity: float,
+    year: int,
+) -> float:
+    """Nominal capital cost of switching ``process`` to ``tech`` in ``year``.
+
+    Uses the transition row's (possibly year-varying) ``capex_per_capacity`` when
+    one defines the switch, otherwise the target technology's own year-varying
+    ``capex``. Nominal (capacity × per-capacity cost); the convention/discount is
+    applied by the caller via :meth:`Problem.capex_charge`.
+    """
+    tr = trans_idx.get((process_id, tech))
+    per_cap = tr.capex_at(year) if tr is not None else prob.technologies[tech].capex(year)
+    return per_cap * capacity
 
 
 def _storage(ctx: BuildContext) -> None:
@@ -776,14 +801,16 @@ def _markets(ctx: BuildContext) -> None:
                         name=f"mcloseds[{mk.market_id},{t}]",
                     )
                     continue
-                if mk.max_buy is not None:
+                mb = mk.max_buy_at(t)
+                if mb is not None:
                     m.add_constraints(
-                        ctx.mbuy.sel(cmarket=mk.market_id, period=t) <= mk.max_buy,
+                        ctx.mbuy.sel(cmarket=mk.market_id, period=t) <= mb,
                         name=f"mmaxbuy[{mk.market_id},{t}]",
                     )
-                if mk.max_sell is not None:
+                ms = mk.max_sell_at(t)
+                if ms is not None:
                     m.add_constraints(
-                        ctx.msell.sel(cmarket=mk.market_id, period=t) <= mk.max_sell,
+                        ctx.msell.sel(cmarket=mk.market_id, period=t) <= ms,
                         name=f"mmaxsell[{mk.market_id},{t}]",
                     )
 
@@ -797,14 +824,16 @@ def _markets(ctx: BuildContext) -> None:
             )
             lhs = held if emit is None else (held - emit)
             m.add_constraints(lhs == -mk.allocation(t), name=f"ets[{mk.market_id},{t}]")
-            if mk.max_buy is not None:
+            mb = mk.max_buy_at(t)
+            if mb is not None:
                 m.add_constraints(
-                    ctx.abuy.sel(imarket=mk.market_id, period=t) <= mk.max_buy,
+                    ctx.abuy.sel(imarket=mk.market_id, period=t) <= mb,
                     name=f"etsmaxbuy[{mk.market_id},{t}]",
                 )
-            if mk.max_sell is not None:
+            ms = mk.max_sell_at(t)
+            if ms is not None:
                 m.add_constraints(
-                    ctx.asell.sel(imarket=mk.market_id, period=t) <= mk.max_sell,
+                    ctx.asell.sel(imarket=mk.market_id, period=t) <= ms,
                     name=f"etsmaxsell[{mk.market_id},{t}]",
                 )
 
@@ -814,7 +843,7 @@ def _controls(ctx: BuildContext) -> None:
     m, prob = ctx.model, ctx.problem
     prev = _prev(ctx.years)
     company_of = {p.process_id: p.company for p in prob.processes}
-    trans_cost = _transition_costs(ctx)
+    trans_idx = _transition_index(prob)
     cap = {p.process_id: p.capacity for p in prob.processes}
     baseline = {p.process_id: p.baseline_technology for p in prob.processes}
     slot_company = {s.key: company_of.get(s.process, "all") for s in ctx.slots}
@@ -831,7 +860,7 @@ def _controls(ctx: BuildContext) -> None:
             for k in ctx.feasible[p]:
                 if k == baseline[p]:
                     continue
-                cost = trans_cost.get((p, k), prob.technologies[k].capex(y) * cap[p])
+                cost = _replacement_capex(prob, trans_idx, p, k, cap[p], y)
                 if cost:
                     terms.append(cost * ctx.w.sel(process=p, tech=k, period=y))
         for s in ctx.slots:
@@ -867,8 +896,8 @@ def _objective(ctx: BuildContext) -> None:
     dur = {p.year: p.duration_years for p in prob.periods}
     cap = {p.process_id: p.capacity for p in prob.processes}
     baseline = {p.process_id: p.baseline_technology for p in prob.processes}
-    fixed_opex = {p.process_id: p.fixed_opex for p in prob.processes}
-    trans_cost = _transition_costs(ctx)
+    proc_by_id = {p.process_id: p for p in prob.processes}
+    trans_idx = _transition_index(prob)
 
     # Stored commodities are priced via the store's external purchase, not the
     # process buy (which becomes the internal draw) — avoids double counting.
@@ -890,8 +919,9 @@ def _objective(ctx: BuildContext) -> None:
                     if ox:
                         terms.append((w * ox) * ctx.x.sel(process=p, tech=k, period=t))
                 # Facility fixed annual O&M — only while operating (`on`).
-                if fixed_opex[p]:
-                    terms.append((w * fixed_opex[p]) * ctx.on.sel(process=p, period=t))
+                fox = proc_by_id[p].fixed_opex_at(t)
+                if fox:
+                    terms.append((w * fox) * ctx.on.sel(process=p, period=t))
             if tog.commodity_cost:
                 for r in ctx.comms:
                     if r in stored or r in market_comms:
@@ -945,9 +975,7 @@ def _objective(ctx: BuildContext) -> None:
                 for k in ctx.feasible[p]:
                     if k == baseline[p]:
                         continue
-                    c = trans_cost.get((p, k))
-                    if c is None:
-                        c = prob.technologies[k].capex(t) * cap[p]
+                    c = _replacement_capex(prob, trans_idx, p, k, cap[p], t)
                     if c:
                         charge = prob.capex_charge(t, prob.technologies[k].lifespan)
                         terms.append((charge * c) * ctx.w.sel(process=p, tech=k, period=t))

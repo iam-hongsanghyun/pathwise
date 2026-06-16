@@ -229,6 +229,16 @@ SCHEMA: dict[str, Any] = {
             "share_max": {"label": "Max share (0-1)", "type": "number"},
         },
     },
+    "io_t": {
+        "label": "Technology I/O · by year",
+        "columns": {
+            "technology_id": {"label": "Technology", "type": "string", "required": True},
+            "target": {"label": "Stream / impact", "type": "string", "required": True},
+            "role": {"label": "Role (input|output|impact)", "type": "string", "required": True},
+            "year": {"label": "Year", "type": "integer", "required": True},
+            "coefficient": {"label": "Per throughput", "type": "number", "required": True},
+        },
+    },
     "commodities_t__price": {
         "label": "Stream price · by year",
         "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
@@ -256,6 +266,27 @@ SCHEMA: dict[str, Any] = {
     "markets_t__allocation": {
         "label": "ETS allocation · by year",
         "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
+    "markets_t__max_buy": {
+        "label": "Market buy cap · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
+    "markets_t__max_sell": {
+        "label": "Market sell cap · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
+    "processes_t__fixed_opex": {
+        "label": "Facility fixed O&M · by year",
+        "columns": {"year": {"label": "Year", "type": "integer", "required": True}},
+    },
+    "transitions_t": {
+        "label": "Transition CAPEX · by year",
+        "columns": {
+            "from_technology": {"label": "From", "type": "string", "required": True},
+            "to_technology": {"label": "To", "type": "string", "required": True},
+            "year": {"label": "Year", "type": "integer", "required": True},
+            "capex_per_capacity": {"label": "CAPEX (/cap)", "type": "number", "required": True},
+        },
     },
     "tech_impacts": {
         "label": "Direct (process) impacts",
