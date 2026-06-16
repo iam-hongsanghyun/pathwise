@@ -159,7 +159,16 @@ export function TreeExplorer({
           >
             {nd.hasChildren ? (expanded ? "▾" : "▸") : ""}
           </span>
-          <span className="tree-glyph" style={{ marginRight: 5, opacity: 0.7 }}>
+          <span
+            className="tree-glyph"
+            style={{
+              display: "inline-block",
+              width: 16,
+              textAlign: "center",
+              marginRight: 5,
+              opacity: 0.7,
+            }}
+          >
             {nd.muted ? "↳" : nd.kind === "library" ? "▣" : nd.kind === "group" ? "▾" : "▪"}
           </span>
           <span className="tree-label">{nd.label}</span>

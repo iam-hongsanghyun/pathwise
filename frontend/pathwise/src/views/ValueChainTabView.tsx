@@ -79,6 +79,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   const [units, setUnits] = useState<Set<string>>(new Set()); // selected unit ids at the level
   const [mode, setMode] = useState<"valuechain" | "joint" | "independent">("valuechain");
   const [baseYear, setBaseYear] = useState(2025);
+  const [endYear, setEndYear] = useState(2050);
   const [running, setRunning] = useState<string | null>(null);
   const [result, setResult] = useState<RunResult | CascadeResult | null>(null);
   const [year, setYear] = useState<number | null>(null);
@@ -322,7 +323,10 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     setResult(null);
     setRunning("submitting");
     try {
-      const wb = (workbook.periods ?? []).length ? workbook : setSheet(workbook, "periods", [{ year: baseYear, duration_years: 1 }]);
+      // The base→end toolbar fields define the run horizon (annual periods).
+      const last = Math.max(baseYear, endYear);
+      const years = Array.from({ length: last - baseYear + 1 }, (_, i) => baseYear + i);
+      const wb = setSheet(workbook, "periods", years.map((y) => ({ year: y, duration_years: 1 })));
       if (wb !== workbook) setWorkbook(wb);
       await putModel(sessionId, wb);
       // all units selected ⇒ empty targets (= all); a subset ⇒ those ids.
@@ -423,9 +427,11 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 14px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
         <strong style={{ fontSize: "0.9rem" }}>Value chain</strong>
         <span style={{ flex: 1 }} />
-        <label style={{ fontSize: "0.78rem", display: "flex", gap: 4, alignItems: "center" }}>
-          <span className="muted">base year</span>
-          <input type="number" value={baseYear} onChange={(e) => setBaseYear(Number(e.target.value) || 2025)} style={{ width: 70, ...inp }} />
+        <label style={{ fontSize: "0.78rem", display: "flex", gap: 4, alignItems: "center" }} title="The model runs one period per year from the base year to the end year (inclusive).">
+          <span className="muted">years</span>
+          <input type="number" value={baseYear} onChange={(e) => setBaseYear(Number(e.target.value) || 2025)} style={{ width: 64, ...inp }} />
+          <span className="muted">→</span>
+          <input type="number" value={endYear} onChange={(e) => setEndYear(Number(e.target.value) || baseYear)} style={{ width: 64, ...inp }} />
         </label>
         <label style={{ fontSize: "0.78rem", display: "flex", gap: 4, alignItems: "center" }}>
           <span className="muted">optimise at</span>
