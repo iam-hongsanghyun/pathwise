@@ -193,10 +193,16 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     setError(null);
     try {
       await putModel(sessionId, workbook);
-      if (kind === "technology") await placeTechnology(sessionId, { library, technology: name, parent_id: parentId, capacity: 1000 });
-      else await instantiateComponent(sessionId, { library, component: name, parent_id: parentId });
+      const res =
+        kind === "technology"
+          ? await placeTechnology(sessionId, { library, technology: name, parent_id: parentId, capacity: 1000 })
+          : await instantiateComponent(sessionId, { library, component: name, parent_id: parentId });
       adoptServerModel(await getFullModel(sessionId));
       setExpanded((p) => new Set(p).add(parentId));
+      // Select the freshly instantiated node so it's immediately editable in the
+      // right rail (no need to hunt for it in the tree).
+      const newId = res.root ?? res.created[0];
+      if (newId) setSelId(newId);
     } catch (e) {
       setError(String(e));
     }
