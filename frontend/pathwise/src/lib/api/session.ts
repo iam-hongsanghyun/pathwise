@@ -36,11 +36,14 @@ export function ensureSession(): Promise<{ sessionId: string; model: Workbook }>
 async function _ensureSession(): Promise<{ sessionId: string; model: Workbook }> {
   const stored = storedSessionId();
   if (stored) {
-    const resp = await fetch(`/api/session/${stored}/model`);
-    if (resp.ok) {
-      const body = (await resp.json()) as { model: Workbook };
+    // Probe with the 200-returning existence check (not /model, which 404s and
+    // spams the console) so a stale localStorage id recovers quietly.
+    const { exists } = await json<{ exists: boolean }>(await fetch(`/api/session/${stored}`));
+    if (exists) {
+      const body = await json<{ model: Workbook }>(await fetch(`/api/session/${stored}/model`));
       return { sessionId: stored, model: body.model };
     }
+    console.info(`pathwise: stored session ${stored} no longer exists — creating a fresh one.`);
   }
   const created = await json<{ sessionId: string }>(
     await fetch("/api/session", { method: "POST" }),

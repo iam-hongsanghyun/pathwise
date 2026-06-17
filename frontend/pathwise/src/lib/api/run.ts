@@ -25,12 +25,33 @@ export async function runToCompletion(
       body: JSON.stringify({ sessionId, scenario, options }),
     }),
   );
+  const sleep = () => new Promise((r) => setTimeout(r, 1500));
+  // Runs are tracked in server memory, so a backend restart (e.g. a dev
+  // `--reload`) loses the job. Tolerate brief unreachability (the server may be
+  // mid-reload), but a clean 404 means the job is gone for good — fail with a
+  // plain message instead of a raw "404 Not Found".
+  let unreachable = 0;
   for (;;) {
-    const state = await json<JobState>(await fetch(`/api/run/${jobId}`));
+    let resp: Response;
+    try {
+      resp = await fetch(`/api/run/${jobId}`);
+    } catch {
+      if (++unreachable > 8) {
+        throw new Error("Lost contact with the server during the run. Check the backend is up, then run again.");
+      }
+      onTick?.("reconnecting");
+      await sleep();
+      continue;
+    }
+    if (resp.status === 404) {
+      throw new Error("The run was lost — the server restarted while it was in progress. Please run it again.");
+    }
+    const state = await json<JobState>(resp);
+    unreachable = 0;
     onTick?.(state.status);
     if (state.status === "done" && state.result) return state.result;
     if (state.status === "error") throw new Error(state.error ?? "run failed");
     if (state.status === "cancelled") throw new Error("run cancelled");
-    await new Promise((r) => setTimeout(r, 1500));
+    await sleep();
   }
 }

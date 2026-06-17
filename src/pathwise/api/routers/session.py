@@ -170,6 +170,18 @@ def ingest_model(body: ModelIngest) -> dict[str, Any]:
     return {"sessionId": sid, "sheets": counts}
 
 
+@router.get("/session/{session_id}")
+def session_exists(session_id: str) -> dict[str, Any]:
+    """Lightweight existence probe (always 200) for the client's session check.
+
+    The frontend resumes a stored session only if the backend still knows it.
+    Probing ``/model`` for that returned 404 for an unknown id — correct, but it
+    spams the browser console on every fresh boot with a stale localStorage id.
+    This endpoint answers the same question with a 200 ``{exists}`` payload.
+    """
+    return {"sessionId": session_id, "exists": _store().exists(session_id)}
+
+
 @router.get("/session/{session_id}/model")
 def full_model(session_id: str) -> dict[str, Any]:
     """The whole session workbook (pathwise models are small)."""
