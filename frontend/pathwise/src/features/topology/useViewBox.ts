@@ -56,6 +56,15 @@ export function useViewBox(initial: ViewBox = { x: 0, y: 0, w: 1200, h: 700 }): 
   const toWorld = useCallback(
     (clientX: number, clientY: number, svgEl: SVGSVGElement | null): NodePos => {
       const el = svgEl ?? svgRef.current;
+      // getScreenCTM() maps the (post-viewBox, post-preserveAspectRatio) user
+      // space to the screen — its inverse turns the cursor into world units
+      // EXACTLY, including the letterbox offset/scale from `meet`. The rect
+      // math below only holds for preserveAspectRatio="none" and is a fallback.
+      const ctm = el?.getScreenCTM?.();
+      if (el && ctm) {
+        const p = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
+        return { x: p.x, y: p.y };
+      }
       const rect = el?.getBoundingClientRect();
       if (!rect || rect.width < 1 || rect.height < 1) return { x: vb.x, y: vb.y };
       return {
@@ -68,24 +77,18 @@ export function useViewBox(initial: ViewBox = { x: 0, y: 0, w: 1200, h: 700 }): 
 
   const onWheel = useCallback(
     (e: React.WheelEvent) => {
-      // Obtain the SVG element from the event target so we don't need the ref
-      // to be set externally.
       const svgEl = e.currentTarget as SVGSVGElement;
       svgRef.current = svgEl;
-      const rect = svgEl.getBoundingClientRect();
-      if (!rect || rect.width < 1 || rect.height < 1) return;
-      // World-space point under the cursor.
-      const atX = vb.x + ((e.clientX - rect.left) / rect.width) * vb.w;
-      const atY = vb.y + ((e.clientY - rect.top) / rect.height) * vb.h;
+      const at = toWorld(e.clientX, e.clientY, svgEl); // world point under the cursor
       const k = e.deltaY > 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
       setVb((v) => ({
-        x: atX - (atX - v.x) * k,
-        y: atY - (atY - v.y) * k,
+        x: at.x - (at.x - v.x) * k,
+        y: at.y - (at.y - v.y) * k,
         w: Math.max(MIN_DIM, v.w * k),
         h: Math.max(MIN_DIM, v.h * k),
       }));
     },
-    [vb],
+    [toWorld],
   );
 
   const onPanStart = useCallback(
@@ -107,8 +110,11 @@ export function useViewBox(initial: ViewBox = { x: 0, y: 0, w: 1200, h: 700 }): 
     if (!g) return;
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect || rect.width < 1 || rect.height < 1) return;
-    const sx = (g.startX - e.clientX) * (g.vb.w / rect.width);
-    const sy = (g.startY - e.clientY) * (g.vb.h / rect.height);
+    // Uniform scale (preserveAspectRatio="meet" fits the smaller ratio), so a
+    // screen-pixel drag maps to the same world delta on both axes.
+    const scale = Math.min(rect.width / g.vb.w, rect.height / g.vb.h);
+    const sx = (g.startX - e.clientX) / scale;
+    const sy = (g.startY - e.clientY) / scale;
     setVb({ ...g.vb, x: g.vb.x + sx, y: g.vb.y + sy });
   }, []);
 
