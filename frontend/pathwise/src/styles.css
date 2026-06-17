@@ -814,6 +814,14 @@ td input:focus {
 .topo-canvas {
   background: var(--bg);
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* keep the inline connect form (and any inputs) selectable/typeable */
+.topo-canvas input,
+.topo-canvas textarea {
+  user-select: text;
+  -webkit-user-select: text;
 }
 .topo-canvas svg {
   width: 100%;

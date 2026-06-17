@@ -222,6 +222,7 @@ export function HierarchyMap({
           style={{ cursor: "crosshair" }}
           onPointerDown={(e) => {
             e.stopPropagation();
+            e.preventDefault(); // don't let the drag start a text/area selection
             const w = toWorld(e.clientX, e.clientY, svgRef.current);
             setConnect({ from: n.id, wx: w.x, wy: w.y });
           }}
