@@ -6,13 +6,11 @@ import {
   downloadResultSqlite,
   ensureSession,
   exportModelUrl,
-  type ExampleModel,
-  listExamples,
-  loadExample,
   putModel,
   replaceSheet,
   uploadWorkbook,
 } from "./lib/api/session";
+import { type LibraryEntry, type LibraryTier, importLibrary, listLibraries } from "./lib/api/libraries";
 import { SearchSelect } from "./features/controls/SearchSelect";
 import { ActivityBar, type View } from "./layout/ActivityBar";
 import { AnalyticsView } from "./views/AnalyticsView";
@@ -49,16 +47,16 @@ export function App() {
   const [running, setRunning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [leftW, setLeftW] = useState(232);
-  const [examples, setExamples] = useState<ExampleModel[]>([]);
+  const [libraries, setLibraries] = useState<LibraryEntry[]>([]);
 
   // Boot: config handshake + a backend session (the model's source of truth).
   useEffect(() => {
     getConfig()
       .then(setConfig)
       .catch((e) => setError(String(e)));
-    listExamples()
-      .then(setExamples)
-      .catch(() => setExamples([]));
+    listLibraries()
+      .then(setLibraries)
+      .catch(() => setLibraries([]));
     ensureSession()
       .then(({ sessionId: sid, model }) => {
         synced.current = model;
@@ -136,15 +134,20 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workbook, sessionId]);
 
-  async function onPickExample(id: string) {
+  /** Import a tiered library by its "tier/id" key. A library with a value chain
+   *  rebuilds the session model (→ Value-chain view); a components-only library
+   *  (the `base` building blocks) just stocks the session catalogue (→ Component
+   *  view). Either way its components land in the Component view. */
+  async function onPickLibrary(key: string) {
     if (!sessionId) return;
+    const slash = key.indexOf("/");
+    const tier = key.slice(0, slash) as LibraryTier;
+    const id = key.slice(slash + 1);
     setError(null);
     try {
-      adoptServerModel(await loadExample(sessionId, id));
-      // Switch to the optimisation method this example is authored for, so a
-      // MACC example runs under the MACC mode without a manual Settings change.
-      setBackend(examples.find((m) => m.id === id)?.backend ?? "linopy");
-      setView("valuechain");
+      const res = await importLibrary(sessionId, tier, id);
+      adoptServerModel(res.model);
+      setView(res.imported_value_chain ? "valuechain" : "component");
     } catch (e) {
       setError(String(e));
     }
@@ -225,14 +228,19 @@ export function App() {
           </button>
           <span className="spacer" />
           <label>
-            Example library
-            <span style={{ display: "inline-block", width: 260 }}>
+            Library
+            <span style={{ display: "inline-block", width: 300 }}>
               <SearchSelect
                 value=""
-                onChange={(v) => v && onPickExample(v)}
-                disabled={examples.length === 0}
-                placeholder={examples.length ? "Open a model…" : "no examples"}
-                options={examples.map((m) => ({ value: m.id, label: m.label }))}
+                onChange={(v) => v && onPickLibrary(v)}
+                disabled={libraries.length === 0}
+                placeholder={libraries.length ? "Import a library…" : "no libraries"}
+                options={libraries.map((l) => ({
+                  value: `${l.tier}/${l.id}`,
+                  label: `${l.tier[0].toUpperCase()}${l.tier.slice(1)} · ${l.label}${
+                    l.has_value_chain ? "" : " (components)"
+                  }`,
+                }))}
               />
             </span>
           </label>

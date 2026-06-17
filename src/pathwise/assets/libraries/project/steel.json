@@ -1,0 +1,4118 @@
+{
+"meta": [
+{
+"key": "label",
+"value": "Steel transition \u2014 Korea (systempathway)"
+},
+{
+"key": "source",
+"value": "PLANiT-Institute/systempathway"
+},
+{
+"key": "vintage_timing",
+"value": "true"
+}
+],
+"periods": [
+{
+"year": 2025,
+"duration_years": 1
+},
+{
+"year": 2026,
+"duration_years": 1
+},
+{
+"year": 2027,
+"duration_years": 1
+},
+{
+"year": 2028,
+"duration_years": 1
+},
+{
+"year": 2029,
+"duration_years": 1
+},
+{
+"year": 2030,
+"duration_years": 1
+},
+{
+"year": 2031,
+"duration_years": 1
+},
+{
+"year": 2032,
+"duration_years": 1
+},
+{
+"year": 2033,
+"duration_years": 1
+},
+{
+"year": 2034,
+"duration_years": 1
+},
+{
+"year": 2035,
+"duration_years": 1
+},
+{
+"year": 2036,
+"duration_years": 1
+},
+{
+"year": 2037,
+"duration_years": 1
+},
+{
+"year": 2038,
+"duration_years": 1
+},
+{
+"year": 2039,
+"duration_years": 1
+},
+{
+"year": 2040,
+"duration_years": 1
+},
+{
+"year": 2041,
+"duration_years": 1
+},
+{
+"year": 2042,
+"duration_years": 1
+},
+{
+"year": 2043,
+"duration_years": 1
+},
+{
+"year": 2044,
+"duration_years": 1
+},
+{
+"year": 2045,
+"duration_years": 1
+},
+{
+"year": 2046,
+"duration_years": 1
+},
+{
+"year": 2047,
+"duration_years": 1
+},
+{
+"year": 2048,
+"duration_years": 1
+},
+{
+"year": 2049,
+"duration_years": 1
+},
+{
+"year": 2050,
+"duration_years": 1
+}
+],
+"commodities": [
+{
+"commodity_id": "BF_gas_BB",
+"kind": "energy",
+"purchasable": 1
+},
+{
+"commodity_id": "BF_gas_BX",
+"kind": "energy",
+"purchasable": 1
+},
+{
+"commodity_id": "BOF_gas_BB",
+"kind": "energy",
+"purchasable": 1
+},
+{
+"commodity_id": "BOF_gas_BX",
+"kind": "energy",
+"purchasable": 1
+},
+{
+"commodity_id": "COG_BB",
+"kind": "energy",
+"purchasable": 1
+},
+{
+"commodity_id": "Coal_BB",
+"kind": "energy",
+"purchasable": 1
+},
+{
+"commodity_id": "Coal_BX",
+"kind": "energy",
+"purchasable": 1
+},
+{
+"commodity_id": "Electricity_EAF",
+"kind": "energy",
+"purchasable": 1
+},
+{
+"commodity_id": "Electricity_H2",
+"kind": "energy",
+"purchasable": 1
+},
+{
+"commodity_id": "Hydrogen_H2",
+"kind": "energy",
+"purchasable": 1
+},
+{
+"commodity_id": "HBI_EAF",
+"kind": "material",
+"purchasable": 1
+},
+{
+"commodity_id": "Iron_ore_BB",
+"kind": "material",
+"purchasable": 1
+},
+{
+"commodity_id": "Iron_ore_BX",
+"kind": "material",
+"purchasable": 1
+},
+{
+"commodity_id": "Iron_ore_H2",
+"kind": "material",
+"purchasable": 1
+},
+{
+"commodity_id": "Scrap_BB",
+"kind": "material",
+"purchasable": 1
+},
+{
+"commodity_id": "Scrap_EAF",
+"kind": "material",
+"purchasable": 1
+},
+{
+"commodity_id": "steel",
+"kind": "product",
+"unit": "t"
+}
+],
+"commodity_prices": [
+{
+"commodity_id": "BF_gas_BB",
+"year": 2025,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2026,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2027,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2028,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2029,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2030,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2031,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2032,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2033,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2034,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2035,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2036,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2037,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2038,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2039,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2040,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2041,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2042,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2043,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2044,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2045,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2046,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2047,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2048,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2049,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BB",
+"year": 2050,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2025,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2026,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2027,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2028,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2029,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2030,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2031,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2032,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2033,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2034,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2035,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2036,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2037,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2038,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2039,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2040,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2041,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2042,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2043,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2044,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2045,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2046,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2047,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2048,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2049,
+"price": 0.0
+},
+{
+"commodity_id": "BF_gas_BX",
+"year": 2050,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2025,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2026,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2027,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2028,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2029,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2030,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2031,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2032,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2033,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2034,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2035,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2036,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2037,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2038,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2039,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2040,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2041,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2042,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2043,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2044,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2045,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2046,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2047,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2048,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2049,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BB",
+"year": 2050,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2025,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2026,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2027,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2028,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2029,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2030,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2031,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2032,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2033,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2034,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2035,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2036,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2037,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2038,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2039,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2040,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2041,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2042,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2043,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2044,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2045,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2046,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2047,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2048,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2049,
+"price": 0.0
+},
+{
+"commodity_id": "BOF_gas_BX",
+"year": 2050,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2025,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2026,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2027,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2028,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2029,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2030,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2031,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2032,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2033,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2034,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2035,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2036,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2037,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2038,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2039,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2040,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2041,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2042,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2043,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2044,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2045,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2046,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2047,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2048,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2049,
+"price": 0.0
+},
+{
+"commodity_id": "COG_BB",
+"year": 2050,
+"price": 0.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2025,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2026,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2027,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2028,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2029,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2030,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2031,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2032,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2033,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2034,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2035,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2036,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2037,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2038,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2039,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2040,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2041,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2042,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2043,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2044,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2045,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2046,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2047,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2048,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2049,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BB",
+"year": 2050,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2025,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2026,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2027,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2028,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2029,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2030,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2031,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2032,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2033,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2034,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2035,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2036,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2037,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2038,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2039,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2040,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2041,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2042,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2043,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2044,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2045,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2046,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2047,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2048,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2049,
+"price": 9923.0
+},
+{
+"commodity_id": "Coal_BX",
+"year": 2050,
+"price": 9923.0
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2025,
+"price": 46888.89
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2026,
+"price": 48764.4456
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2027,
+"price": 50715.023424
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2028,
+"price": 52743.62436096
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2029,
+"price": 54853.3693353984
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2030,
+"price": 57047.50410881433
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2031,
+"price": 59329.40427316691
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2032,
+"price": 61702.58044409359
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2033,
+"price": 64170.683661857336
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2034,
+"price": 66737.51100833162
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2035,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2036,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2037,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2038,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2039,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2040,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2041,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2042,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2043,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2044,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2045,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2046,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2047,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2048,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2049,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_EAF",
+"year": 2050,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2025,
+"price": 46888.89
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2026,
+"price": 48764.4456
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2027,
+"price": 50715.023424
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2028,
+"price": 52743.62436096
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2029,
+"price": 54853.3693353984
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2030,
+"price": 57047.50410881433
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2031,
+"price": 59329.40427316691
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2032,
+"price": 61702.58044409359
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2033,
+"price": 64170.683661857336
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2034,
+"price": 66737.51100833162
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2035,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2036,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2037,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2038,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2039,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2040,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2041,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2042,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2043,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2044,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2045,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2046,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2047,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2048,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2049,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Electricity_H2",
+"year": 2050,
+"price": 69407.0114486649
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2025,
+"price": 90716.67
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2026,
+"price": 89675.0
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2027,
+"price": 87975.0
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2028,
+"price": 89741.67
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2029,
+"price": 89800.0
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2030,
+"price": 86400.0
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2031,
+"price": 83208.33
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2032,
+"price": 80783.33
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2033,
+"price": 78908.33
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2034,
+"price": 78433.33
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2035,
+"price": 77441.67
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2036,
+"price": 76391.67
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2037,
+"price": 71533.33
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2038,
+"price": 68441.67
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2039,
+"price": 65491.67
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2040,
+"price": 62683.33
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2041,
+"price": 60000.0
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2042,
+"price": 57441.67
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2043,
+"price": 55000.0
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2044,
+"price": 52666.67
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2045,
+"price": 50441.67
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2046,
+"price": 48316.67
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2047,
+"price": 46275.0
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2048,
+"price": 44325.0
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2049,
+"price": 42458.33
+},
+{
+"commodity_id": "Hydrogen_H2",
+"year": 2050,
+"price": 40675.0
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2025,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2026,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2027,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2028,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2029,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2030,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2031,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2032,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2033,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2034,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2035,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2036,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2037,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2038,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2039,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2040,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2041,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2042,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2043,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2044,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2045,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2046,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2047,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2048,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2049,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "HBI_EAF",
+"year": 2050,
+"price": 538408.9009146546
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2025,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2026,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2027,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2028,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2029,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2030,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2031,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2032,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2033,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2034,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2035,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2036,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2037,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2038,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2039,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2040,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2041,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2042,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2043,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2044,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2045,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2046,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2047,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2048,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2049,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BB",
+"year": 2050,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2025,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2026,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2027,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2028,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2029,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2030,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2031,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2032,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2033,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2034,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2035,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2036,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2037,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2038,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2039,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2040,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2041,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2042,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2043,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2044,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2045,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2046,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2047,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2048,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2049,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_BX",
+"year": 2050,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2025,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2026,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2027,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2028,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2029,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2030,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2031,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2032,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2033,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2034,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2035,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2036,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2037,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2038,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2039,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2040,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2041,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2042,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2043,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2044,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2045,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2046,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2047,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2048,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2049,
+"price": 138966.0
+},
+{
+"commodity_id": "Iron_ore_H2",
+"year": 2050,
+"price": 138966.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2025,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2026,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2027,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2028,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2029,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2030,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2031,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2032,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2033,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2034,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2035,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2036,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2037,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2038,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2039,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2040,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2041,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2042,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2043,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2044,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2045,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2046,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2047,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2048,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2049,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_BB",
+"year": 2050,
+"price": 375000.0
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2025,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2026,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2027,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2028,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2029,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2030,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2031,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2032,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2033,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2034,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2035,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2036,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2037,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2038,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2039,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2040,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2041,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2042,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2043,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2044,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2045,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2046,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2047,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2048,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2049,
+"price": 388793.24
+},
+{
+"commodity_id": "Scrap_EAF",
+"year": 2050,
+"price": 388793.24
+}
+],
+"impacts": [
+{
+"impact_id": "CO2",
+"unit": "tCO2"
+}
+],
+"technologies": [
+{
+"technology_id": "BF_BOF",
+"lifespan": 20,
+"actions": "replace,renew,continue,continue",
+"capex": 500700.0
+},
+{
+"technology_id": "BF_BOF_FX",
+"lifespan": 20,
+"actions": "renew,continue,continue",
+"capex": 425595.0
+},
+{
+"technology_id": "H2_DRI_ESF",
+"lifespan": 20,
+"actions": "replace,renew,continue,continue",
+"capex": 1100000.0
+},
+{
+"technology_id": "EAF",
+"lifespan": 20,
+"actions": "replace,renew,continue,continue",
+"capex": 240000.0
+}
+],
+"io": [
+{
+"technology_id": "BF_BOF",
+"target": "Coal_BB",
+"role": "input",
+"coefficient": 15.779537999999999
+},
+{
+"technology_id": "BF_BOF",
+"target": "BF_gas_BB",
+"role": "input",
+"coefficient": 1.48092
+},
+{
+"technology_id": "BF_BOF",
+"target": "COG_BB",
+"role": "input",
+"coefficient": 1.0578
+},
+{
+"technology_id": "BF_BOF",
+"target": "BOF_gas_BB",
+"role": "input",
+"coefficient": 0.21156
+},
+{
+"technology_id": "BF_BOF",
+"target": "Iron_ore_BB",
+"role": "input",
+"coefficient": 1.4849999999999999
+},
+{
+"technology_id": "BF_BOF",
+"target": "Scrap_BB",
+"role": "input",
+"coefficient": 0.11000000000000001
+},
+{
+"technology_id": "BF_BOF",
+"target": "steel",
+"role": "output",
+"coefficient": 1.0,
+"is_product": 1
+},
+{
+"technology_id": "BF_BOF_FX",
+"target": "Coal_BX",
+"role": "input",
+"coefficient": 16.32366
+},
+{
+"technology_id": "BF_BOF_FX",
+"target": "BF_gas_BX",
+"role": "input",
+"coefficient": 1.0578
+},
+{
+"technology_id": "BF_BOF_FX",
+"target": "BOF_gas_BX",
+"role": "input",
+"coefficient": 1.0578
+},
+{
+"technology_id": "BF_BOF_FX",
+"target": "Iron_ore_BX",
+"role": "input",
+"coefficient": 1.65
+},
+{
+"technology_id": "BF_BOF_FX",
+"target": "steel",
+"role": "output",
+"coefficient": 1.0,
+"is_product": 1
+},
+{
+"technology_id": "H2_DRI_ESF",
+"target": "Hydrogen_H2",
+"role": "input",
+"coefficient": 10.335
+},
+{
+"technology_id": "H2_DRI_ESF",
+"target": "Electricity_H2",
+"role": "input",
+"coefficient": 5.568499999999999
+},
+{
+"technology_id": "H2_DRI_ESF",
+"target": "Iron_ore_H2",
+"role": "input",
+"coefficient": 1.65
+},
+{
+"technology_id": "H2_DRI_ESF",
+"target": "steel",
+"role": "output",
+"coefficient": 1.0,
+"is_product": 1
+},
+{
+"technology_id": "EAF",
+"target": "Electricity_EAF",
+"role": "input",
+"coefficient": 6.0
+},
+{
+"technology_id": "EAF",
+"target": "Scrap_EAF",
+"role": "input",
+"coefficient": 0.55
+},
+{
+"technology_id": "EAF",
+"target": "HBI_EAF",
+"role": "input",
+"coefficient": 0.525
+},
+{
+"technology_id": "EAF",
+"target": "steel",
+"role": "output",
+"coefficient": 1.0,
+"is_product": 1
+}
+],
+"tech_impacts": [
+{
+"technology_id": "BF_BOF",
+"impact_id": "CO2",
+"factor": 2.05015572
+},
+{
+"technology_id": "BF_BOF_FX",
+"impact_id": "CO2",
+"factor": 1.6230986400000003
+},
+{
+"technology_id": "H2_DRI_ESF",
+"impact_id": "CO2",
+"factor": 0.0
+},
+{
+"technology_id": "EAF",
+"impact_id": "CO2",
+"factor": 0.0
+}
+],
+"technologies_t__capex": [
+{
+"year": 2025,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2026,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2027,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2028,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2029,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2030,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2031,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2032,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2033,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2034,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2035,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2036,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2037,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2038,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2039,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2040,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2041,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2042,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2043,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2044,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2045,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2046,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2047,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2048,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2049,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+},
+{
+"year": 2050,
+"BF_BOF": 500700.0,
+"BF_BOF_FX": 425595.0,
+"H2_DRI_ESF": 1100000.0,
+"EAF": 240000.0
+}
+],
+"technologies_t__opex": [
+{
+"year": 2025,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2026,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2027,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2028,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2029,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2030,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2031,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2032,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2033,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2034,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2035,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2036,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2037,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2038,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2039,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2040,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2041,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2042,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2043,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2044,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2045,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2046,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2047,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2048,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2049,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+},
+{
+"year": 2050,
+"BF_BOF": 250350.0,
+"BF_BOF_FX": 212797.5,
+"H2_DRI_ESF": 550000.0,
+"EAF": 120000.0
+}
+],
+"technologies_t__renewal": [
+{
+"year": 2025,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2026,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2027,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2028,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2029,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2030,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2031,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2032,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2033,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2034,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2035,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2036,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2037,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2038,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2039,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2040,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2041,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2042,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2043,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2044,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2045,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2046,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2047,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2048,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2049,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+},
+{
+"year": 2050,
+"BF_BOF": 200280.0,
+"BF_BOF_FX": 170238.0,
+"H2_DRI_ESF": 440000.0,
+"EAF": 96000.0
+}
+],
+"transitions": [
+{
+"from_technology": "BF_BOF",
+"to_technology": "BF_BOF_FX",
+"action": "renew",
+"capex_per_capacity": 425595.0
+},
+{
+"from_technology": "BF_BOF",
+"to_technology": "H2_DRI_ESF",
+"action": "replace",
+"capex_per_capacity": 1100000.0
+},
+{
+"from_technology": "BF_BOF",
+"to_technology": "EAF",
+"action": "replace",
+"capex_per_capacity": 240000.0
+}
+],
+"technology_caps": [
+{
+"technology_id": "BF_BOF",
+"max_count": 13
+},
+{
+"technology_id": "BF_BOF_FX",
+"max_count": 2
+},
+{
+"technology_id": "H2_DRI_ESF",
+"max_count": 13
+},
+{
+"technology_id": "EAF",
+"max_count": 3
+}
+],
+"nodes": [
+{
+"node_id": "steel",
+"parent_id": "",
+"kind": "group",
+"level": "sector",
+"label": "Korean steel"
+},
+{
+"node_id": "Pohang_BF3",
+"parent_id": "steel",
+"kind": "machine",
+"level": "facility",
+"label": "Pohang BF3"
+},
+{
+"node_id": "HyundaiBF3",
+"parent_id": "steel",
+"kind": "machine",
+"level": "facility",
+"label": "HyundaiBF3"
+},
+{
+"node_id": "Pohang_BF4",
+"parent_id": "steel",
+"kind": "machine",
+"level": "facility",
+"label": "Pohang BF4"
+},
+{
+"node_id": "Gwangyang_BF2",
+"parent_id": "steel",
+"kind": "machine",
+"level": "facility",
+"label": "Gwangyang BF2"
+},
+{
+"node_id": "Gwangyang_BF1",
+"parent_id": "steel",
+"kind": "machine",
+"level": "facility",
+"label": "Gwangyang BF1"
+},
+{
+"node_id": "Gwangyang_BF5",
+"parent_id": "steel",
+"kind": "machine",
+"level": "facility",
+"label": "Gwangyang BF5"
+},
+{
+"node_id": "HyundaiBF2",
+"parent_id": "steel",
+"kind": "machine",
+"level": "facility",
+"label": "HyundaiBF2"
+},
+{
+"node_id": "Gwangyang_BF4",
+"parent_id": "steel",
+"kind": "machine",
+"level": "facility",
+"label": "Gwangyang BF4"
+},
+{
+"node_id": "Gwangyang_BF3",
+"parent_id": "steel",
+"kind": "machine",
+"level": "facility",
+"label": "Gwangyang BF3"
+},
+{
+"node_id": "HyundaiBF1",
+"parent_id": "steel",
+"kind": "machine",
+"level": "facility",
+"label": "HyundaiBF1"
+},
+{
+"node_id": "Pohang_BF2",
+"parent_id": "steel",
+"kind": "machine",
+"level": "facility",
+"label": "Pohang BF2"
+},
+{
+"node_id": "Pohang_FNX3",
+"parent_id": "steel",
+"kind": "machine",
+"level": "facility",
+"label": "Pohang FNX3"
+},
+{
+"node_id": "Pohang_FNX2",
+"parent_id": "steel",
+"kind": "machine",
+"level": "facility",
+"label": "Pohang FNX2"
+},
+{
+"node_id": "EAF1",
+"parent_id": "steel",
+"kind": "machine",
+"level": "facility",
+"label": "EAF1"
+},
+{
+"node_id": "EAF2",
+"parent_id": "steel",
+"kind": "machine",
+"level": "facility",
+"label": "EAF2"
+},
+{
+"node_id": "EAF3",
+"parent_id": "steel",
+"kind": "machine",
+"level": "facility",
+"label": "EAF3"
+}
+],
+"machines": [
+{
+"machine_id": "Pohang_BF3",
+"baseline_technology": "BF_BOF",
+"capacity": 4128000.0,
+"introduced_year": 2017
+},
+{
+"machine_id": "HyundaiBF3",
+"baseline_technology": "BF_BOF",
+"capacity": 4000000.0,
+"introduced_year": 2013
+},
+{
+"machine_id": "Pohang_BF4",
+"baseline_technology": "BF_BOF",
+"capacity": 3804000.0,
+"introduced_year": 2024
+},
+{
+"machine_id": "Gwangyang_BF2",
+"baseline_technology": "BF_BOF",
+"capacity": 3239000.0,
+"introduced_year": 2006
+},
+{
+"machine_id": "Gwangyang_BF1",
+"baseline_technology": "BF_BOF",
+"capacity": 1683000.0,
+"introduced_year": 2013
+},
+{
+"machine_id": "Gwangyang_BF5",
+"baseline_technology": "BF_BOF",
+"capacity": 4722000.0,
+"introduced_year": 2016
+},
+{
+"machine_id": "HyundaiBF2",
+"baseline_technology": "BF_BOF",
+"capacity": 4237000.0,
+"introduced_year": 2010
+},
+{
+"machine_id": "Gwangyang_BF4",
+"baseline_technology": "BF_BOF",
+"capacity": 4000000.0,
+"introduced_year": 2022
+},
+{
+"machine_id": "Gwangyang_BF3",
+"baseline_technology": "BF_BOF",
+"capacity": 3624000.0,
+"introduced_year": 2020
+},
+{
+"machine_id": "HyundaiBF1",
+"baseline_technology": "BF_BOF",
+"capacity": 4127000.0,
+"introduced_year": 2010
+},
+{
+"machine_id": "Pohang_BF2",
+"baseline_technology": "BF_BOF",
+"capacity": 4000000.0,
+"introduced_year": 2015
+},
+{
+"machine_id": "Pohang_FNX3",
+"baseline_technology": "BF_BOF_FX",
+"capacity": 1914000.0,
+"introduced_year": 2015
+},
+{
+"machine_id": "Pohang_FNX2",
+"baseline_technology": "BF_BOF_FX",
+"capacity": 1280000.0,
+"introduced_year": 2015
+},
+{
+"machine_id": "EAF1",
+"baseline_technology": "EAF",
+"capacity": 0.0,
+"introduced_year": 2026
+},
+{
+"machine_id": "EAF2",
+"baseline_technology": "EAF",
+"capacity": 0.0,
+"introduced_year": 2027
+},
+{
+"machine_id": "EAF3",
+"baseline_technology": "EAF",
+"capacity": 0.0,
+"introduced_year": 2029
+}
+],
+"processes_t__capacity": [
+{
+"year": 2025,
+"Pohang_BF3": 4128000.0,
+"HyundaiBF3": 4000000.0,
+"Pohang_BF4": 3804000.0,
+"Gwangyang_BF2": 3239000.0,
+"Gwangyang_BF1": 1683000.0,
+"Gwangyang_BF5": 4722000.0,
+"HyundaiBF2": 4237000.0,
+"Gwangyang_BF4": 4000000.0,
+"Gwangyang_BF3": 3624000.0,
+"HyundaiBF1": 4127000.0,
+"Pohang_BF2": 4000000.0,
+"Pohang_FNX3": 1914000.0,
+"Pohang_FNX2": 1280000.0,
+"EAF1": 0.0,
+"EAF2": 0.0,
+"EAF3": 0.0
+},
+{
+"year": 2026,
+"Pohang_BF3": 3897427.0,
+"HyundaiBF3": 3776576.0,
+"Pohang_BF4": 3591524.0,
+"Gwangyang_BF2": 3058083.0,
+"Gwangyang_BF1": 1588994.0,
+"Gwangyang_BF5": 4458248.0,
+"HyundaiBF2": 4000338.0,
+"Gwangyang_BF4": 3776576.0,
+"Gwangyang_BF3": 3421578.0,
+"HyundaiBF1": 3896483.0,
+"Pohang_BF2": 3776576.0,
+"Pohang_FNX3": 1807092.0,
+"Pohang_FNX2": 1208505.0,
+"EAF1": 2500000.0,
+"EAF2": 0.0,
+"EAF3": 0.0
+},
+{
+"year": 2027,
+"Pohang_BF3": 3666853.0,
+"HyundaiBF3": 3553153.0,
+"Pohang_BF4": 3379048.0,
+"Gwangyang_BF2": 2877165.0,
+"Gwangyang_BF1": 1494989.0,
+"Gwangyang_BF5": 4194497.0,
+"HyundaiBF2": 3763677.0,
+"Gwangyang_BF4": 3553153.0,
+"Gwangyang_BF3": 3219156.0,
+"HyundaiBF1": 3665965.0,
+"Pohang_BF2": 3553153.0,
+"Pohang_FNX3": 1700182.0,
+"Pohang_FNX2": 1137009.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 0.0
+},
+{
+"year": 2028,
+"Pohang_BF3": 3666853.0,
+"HyundaiBF3": 3553153.0,
+"Pohang_BF4": 3379048.0,
+"Gwangyang_BF2": 2877165.0,
+"Gwangyang_BF1": 1494989.0,
+"Gwangyang_BF5": 4194497.0,
+"HyundaiBF2": 3763677.0,
+"Gwangyang_BF4": 3553153.0,
+"Gwangyang_BF3": 3219156.0,
+"HyundaiBF1": 3665965.0,
+"Pohang_BF2": 3553153.0,
+"Pohang_FNX3": 1700182.0,
+"Pohang_FNX2": 1137009.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 0.0
+},
+{
+"year": 2029,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2030,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2031,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2032,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2033,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2034,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2035,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2036,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2037,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2038,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2039,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2040,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2041,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2042,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2043,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2044,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2045,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2046,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2047,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2048,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2049,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+},
+{
+"year": 2050,
+"Pohang_BF3": 3574624.0,
+"HyundaiBF3": 3463783.0,
+"Pohang_BF4": 3294058.0,
+"Gwangyang_BF2": 2804798.0,
+"Gwangyang_BF1": 1457387.0,
+"Gwangyang_BF5": 4088996.0,
+"HyundaiBF2": 3669012.0,
+"Gwangyang_BF4": 3463783.0,
+"Gwangyang_BF3": 3138187.0,
+"HyundaiBF1": 3573758.0,
+"Pohang_BF2": 3463783.0,
+"Pohang_FNX3": 1657420.0,
+"Pohang_FNX2": 1108411.0,
+"EAF1": 2500000.0,
+"EAF2": 2500000.0,
+"EAF3": 1000000.0
+}
+],
+"demand": [
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2025,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2026,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2027,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2028,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2029,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2030,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2031,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2032,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2033,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2034,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2035,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2036,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2037,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2038,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2039,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2040,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2041,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2042,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2043,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2044,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2045,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2046,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2047,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2048,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2049,
+"amount": 44758000.0
+},
+{
+"company": "all",
+"commodity_id": "steel",
+"year": 2050,
+"amount": 44758000.0
+}
+],
+"impact_caps": [
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2025,
+"limit": 104000000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2026,
+"limit": 99840000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2027,
+"limit": 95680000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2028,
+"limit": 91520000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2029,
+"limit": 87360000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2030,
+"limit": 83200000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2031,
+"limit": 79040000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2032,
+"limit": 74880000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2033,
+"limit": 70720000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2034,
+"limit": 66560000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2035,
+"limit": 62400000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2036,
+"limit": 58240000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2037,
+"limit": 54080000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2038,
+"limit": 49920000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2039,
+"limit": 45760000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2040,
+"limit": 41600000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2041,
+"limit": 37440000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2042,
+"limit": 33280000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2043,
+"limit": 29120000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2044,
+"limit": 24960000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2045,
+"limit": 20800000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2046,
+"limit": 16640000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2047,
+"limit": 12480000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2048,
+"limit": 8320000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2049,
+"limit": 4160000.0,
+"soft": 1
+},
+{
+"company": "all",
+"impact_id": "CO2",
+"year": 2050,
+"limit": 0.0,
+"soft": 1
+}
+]
+}

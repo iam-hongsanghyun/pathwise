@@ -144,8 +144,15 @@ def result_to_tables(result: dict[str, Any]) -> Workbook:
     for stage, r in pairs:
         out, summ = r.get("outputs", {}), r.get("summary", {})
         for key in (
-            "technology", "throughput", "transitions", "renewals",
-            "measures", "flows", "trade", "consumption", "demand_slack",
+            "technology",
+            "throughput",
+            "transitions",
+            "renewals",
+            "measures",
+            "flows",
+            "trade",
+            "consumption",
+            "demand_slack",
         ):
             collect(key, out.get(key), stage)
         collect("emissions", summ.get("impacts"), stage)
@@ -154,12 +161,32 @@ def result_to_tables(result: dict[str, Any]) -> Workbook:
         # nested per-period blocks → flat rows
         for st in out.get("storage") or []:
             for bp in st.get("by_period", []):
-                collect("storage", [{"storage": st.get("storage"), "commodity": st.get("commodity"),
-                                     "capacity": st.get("capacity"), **bp}], stage)
+                collect(
+                    "storage",
+                    [
+                        {
+                            "storage": st.get("storage"),
+                            "commodity": st.get("commodity"),
+                            "capacity": st.get("capacity"),
+                            **bp,
+                        }
+                    ],
+                    stage,
+                )
         for mk in out.get("markets") or []:
             for bp in mk.get("by_period", []):
-                collect("markets", [{"market": mk.get("market"), "commodity": mk.get("commodity"),
-                                     "tag": mk.get("tag"), **bp}], stage)
+                collect(
+                    "markets",
+                    [
+                        {
+                            "market": mk.get("market"),
+                            "commodity": mk.get("commodity"),
+                            "tag": mk.get("tag"),
+                            **bp,
+                        }
+                    ],
+                    stage,
+                )
         for mk in out.get("ets") or []:
             for bp in mk.get("by_period", []):
                 row = {"market": mk.get("market"), "impact": mk.get("impact"), **bp}
@@ -168,11 +195,13 @@ def result_to_tables(result: dict[str, Any]) -> Workbook:
         if isinstance(macc, dict):
             for row in macc.get("by_year", []):
                 collect("macc", [{k: v for k, v in row.items() if k != "deployed"}], stage)
-    tables["run"] = [{
-        "status": result.get("status"),
-        "termination": result.get("termination"),
-        "objective": result.get("objective"),
-    }]
+    tables["run"] = [
+        {
+            "status": result.get("status"),
+            "termination": result.get("termination"),
+            "objective": result.get("objective"),
+        }
+    ]
     return tables
 
 

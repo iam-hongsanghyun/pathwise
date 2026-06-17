@@ -1,0 +1,931 @@
+{
+"meta": [
+{
+"key": "label",
+"value": "Green steel value chain"
+}
+],
+"commodities": [
+{
+"commodity_id": "iron_ore",
+"kind": "material",
+"unit": "t",
+"sector": "mining"
+},
+{
+"commodity_id": "coal",
+"kind": "energy",
+"unit": "t",
+"price": 90.0,
+"sector": "energy"
+},
+{
+"commodity_id": "gas",
+"kind": "energy",
+"unit": "GJ",
+"price": 9.0,
+"sector": "energy"
+},
+{
+"commodity_id": "scrap",
+"kind": "material",
+"unit": "t",
+"sector": "steel"
+},
+{
+"commodity_id": "hbi",
+"kind": "material",
+"unit": "t",
+"sector": "steel"
+},
+{
+"commodity_id": "electricity",
+"kind": "energy",
+"unit": "MWh",
+"sector": "power"
+},
+{
+"commodity_id": "hydrogen",
+"kind": "energy",
+"unit": "t",
+"sector": "hydrogen"
+},
+{
+"commodity_id": "iron",
+"kind": "material",
+"unit": "t",
+"sector": "steel"
+},
+{
+"commodity_id": "steel",
+"kind": "product",
+"unit": "t",
+"sale_price": 800.0,
+"sector": "steel"
+},
+{
+"commodity_id": "car",
+"kind": "product",
+"unit": "veh",
+"sale_price": 30000.0,
+"sector": "automotive"
+},
+{
+"commodity_id": "ship",
+"kind": "product",
+"unit": "ship",
+"sale_price": 90000000.0,
+"sector": "shipbuilding"
+}
+],
+"technologies": [
+{
+"technology_id": "IronOreMine",
+"lifespan": 30,
+"capex": 50.0,
+"opex": 5.0,
+"introduction_year": null,
+"phase_out_year": null,
+"maccs": "mine_co2"
+},
+{
+"technology_id": "WindFarm",
+"lifespan": 25,
+"capex": 1200.0,
+"opex": 30.0,
+"introduction_year": null,
+"phase_out_year": null,
+"maccs": ""
+},
+{
+"technology_id": "Electrolyser",
+"lifespan": 20,
+"capex": 900.0,
+"opex": 120.0,
+"introduction_year": null,
+"phase_out_year": null,
+"maccs": "electro_eff"
+},
+{
+"technology_id": "SMR_CCS",
+"lifespan": 25,
+"capex": 1100.0,
+"opex": 30.0,
+"introduction_year": null,
+"phase_out_year": null,
+"maccs": "smr_eff"
+},
+{
+"technology_id": "GridCCGT",
+"lifespan": 25,
+"capex": 700.0,
+"opex": 4.0,
+"introduction_year": null,
+"phase_out_year": null,
+"maccs": "grid_eff"
+},
+{
+"technology_id": "BlastFurnace",
+"lifespan": 30,
+"capex": 900.0,
+"opex": 20.0,
+"introduction_year": null,
+"phase_out_year": null,
+"maccs": "bf_abate"
+},
+{
+"technology_id": "H2_DRI",
+"lifespan": 25,
+"capex": 1000.0,
+"opex": 25.0,
+"introduction_year": null,
+"phase_out_year": null,
+"maccs": ""
+},
+{
+"technology_id": "BOF",
+"lifespan": 25,
+"capex": 400.0,
+"opex": 15.0,
+"introduction_year": null,
+"phase_out_year": null,
+"maccs": "bof_abate"
+},
+{
+"technology_id": "EAF",
+"lifespan": 25,
+"capex": 500.0,
+"opex": 18.0,
+"introduction_year": null,
+"phase_out_year": null,
+"maccs": ""
+},
+{
+"technology_id": "Automaker",
+"lifespan": 25,
+"capex": 300.0,
+"opex": 50.0,
+"introduction_year": null,
+"phase_out_year": null,
+"maccs": "auto_eff"
+},
+{
+"technology_id": "Shipbuilder",
+"lifespan": 30,
+"capex": 400.0,
+"opex": 80.0,
+"introduction_year": null,
+"phase_out_year": null,
+"maccs": "ship_eff"
+}
+],
+"io": [
+{
+"technology_id": "IronOreMine",
+"target": "iron_ore",
+"role": "output",
+"coefficient": 1.0,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "IronOreMine",
+"target": "CO2",
+"role": "impact",
+"coefficient": 0.03,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "WindFarm",
+"target": "electricity",
+"role": "output",
+"coefficient": 1.0,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "Electrolyser",
+"target": "electricity",
+"role": "input",
+"coefficient": 50.0,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "Electrolyser",
+"target": "hydrogen",
+"role": "output",
+"coefficient": 1.0,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "Electrolyser",
+"target": "CO2",
+"role": "impact",
+"coefficient": 0.0,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "SMR_CCS",
+"target": "gas",
+"role": "input",
+"coefficient": 165.0,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "SMR_CCS",
+"target": "hydrogen",
+"role": "output",
+"coefficient": 1.0,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "SMR_CCS",
+"target": "CO2",
+"role": "impact",
+"coefficient": 2.0,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "GridCCGT",
+"target": "gas",
+"role": "input",
+"coefficient": 7.0,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "GridCCGT",
+"target": "electricity",
+"role": "output",
+"coefficient": 1.0,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "GridCCGT",
+"target": "CO2",
+"role": "impact",
+"coefficient": 0.4,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "BlastFurnace",
+"target": "iron_ore",
+"role": "input",
+"coefficient": 1.6,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "BlastFurnace",
+"target": "coal",
+"role": "input",
+"coefficient": 0.6,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "BlastFurnace",
+"target": "electricity",
+"role": "input",
+"coefficient": 0.05,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "BlastFurnace",
+"target": "hydrogen",
+"role": "input",
+"coefficient": 0.005,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "BlastFurnace",
+"target": "iron",
+"role": "output",
+"coefficient": 1.0,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "BlastFurnace",
+"target": "CO2",
+"role": "impact",
+"coefficient": 1.8,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "H2_DRI",
+"target": "iron_ore",
+"role": "input",
+"coefficient": 1.45,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "H2_DRI",
+"target": "hydrogen",
+"role": "input",
+"coefficient": 0.06,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "H2_DRI",
+"target": "electricity",
+"role": "input",
+"coefficient": 0.5,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "H2_DRI",
+"target": "iron",
+"role": "output",
+"coefficient": 1.0,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "H2_DRI",
+"target": "CO2",
+"role": "impact",
+"coefficient": 0.1,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "BOF",
+"target": "iron",
+"role": "input",
+"coefficient": 1.05,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "BOF",
+"target": "electricity",
+"role": "input",
+"coefficient": 0.1,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "BOF",
+"target": "steel",
+"role": "output",
+"coefficient": 1.0,
+"is_product": true,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "BOF",
+"target": "CO2",
+"role": "impact",
+"coefficient": 0.2,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "EAF",
+"target": "iron",
+"role": "input",
+"coefficient": 1.05,
+"is_product": false,
+"group": "metallics",
+"share_min": 0.0,
+"share_max": 1.0
+},
+{
+"technology_id": "EAF",
+"target": "scrap",
+"role": "input",
+"coefficient": 0.0,
+"is_product": false,
+"group": "metallics",
+"share_min": 0.0,
+"share_max": 1.0
+},
+{
+"technology_id": "EAF",
+"target": "hbi",
+"role": "input",
+"coefficient": 0.0,
+"is_product": false,
+"group": "metallics",
+"share_min": 0.0,
+"share_max": 1.0
+},
+{
+"technology_id": "EAF",
+"target": "electricity",
+"role": "input",
+"coefficient": 0.6,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "EAF",
+"target": "steel",
+"role": "output",
+"coefficient": 1.0,
+"is_product": true,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "EAF",
+"target": "CO2",
+"role": "impact",
+"coefficient": 0.1,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "Automaker",
+"target": "steel",
+"role": "input",
+"coefficient": 1.0,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "Automaker",
+"target": "electricity",
+"role": "input",
+"coefficient": 1.0,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "Automaker",
+"target": "car",
+"role": "output",
+"coefficient": 1.0,
+"is_product": true,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "Automaker",
+"target": "CO2",
+"role": "impact",
+"coefficient": 0.05,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "Shipbuilder",
+"target": "steel",
+"role": "input",
+"coefficient": 20000.0,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "Shipbuilder",
+"target": "electricity",
+"role": "input",
+"coefficient": 5000.0,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "Shipbuilder",
+"target": "ship",
+"role": "output",
+"coefficient": 1.0,
+"is_product": true,
+"group": null,
+"share_min": null,
+"share_max": null
+},
+{
+"technology_id": "Shipbuilder",
+"target": "CO2",
+"role": "impact",
+"coefficient": 200.0,
+"is_product": false,
+"group": null,
+"share_min": null,
+"share_max": null
+}
+],
+"measures": [
+{
+"measure_id": "mine_co2",
+"label": "Mine electrification",
+"type": "emission_reduction",
+"target": "CO2",
+"lifetime": 15
+},
+{
+"measure_id": "electro_eff",
+"label": "Electrolyser stack upgrade",
+"type": "energy_efficiency",
+"target": "electricity",
+"lifetime": 15
+},
+{
+"measure_id": "smr_eff",
+"label": "SMR capture uplift",
+"type": "emission_reduction",
+"target": "CO2",
+"lifetime": 20
+},
+{
+"measure_id": "grid_ccs",
+"label": "CCGT carbon capture",
+"type": "emission_reduction",
+"target": "CO2",
+"lifetime": 20
+},
+{
+"measure_id": "bf_tgr",
+"label": "Top-gas recovery + CCU",
+"type": "emission_reduction",
+"target": "CO2",
+"lifetime": 15
+},
+{
+"measure_id": "bf_ccs",
+"label": "Blast-furnace carbon capture",
+"type": "emission_reduction",
+"target": "CO2",
+"lifetime": 20
+},
+{
+"measure_id": "bof_abate",
+"label": "BOF gas recovery",
+"type": "emission_reduction",
+"target": "CO2",
+"lifetime": 15
+},
+{
+"measure_id": "auto_eff",
+"label": "Plant electricity efficiency",
+"type": "energy_efficiency",
+"target": "electricity",
+"lifetime": 15
+},
+{
+"measure_id": "ship_eff",
+"label": "Yard electricity efficiency",
+"type": "energy_efficiency",
+"target": "electricity",
+"lifetime": 15
+}
+],
+"measure_blocks": [
+{
+"measure_id": "mine_co2",
+"block": 0,
+"reduction": 0.1,
+"capex_per_capacity": 2.0,
+"opex_per_capacity": 0.1
+},
+{
+"measure_id": "electro_eff",
+"block": 0,
+"reduction": 0.05,
+"capex_per_capacity": 5.0,
+"opex_per_capacity": 0.2
+},
+{
+"measure_id": "smr_eff",
+"block": 0,
+"reduction": 0.2,
+"capex_per_capacity": 20.0,
+"opex_per_capacity": 1.0
+},
+{
+"measure_id": "grid_ccs",
+"block": 0,
+"reduction": 0.4,
+"capex_per_capacity": 60.0,
+"opex_per_capacity": 2.0
+},
+{
+"measure_id": "bf_tgr",
+"block": 0,
+"reduction": 0.08,
+"capex_per_capacity": 30.0,
+"opex_per_capacity": 1.0
+},
+{
+"measure_id": "bf_tgr",
+"block": 1,
+"reduction": 0.06,
+"capex_per_capacity": 70.0,
+"opex_per_capacity": 2.0
+},
+{
+"measure_id": "bf_ccs",
+"block": 0,
+"reduction": 0.15,
+"capex_per_capacity": 120.0,
+"opex_per_capacity": 4.0
+},
+{
+"measure_id": "bof_abate",
+"block": 0,
+"reduction": 0.1,
+"capex_per_capacity": 10.0,
+"opex_per_capacity": 0.5
+},
+{
+"measure_id": "auto_eff",
+"block": 0,
+"reduction": 0.06,
+"capex_per_capacity": 3.0,
+"opex_per_capacity": 0.2
+},
+{
+"measure_id": "ship_eff",
+"block": 0,
+"reduction": 0.05,
+"capex_per_capacity": 5.0,
+"opex_per_capacity": 0.3
+}
+],
+"maccs": [
+{
+"macc_id": "mine_co2",
+"label": "Mine abatement",
+"measures": "mine_co2"
+},
+{
+"macc_id": "electro_eff",
+"label": "Electrolyser efficiency",
+"measures": "electro_eff"
+},
+{
+"macc_id": "smr_eff",
+"label": "Blue-H2 abatement",
+"measures": "smr_eff"
+},
+{
+"macc_id": "grid_eff",
+"label": "Grid abatement",
+"measures": "grid_ccs"
+},
+{
+"macc_id": "bf_abate",
+"label": "Blast-furnace abatement",
+"measures": "bf_tgr|bf_ccs"
+},
+{
+"macc_id": "bof_abate",
+"label": "BOF abatement",
+"measures": "bof_abate"
+},
+{
+"macc_id": "auto_eff",
+"label": "Automaker efficiency",
+"measures": "auto_eff"
+},
+{
+"macc_id": "ship_eff",
+"label": "Shipyard efficiency",
+"measures": "ship_eff"
+}
+],
+"machines": [
+{
+"name": "mine",
+"label": "Iron-ore mine",
+"technology": "IronOreMine",
+"capacity": 5000000.0,
+"measures_json": "[]"
+},
+{
+"name": "wind",
+"label": "Wind farm",
+"technology": "WindFarm",
+"capacity": 30000000.0,
+"measures_json": "[]"
+},
+{
+"name": "electrolyser",
+"label": "Electrolyser",
+"technology": "Electrolyser",
+"capacity": 250000.0,
+"measures_json": "[]"
+},
+{
+"name": "smr",
+"label": "SMR + CCS",
+"technology": "SMR_CCS",
+"capacity": 250000.0,
+"measures_json": "[]"
+},
+{
+"name": "grid",
+"label": "CCGT grid",
+"technology": "GridCCGT",
+"capacity": 30000000.0,
+"measures_json": "[]"
+},
+{
+"name": "bf",
+"label": "Blast furnace",
+"technology": "BlastFurnace",
+"capacity": 2500000.0,
+"measures_json": "[]"
+},
+{
+"name": "bof",
+"label": "Basic oxygen furnace",
+"technology": "BOF",
+"capacity": 2500000.0,
+"measures_json": "[]"
+},
+{
+"name": "assembly",
+"label": "Vehicle assembly",
+"technology": "Automaker",
+"capacity": 1500000.0,
+"measures_json": "[]"
+},
+{
+"name": "shipyard",
+"label": "Shipyard",
+"technology": "Shipbuilder",
+"capacity": 100.0,
+"measures_json": "[]"
+}
+],
+"groups": [
+{
+"name": "au_ironore",
+"label": "AU Iron Ore",
+"level": "company",
+"children_json": "[{\"component\": \"mine\", \"alias\": \"\"}]",
+"connections_json": "[]"
+},
+{
+"name": "au_greenh2",
+"label": "AU Green H2",
+"level": "company",
+"children_json": "[{\"component\": \"wind\", \"alias\": \"wind\"}, {\"component\": \"electrolyser\", \"alias\": \"ely\"}]",
+"connections_json": "[{\"source\": \"wind\", \"target\": \"ely\", \"commodity\": \"electricity\", \"lag_years\": 0}]"
+},
+{
+"name": "australia",
+"label": "Australia",
+"level": "country",
+"children_json": "[{\"component\": \"au_ironore\", \"alias\": \"\"}, {\"component\": \"au_greenh2\", \"alias\": \"\"}]",
+"connections_json": "[]"
+},
+{
+"name": "qa_blueh2",
+"label": "Qatar Blue H2",
+"level": "company",
+"children_json": "[{\"component\": \"smr\", \"alias\": \"\"}]",
+"connections_json": "[]"
+},
+{
+"name": "qatar",
+"label": "Qatar",
+"level": "country",
+"children_json": "[{\"component\": \"qa_blueh2\", \"alias\": \"\"}]",
+"connections_json": "[]"
+},
+{
+"name": "kr_power",
+"label": "Korea Power",
+"level": "company",
+"children_json": "[{\"component\": \"grid\", \"alias\": \"grid\"}, {\"component\": \"wind\", \"alias\": \"wind\"}]",
+"connections_json": "[]"
+},
+{
+"name": "kr_greenh2",
+"label": "Korea Green H2",
+"level": "company",
+"children_json": "[{\"component\": \"wind\", \"alias\": \"wind\"}, {\"component\": \"electrolyser\", \"alias\": \"ely\"}]",
+"connections_json": "[{\"source\": \"wind\", \"target\": \"ely\", \"commodity\": \"electricity\", \"lag_years\": 0}]"
+},
+{
+"name": "kr_mill",
+"label": "Integrated mill",
+"level": "facility",
+"children_json": "[{\"component\": \"bf\", \"alias\": \"bf\"}, {\"component\": \"bof\", \"alias\": \"bof\"}]",
+"connections_json": "[{\"source\": \"bf\", \"target\": \"bof\", \"commodity\": \"iron\", \"lag_years\": 0}]"
+},
+{
+"name": "kr_steel",
+"label": "Korea Steel",
+"level": "company",
+"children_json": "[{\"component\": \"kr_mill\", \"alias\": \"mill\"}]",
+"connections_json": "[]"
+},
+{
+"name": "kr_auto",
+"label": "Korea Automaker",
+"level": "company",
+"children_json": "[{\"component\": \"assembly\", \"alias\": \"\"}]",
+"connections_json": "[]"
+},
+{
+"name": "kr_ship",
+"label": "Korea Shipbuilder",
+"level": "company",
+"children_json": "[{\"component\": \"shipyard\", \"alias\": \"\"}]",
+"connections_json": "[]"
+},
+{
+"name": "korea",
+"label": "Korea",
+"level": "country",
+"children_json": "[{\"component\": \"kr_power\", \"alias\": \"\"}, {\"component\": \"kr_greenh2\", \"alias\": \"\"}, {\"component\": \"kr_steel\", \"alias\": \"\"}, {\"component\": \"kr_auto\", \"alias\": \"\"}, {\"component\": \"kr_ship\", \"alias\": \"\"}]",
+"connections_json": "[{\"source\": \"kr_power\", \"target\": \"kr_steel\", \"commodity\": \"electricity\", \"lag_years\": 0}, {\"source\": \"kr_power\", \"target\": \"kr_auto\", \"commodity\": \"electricity\", \"lag_years\": 0}, {\"source\": \"kr_power\", \"target\": \"kr_ship\", \"commodity\": \"electricity\", \"lag_years\": 0}, {\"source\": \"kr_greenh2\", \"target\": \"kr_steel\", \"commodity\": \"hydrogen\", \"lag_years\": 0}, {\"source\": \"kr_steel\", \"target\": \"kr_auto\", \"commodity\": \"steel\", \"lag_years\": 0}, {\"source\": \"kr_steel\", \"target\": \"kr_ship\", \"commodity\": \"steel\", \"lag_years\": 0}]"
+},
+{
+"name": "green_steel_vc",
+"label": "Green steel value chain",
+"level": "value_chain",
+"children_json": "[{\"component\": \"australia\", \"alias\": \"\"}, {\"component\": \"qatar\", \"alias\": \"\"}, {\"component\": \"korea\", \"alias\": \"\"}]",
+"connections_json": "[{\"source\": \"australia\", \"target\": \"korea\", \"commodity\": \"iron_ore\", \"lag_years\": 0}, {\"source\": \"australia\", \"target\": \"korea\", \"commodity\": \"hydrogen\", \"lag_years\": 0}, {\"source\": \"qatar\", \"target\": \"korea\", \"commodity\": \"hydrogen\", \"lag_years\": 0}]"
+}
+]
+}

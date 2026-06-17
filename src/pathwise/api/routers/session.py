@@ -26,6 +26,7 @@ from pathwise.api.workbook_io import (
 from pathwise.config import get_settings
 from pathwise.core.valuechain import run_value_chain
 from pathwise.data.components import extract_library_from_workbook, load_component_library
+from pathwise.data.libraries import discover_libraries, load_library_workbook
 from pathwise.data.library import (
     Library,
     add_chain,
@@ -306,6 +307,50 @@ def load_example(session_id: str, example_id: str) -> dict[str, Any]:
         lib = extract_library_from_workbook(model, label=str(entry.get("label") or example_id))
     _session_libs().put(session_id, lib_id, lib)
     return {"sessionId": session_id, "sheets": counts, "library_id": lib_id}
+
+
+# ── Importable libraries (auto-discovered: <tier>/<id>.json) ──────────────────
+
+
+@router.get("/libraries")
+def list_libraries() -> list[dict[str, Any]]:
+    """Every importable library, discovered by globbing the tier folders.
+
+    No index — the catalogue is the JSON files on disk, so adding a library is
+    just dropping a file under base/ · example/ · project/.
+    """
+    return discover_libraries(get_settings().libraries_dir)
+
+
+@router.post("/session/{session_id}/library/{tier}/{library_id}/import")
+def import_library(session_id: str, tier: str, library_id: str) -> dict[str, Any]:
+    """Import a library into the session: components → the session component
+    library, and (when the workbook carries a node hierarchy) the value chain →
+    the session model."""
+    store = _store()
+    if not store.exists(session_id):
+        raise HTTPException(status_code=404, detail=f"unknown session '{session_id}'")
+    try:
+        wb = load_library_workbook(get_settings().libraries_dir, tier, library_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    label = next(
+        (r.get("value") for r in wb.get("meta", []) if r.get("key") == "label"), library_id
+    )
+    lib_id = "".join(c for c in library_id if c.isalnum() or c in "-_.") or "library"
+    _session_libs().put(session_id, lib_id, extract_library_from_workbook(wb, label=str(label)))
+
+    has_chain = bool(wb.get("nodes"))
+    sheets: dict[str, int] = {}
+    if has_chain:  # a value chain → load the structure into the session model
+        sheets = store.put_model(session_id, wb)
+    return {
+        "sessionId": session_id,
+        "library_id": lib_id,
+        "imported_value_chain": has_chain,
+        "sheets": sheets,
+    }
 
 
 # ── Facility-template library (insert server-side) ────────────────────────────

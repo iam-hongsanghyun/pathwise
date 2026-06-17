@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     # that ship inside the backend package (read server-side; the frontend never
     # parses files itself and never serves them statically).
     examples_dir: str = str(_ASSETS / "examples")
+    # Importable libraries, auto-discovered: <libraries_dir>/<tier>/<id>.json, each
+    # a workbook bundling components + a value chain. Tier = the subfolder name
+    # (base / example / project). Dropping a JSON in here is enough — no index.
+    libraries_dir: str = str(_ASSETS / "libraries")
     library_dir: str = str(_ASSETS / "library")
     # Value-chain specs (a DAG of coupled stage-models) + their stage workbooks.
     value_chains_dir: str = str(_ASSETS / "value_chains")
