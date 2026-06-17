@@ -356,9 +356,25 @@ export function HierarchyMap({
           };
           const headCursor = mode === "expandable" || editable ? "pointer" : "default";
           const sel = selectedId === g.id;
+          const expandable = mode === "expandable";
           return (
             <g key={`c-${g.id}`}>
-              <rect x={g.x} y={g.y} width={g.w} height={g.h} rx={6} fill="var(--surface)" stroke={sel ? "var(--brand)" : "var(--border-strong)"} strokeWidth={sel ? 3 : 1} opacity={0.5 + 0.12 * Math.min(3, g.depth)} />
+              {/* body — in expandable mode a click on the group's own area (not a
+                  child) collapses it, so the whole box behaves like the collapsed
+                  box that expanded it. */}
+              <rect
+                x={g.x}
+                y={g.y}
+                width={g.w}
+                height={g.h}
+                rx={6}
+                fill="var(--surface)"
+                stroke={sel ? "var(--brand)" : "var(--border-strong)"}
+                strokeWidth={sel ? 3 : 1}
+                opacity={0.5 + 0.12 * Math.min(3, g.depth)}
+                style={{ cursor: expandable ? "pointer" : "default" }}
+                onClick={expandable ? onHead : undefined}
+              />
               {/* header hit-strip — toggles (expandable) / selects; tinted when selected */}
               <rect x={g.x} y={g.y} width={g.w} height={22} rx={6} fill={sel ? "var(--brand-fill)" : "transparent"} style={{ cursor: headCursor }} onClick={onHead} />
               <text x={g.x + 10} y={g.y + 16} fontSize={11} fontWeight={600} fill="var(--text)" style={{ cursor: headCursor, pointerEvents: "none" }}>
