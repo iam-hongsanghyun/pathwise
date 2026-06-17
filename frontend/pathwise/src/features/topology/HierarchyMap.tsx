@@ -338,11 +338,12 @@ export function HierarchyMap({
             onSelect?.(g.id);
           };
           const headCursor = mode === "expandable" || editable ? "pointer" : "default";
+          const sel = selectedId === g.id;
           return (
             <g key={`c-${g.id}`}>
-              <rect x={g.x} y={g.y} width={g.w} height={g.h} rx={6} fill="var(--surface)" stroke={selectedId === g.id ? "var(--brand)" : "var(--border-strong)"} strokeWidth={selectedId === g.id ? 2 : 1} opacity={0.5 + 0.12 * Math.min(3, g.depth)} />
-              {/* header hit-strip — toggles (expandable) / selects */}
-              <rect x={g.x} y={g.y} width={g.w} height={22} rx={6} fill="transparent" style={{ cursor: headCursor }} onClick={onHead} />
+              <rect x={g.x} y={g.y} width={g.w} height={g.h} rx={6} fill="var(--surface)" stroke={sel ? "var(--brand)" : "var(--border-strong)"} strokeWidth={sel ? 3 : 1} opacity={0.5 + 0.12 * Math.min(3, g.depth)} />
+              {/* header hit-strip — toggles (expandable) / selects; tinted when selected */}
+              <rect x={g.x} y={g.y} width={g.w} height={22} rx={6} fill={sel ? "var(--brand-fill)" : "transparent"} style={{ cursor: headCursor }} onClick={onHead} />
               <text x={g.x + 10} y={g.y + 16} fontSize={11} fontWeight={600} fill="var(--text)" style={{ cursor: headCursor, pointerEvents: "none" }}>
                 {clip(g.label, Math.max(8, Math.floor(g.w / 8)))}
               </text>
@@ -406,6 +407,7 @@ export function HierarchyMap({
           const sub = isMachine ? (tech ? (toTech ? `⇄ ${tech}` : tech) : n.level || "idle") : n.level || "group";
           const isSel = selectedId === n.id;
           const stroke = toTech ? "var(--warn)" : isSel ? "var(--brand)" : undefined;
+          const fill = isSel ? "var(--brand-fill)" : undefined; // clear selection tint (like the tree)
           return (
             <g
               key={`n-${n.id}`}
@@ -422,7 +424,7 @@ export function HierarchyMap({
                 if (p && p.id === n.id && !p.moved) nodeClick(n);
               }}
             >
-              <rect width={n.w} height={n.h} rx={3} stroke={stroke} strokeWidth={stroke ? 2 : undefined} />
+              <rect width={n.w} height={n.h} rx={3} fill={fill} stroke={stroke} strokeWidth={isSel || toTech ? 2.5 : undefined} />
               <text className="topo-kind" x={8} y={14}>{isMachine ? "machine" : n.collapsed ? "group ▸" : "group"}</text>
               {tput != null && <text className="topo-kind" x={n.w - 8} y={14} textAnchor="end">{fmtVal(tput)}</text>}
               <text className="topo-label" x={8} y={31}>{clip(n.label, 22)}</text>
