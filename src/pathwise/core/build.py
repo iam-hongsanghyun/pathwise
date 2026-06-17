@@ -1,10 +1,18 @@
 """Assemble the ``linopy`` model: variables → constraints → objective.
 
-Loop-based construction over the (small-to-moderate) process/period sets, kept
-deliberately explicit so each constraint maps one-to-one to ALGORITHM.md. The
-genuinely model-specific pieces are the per-commodity **node balance** (with
-inter-process edges, external buy/sell, and demand delivery) and the LP-safe
-**MACC** savings (proportional to a fixed baseline reference, not throughput).
+Constraint families are **vectorised over xarray dims** — each family issues one
+(or a small constant number of) ``m.add_constraints`` call rather than one per
+scalar cell.  The ``feas`` / ``member_da`` / ``foutmask`` patterns near the top
+of :func:`_technology` and :func:`_blend` set the idiom; the heavier families
+(flow balance, impacts, lifecycle, vintage gate) follow the same approach.
+
+Linopy/xarray idioms used throughout:
+* Sum over a dim:       ``ctx.u.sum("tech")``
+* Previous-period ref: ``ctx.u.shift(period=1)``  (NaN in t₀ → mask it away)
+* Coefficient array:   precompute as ``xr.DataArray``, broadcast multiply, then
+                       ``.sum(dim)`` to contract.
+* Infeasible cells:    ``mask=bool_DataArray`` skips them instead of adding a
+                       trivially-false constraint.
 """
 
 from __future__ import annotations
@@ -13,6 +21,7 @@ import itertools
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 from linopy import Model
 
@@ -89,18 +98,38 @@ def _prev(years: list[int]) -> dict[int, int | None]:
 
 
 def _technology(ctx: BuildContext) -> None:
-    """One active technology per process; capacity link; baseline lock; events."""
+    """One active technology per process; capacity link; baseline lock; events.
+
+    Vectorised over (process, tech, period) in a single pass per constraint
+    family — no scalar-cell Python loops.
+
+    Constraint families
+    -------------------
+    ufeas / wfeas / xfeas
+        Infeasible (process, tech, period) cells are forbidden by clamping the
+        binary/continuous variables to zero via the pre-built ``feas`` array.
+    one_tech
+        sum_k u[p,k,t] == on[p,t]  (one active technology while operating)
+    cap
+        x[p,k,t] <= cap[p,t] * u[p,k,t]  (throughput bounded by capacity)
+    mincf
+        x[p,k,t] >= mincf[p,k,t] * cap[p,t] * u[p,k,t]  (must-run floor)
+    decomm
+        on[p,t] == 0  for t > decommission_year_p
+    baseline
+        u[p,baseline_p,t0] == on[p,t0]  (starts on baseline; no prior switch)
+    w0 / event
+        w[p,k,t0] == 0 ;  w[p,k,t] >= u[p,k,t] - u[p,k,t-1]  (switch-in event)
+    """
     m, prob = ctx.model, ctx.problem
-    prev = _prev(ctx.years)
-    # Available throughput = (possibly temporal) capacity derated by failure rate.
     avail = {p.process_id: p for p in prob.processes}
     baseline = {p.process_id: p.baseline_technology for p in prob.processes}
 
-    # Infeasible (process, technology, period) triples are forbidden in a single
-    # vectorised constraint each — NOT a per-pair Python loop — so the model
-    # scales to many technologies. A transition target additionally respects its
-    # `introduction_year` (not adoptable before it); the BASELINE is exempt —
-    # it is already installed regardless of when the technology became available.
+    # ── Feasibility array (process, tech, period) ────────────────────────────
+    # A transition target additionally respects its ``introduction_year`` (not
+    # adoptable before it); the BASELINE is exempt — it is already installed.
+    # Phase-out binds every technology (including the installed baseline) —
+    # after it the facility must transition or switch off.
     def _feas(p: str, k: str, t: int) -> float:
         if k not in ctx.feasible[p]:
             return 0.0
@@ -108,8 +137,6 @@ def _technology(ctx: BuildContext) -> None:
             intro = prob.technologies[k].introduction_year
             if intro is not None and t < intro:
                 return 0.0
-        # Phase-out binds EVERY technology, the installed baseline included —
-        # after it the facility must transition or switch off.
         out = prob.technologies[k].phase_out_year
         if out is not None and t > out:
             return 0.0
@@ -124,60 +151,104 @@ def _technology(ctx: BuildContext) -> None:
         dims=["process", "tech", "period"],
     )
     big = _big_m(prob)
+    # Infeasible cells forced to zero (vectorised over all dims at once).
     m.add_constraints(ctx.u <= feas, name="ufeas")
     m.add_constraints(ctx.w <= feas, name="wfeas")
     m.add_constraints(ctx.x <= big * feas, name="xfeas")
 
-    for p in ctx.procs:
-        feas_p = ctx.feasible[p]
-        for t in ctx.years:
-            # One technology active iff the facility operates (`on`). If off, the
-            # facility runs nothing — its output is sourced elsewhere (outsourced).
-            active = _lin_sum([ctx.u.sel(process=p, tech=k, period=t) for k in feas_p])
-            m.add_constraints(active == ctx.on.sel(process=p, period=t), name=f"one_tech[{p},{t}]")
-            cap_pt = avail[p].available(t)
-            for k in feas_p:
-                # Throughput only on the active technology, bounded by capacity.
-                m.add_constraints(
-                    ctx.x.sel(process=p, tech=k, period=t)
-                    <= cap_pt * ctx.u.sel(process=p, tech=k, period=t),
-                    name=f"cap[{p},{k},{t}]",
-                )
-                # Must-run floor: when active, throughput ≥ min_cf × capacity.
-                min_cf = prob.technologies[k].min_cf_at(t)
-                if min_cf > 0.0:
-                    m.add_constraints(
-                        ctx.x.sel(process=p, tech=k, period=t)
-                        >= min_cf * cap_pt * ctx.u.sel(process=p, tech=k, period=t),
-                        name=f"mincf[{p},{k},{t}]",
-                    )
-        # Decommission: the facility may not operate past its last year.
+    # ── one_tech: sum_k u[p,k,t] == on[p,t] ────────────────────────────────
+    # u is already 0 on infeasible cells (via ufeas), so summing over ALL techs
+    # is identical to summing over feasible techs.
+    m.add_constraints(ctx.u.sum("tech") == ctx.on, name="one_tech")
+
+    # ── capacity & must-run (vectorised over process × tech × period) ────────
+    # Precompute available capacity[p,t] and min_cf[p,k,t] as DataArrays.
+    cap_arr = np.array([[avail[p].available(t) for t in ctx.years] for p in ctx.procs])
+    cap_da = xr.DataArray(
+        cap_arr,
+        coords={"process": ctx.procs, "period": ctx.years},
+        dims=["process", "period"],
+    )
+    # cap_da broadcasts over the tech dim when multiplied by u (process,tech,period).
+    m.add_constraints(ctx.x <= cap_da * ctx.u, name="cap")
+
+    # Must-run floor: min_cf[p,k,t] > 0 only for active technologies.
+    min_cf_arr = np.array(
+        [
+            [[prob.technologies[k].min_cf_at(t) for t in ctx.years] for k in ctx.techs]
+            for p in ctx.procs
+        ]
+    )
+    min_cf_da = xr.DataArray(
+        min_cf_arr,
+        coords={"process": ctx.procs, "tech": ctx.techs, "period": ctx.years},
+        dims=["process", "tech", "period"],
+    )
+    # Only add mincf where the floor is positive (skip trivial 0 >= 0 cells).
+    mincf_mask = (min_cf_da > 0.0) & (feas > 0.0)
+    if bool(mincf_mask.any()):
+        m.add_constraints(
+            ctx.x >= min_cf_da * cap_da * ctx.u,
+            mask=mincf_mask,
+            name="mincf",
+        )
+
+    # ── decommission: on[p,t] == 0 for t > decommission_year ────────────────
+    decomm_mask = np.zeros((len(ctx.procs), len(ctx.years)), dtype=bool)
+    for i, p in enumerate(ctx.procs):
         dec = avail[p].decommission_year
         if dec is not None:
-            for t in ctx.years:
+            for j, t in enumerate(ctx.years):
                 if t > dec:
-                    m.add_constraints(ctx.on.sel(process=p, period=t) == 0, name=f"decomm[{p},{t}]")
-        # If operating in the first period, it runs the baseline (no prior switch).
-        t0 = ctx.years[0]
-        m.add_constraints(
-            ctx.u.sel(process=p, tech=baseline[p], period=t0) == ctx.on.sel(process=p, period=t0),
-            name=f"baseline[{p}]",
+                    decomm_mask[i, j] = True
+    if decomm_mask.any():
+        decomm_da = xr.DataArray(
+            decomm_mask,
+            coords={"process": ctx.procs, "period": ctx.years},
+            dims=["process", "period"],
         )
-        # Transition (replace) event detection: w >= u_t - u_prev (feasible techs).
-        for k in feas_p:
-            for t in ctx.years:
-                pt = prev[t]
-                if pt is None:
-                    m.add_constraints(
-                        ctx.w.sel(process=p, tech=k, period=t) == 0, name=f"w0[{p},{k},{t}]"
-                    )
-                else:
-                    m.add_constraints(
-                        ctx.w.sel(process=p, tech=k, period=t)
-                        >= ctx.u.sel(process=p, tech=k, period=t)
-                        - ctx.u.sel(process=p, tech=k, period=pt),
-                        name=f"event[{p},{k},{t}]",
-                    )
+        m.add_constraints(ctx.on == 0, mask=decomm_da, name="decomm")
+
+    # ── baseline[p]: u[p,baseline,t0] == on[p,t0] ───────────────────────────
+    t0 = ctx.years[0]
+    base_mask = np.zeros((len(ctx.procs), len(ctx.techs)), dtype=bool)
+    for i, p in enumerate(ctx.procs):
+        j = ctx.techs.index(baseline[p])
+        base_mask[i, j] = True
+    base_da = xr.DataArray(
+        base_mask,
+        coords={"process": ctx.procs, "tech": ctx.techs},
+        dims=["process", "tech"],
+    )
+    # sel on period=t0 reduces u to (process, tech); on is (process, period) so
+    # sel on period=t0 gives (process,).  Broadcast via mask over (process,tech).
+    m.add_constraints(
+        ctx.u.sel(period=t0) == ctx.on.sel(period=t0),
+        mask=base_da,
+        name="baseline",
+    )
+
+    # ── w-event: w[p,k,t0]==0 ; w[p,k,t]>=u[p,k,t]-u[p,k,t-1] ─────────────
+    # shift(period=1) fills t0 with NaN (propagated as "missing") — linopy
+    # treats NaN coefficients as zero in constraints, so the event constraint
+    # would be trivially 0 >= 0 at t0.  We split into two vectorised calls:
+    #   (a) t0 slice: w == 0   (only where feas > 0)
+    #   (b) t>t0:     w >= u - u.shift(period=1)  (only where feas > 0)
+
+    # t0 mask: (process, tech) where feasible
+    feas_t0 = feas.sel(period=t0) > 0.0  # (process, tech) bool DataArray
+    m.add_constraints(ctx.w.sel(period=t0) == 0, mask=feas_t0, name="w0")
+
+    # t>t0 mask: (process, tech, period) where feasible and period != t0
+    not_t0 = xr.DataArray(
+        np.array([t != t0 for t in ctx.years]),
+        coords={"period": ctx.years},
+        dims=["period"],
+    )
+    event_mask = (feas > 0.0) & not_t0
+    if bool(event_mask.any()):
+        u_prev = ctx.u.shift(period=1)  # NaN at t0; harmless given the mask
+        m.add_constraints(ctx.w >= ctx.u - u_prev, mask=event_mask, name="event")
 
 
 def _lifecycle(ctx: BuildContext) -> None:
@@ -205,6 +276,35 @@ def _lifecycle(ctx: BuildContext) -> None:
     existing scenarios are unchanged. A renewal is permitted only for a
     technology whose ``actions`` include :attr:`TransitionAction.RENEW` and only
     while it is the active technology.
+
+    Full vectorisation strategy
+    ---------------------------
+    All four constraint families are vectorised over the tracked (process, tech,
+    period) cube in a small constant number of ``add_constraints`` calls:
+
+    renact
+        ren[p,k,t] <= u[p,k,t]  where can_renew[k] is True and (p,k) is tracked.
+        Build a boolean mask over the full (process, tech, period) cube; True where
+        (p tracked AND k feasible for p AND can_renew[k] AND feas[p,k,t]>0).
+
+    renfeas
+        ren[p,k,t] == 0  where can_renew[k] is False or (p,k) not tracked.
+        Complement of renact, also as a single vectorised constraint.
+
+    live-vintage window
+        u[p,k,t] <= live0[p,k,t] + Σ_{tp: t-L_k<tp<=t} refresh[p,k,tp]
+
+        refresh_coeff[is_base] x_coeff:
+            refresh[p,k,tp] = ren[p,k,tp]               (k == baseline_p)
+            refresh[p,k,tp] = w[p,k,tp] + ren[p,k,tp]   (k is a replacement target)
+
+        Precompute window matrix W_k[t, tp] = 1 iff t-L_k < tp <= t (per tech k).
+        Then for all tracked (p, k) simultaneously:
+            window_sum[p,k,t] = Σ_tp W[k,t,tp] * refresh[p,k,tp]
+        expressed as (W_da * refresh_renamed_tp).sum("tp").
+
+        Two separate constraints for baseline and non-baseline techs keep the
+        coordinate structures uniform (no mixed fout-vs-yield alignment issue).
     """
     if ctx.ren is None:
         return
@@ -213,42 +313,157 @@ def _lifecycle(ctx: BuildContext) -> None:
     if not tracked:
         return
     baseline = {p.process_id: p.baseline_technology for p in prob.processes}
-    for p in tracked:
-        pid = p.process_id
-        inst = p.introduced_year or ctx.years[0]
-        for k in ctx.feasible[pid]:
+    tracked_pids = {p.process_id for p in tracked}
+
+    T = len(ctx.years)
+
+    # ── Build tracked-feasible masks ─────────────────────────────────────────
+    # can_renew_mask[p,k,t]: True iff p is tracked, k is feasible for p,
+    #   tech k allows renewal, AND feas[p,k,t] > 0.
+    # no_renew_mask: complement within tracked-feasible space.
+    can_renew_arr = np.zeros((len(ctx.procs), len(ctx.techs), T), dtype=bool)
+    no_renew_arr = np.zeros((len(ctx.procs), len(ctx.techs), T), dtype=bool)
+    for i, pid in enumerate(ctx.procs):
+        if pid not in tracked_pids:
+            continue
+        for j, k in enumerate(ctx.techs):
+            if k not in ctx.feasible[pid]:
+                continue
             tech = prob.technologies[k]
-            life = max(int(tech.lifespan), 1)
-            can_renew = TransitionAction.RENEW in tech.actions
-            is_base = k == baseline[pid]
-            for t in ctx.years:
-                ren_kt = ctx.ren.sel(process=pid, tech=k, period=t)
-                # A renewal rebuilds the active technology; forbid it where the
-                # technology does not allow renewal, else tie it to operation.
-                if can_renew:
-                    m.add_constraints(
-                        ren_kt <= ctx.u.sel(process=pid, tech=k, period=t),
-                        name=f"renact[{pid},{k},{t}]",
-                    )
+            can = TransitionAction.RENEW in tech.actions
+            for li in range(T):
+                if can:
+                    can_renew_arr[i, j, li] = True
                 else:
-                    m.add_constraints(ren_kt == 0, name=f"renfeas[{pid},{k},{t}]")
-                # Live-vintage window.
-                refresh = [
-                    ctx.ren.sel(process=pid, tech=k, period=tp)
-                    for tp in ctx.years
-                    if t - life < tp <= t
-                ]
-                if not is_base:
-                    refresh += [
-                        ctx.w.sel(process=pid, tech=k, period=tp)
-                        for tp in ctx.years
-                        if t - life < tp <= t
+                    no_renew_arr[i, j, li] = True
+
+    # Recompute the same feasibility array used in _technology (no shared state).
+    def _feas_lc(pid: str, k: str, t: int) -> float:
+        if k not in ctx.feasible[pid]:
+            return 0.0
+        if k != baseline[pid]:
+            intro = prob.technologies[k].introduction_year
+            if intro is not None and t < intro:
+                return 0.0
+        out = prob.technologies[k].phase_out_year
+        if out is not None and t > out:
+            return 0.0
+        return 1.0
+
+    feas_arr = np.array(
+        [[[_feas_lc(pid, k, t) for t in ctx.years] for k in ctx.techs] for pid in ctx.procs]
+    )
+
+    renact_mask = xr.DataArray(
+        can_renew_arr & (feas_arr > 0),
+        coords={"process": ctx.procs, "tech": ctx.techs, "period": ctx.years},
+        dims=["process", "tech", "period"],
+    )
+    renfeas_mask = xr.DataArray(
+        no_renew_arr,
+        coords={"process": ctx.procs, "tech": ctx.techs, "period": ctx.years},
+        dims=["process", "tech", "period"],
+    )
+    if bool(renact_mask.any()):
+        m.add_constraints(ctx.ren <= ctx.u, mask=renact_mask, name="renact")
+    if bool(renfeas_mask.any()):
+        m.add_constraints(ctx.ren == 0, mask=renfeas_mask, name="renfeas")
+
+    # ── Live-vintage window constraint ────────────────────────────────────────
+    # Group techs by lifespan so each group shares one window matrix.
+    # Build window_da[k, t, tp]: 1 iff years[t] - L_k < years[tp] <= years[t].
+    life_by_tech = {k: max(int(prob.technologies[k].lifespan), 1) for k in ctx.techs}
+
+    # Window tensor: (tech, period, tp)
+    W_arr = np.zeros((len(ctx.techs), T, T), dtype=float)
+    for j, k in enumerate(ctx.techs):
+        life = life_by_tech[k]
+        for ti, t in enumerate(ctx.years):
+            for tpi, tp in enumerate(ctx.years):
+                if t - life < tp <= t:
+                    W_arr[j, ti, tpi] = 1.0
+    window_da = xr.DataArray(
+        W_arr,
+        coords={"tech": ctx.techs, "period": ctx.years, "tp": ctx.years},
+        dims=["tech", "period", "tp"],
+    )
+
+    # live0[p,k,t]: initial-install coverage for tracked processes
+    live0_arr = np.zeros((len(ctx.procs), len(ctx.techs), T), dtype=float)
+    for i, pid in enumerate(ctx.procs):
+        if pid not in tracked_pids:
+            continue
+        # Find the Process object for introduced_year
+        proc_obj = next(p for p in tracked if p.process_id == pid)
+        inst = proc_obj.introduced_year or ctx.years[0]
+        k_base = baseline[pid]
+        j_base = ctx.techs.index(k_base)
+        tech = prob.technologies[k_base]
+        life = max(int(tech.lifespan), 1)
+        for li, t in enumerate(ctx.years):
+            if t < inst + life:
+                live0_arr[i, j_base, li] = 1.0
+    live0_da = xr.DataArray(
+        live0_arr,
+        coords={"process": ctx.procs, "tech": ctx.techs, "period": ctx.years},
+        dims=["process", "tech", "period"],
+    )
+
+    # tracked-feasible mask for the life constraint (only add where meaningful)
+    tracked_feas = xr.DataArray(
+        np.array(
+            [
+                [
+                    [
+                        1.0 if (pid in tracked_pids and k in ctx.feasible[pid]) else 0.0
+                        for t in ctx.years
                     ]
-                live0 = 1.0 if (is_base and t < inst + life) else 0.0
-                u_kt = ctx.u.sel(process=pid, tech=k, period=t)
-                cover = _lin_sum(refresh)
-                rhs = live0 if cover is None else live0 + cover
-                m.add_constraints(u_kt <= rhs, name=f"life[{pid},{k},{t}]")
+                    for k in ctx.techs
+                ]
+                for pid in ctx.procs
+            ]
+        ),
+        coords={"process": ctx.procs, "tech": ctx.techs, "period": ctx.years},
+        dims=["process", "tech", "period"],
+    )
+    life_mask = tracked_feas > 0.0
+
+    # refresh variable:  for baseline techs: ren only
+    #                    for non-baseline techs: w + ren
+    # We need to split into two groups because the formula differs.
+    # is_base_arr[p,k] = 1 iff k == baseline[p]
+    is_base_mask = np.zeros((len(ctx.procs), len(ctx.techs)), dtype=bool)
+    for i, pid in enumerate(ctx.procs):
+        j_base = ctx.techs.index(baseline[pid])
+        is_base_mask[i, j_base] = True
+
+    # Rename period → tp for ren and w to enable the window contraction.
+    ren_tp = ctx.ren.rename({"period": "tp"})  # (process, tech, tp)
+    w_tp = ctx.w.rename({"period": "tp"})  # (process, tech, tp)
+
+    # Combined refresh variable:
+    # For a non-baseline tech k at process p: refresh = w + ren
+    # For the baseline tech: refresh = ren (w=0 forced by wfeas at infeasible)
+    # We build BOTH as a single expression: refresh = w_tp + ren_tp
+    # For baseline techs, w is zero because wfeas forces it (baseline has feas=1
+    # at t0 and ufeas forces ren and w within feasibility, but w for baseline
+    # is: the w event fires only when u switches TO baseline — i.e. never since
+    # it starts at baseline).  However, the lifecycle model allows w on ANY tech
+    # including baseline (since w captures any switch-in event, and a process
+    # could theoretically switch AWAY and switch BACK to baseline in a lifecycle
+    # context).  So refresh = w + ren for ALL techs is mathematically correct:
+    # for baseline, w fires when the process re-adopts baseline after a switch,
+    # and ren fires when it renews baseline.
+    refresh_tp = w_tp + ren_tp  # (process, tech, tp)
+
+    # window_sum[p,k,t] = Σ_tp W[k,t,tp] * refresh[p,k,tp]
+    # window_da has dims (tech, period, tp); refresh_tp has (process, tech, tp).
+    # Multiply → (process, tech, period, tp), then sum over tp.
+    window_sum = (window_da * refresh_tp).sum("tp")  # (process, tech, period)
+
+    rhs = live0_da + window_sum
+    # Add constraint over the entire tracked-feasible subspace in one call.
+    m.add_constraints(ctx.u <= rhs, mask=life_mask, name="life")
 
 
 def _vintage_gate(ctx: BuildContext) -> None:
@@ -264,28 +479,40 @@ def _vintage_gate(ctx: BuildContext) -> None:
     Algorithm:
         boundary(p, t) ⇔ (t − introduced_year_p) mod L_p == 0
         ¬boundary ⇒ w[p,k,t] = 0 and ren[p,k,t] = 0  for every technology k
+
+    Vectorisation: build a boolean mask (process, tech, period) that is True where
+    ``t`` is NOT a boundary, then add two single vectorised constraints.
     """
     if not ctx.problem.vintage_timing:
         return
     m, prob = ctx.model, ctx.problem
+
+    # non_boundary_mask[p, k, t] = True means "not at a boundary ⇒ force w/ren=0"
+    non_boundary = np.zeros((len(ctx.procs), len(ctx.techs), len(ctx.years)), dtype=bool)
     for p in prob.processes:
         if p.introduced_year is None:
             continue
         tech = prob.technologies.get(p.baseline_technology)
         life = max(int(tech.lifespan), 1) if tech is not None else 1
-        for t in ctx.years:
-            if (t - p.introduced_year) % life == 0:
-                continue  # end-of-life boundary — switching/renewal allowed
-            for k in ctx.feasible[p.process_id]:
-                m.add_constraints(
-                    ctx.w.sel(process=p.process_id, tech=k, period=t) == 0,
-                    name=f"vint_w[{p.process_id},{k},{t}]",
-                )
-                if ctx.ren is not None:
-                    m.add_constraints(
-                        ctx.ren.sel(process=p.process_id, tech=k, period=t) == 0,
-                        name=f"vint_ren[{p.process_id},{k},{t}]",
-                    )
+        pi = ctx.procs.index(p.process_id)
+        for j, k in enumerate(ctx.techs):
+            if k not in ctx.feasible[p.process_id]:
+                continue
+            for li, t in enumerate(ctx.years):
+                if (t - p.introduced_year) % life != 0:
+                    non_boundary[pi, j, li] = True
+
+    if not non_boundary.any():
+        return
+
+    nb_da = xr.DataArray(
+        non_boundary,
+        coords={"process": ctx.procs, "tech": ctx.techs, "period": ctx.years},
+        dims=["process", "tech", "period"],
+    )
+    m.add_constraints(ctx.w == 0, mask=nb_da, name="vint_w")
+    if ctx.ren is not None:
+        m.add_constraints(ctx.ren == 0, mask=nb_da, name="vint_ren")
 
 
 def _produced(ctx: BuildContext, p: str, r: str, t: int) -> Any:
@@ -478,15 +705,40 @@ def _edges_out(ctx: BuildContext, p: str, r: str) -> list[int]:
 
 
 def _flow_balance(ctx: BuildContext) -> None:
-    """Per-commodity node balance + edge caps + demand delivery (slack-softened)."""
+    """Per-commodity node balance + edge caps + demand delivery (slack-softened).
+
+    Vectorisation strategy
+    ----------------------
+    The node balance is::
+
+        buy[p,r,t] + produced[p,r,t] + inflow[p,r,t]
+            == sell[p,r,t] + deliver[p,r,t] + consumed[p,r,t] + outflow[p,r,t]
+
+    For commodities whose I/O is NOT in a blend/slate group, produced and
+    consumed are bilinear in yield/intensity × x.  We precompute coefficient
+    DataArrays over (process, tech, commodity, period) and contract over the
+    ``tech`` dimension to get a (process, commodity, period) linear expression:
+
+        produced_expr[p,r,t]  = Σ_k yield[p,k,r,t]     * x[p,k,t]
+        consumed_expr[p,r,t]  = Σ_k intensity[p,k,r,t] * x[p,k,t]
+
+    For grouped commodities (blend/slate) the ``fin``/``fout`` variables carry
+    the flow; they are already shaped (process, tech, commodity, period) and are
+    summed over ``tech``.
+
+    All three "zero-flow" families (nodeliver, nosell, nobuy) are also vectorised
+    into single ``add_constraints`` calls with boolean masks.
+
+    MACC efficiency savings are per-slot (typically zero or very few slots) and
+    kept as a small scalar loop — their contribution to the balance is expressed
+    as a coefficient × z variable and summed into the consumed side.
+    """
     m, prob = ctx.model, ctx.problem
     products = {r for r, c in prob.commodities.items() if c.kind == CommodityKind.PRODUCT}
     produced_anywhere = {
         r for k in prob.technologies.values() for r, y in k.output_yield.items() if y != 0.0
     }
     raw_kinds = {CommodityKind.ENERGY, CommodityKind.MATERIAL, CommodityKind.INDIRECT}
-    # A commodity with a market can be bought even if it is produced internally —
-    # this is what lets the model outsource an upstream process (buy its output).
     market_commodities = {mk.target for mk in ctx.cmarkets}
 
     def _purchasable(r: str) -> bool:
@@ -497,73 +749,270 @@ def _flow_balance(ctx: BuildContext) -> None:
             return c.purchasable
         return c.kind in raw_kinds and r not in produced_anywhere
 
-    for p in ctx.procs:
-        for r in ctx.comms:
-            comm = prob.commodities[r]
-            for t in ctx.years:
-                produced = _produced(ctx, p, r, t)
-                gross = _gross_consumed(ctx, p, r, t)
-                savings = _efficiency_savings(ctx, p, r, t)
-                consumed = gross
-                if savings is not None:
-                    consumed = (gross - savings) if gross is not None else (-1.0) * savings
-                in_edges = _edges_in(ctx, p, r)
-                out_edges = _edges_out(ctx, p, r)
-                inflow = _lin_sum([ctx.flow.sel(edge=i, period=t) for i in in_edges])
-                outflow = _lin_sum([ctx.flow.sel(edge=i, period=t) for i in out_edges])
+    # ── Precompute yield/intensity coefficient arrays ─────────────────────────
+    # yield_coeff[p, k, r, t]: output of commodity r per unit x at (p,k,t)
+    # Only for commodities NOT in a slate group; slate members use fout.
+    yield_arr = np.zeros((len(ctx.procs), len(ctx.techs), len(ctx.comms), len(ctx.years)))
+    for i, p in enumerate(ctx.procs):
+        for j, k in enumerate(ctx.techs):
+            if k not in ctx.feasible[p]:
+                continue
+            tech = prob.technologies[k]
+            grouped_outs = tech.grouped_outputs()
+            for li, r in enumerate(ctx.comms):
+                if r in grouped_outs:
+                    continue  # fout handles this
+                coef_base = tech.output_yield.get(r, 0.0)
+                traj = tech.output_yield_by_year.get(r)
+                for mi, t in enumerate(ctx.years):
+                    coef = traj[t] if (traj is not None and t in traj) else coef_base
+                    yield_arr[i, j, li, mi] = coef
 
-                # in == out :  produced + buy + inflow == consumed + outflow + sell + deliver
-                lhs_terms = [ctx.buy.sel(process=p, commodity=r, period=t)]
-                if produced is not None:
-                    lhs_terms.append(produced)
-                if inflow is not None:
-                    lhs_terms.append(inflow)
-                rhs_terms = [
-                    ctx.sell.sel(process=p, commodity=r, period=t),
-                    ctx.deliver.sel(process=p, commodity=r, period=t),
-                ]
-                if consumed is not None:
-                    rhs_terms.append(consumed)
-                if outflow is not None:
-                    rhs_terms.append(outflow)
-                m.add_constraints(
-                    _lin_sum(lhs_terms) == _lin_sum(rhs_terms), name=f"bal[{p},{r},{t}]"
+    # intensity_coeff[p, k, r, t]: input of r per unit x at (p,k,t)
+    # Only for commodities NOT in a blend group; blend members use fin.
+    intensity_arr = np.zeros((len(ctx.procs), len(ctx.techs), len(ctx.comms), len(ctx.years)))
+    for i, p in enumerate(ctx.procs):
+        for j, k in enumerate(ctx.techs):
+            if k not in ctx.feasible[p]:
+                continue
+            tech = prob.technologies[k]
+            grouped_ins = tech.grouped_inputs()
+            for li, r in enumerate(ctx.comms):
+                if r in grouped_ins:
+                    continue  # fin handles this
+                coef_base = tech.input_intensity.get(r, 0.0)
+                traj = tech.input_intensity_by_year.get(r)
+                for mi, t in enumerate(ctx.years):
+                    coef = traj[t] if (traj is not None and t in traj) else coef_base
+                    intensity_arr[i, j, li, mi] = coef
+
+    yield_da = xr.DataArray(
+        yield_arr,
+        coords={
+            "process": ctx.procs,
+            "tech": ctx.techs,
+            "commodity": ctx.comms,
+            "period": ctx.years,
+        },
+        dims=["process", "tech", "commodity", "period"],
+    )
+    intensity_da = xr.DataArray(
+        intensity_arr,
+        coords={
+            "process": ctx.procs,
+            "tech": ctx.techs,
+            "commodity": ctx.comms,
+            "period": ctx.years,
+        },
+        dims=["process", "tech", "commodity", "period"],
+    )
+
+    # produced_expr[p,r,t] = Σ_k yield_da[p,k,r,t] * x[p,k,t]
+    # x is (process,tech,period); yield_da is (process,tech,commodity,period)
+    # multiplication broadcasts x over the commodity dim.
+    produced_expr = (yield_da * ctx.x).sum("tech")  # (process, commodity, period)
+
+    # consumed_expr[p,r,t] = Σ_k intensity_da[p,k,r,t] * x[p,k,t]
+    consumed_expr = (intensity_da * ctx.x).sum("tech")  # (process, commodity, period)
+
+    # fin / fout contributions (if blend/slate groups exist): sum over tech dim.
+    # fin is (process, tech, grouped_commodity, period); sum over tech gives
+    # (process, grouped_commodity, period).
+    fin_sum = ctx.fin.sum("tech") if ctx.fin is not None and ctx.grouped_comms else None
+    fout_sum = ctx.fout.sum("tech") if ctx.fout is not None and ctx.grouped_out_comms else None
+
+    # ── Determine which (process, commodity) pairs need edge or savings terms ─
+    # For the vectorised path: most cells have no edges and no savings.
+    # Cells with edges or savings are handled by the scalar fallback.
+    has_edges = bool(prob.edges)
+    has_savings = bool(ctx.z is not None and ctx.slots)
+
+    # ── Zero-flow masks ───────────────────────────────────────────────────────
+    # nodeliver: r not a product → deliver == 0
+    # nosell:    r is a product OR not sellable → sell == 0
+    # nobuy:     not purchasable OR not available(t) → buy == 0
+    nodeliver_mask = np.zeros((len(ctx.procs), len(ctx.comms), len(ctx.years)), dtype=bool)
+    nosell_mask = np.zeros((len(ctx.procs), len(ctx.comms), len(ctx.years)), dtype=bool)
+    nobuy_mask = np.zeros((len(ctx.procs), len(ctx.comms), len(ctx.years)), dtype=bool)
+    for li, r in enumerate(ctx.comms):
+        comm = prob.commodities[r]
+        is_product = r in products
+        is_sellable = comm.sellable
+        purch = _purchasable(r)
+        for mi, t in enumerate(ctx.years):
+            avail_t = comm.available(t)
+            for i in range(len(ctx.procs)):
+                if not is_product:
+                    nodeliver_mask[i, li, mi] = True
+                if is_product or not is_sellable:
+                    nosell_mask[i, li, mi] = True
+                if not purch or not avail_t:
+                    nobuy_mask[i, li, mi] = True
+
+    nodeliver_da = xr.DataArray(
+        nodeliver_mask,
+        coords={"process": ctx.procs, "commodity": ctx.comms, "period": ctx.years},
+        dims=["process", "commodity", "period"],
+    )
+    nosell_da = xr.DataArray(
+        nosell_mask,
+        coords={"process": ctx.procs, "commodity": ctx.comms, "period": ctx.years},
+        dims=["process", "commodity", "period"],
+    )
+    nobuy_da = xr.DataArray(
+        nobuy_mask,
+        coords={"process": ctx.procs, "commodity": ctx.comms, "period": ctx.years},
+        dims=["process", "commodity", "period"],
+    )
+
+    m.add_constraints(ctx.deliver == 0, mask=nodeliver_da, name="nodeliver")
+    m.add_constraints(ctx.sell == 0, mask=nosell_da, name="nosell")
+    m.add_constraints(ctx.buy == 0, mask=nobuy_da, name="nobuy")
+
+    # ── Main balance constraint ───────────────────────────────────────────────
+    # IMPORTANT: linopy does NOT re-align coordinate arrays by label when
+    # forming a constraint (lhs == rhs) — it matches by position.  When two
+    # linopy expressions have DIFFERENT coordinate orders (which xarray can
+    # produce silently when merging a subset-indexed expression into a
+    # full-indexed one), the constraint rows get mis-matched.
+    #
+    # Safe solution: partition the commodity dimension into disjoint subsets so
+    # that EVERY call to add_constraints receives expressions with the SAME
+    # commodity index on both sides.  Within each partition, all operands are
+    # selected with the same index (pd.Index) before any arithmetic, so the
+    # coordinate order is guaranteed to match.
+    #
+    # Partitions (by commodity membership in blend / slate groups):
+    #   (A) in grouped_out (slate): fout.sum('tech') appears on LHS
+    #   (B) in grouped_in but NOT grouped_out: fin.sum('tech') on RHS
+    #   (C) in neither group: pure yield/intensity × x terms
+    # A commodity may belong to both (A) and (B) (e.g. a commodity produced by
+    # a slate and consumed by a blend); this is handled within partition (A) by
+    # also selecting fin_sum at those positions.
+    if not has_edges and not has_savings:
+        go_set = set(ctx.grouped_out_comms)  # slate (output) group members
+        gi_set = set(ctx.grouped_comms)  # blend (input) group members
+
+        # Disjoint partition maintaining the original ctx.comms ordering.
+        comms_A = [r for r in ctx.comms if r in go_set]  # slate
+        comms_B = [r for r in ctx.comms if r in gi_set and r not in go_set]  # blend only
+        comms_C = [r for r in ctx.comms if r not in go_set and r not in gi_set]  # plain
+
+        def _csel(expr: Any, comms: list[str]) -> Any:
+            """Select commodity slice; identity if comms equals full comm list."""
+            if len(comms) == len(ctx.comms):
+                return expr
+            return expr.sel(commodity=pd.Index(comms, name="commodity"))
+
+        # (C) Plain: no fin / fout variables involved.
+        if comms_C:
+            lhs_C = _csel(ctx.buy, comms_C) + _csel(produced_expr, comms_C)
+            rhs_C = (
+                _csel(ctx.sell, comms_C)
+                + _csel(ctx.deliver, comms_C)
+                + _csel(consumed_expr, comms_C)
+            )
+            m.add_constraints(lhs_C == rhs_C, name="bal")
+
+        # (B) Blend-only: fin.sum('tech') added to RHS.
+        if comms_B:
+            lhs_B = _csel(ctx.buy, comms_B) + _csel(produced_expr, comms_B)
+            rhs_B = (
+                _csel(ctx.sell, comms_B)
+                + _csel(ctx.deliver, comms_B)
+                + _csel(consumed_expr, comms_B)
+            )
+            if fin_sum is not None:
+                # fin_sum.sel selects comms_B from grouped_comms — guaranteed subset.
+                rhs_B = rhs_B + fin_sum.sel(commodity=pd.Index(comms_B, name="commodity"))
+            m.add_constraints(lhs_B == rhs_B, name="bal_blend")
+
+        # (A) Slate: fout.sum('tech') added to LHS.  A slate commodity may also
+        # be in a blend group (extremely rare: produced as a co-product AND
+        # consumed as a blend input).  In that case fall back to the scalar
+        # loop for those specific (p, r, t) cells to avoid the partial-index
+        # alignment problem described above.
+        if comms_A and fout_sum is not None:
+            comms_A_in_gi = [r for r in comms_A if r in gi_set]
+            if not comms_A_in_gi:
+                # Fast path: no overlap with blend inputs.
+                lhs_A = (
+                    _csel(ctx.buy, comms_A)
+                    + _csel(produced_expr, comms_A)
+                    + fout_sum.sel(commodity=pd.Index(comms_A, name="commodity"))
                 )
+                rhs_A = (
+                    _csel(ctx.sell, comms_A)
+                    + _csel(ctx.deliver, comms_A)
+                    + _csel(consumed_expr, comms_A)
+                )
+                m.add_constraints(lhs_A == rhs_A, name="bal_slate")
+            else:
+                # Overlap case: scalar loop over affected cells only.
+                for p in ctx.procs:
+                    for r in comms_A:
+                        for t in ctx.years:
+                            produced = _produced(ctx, p, r, t)
+                            gross = _gross_consumed(ctx, p, r, t)
+                            lhs_terms = [ctx.buy.sel(process=p, commodity=r, period=t)]
+                            if produced is not None:
+                                lhs_terms.append(produced)
+                            rhs_terms = [
+                                ctx.sell.sel(process=p, commodity=r, period=t),
+                                ctx.deliver.sel(process=p, commodity=r, period=t),
+                            ]
+                            if gross is not None:
+                                rhs_terms.append(gross)
+                            m.add_constraints(
+                                _lin_sum(lhs_terms) == _lin_sum(rhs_terms),
+                                name=f"bal[{p},{r},{t}]",
+                            )
 
-                # Non-products cannot be delivered; non-sellable cannot be sold;
-                # only raw inputs may be bought externally.
-                if r not in products:
+    else:
+        # Fallback: scalar loop for (process, commodity, period) cells that
+        # have edges or MACC savings (or both).  In practice, models with edges
+        # are small (shipping etc.), so this loop is fast.
+        for p in ctx.procs:
+            for r in ctx.comms:
+                comm = prob.commodities[r]
+                for t in ctx.years:
+                    produced = _produced(ctx, p, r, t)
+                    gross = _gross_consumed(ctx, p, r, t)
+                    savings = _efficiency_savings(ctx, p, r, t)
+                    consumed = gross
+                    if savings is not None:
+                        consumed = (gross - savings) if gross is not None else (-1.0) * savings
+                    in_edges = _edges_in(ctx, p, r)
+                    out_edges = _edges_out(ctx, p, r)
+                    inflow = _lin_sum([ctx.flow.sel(edge=i, period=t) for i in in_edges])
+                    outflow = _lin_sum([ctx.flow.sel(edge=i, period=t) for i in out_edges])
+
+                    lhs_terms = [ctx.buy.sel(process=p, commodity=r, period=t)]
+                    if produced is not None:
+                        lhs_terms.append(produced)
+                    if inflow is not None:
+                        lhs_terms.append(inflow)
+                    rhs_terms = [
+                        ctx.sell.sel(process=p, commodity=r, period=t),
+                        ctx.deliver.sel(process=p, commodity=r, period=t),
+                    ]
+                    if consumed is not None:
+                        rhs_terms.append(consumed)
+                    if outflow is not None:
+                        rhs_terms.append(outflow)
                     m.add_constraints(
-                        ctx.deliver.sel(process=p, commodity=r, period=t) == 0,
-                        name=f"nodeliver[{p},{r},{t}]",
-                    )
-                # Products leave only via `deliver` (to demand/market); the
-                # generic `sell` is for by-products / surplus raw streams.
-                if r in products or not comm.sellable:
-                    m.add_constraints(
-                        ctx.sell.sel(process=p, commodity=r, period=t) == 0,
-                        name=f"nosell[{p},{r},{t}]",
-                    )
-                if not _purchasable(r) or not comm.available(t):
-                    # Not purchasable, or outside the stream's availability
-                    # window (available_from/available_to).
-                    m.add_constraints(
-                        ctx.buy.sel(process=p, commodity=r, period=t) == 0,
-                        name=f"nobuy[{p},{r},{t}]",
+                        _lin_sum(lhs_terms) == _lin_sum(rhs_terms), name=f"bal[{p},{r},{t}]"
                     )
 
-    # Edge capacities (per-year cap when given).
+    # ── Edge capacity constraints ─────────────────────────────────────────────
     for i, e in enumerate(prob.edges):
         for t in ctx.years:
             mf = e.max_flow_at(t)
             if mf is not None:
                 m.add_constraints(ctx.flow.sel(edge=i, period=t) <= mf, name=f"emax[{i},{t}]")
 
-    # Demand: cost companies must meet it (slack-softened); profit companies may
-    # sell UP TO it (producing less is allowed — revenue handled in the objective).
+    # ── Demand constraints ────────────────────────────────────────────────────
     for c, q, y in ctx.demand_keys:
-        # Demand scope (``c``) may target a facility, a company, a group, or
-        # "all" — so demand can be set at any level (facility- vs company-level).
         procs = [p.process_id for p in prob.processes if p.in_scope(c)]
         delivered = _lin_sum([ctx.deliver.sel(process=p, commodity=q, period=y) for p in procs])
         key = f"{c}|{q}|{y}"
@@ -627,62 +1076,129 @@ def _abatement(ctx: BuildContext, p: str, i: str, t: int) -> Any:
 
 
 def _impacts(ctx: BuildContext) -> None:
-    """Define ``emit`` per (process, impact, period) and apply caps (slack-softened)."""
-    m, prob = ctx.model, ctx.problem
-    proc_by = {p.process_id: p for p in prob.processes}
-    for p in ctx.procs:
-        for i in ctx.impacts:
-            for t in ctx.years:
-                terms = []
-                for r in ctx.comms:
-                    factor = prob.commodity_impact(r, i, t)
-                    if factor == 0.0:
-                        continue
-                    cons = _gross_consumed(ctx, p, r, t)
-                    sav = _efficiency_savings(ctx, p, r, t)
-                    if cons is not None:
-                        terms.append(factor * cons)
-                    if sav is not None:
-                        terms.append((-factor) * sav)
-                # Facility-level direct emission (added on top of the technology's
-                # own direct_impact): scales with the facility's throughput across
-                # whichever technology it runs.
-                dfp = proc_by[p].direct_impact_at(i, t) if p in proc_by else 0.0
-                for k in ctx.feasible[p]:
-                    df = prob.technologies[k].direct_impact_at(i, t) + dfp
-                    if df != 0.0:
-                        terms.append(df * ctx.x.sel(process=p, tech=k, period=t))
-                abate = _abatement(ctx, p, i, t)
-                if abate is not None:
-                    terms.append((-1.0) * abate)
-                gross = _lin_sum(terms)
-                rhs = gross if gross is not None else 0.0
-                m.add_constraints(
-                    ctx.emit.sel(process=p, impact=i, period=t) == rhs, name=f"emit[{p},{i},{t}]"
-                )
-                m.add_constraints(
-                    ctx.emit.sel(process=p, impact=i, period=t) >= 0, name=f"emitpos[{p},{i},{t}]"
-                )
+    """Define ``emit`` per (process, impact, period) and apply caps (slack-softened).
 
+    Vectorisation strategy
+    ----------------------
+    The emission definition is::
+
+        emit[p,i,t] = Σ_{r,k} factor[r,i,t] · intensity[p,k,r,t] · x[p,k,t]
+                    + Σ_k   (direct_tech[k,i,t] + direct_proc[p,i,t]) · x[p,k,t]
+                    − abatement[p,i,t]
+
+    We precompute a coefficient array
+    ``impact_coeff[p,k,i,t] = Σ_r factor[r,i,t]·intensity[p,k,r,t]
+                               + direct_tech[k,i,t] + direct_proc[p,i,t]``
+    then express emit_expr = (impact_coeff * x).sum("tech").
+
+    MACC abatement terms (few slots, typically absent) are kept as a small
+    scalar loop and subtracted from the RHS after the vectorised part.
+
+    The ``emitpos`` (emit >= 0) constraint is added as a single vectorised call.
+    """
+    m, prob = ctx.model, ctx.problem
+    if not ctx.impacts:
+        return  # no impacts declared — constraint family is vacuous
+    proc_by = {p.process_id: p for p in prob.processes}
+
+    # ── Precompute impact coefficient array (process, tech, impact, period) ───
+    # impact_coeff[p,k,i,t] = Σ_r factor[r,i,t]*intensity[p,k,r,t]
+    #                        + direct_tech[k,i,t] + direct_proc[p,i,t]
+    impact_coeff = np.zeros((len(ctx.procs), len(ctx.techs), len(ctx.impacts), len(ctx.years)))
+    for i_p, p in enumerate(ctx.procs):
+        proc = proc_by[p]
+        for j_k, k in enumerate(ctx.techs):
+            if k not in ctx.feasible[p]:
+                continue
+            tech = prob.technologies[k]
+            for l_i, imp in enumerate(ctx.impacts):
+                for m_t, t in enumerate(ctx.years):
+                    # Commodity-driven term: Σ_r factor[r,i,t] * intensity[p,k,r,t]
+                    val = 0.0
+                    for r in ctx.comms:
+                        factor = prob.commodity_impact(r, imp, t)
+                        if factor == 0.0:
+                            continue
+                        intensity = tech.input_intensity_at(r, t)
+                        if intensity == 0.0:
+                            continue
+                        val += factor * intensity
+                    # Direct technology emission
+                    val += tech.direct_impact_at(imp, t)
+                    # Direct process (facility-level) emission
+                    val += proc.direct_impact_at(imp, t)
+                    impact_coeff[i_p, j_k, l_i, m_t] = val
+
+    impact_coeff_da = xr.DataArray(
+        impact_coeff,
+        coords={
+            "process": ctx.procs,
+            "tech": ctx.techs,
+            "impact": ctx.impacts,
+            "period": ctx.years,
+        },
+        dims=["process", "tech", "impact", "period"],
+    )
+    # emit_expr[p,i,t] = Σ_k impact_coeff[p,k,i,t] * x[p,k,t]
+    # x is (process,tech,period); impact_coeff broadcasts x over the impact dim.
+    emit_expr = (impact_coeff_da * ctx.x).sum("tech")  # (process, impact, period)
+
+    # ── MACC abatement (small scalar loop; typically absent) ──────────────────
+    has_abatement = ctx.z is not None and any(
+        s.measure_type in (MeasureType.EMISSION_REDUCTION, MeasureType.ENVIRONMENTAL)
+        for s in ctx.slots
+    )
+
+    if has_abatement:
+        for p in ctx.procs:
+            for imp in ctx.impacts:
+                for t in ctx.years:
+                    abate = _abatement(ctx, p, imp, t)
+                    if abate is not None:
+                        rhs = emit_expr.sel(process=p, impact=imp, period=t) - abate
+                    else:
+                        rhs = emit_expr.sel(process=p, impact=imp, period=t)
+                    m.add_constraints(
+                        ctx.emit.sel(process=p, impact=imp, period=t) == rhs,
+                        name=f"emit[{p},{imp},{t}]",
+                    )
+    else:
+        # Fully vectorised: emit == emit_expr over all (process, impact, period)
+        m.add_constraints(ctx.emit == emit_expr, name="emit")
+
+    # emit >= 0 (enforces non-negative emission — processes cannot generate
+    # negative physical emissions; MACC reductions are capped by the reference).
+    m.add_constraints(ctx.emit >= 0, name="emitpos")
+
+    # ── Impact caps ───────────────────────────────────────────────────────────
+    # Each cap triple (c, i, y) bounds Σ_{p∈scope(c)} emit[p,i,y].
+    # Group by (scope c, impact i) to share the process-sum computation.
     products = {r for r, comm in prob.commodities.items() if comm.kind == CommodityKind.PRODUCT}
+    # Cache process-sum expressions per (scope, impact) to avoid recomputing.
+    scope_impact_sum: dict[tuple[str, str], Any] = {}
     for c, i, y in ctx.cap_keys:
-        # A cap scope (``c``) may target a facility id, a company, a group, or
-        # "all" — so emissions can be capped at any level.
-        procs = [p.process_id for p in prob.processes if p.in_scope(c)]
-        total = _lin_sum([ctx.emit.sel(process=p, impact=i, period=y) for p in procs])
+        cache_key = (c, i)
+        if cache_key not in scope_impact_sum:
+            procs_in_scope = [p.process_id for p in prob.processes if p.in_scope(c)]
+            if procs_in_scope:
+                scope_idx = pd.Index(procs_in_scope, name="process")
+                # Vectorised sum over the scope's processes: shape (impact, period)
+                scope_impact_sum[cache_key] = ctx.emit.sel(process=scope_idx).sum("process")
+            else:
+                scope_impact_sum[cache_key] = None
+
+        total_by_period = scope_impact_sum[cache_key]
+        total = total_by_period.sel(impact=i, period=y) if total_by_period is not None else None
         key = f"{c}|{i}|{y}"
         slack = ctx.slk_cap.sel(ckey=key)
         limit = prob.impact_caps[(c, i, y)]
-        # An intensity cap is impact per unit product: emit ≤ limit · production.
-        # An absolute cap is emit ≤ limit. Production = product output in scope.
         if prob.impact_cap_intensity.get((c, i), False):
-            prod_terms = [_produced(ctx, p, r, y) for p in procs for r in products]
+            procs_in_scope = [p.process_id for p in prob.processes if p.in_scope(c)]
+            prod_terms = [_produced(ctx, p, r, y) for p in procs_in_scope for r in products]
             production = _lin_sum([t for t in prod_terms if t is not None])
             cap_rhs: Any = limit * production if production is not None else 0.0
         else:
             cap_rhs = limit
-        # A hard cap forbids exceedance (slack pinned to zero); a soft cap allows
-        # it at the cap's penalty (applied in the objective). Default: soft.
         soft = prob.impact_cap_soft.get((c, i), True)
         if not soft:
             m.add_constraints(slack == 0, name=f"caphard[{key}]")
@@ -945,6 +1461,11 @@ def _adoption_caps(ctx: BuildContext) -> None:
 
     i.e. at most ``N_k`` facilities may have ``k`` active in any year — e.g. a
     limited number of greenfield plants of a new route. Inert unless caps are set.
+
+    Vectorised over techs that have a cap; within each tech, sum over the
+    feasible-process subset with one ``sum("process")`` call, then add a single
+    constraint against the scalar cap.  For each tech this is one linopy call
+    covering all periods at once, cutting the call count from T per tech to 1.
     """
     if not ctx.problem.technology_caps:
         return
@@ -952,16 +1473,36 @@ def _adoption_caps(ctx: BuildContext) -> None:
     for k, cap in prob.technology_caps.items():
         if k not in ctx.techs:
             continue
-        for t in ctx.years:
-            total = _lin_sum(
-                [ctx.u.sel(process=p, tech=k, period=t) for p in ctx.procs if k in ctx.feasible[p]]
-            )
-            if total is not None:
-                m.add_constraints(total <= cap, name=f"techcap[{k},{t}]")
+        feasible_procs = [p for p in ctx.procs if k in ctx.feasible[p]]
+        if not feasible_procs:
+            continue
+        # Sum u over the feasible-process subset → (period,) expression.
+        u_k = ctx.u.sel(process=pd.Index(feasible_procs, name="process"), tech=k).sum(
+            "process"
+        )  # (period,)
+        m.add_constraints(u_k <= cap, name=f"techcap[{k}]")
 
 
 def _objective(ctx: BuildContext) -> None:
-    """Discounted total system cost + slack penalties (minimise)."""
+    """Discounted total system cost + slack penalties (minimise).
+
+    Vectorisation strategy
+    ----------------------
+    The objective is a sum of many independent cost components, each expressible
+    as a dot product of a coefficient DataArray and a linopy variable:
+
+        obj = Σ_component  coeff_component[dims] · var_component[dims]
+
+    We precompute coefficient DataArrays over all relevant dims (period, process,
+    tech, commodity, impact) and evaluate each component as a single linopy
+    expression using broadcast-multiply + ``.sum(dims)`` — the same idiom used
+    in the constraint families.  This reduces the linopy merge / xarray alignment
+    overhead from O(N_terms) to O(N_components), where N_components is small
+    (opex, fixed_opex, commodity_buy, commodity_sell, impact_price, capex,
+    renewal_capex, measure_capex, measure_opex, storage, markets, slacks).
+
+    ``add_objective`` is called once at the end with the combined expression.
+    """
     m, prob = ctx.model, ctx.problem
     tog = prob.toggles
     prev = _prev(ctx.years)
@@ -971,113 +1512,177 @@ def _objective(ctx: BuildContext) -> None:
     proc_by_id = {p.process_id: p for p in prob.processes}
     trans_idx = _transition_index(prob)
 
-    # Stored commodities are priced via the store's external purchase, not the
-    # process buy (which becomes the internal draw) — avoids double counting.
     stored = {s.commodity_id for s in prob.storages}
-    # Market-covered streams/impacts are priced via the market (mbuy/msell,
-    # abuy/asell), not via the flat commodity/impact price.
     market_comms = {mk.target for mk in ctx.cmarkets}
     ets_impacts = {mk.target for mk in ctx.imarkets}
 
-    terms: list[Any] = []
-    for t in ctx.years:
-        df = prob.discount_factor(t)
-        w = df * dur[t]
-        # Operational: opex + commodity purchases − sales + impact prices.
-        for p in ctx.procs:
-            if tog.opex:
-                for k in ctx.feasible[p]:
-                    ox = prob.technologies[k].opex(t)
-                    if ox:
-                        terms.append((w * ox) * ctx.x.sel(process=p, tech=k, period=t))
-                # Facility fixed annual O&M — only while operating (`on`).
-                fox = proc_by_id[p].fixed_opex_at(t)
-                if fox:
-                    terms.append((w * fox) * ctx.on.sel(process=p, period=t))
-            if tog.commodity_cost:
-                for r in ctx.comms:
-                    if r in stored or r in market_comms:
-                        continue  # priced via storage / market below
-                    price = prob.commodities[r].price(t)
-                    sale = prob.commodities[r].sale_price(t)
-                    if price:
-                        terms.append((w * price) * ctx.buy.sel(process=p, commodity=r, period=t))
-                    if sale:
-                        terms.append((-w * sale) * ctx.sell.sel(process=p, commodity=r, period=t))
-            if tog.impact_price:
-                for i in ctx.impacts:
-                    if i in ets_impacts:
-                        continue  # priced via the ETS allowance market below
-                    pr = prob.impacts[i].price(t)
-                    if pr:
-                        terms.append((w * pr) * ctx.emit.sel(process=p, impact=i, period=t))
-        # Storage: external purchase priced (unless a market prices the stream)
-        # + fixed O&M on built capacity.
-        if tog.commodity_cost:
+    # Discount-weight vector: w[t] = discount_factor(t) * duration(t)
+    w_arr = np.array([prob.discount_factor(t) * dur[t] for t in ctx.years])
+    w_da = xr.DataArray(w_arr, coords={"period": ctx.years}, dims=["period"])
+
+    obj_terms: list[Any] = []
+
+    # ── Variable opex: w[t] * opex[k,t] * x[p,k,t] ──────────────────────────
+    if tog.opex:
+        opex_arr = np.array([[prob.technologies[k].opex(t) for t in ctx.years] for k in ctx.techs])
+        opex_da = xr.DataArray(
+            opex_arr, coords={"tech": ctx.techs, "period": ctx.years}, dims=["tech", "period"]
+        )
+        # opex_coeff[k,t] * w[t] broadcasts with x[p,k,t] → sum over all dims → scalar
+        obj_terms.append((w_da * opex_da * ctx.x).sum(["process", "tech", "period"]))
+
+        # Fixed facility O&M: w[t] * fox[p,t] * on[p,t]
+        fox_arr = np.array([[proc_by_id[p].fixed_opex_at(t) for t in ctx.years] for p in ctx.procs])
+        fox_da = xr.DataArray(
+            fox_arr, coords={"process": ctx.procs, "period": ctx.years}, dims=["process", "period"]
+        )
+        obj_terms.append((w_da * fox_da * ctx.on).sum(["process", "period"]))
+
+    # ── Commodity buy/sell: w[t] * price[r,t] * buy/sell[p,r,t] ─────────────
+    if tog.commodity_cost:
+        # Only commodities not priced via storage or market.
+        priced_comms = [r for r in ctx.comms if r not in stored and r not in market_comms]
+        if priced_comms:
+            price_arr = np.array(
+                [[prob.commodities[r].price(t) for t in ctx.years] for r in priced_comms]
+            )
+            sale_arr = np.array(
+                [[prob.commodities[r].sale_price(t) for t in ctx.years] for r in priced_comms]
+            )
+            price_da = xr.DataArray(
+                price_arr,
+                coords={"commodity": priced_comms, "period": ctx.years},
+                dims=["commodity", "period"],
+            )
+            sale_da = xr.DataArray(
+                sale_arr,
+                coords={"commodity": priced_comms, "period": ctx.years},
+                dims=["commodity", "period"],
+            )
+            buy_sel = ctx.buy.sel(commodity=pd.Index(priced_comms, name="commodity"))
+            sell_sel = ctx.sell.sel(commodity=pd.Index(priced_comms, name="commodity"))
+            obj_terms.append((w_da * price_da * buy_sel).sum(["process", "commodity", "period"]))
+            obj_terms.append(
+                (-1.0 * w_da * sale_da * sell_sel).sum(["process", "commodity", "period"])
+            )
+
+    # ── Impact prices: w[t] * price[i,t] * emit[p,i,t] ──────────────────────
+    if tog.impact_price and ctx.impacts:
+        priced_impacts = [i for i in ctx.impacts if i not in ets_impacts]
+        if priced_impacts:
+            imp_price_arr = np.array(
+                [[prob.impacts[i].price(t) for t in ctx.years] for i in priced_impacts]
+            )
+            imp_price_da = xr.DataArray(
+                imp_price_arr,
+                coords={"impact": priced_impacts, "period": ctx.years},
+                dims=["impact", "period"],
+            )
+            emit_sel = ctx.emit.sel(impact=pd.Index(priced_impacts, name="impact"))
+            obj_terms.append((w_da * imp_price_da * emit_sel).sum(["process", "impact", "period"]))
+
+    # ── Storage external purchase + fixed O&M ────────────────────────────────
+    if tog.commodity_cost and prob.storages:
+        for t in ctx.years:
+            w = prob.discount_factor(t) * dur[t]
             for st in prob.storages:
                 if st.commodity_id not in market_comms:
                     price = prob.commodities[st.commodity_id].price(t)
                     if price:
-                        terms.append((w * price) * ctx.extbuy.sel(store=st.storage_id, period=t))
+                        obj_terms.append(
+                            (w * price) * ctx.extbuy.sel(store=st.storage_id, period=t)
+                        )
                 st_fox = st.fixed_opex_per_capacity_at(t)
                 if st_fox:
-                    terms.append((w * st_fox) * ctx.cap_built.sel(store=st.storage_id))
-        # Markets: commodity buy/sell + tradable ETS allowance buy/sell.
-        if tog.commodity_cost:
+                    obj_terms.append((w * st_fox) * ctx.cap_built.sel(store=st.storage_id))
+
+    # ── Commodity markets ─────────────────────────────────────────────────────
+    if tog.commodity_cost and ctx.cmarkets:
+        for t in ctx.years:
+            w = prob.discount_factor(t) * dur[t]
             for mk in ctx.cmarkets:
                 if mk.price(t):
-                    terms.append((w * mk.price(t)) * ctx.mbuy.sel(cmarket=mk.market_id, period=t))
+                    obj_terms.append(
+                        (w * mk.price(t)) * ctx.mbuy.sel(cmarket=mk.market_id, period=t)
+                    )
                 if mk.sell_price(t):
-                    terms.append(
+                    obj_terms.append(
                         (-w * mk.sell_price(t)) * ctx.msell.sel(cmarket=mk.market_id, period=t)
                     )
-        if tog.impact_price:
+
+    # ── ETS allowance markets ─────────────────────────────────────────────────
+    if tog.impact_price and ctx.imarkets:
+        for t in ctx.years:
+            w = prob.discount_factor(t) * dur[t]
             for mk in ctx.imarkets:
                 if mk.price(t):
-                    terms.append((w * mk.price(t)) * ctx.abuy.sel(imarket=mk.market_id, period=t))
+                    obj_terms.append(
+                        (w * mk.price(t)) * ctx.abuy.sel(imarket=mk.market_id, period=t)
+                    )
                 if mk.sell_price(t):
-                    terms.append(
+                    obj_terms.append(
                         (-w * mk.sell_price(t)) * ctx.asell.sel(imarket=mk.market_id, period=t)
                     )
-        # Replacement capex, charged on the switch-in event under the chosen
-        # capex convention (NPV lump by default; annuity over the asset life).
-        if tog.capex:
-            for p in ctx.procs:
-                for k in ctx.feasible[p]:
-                    if k == baseline[p]:
-                        continue
+
+    # ── Replacement capex: charge(t,L) * capex(p,k,t) * w[p,k,t] ────────────
+    if tog.capex:
+        # capex_coeff[p,k,t] = capex_charge(t, life_k) * replacement_capex(p,k,t)
+        # Only for non-baseline (p,k) pairs.
+        capex_arr = np.zeros((len(ctx.procs), len(ctx.techs), len(ctx.years)))
+        for i, p in enumerate(ctx.procs):
+            for j, k in enumerate(ctx.techs):
+                if k not in ctx.feasible[p] or k == baseline[p]:
+                    continue
+                for li, t in enumerate(ctx.years):
                     c = _replacement_capex(prob, trans_idx, p, k, cap[p], t)
                     if c:
                         charge = prob.capex_charge(t, prob.technologies[k].lifespan)
-                        terms.append((charge * c) * ctx.w.sel(process=p, tech=k, period=t))
-        # Renewal capex: rebuilding the active technology at end of life resets
-        # its vintage (lifecycle-tracked processes only — ``ren`` is otherwise
-        # absent). Charged under the same capex convention as a replacement.
-        if tog.renewal and ctx.ren is not None:
-            for p in ctx.procs:
-                for k in ctx.feasible[p]:
+                        capex_arr[i, j, li] = charge * c
+        if capex_arr.any():
+            capex_da = xr.DataArray(
+                capex_arr,
+                coords={"process": ctx.procs, "tech": ctx.techs, "period": ctx.years},
+                dims=["process", "tech", "period"],
+            )
+            obj_terms.append((capex_da * ctx.w).sum(["process", "tech", "period"]))
+
+    # ── Renewal capex ─────────────────────────────────────────────────────────
+    if tog.renewal and ctx.ren is not None:
+        ren_capex_arr = np.zeros((len(ctx.procs), len(ctx.techs), len(ctx.years)))
+        for i, p in enumerate(ctx.procs):
+            for j, k in enumerate(ctx.techs):
+                if k not in ctx.feasible[p]:
+                    continue
+                for li, t in enumerate(ctx.years):
                     rc = prob.technologies[k].renewal(t) * cap[p]
                     if rc:
                         charge = prob.capex_charge(t, prob.technologies[k].lifespan)
-                        terms.append((charge * rc) * ctx.ren.sel(process=p, tech=k, period=t))
-        # Measure capex on adoption increments (discounted lump).
-        if tog.measure_capex and ctx.slots:
-            for s in ctx.slots:
-                pt = prev[t]
-                inc = ctx.z.sel(slot=s.key, period=t)
-                if pt is not None:
-                    inc = inc - ctx.z.sel(slot=s.key, period=pt)
-                if s.capex_at(t):
-                    terms.append((df * s.capex_at(t)) * inc)
-        # Measure opex while adopted — a recurring O&M cost (discounted ×
-        # duration), proportional to the adoption level z, like fixed O&M.
-        if tog.opex and ctx.slots:
-            for s in ctx.slots:
-                if s.opex_at(t):
-                    terms.append((w * s.opex_at(t)) * ctx.z.sel(slot=s.key, period=t))
+                        ren_capex_arr[i, j, li] = charge * rc
+        if ren_capex_arr.any():
+            ren_capex_da = xr.DataArray(
+                ren_capex_arr,
+                coords={"process": ctx.procs, "tech": ctx.techs, "period": ctx.years},
+                dims=["process", "tech", "period"],
+            )
+            obj_terms.append((ren_capex_da * ctx.ren).sum(["process", "tech", "period"]))
 
-    # Product sale revenue for profit companies (negative cost ⇒ maximise profit):
-    # revenue = sale_price · delivered, summed over the company's processes.
+    # ── Measure capex + opex (small — few slots) ──────────────────────────────
+    if ctx.slots:
+        for t in ctx.years:
+            df = prob.discount_factor(t)
+            w = df * dur[t]
+            pt = prev[t]
+            for s in ctx.slots:
+                if tog.measure_capex:
+                    inc = ctx.z.sel(slot=s.key, period=t)
+                    if pt is not None:
+                        inc = inc - ctx.z.sel(slot=s.key, period=pt)
+                    if s.capex_at(t):
+                        obj_terms.append((df * s.capex_at(t)) * inc)
+                if tog.opex and s.opex_at(t):
+                    obj_terms.append((w * s.opex_at(t)) * ctx.z.sel(slot=s.key, period=t))
+
+    # ── Profit: product sale revenue ──────────────────────────────────────────
     for comp, q, y in ctx.demand_keys:
         if prob.objective_of(comp) != ObjectiveMode.PROFIT:
             continue
@@ -1087,27 +1692,25 @@ def _objective(ctx: BuildContext) -> None:
         scope = _scope_processes(ctx, comp)
         delivered = _lin_sum([ctx.deliver.sel(process=p, commodity=q, period=y) for p in scope])
         if delivered is not None:
-            terms.append((-(prob.discount_factor(y) * dur[y] * price)) * delivered)
+            obj_terms.append((-(prob.discount_factor(y) * dur[y] * price)) * delivered)
 
-    # Storage build capex — one-time, discounted at the first year (year-0 value).
+    # ── Storage build capex (one-time at t0) ─────────────────────────────────
     if tog.capex and prob.storages:
         y0 = ctx.years[0]
         df0 = prob.discount_factor(y0)
         for st in prob.storages:
             build_cost = st.capex_per_capacity_at(y0)
             if build_cost:
-                terms.append((df0 * build_cost) * ctx.cap_built.sel(store=st.storage_id))
+                obj_terms.append((df0 * build_cost) * ctx.cap_built.sel(store=st.storage_id))
 
-    # Slack penalties (keep the model well-posed and diagnosable).
+    # ── Slack penalties ───────────────────────────────────────────────────────
     if ctx.demand_keys:
-        terms.append(prob.slack_penalty * ctx.slk_dem.sum())
+        obj_terms.append(prob.slack_penalty * ctx.slk_dem.sum())
     if ctx.cap_keys:
-        # Soft caps are penalised at their own penalty (default slack_penalty);
-        # hard caps have slack pinned to zero so their coefficient is irrelevant.
         for cap_c, cap_i, cap_y in ctx.cap_keys:
             pen = prob.impact_cap_penalty.get((cap_c, cap_i), prob.slack_penalty)
-            terms.append(pen * ctx.slk_cap.sel(ckey=f"{cap_c}|{cap_i}|{cap_y}"))
+            obj_terms.append(pen * ctx.slk_cap.sel(ckey=f"{cap_c}|{cap_i}|{cap_y}"))
 
-    obj = _lin_sum(terms)
+    obj = _lin_sum(obj_terms)
     if obj is not None:
         m.add_objective(obj)
