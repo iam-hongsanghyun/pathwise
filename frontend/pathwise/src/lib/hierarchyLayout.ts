@@ -1,0 +1,296 @@
+// Pure layout for the multi-level result map: turn the node hierarchy
+// (country → company → facility → machine) into absolutely-positioned boxes for
+// three render modes — nested containers, swimlanes-by-level, and an expandable
+// (collapsible) nested view. No React, no I/O; mirrors the .topo-* sizing.
+
+import { childrenOf, levelConnections, parseNodes, type GroupNode } from "./groupGraph";
+import type { Workbook } from "../types";
+
+export type MapMode = "nested" | "swimlane" | "expandable";
+
+/** A positioned box for any node (group container or machine leaf). */
+export interface LaidNode {
+  id: string;
+  parentId: string | null;
+  kind: "group" | "machine";
+  level: string;
+  label: string;
+  depth: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** A group drawn collapsed (expandable mode) — render as a leaf-like box. */
+  collapsed: boolean;
+}
+
+/** A machine→machine flow to draw, resolved to the deepest VISIBLE endpoints.
+ *  `origFrom`/`origTo` keep the real connection endpoints so the per-year
+ *  overlay (keyed by the actual machine ids) can be looked up even when the
+ *  drawn endpoints are collapsed group boxes. */
+export interface LaidEdge {
+  id: string;
+  from: string;
+  to: string;
+  origFrom: string;
+  origTo: string;
+  commodity: string;
+}
+
+export interface Laid {
+  nodes: LaidNode[];
+  edges: LaidEdge[];
+  width: number;
+  height: number;
+}
+
+// ── Geometry constants ────────────────────────────────────────────────────────
+const LEAF_W = 168;
+const LEAF_H = 56;
+const GAP_X = 40; // between columns inside a container
+const GAP_Y = 20; // between stacked siblings
+const PAD = 16; // inner padding of a container
+const HEADER = 24; // container title strip
+
+const s = (v: unknown, d = ""): string => (v == null ? d : String(v));
+
+// ── Shared helpers ────────────────────────────────────────────────────────────
+
+/** Longest-path column index per id over the given (from→to) edges (cycle-safe). */
+function columnsOf(ids: string[], edges: { from: string; to: string }[]): Map<string, number> {
+  const preds = new Map<string, string[]>();
+  for (const id of ids) preds.set(id, []);
+  for (const e of edges) preds.get(e.to)?.push(e.from);
+  const cache = new Map<string, number>();
+  const depth = (id: string, seen: Set<string>): number => {
+    const c = cache.get(id);
+    if (c !== undefined) return c;
+    if (seen.has(id)) return 0;
+    seen.add(id);
+    let d = 0;
+    for (const p of preds.get(id) ?? []) d = Math.max(d, depth(p, new Set(seen)) + 1);
+    cache.set(id, d);
+    return d;
+  };
+  const out = new Map<string, number>();
+  for (const id of ids) out.set(id, depth(id, new Set()));
+  return out;
+}
+
+/** Map every node id to the nearest visible ancestor (itself if visible). Used
+ *  to route machine-level flows to collapsed-group boxes in expandable mode. */
+function visibleAncestor(
+  nodes: GroupNode[],
+  visible: Set<string>,
+): (id: string) => string | null {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  return (id: string) => {
+    let cur: GroupNode | undefined = byId.get(id);
+    while (cur) {
+      if (visible.has(cur.id)) return cur.id;
+      cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+    }
+    return null;
+  };
+}
+
+// ── Nested / expandable layout ────────────────────────────────────────────────
+
+interface NestOpts {
+  /** Expandable mode: only these group ids show their children; others collapse.
+   *  Undefined → fully expanded (plain nested mode). */
+  expanded?: Set<string>;
+}
+
+/** Recursive variable-size box packing: each expanded group is a container whose
+ *  children are arranged left→right by flow-depth and stacked within a column. */
+export function layoutNested(wb: Workbook, opts: NestOpts = {}): Laid {
+  const nodes = parseNodes(wb);
+  const byParent = new Map<string | null, GroupNode[]>();
+  for (const n of nodes) {
+    const k = n.parentId;
+    if (!byParent.has(k)) byParent.set(k, []);
+    byParent.get(k)!.push(n);
+  }
+  const roots = childrenOf(nodes, null);
+
+  const isOpen = (n: GroupNode): boolean =>
+    n.kind === "group" &&
+    childrenOf(nodes, n.id).length > 0 &&
+    (opts.expanded ? opts.expanded.has(n.id) : true);
+
+  const sizeCache = new Map<string, { w: number; h: number }>();
+  const size = (n: GroupNode): { w: number; h: number } => {
+    const hit = sizeCache.get(n.id);
+    if (hit) return hit;
+    let box: { w: number; h: number };
+    if (!isOpen(n)) {
+      box = { w: LEAF_W, h: LEAF_H };
+    } else {
+      const kids = childrenOf(nodes, n.id);
+      const edges = levelConnections(wb, n.id);
+      const col = columnsOf(kids.map((k) => k.id), edges);
+      const byCol = new Map<number, GroupNode[]>();
+      for (const k of kids) {
+        const c = col.get(k.id) ?? 0;
+        if (!byCol.has(c)) byCol.set(c, []);
+        byCol.get(c)!.push(k);
+      }
+      let contentW = 0;
+      let contentH = 0;
+      const cols = [...byCol.keys()].sort((a, b) => a - b);
+      cols.forEach((c, i) => {
+        const members = byCol.get(c)!;
+        const colW = Math.max(...members.map((m) => size(m).w));
+        const colH = members.reduce((acc, m) => acc + size(m).h, 0) + GAP_Y * (members.length - 1);
+        contentW += colW + (i > 0 ? GAP_X : 0);
+        contentH = Math.max(contentH, colH);
+      });
+      box = { w: contentW + 2 * PAD, h: contentH + HEADER + 2 * PAD };
+    }
+    sizeCache.set(n.id, box);
+    return box;
+  };
+
+  const out: LaidNode[] = [];
+  const place = (n: GroupNode, x: number, y: number, depth: number): void => {
+    const { w, h } = size(n);
+    const open = isOpen(n);
+    out.push({
+      id: n.id,
+      parentId: n.parentId,
+      kind: n.kind,
+      level: n.level,
+      label: n.label,
+      depth,
+      x,
+      y,
+      w,
+      h,
+      collapsed: n.kind === "group" && !open,
+    });
+    if (!open) return;
+    const kids = childrenOf(nodes, n.id);
+    const edges = levelConnections(wb, n.id);
+    const col = columnsOf(kids.map((k) => k.id), edges);
+    const byCol = new Map<number, GroupNode[]>();
+    for (const k of kids) {
+      const c = col.get(k.id) ?? 0;
+      if (!byCol.has(c)) byCol.set(c, []);
+      byCol.get(c)!.push(k);
+    }
+    const cols = [...byCol.keys()].sort((a, b) => a - b);
+    let colX = x + PAD;
+    for (const c of cols) {
+      const members = byCol.get(c)!;
+      const colW = Math.max(...members.map((m) => size(m).w));
+      let cy = y + HEADER + PAD;
+      for (const m of members) {
+        const ms = size(m);
+        place(m, colX + (colW - ms.w) / 2, cy, depth + 1);
+        cy += ms.h + GAP_Y;
+      }
+      colX += colW + GAP_X;
+    }
+  };
+
+  // Lay the roots out as columns of a virtual top container.
+  let rx = PAD;
+  let maxH = 0;
+  for (const r of roots) {
+    place(r, rx, PAD, 0);
+    const sz = size(r);
+    rx += sz.w + GAP_X;
+    maxH = Math.max(maxH, sz.h);
+  }
+
+  return {
+    nodes: out,
+    edges: resolveEdges(wb, nodes, out, opts.expanded),
+    width: rx,
+    height: maxH + 2 * PAD,
+  };
+}
+
+// ── Swimlanes-by-level ────────────────────────────────────────────────────────
+
+/** Horizontal bands by depth; nodes ordered by a stable pre-order so subtrees
+ *  cluster. Parent→child belonging is drawn by the renderer as connectors. */
+export function layoutSwimlane(wb: Workbook): Laid {
+  const nodes = parseNodes(wb);
+  const BAND_H = 132;
+  const CELL_W = LEAF_W + 28;
+  // Pre-order traversal → a left-to-right ordering that keeps subtrees together.
+  const order: { node: GroupNode; depth: number }[] = [];
+  const walk = (parentId: string | null, depth: number): void => {
+    for (const c of childrenOf(nodes, parentId)) {
+      order.push({ node: c, depth });
+      walk(c.id, depth + 1);
+    }
+  };
+  walk(null, 0);
+
+  // Within each depth band, assign sequential x in pre-order.
+  const idxByDepth = new Map<number, number>();
+  const out: LaidNode[] = [];
+  for (const { node, depth } of order) {
+    const i = idxByDepth.get(depth) ?? 0;
+    idxByDepth.set(depth, i + 1);
+    out.push({
+      id: node.id,
+      parentId: node.parentId,
+      kind: node.kind,
+      level: node.level,
+      label: node.label,
+      depth,
+      x: PAD + i * CELL_W,
+      y: PAD + depth * BAND_H,
+      w: LEAF_W,
+      h: LEAF_H,
+      collapsed: false,
+    });
+  }
+  const maxDepth = Math.max(0, ...out.map((n) => n.depth));
+  const width = PAD + Math.max(1, ...[...idxByDepth.values()]) * CELL_W;
+  return {
+    nodes: out,
+    edges: resolveEdges(wb, nodes, out, undefined),
+    width,
+    height: PAD + (maxDepth + 1) * BAND_H,
+  };
+}
+
+// ── Edge resolution (machine flows → visible endpoints) ───────────────────────
+
+function resolveEdges(
+  wb: Workbook,
+  nodes: GroupNode[],
+  laid: LaidNode[],
+  expanded: Set<string> | undefined,
+): LaidEdge[] {
+  const visible = new Set(laid.map((n) => n.id));
+  const toVisible = visibleAncestor(nodes, visible);
+  void expanded;
+  const out: LaidEdge[] = [];
+  const seen = new Set<string>();
+  (wb.connections ?? []).forEach((row, i) => {
+    const origFrom = s(row.from_node);
+    const origTo = s(row.to_node);
+    const from = toVisible(origFrom);
+    const to = toVisible(origTo);
+    if (!from || !to || from === to) return;
+    const commodity = s(row.commodity_id, "—");
+    const key = `${from}→${to}:${commodity}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ id: `e${i}`, from, to, origFrom, origTo, commodity });
+  });
+  return out;
+}
+
+/** Convenience: lay out for any mode. */
+export function layoutFor(wb: Workbook, mode: MapMode, expanded?: Set<string>): Laid {
+  if (mode === "swimlane") return layoutSwimlane(wb);
+  if (mode === "expandable") return layoutNested(wb, { expanded });
+  return layoutNested(wb);
+}

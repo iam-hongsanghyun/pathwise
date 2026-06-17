@@ -4,6 +4,7 @@ import { MaccDesigner } from "../features/macc/MaccDesigner";
 import { MaccResult } from "../features/charts/MaccResult";
 import { PortfolioResult } from "../features/charts/PortfolioResult";
 import { TopologyCanvas } from "../features/topology/TopologyCanvas";
+import { HierarchyResultMap } from "../features/topology/HierarchyResultMap";
 import { RailList, type RailItem } from "../layout/RailList";
 import { Resizer } from "../layout/Resizer";
 import type { RunResult, Workbook } from "../types";
@@ -91,22 +92,29 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
             <p className="muted">Run the model (▶ top-left) to populate analytics.</p>
           </div>
         ) : cat === "map" ? (
-          <>
-            <div className="topology-wrap">
-              <TopologyCanvas workbook={workbook} result={result} year={activeYear} />
-            </div>
-            <div className="year-slider">
-              <span className="muted">Year</span>
-              <input
-                type="range"
-                min={0}
-                max={Math.max(years.length - 1, 0)}
-                value={years.indexOf(activeYear)}
-                onChange={(e) => setYear(years[Number(e.target.value)])}
-              />
-              <strong>{activeYear}</strong>
-            </div>
-          </>
+          (workbook.nodes?.length ?? 0) > 0 ? (
+            // Hierarchical model → the multi-level map (its own top toolbar:
+            // layout toggle + year slider; shows every level in one chart).
+            <HierarchyResultMap workbook={workbook} result={result} />
+          ) : (
+            // Flat model → the plain process map, year slider on top.
+            <>
+              <div className="year-slider" style={{ borderBottom: "1px solid var(--border)", borderTop: "none" }}>
+                <span className="muted">Year</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(years.length - 1, 0)}
+                  value={years.indexOf(activeYear)}
+                  onChange={(e) => setYear(years[Number(e.target.value)])}
+                />
+                <strong>{activeYear}</strong>
+              </div>
+              <div className="topology-wrap">
+                <TopologyCanvas workbook={workbook} result={result} year={activeYear} />
+              </div>
+            </>
+          )
         ) : (
           <div className="view">
             <Body cat={cat} result={result} years={years} />
