@@ -17,6 +17,7 @@ import { MultiSelect } from "../features/controls/MultiSelect";
 import { SearchableSelect } from "../features/controls/SearchableSelect";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
+import { Resizer } from "../layout/Resizer";
 import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types";
 import {
   addAlternative,
@@ -91,6 +92,8 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   const [altPicker, setAltPicker] = useState<{ machineId: string } | null>(null);
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [leftW, setLeftW] = useState(240); // structure rail width (draggable)
+  const [rightW, setRightW] = useState(300); // detail rail width (draggable)
   const { prompt, confirm, node: dialogNode } = useDialogs();
 
   useEffect(() => {
@@ -457,7 +460,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
 
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
         {/* LEFT: structure only */}
-        <aside style={{ width: 240, overflow: "auto", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", flexShrink: 0 }}>
+        <aside style={{ width: leftW, overflow: "auto", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", flexShrink: 0 }}>
           <div className="rail-head-row" style={{ padding: "6px 10px" }}>
             <span className="rail-head">Structure</span>
             <button className="rail-add" title="add top-level subgroup" onClick={() => addSubgroup(null)}>＋</button>
@@ -477,6 +480,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
             Right-click an item for actions · drag to move
           </div>
         </aside>
+        <Resizer width={leftW} setWidth={setLeftW} side="left" />
 
         {/* CENTER: relationship canvas */}
         <main style={{ flex: 1, minWidth: 220, overflow: "hidden", display: "flex", flexDirection: "column" }}>
@@ -503,8 +507,9 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
           {cascade && <CascadeSummary cascade={cascade} label={(id) => nodeById.get(id)?.label ?? id} />}
         </main>
 
+        <Resizer width={rightW} setWidth={setRightW} side="right" />
         {/* RIGHT: detail of the selected item */}
-        <aside style={{ width: 300, overflow: "auto", borderLeft: "1px solid var(--border)", flexShrink: 0 }}>
+        <aside style={{ width: rightW, overflow: "auto", borderLeft: "1px solid var(--border)", flexShrink: 0 }}>
           {selId?.startsWith("stream:") ? (
             (() => {
               const cid = selId.slice("stream:".length);
