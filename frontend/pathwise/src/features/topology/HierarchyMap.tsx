@@ -356,10 +356,9 @@ export function HierarchyMap({
           const sel = selectedId === g.id;
           return (
             <g key={`c-${g.id}`}>
-              {/* body — a click on the group's own area (not a child) toggles it,
-                  so the whole box behaves like the collapsed box that expanded it. */}
+              {/* body — not a toggle target (clicking/dragging it pans); only the
+                  header collapses the group. */}
               <rect
-                data-group={g.id}
                 x={g.x}
                 y={g.y}
                 width={g.w}
@@ -369,10 +368,10 @@ export function HierarchyMap({
                 stroke={sel ? "var(--brand)" : "var(--border-strong)"}
                 strokeWidth={sel ? 3 : 1}
                 opacity={0.5 + 0.12 * Math.min(3, g.depth)}
-                style={{ cursor: "pointer" }}
               />
-              {/* header strip — tinted when selected */}
-              <rect data-group={g.id} x={g.x} y={g.y} width={g.w} height={22} rx={6} fill={sel ? "var(--brand-fill)" : "transparent"} style={{ cursor: "pointer" }} />
+              {/* header strip — the collapse/expand + select target (data-group);
+                  tinted when selected, with a subtle fill so it reads as a title bar. */}
+              <rect data-group={g.id} x={g.x} y={g.y} width={g.w} height={22} rx={6} fill={sel ? "var(--brand-fill)" : "var(--bg-hover)"} style={{ cursor: "pointer" }} />
               <text x={g.x + 10} y={g.y + 16} fontSize={11} fontWeight={600} fill="var(--text)" style={{ pointerEvents: "none" }}>
                 {clip(g.label, Math.max(8, Math.floor(g.w / 8)))}
               </text>
