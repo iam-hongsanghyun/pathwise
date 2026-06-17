@@ -1482,7 +1482,7 @@ table.grid thead th { font-weight: 600; }
 }
 .tree-row:hover { background: var(--bg-hover); }
 .tree-row.is-active:hover { background: var(--brand-fill); }
-.tree-label { overflow: hidden; text-overflow: ellipsis; }
+.tree-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .tree-level { color: var(--muted); font-size: 0.72rem; margin-left: 2px; }
 
 /* ── Field (i) info tooltip ─────────────────────────────────────────────── */

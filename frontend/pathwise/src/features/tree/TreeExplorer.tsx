@@ -155,13 +155,14 @@ export function TreeExplorer({
               e.stopPropagation();
               if (nd.hasChildren) onToggle(nd.id, !expanded);
             }}
-            style={{ width: 14, display: "inline-block", color: "var(--muted)", cursor: nd.hasChildren ? "pointer" : "default" }}
+            style={{ width: 14, flex: "none", display: "inline-block", textAlign: "center", color: "var(--muted)", cursor: nd.hasChildren ? "pointer" : "default" }}
           >
             {nd.hasChildren ? (expanded ? "▾" : "▸") : ""}
           </span>
           <span
             className="tree-glyph"
             style={{
+              flex: "none",
               display: "inline-block",
               width: 16,
               textAlign: "center",
