@@ -3,7 +3,7 @@ import { getConfig } from "./lib/api/run";
 import {
   clearCache,
   clearModel,
-  downloadResultXlsx,
+  downloadResultSqlite,
   ensureSession,
   exportModelUrl,
   type ExampleModel,
@@ -256,8 +256,9 @@ export function App() {
           </button>
           <button
             className="ghost"
-            onClick={() => result && downloadResultXlsx(result).catch((e) => setError(String(e)))}
+            onClick={() => result && downloadResultSqlite(result).catch((e) => setError(String(e)))}
             disabled={!result}
+            title="Download the full result as SQLite — one table per output, by year"
           >
             Export result
           </button>

@@ -39,6 +39,7 @@ def empty_result(
             "measures": [],
             "flows": [],
             "trade": [],
+            "consumption": [],
             "storage": [],
             "markets": [],
             "ets": [],
@@ -251,8 +252,36 @@ def extract_results(
     out["summary"]["periods"] = [
         {"period": y, "cost": cost} for y, cost in _period_costs(ctx).items()
     ]
+    out["outputs"]["consumption"] = _consumption_detail(ctx)
     out["summary"]["commodity"] = _commodity_summary(ctx)
     return out
+
+
+def _consumption_detail(ctx: Any) -> list[dict[str, Any]]:
+    """Per (process, commodity, year) input consumption — the facility-level
+    counterpart of :func:`_commodity_summary` (which aggregates over facilities).
+
+    Consumption is ``Σ_tech throughput · input_intensity`` plus any blend-group
+    mix flow, matching how the gross input is formed in the build.
+    """
+    prob = ctx.problem
+    cons: dict[tuple[str, str, int], float] = {}
+    for (p, k, t), v in _series(ctx.x).items():
+        tech = prob.technologies[k]
+        yr = int(t)
+        grouped = tech.grouped_inputs()
+        for r in set(tech.input_intensity) | set(tech.input_intensity_by_year):
+            if r in grouped:
+                continue  # blend members counted from the mix flow `fin` below
+            cons[(p, r, yr)] = cons.get((p, r, yr), 0.0) + tech.input_intensity_at(r, yr) * v
+    if ctx.fin is not None:
+        for (p, _k, r, t), v in _series(ctx.fin).items():
+            cons[(p, r, int(t))] = cons.get((p, r, int(t)), 0.0) + v
+    return [
+        {"process": p, "commodity": r, "period": t, "value": val}
+        for (p, r, t), val in sorted(cons.items())
+        if val > _EPS
+    ]
 
 
 def _period_costs(ctx: Any) -> dict[int, float]:

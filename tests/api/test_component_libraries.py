@@ -30,19 +30,18 @@ def _tmp_data_dir(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> Iterator[No
 def test_seeds_starters_on_first_access() -> None:
     libs = {lib["id"]: lib for lib in client.get("/api/component-libraries").json()}
     assert {"power", "steel"} <= set(libs), "starter libraries should seed a fresh install"
-    assert libs["steel"]["technologies"] >= 3  # BF_BOF, BF_BOF_CCS, H2_DRI_ESF, Scrap_EAF
-    assert libs["steel"]["maccs"] >= 1  # the blast-furnace MACC bundle
+    assert libs["steel"]["technologies"] >= 4  # BF_BOF, BF_BOF_FX, H2_DRI_ESF, EAF
 
 
 def test_get_one_library() -> None:
     steel = client.get("/api/component-library/steel").json()
     techs = {t["technology_id"] for t in steel["technologies"]}
-    assert {"BF_BOF", "H2_DRI_ESF", "Scrap_EAF"} <= techs
+    # The systempathway steel port: 4 technologies (BF-BOF baseline + the
+    # alternatives the optimiser may switch into). Fuels/feedstocks are commodities.
+    assert {"BF_BOF", "BF_BOF_FX", "H2_DRI_ESF", "EAF"} <= techs
     bf = next(t for t in steel["technologies"] if t["technology_id"] == "BF_BOF")
-    assert bf["maccs"], "BF_BOF links a MACC bundle"
-    assert {m["measure_id"] for m in steel["measures"]} >= {"bf_ccs"}
-    macc = next(g for g in steel["maccs"] if g["macc_id"] == "bf_abate")
-    assert "bf_ccs" in macc["measures"]
+    roles = {(r["role"], r["target"]) for r in bf["io"]}
+    assert ("input", "Coal_BB") in roles and ("output", "steel") in roles
 
 
 def test_put_create_get_delete() -> None:
@@ -98,8 +97,6 @@ def test_place_technology_creates_independent_machines() -> None:
     wb = client.get(f"/api/session/{sid}/model").json()["model"]
     machines = [m for m in wb["machines"] if str(m.get("baseline_technology")) == "BF_BOF"]
     assert {float(m["capacity"]) for m in machines} == {500.0, 700.0}
-    # the BF_BOF MACC measures came along, scoped per machine
-    assert any("bf_ccs" in str(m["measure_id"]) for m in wb.get("measures", []))
 
 
 def test_place_unknown_technology_is_422() -> None:

@@ -113,8 +113,8 @@ export function exportModelUrl(sessionId: string): string {
 }
 
 /** Download a run result as .xlsx (flattened server-side). */
-export async function downloadResultXlsx(result: unknown): Promise<void> {
-  const resp = await fetch("/api/export/result", {
+async function _downloadResult(result: unknown, path: string, filename: string): Promise<void> {
+  const resp = await fetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(result),
@@ -123,10 +123,18 @@ export async function downloadResultXlsx(result: unknown): Promise<void> {
   const url = URL.createObjectURL(await resp.blob());
   const a = document.createElement("a");
   a.href = url;
-  a.download = "pathwise_result.xlsx";
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
+
+/** Download the run result as a SQLite workbook (one table per output, by year). */
+export const downloadResultSqlite = (result: unknown): Promise<void> =>
+  _downloadResult(result, "/api/export/result.sqlite", "pathwise_result.sqlite");
+
+/** Download the run result as a flattened .xlsx. */
+export const downloadResultXlsx = (result: unknown): Promise<void> =>
+  _downloadResult(result, "/api/export/result", "pathwise_result.xlsx");
 
 // ── Examples + facility-template library (served and inserted by the backend) ─
 

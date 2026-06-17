@@ -123,3 +123,59 @@ def result_to_xlsx(result: dict[str, Any]) -> bytes:
         add("Portfolio", portfolio["assets"])
     sheets["Run"] = [{"status": result.get("status"), "objective": result.get("objective")}]
     return write_xlsx(sheets)
+
+
+def result_to_tables(result: dict[str, Any]) -> Workbook:
+    """Flatten a run (or cascade) result into ``{table: rows[]}`` — every output
+    by year. A cascade (per-stage) result gets a ``stage`` column so the tables
+    stay one-row-per-(stage, …)."""
+    tables: Workbook = {}
+
+    def collect(name: str, rows: Any, stage: str | None) -> None:
+        if not isinstance(rows, list):
+            return
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            tables.setdefault(name, []).append({"stage": stage, **row} if stage else dict(row))
+
+    stages = result.get("stages")
+    pairs = list(stages.items()) if isinstance(stages, dict) else [(None, result)]
+    for stage, r in pairs:
+        out, summ = r.get("outputs", {}), r.get("summary", {})
+        for key in (
+            "technology", "throughput", "transitions", "renewals",
+            "measures", "flows", "trade", "consumption", "demand_slack",
+        ):
+            collect(key, out.get(key), stage)
+        collect("emissions", summ.get("impacts"), stage)
+        collect("cost", summ.get("periods"), stage)
+        collect("commodity", summ.get("commodity"), stage)
+        # nested per-period blocks → flat rows
+        for st in out.get("storage") or []:
+            for bp in st.get("by_period", []):
+                collect("storage", [{"storage": st.get("storage"), "commodity": st.get("commodity"),
+                                     "capacity": st.get("capacity"), **bp}], stage)
+        for mk in out.get("markets") or []:
+            for bp in mk.get("by_period", []):
+                collect("markets", [{"market": mk.get("market"), "commodity": mk.get("commodity"),
+                                     "tag": mk.get("tag"), **bp}], stage)
+        for mk in out.get("ets") or []:
+            for bp in mk.get("by_period", []):
+                row = {"market": mk.get("market"), "impact": mk.get("impact"), **bp}
+                collect("ets", [row], stage)
+        macc = out.get("macc")
+        if isinstance(macc, dict):
+            for row in macc.get("by_year", []):
+                collect("macc", [{k: v for k, v in row.items() if k != "deployed"}], stage)
+    tables["run"] = [{
+        "status": result.get("status"),
+        "termination": result.get("termination"),
+        "objective": result.get("objective"),
+    }]
+    return tables
+
+
+def result_to_sqlite(result: dict[str, Any]) -> bytes:
+    """Flatten a run result into a SQLite workbook (one table per output, by year)."""
+    return write_sqlite(result_to_tables(result))

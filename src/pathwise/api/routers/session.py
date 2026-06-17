@@ -16,7 +16,13 @@ from pydantic import BaseModel, Field
 
 from pathwise.api.session_library_store import SessionLibraryStore
 from pathwise.api.session_store import SessionNotFound, SessionStore
-from pathwise.api.workbook_io import parse_sqlite, parse_xlsx, result_to_xlsx, write_xlsx
+from pathwise.api.workbook_io import (
+    parse_sqlite,
+    parse_xlsx,
+    result_to_sqlite,
+    result_to_xlsx,
+    write_xlsx,
+)
 from pathwise.config import get_settings
 from pathwise.core.valuechain import run_value_chain
 from pathwise.data.components import extract_library_from_workbook, load_component_library
@@ -226,6 +232,17 @@ def export_result(result: dict[str, Any]) -> Response:
         content=result_to_xlsx(result),
         media_type=XLSX_MIME,
         headers={"Content-Disposition": 'attachment; filename="pathwise_result.xlsx"'},
+    )
+
+
+@router.post("/export/result.sqlite")
+def export_result_sqlite(result: dict[str, Any]) -> Response:
+    """Flatten a run result into a downloadable SQLite (one table per output, by
+    year — technology, throughput, transitions, consumption, emissions, …)."""
+    return Response(
+        content=result_to_sqlite(result),
+        media_type="application/x-sqlite3",
+        headers={"Content-Disposition": 'attachment; filename="pathwise_result.sqlite"'},
     )
 
 
