@@ -49,7 +49,6 @@ interface Props {
   onSelect?: (id: string) => void;
   onAddConnection?: (from: string, to: string, commodity: string, lag: number) => void;
   onDeleteConnection?: (rowIndex: number) => void;
-  onAddSource?: () => void;
   commodities?: string[];
 }
 
@@ -61,7 +60,6 @@ export function HierarchyMap({
   onSelect,
   onAddConnection,
   onDeleteConnection,
-  onAddSource,
   commodities = [],
 }: Props) {
   const [mode, setMode] = useState<MapMode>("nested");
@@ -89,14 +87,12 @@ export function HierarchyMap({
   const SRC_GAP = 18;
   const SRC_X0 = 24;
   const SRC_Y = 16;
-  const showBand = sources.length > 0 || (editable && !!onAddSource);
-  const bandH = showBand ? SRC_H + 50 : 0;
+  const bandH = sources.length > 0 ? SRC_H + 50 : 0;
   const srcPos = useMemo(
     () => new Map(sources.map((sx, i) => [sx.id, { x: SRC_X0 + i * (SRC_W + SRC_GAP), y: SRC_Y }])),
     [sources],
   );
-  const addBtnX = SRC_X0 + sources.length * (SRC_W + SRC_GAP);
-  const bandW = showBand ? addBtnX + (editable && onAddSource ? SRC_W : 0) : 0;
+  const bandW = sources.length > 0 ? SRC_X0 + sources.length * (SRC_W + SRC_GAP) : 0;
 
   const placed = useMemo(
     () => (bandH ? laid.nodes.map((n) => ({ ...n, y: n.y + bandH })) : laid.nodes),
@@ -299,12 +295,6 @@ export function HierarchyMap({
             </g>
           );
         })}
-        {editable && onAddSource && (
-          <g transform={`translate(${addBtnX},${SRC_Y})`} style={{ cursor: "pointer" }} onClick={onAddSource}>
-            <rect width={SRC_W} height={SRC_H} rx={3} fill="var(--surface)" stroke="var(--warn)" strokeWidth={1} strokeDasharray="4 3" />
-            <text x={SRC_W / 2} y={SRC_H / 2 + 4} fontSize={12} fill="var(--warn-text)" textAnchor="middle">＋ add source stream</text>
-          </g>
-        )}
         {/* arrows: source → each visible consumer */}
         {sources.flatMap((src) => {
           const sp = srcPos.get(src.id)!;

@@ -227,18 +227,6 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   function deleteConnection(rowIndex: number) {
     setWorkbook(setSheet(workbook, "connections", (workbook.connections ?? []).filter((_, i) => i !== rowIndex)));
   }
-  function addSourceStream() {
-    const taken = new Set((workbook.commodities ?? []).map((r) => s(r.commodity_id)));
-    let id = "new_source";
-    for (let i = 2; taken.has(id); i++) id = `new_source_${i}`;
-    setWorkbook(
-      setSheet(workbook, "commodities", [
-        ...(workbook.commodities ?? []),
-        { commodity_id: id, kind: "material", purchasable: true, price: 0 },
-      ]),
-    );
-    setSelId(`stream:${id}`); // open it in the right rail to set price / cap
-  }
 
   // ── Purchasing (markets scoped to a node) ───────────────────────────────────
   function addMarket(nodeId: string, commodity: string, kind: "buy" | "sell") {
@@ -499,7 +487,6 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 onSelect={setSelId}
                 onAddConnection={addConnection}
                 onDeleteConnection={deleteConnection}
-                onAddSource={addSourceStream}
                 commodities={commodities}
               />
             </div>
@@ -516,12 +503,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
               const src = sourceStreams(workbook).find((x) => x.id === cid);
               const labels = (src?.consumers ?? []).map((id) => nodeById.get(id)?.label ?? id);
               return (
-                <SourceStreamInspector
-                  wb={workbook}
-                  commodityId={cid}
-                  consumerLabels={labels}
-                  onChange={setWorkbook}
-                />
+                <SourceStreamInspector wb={workbook} commodityId={cid} consumerLabels={labels} />
               );
             })()
           ) : !selNode ? (

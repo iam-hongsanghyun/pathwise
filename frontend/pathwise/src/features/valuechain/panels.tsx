@@ -436,42 +436,24 @@ export function buildOverlay(r: RunResult | CascadeResult): {
   return { years: [...years].sort((a, b) => a - b), at };
 }
 
-/** Right-rail editor for a source stream (a raw material bought externally):
- *  purchase price, annual purchase cap, availability window. Writes the
- *  `commodities` ("Streams") sheet row. */
+/** Right-rail READ-ONLY summary of a source stream (a raw material bought
+ *  externally). Streams are components — defined and priced in the Component
+ *  view (the "Streams" sheet); the value-chain map only shows their use here. */
 export function SourceStreamInspector({
   wb,
   commodityId,
   consumerLabels,
-  onChange,
 }: {
   wb: Workbook;
   commodityId: string;
   consumerLabels: string[];
-  onChange: (wb: Workbook) => void;
 }) {
-  const rows = wb.commodities ?? [];
-  const idx = rows.findIndex((r) => String(r.commodity_id) === commodityId);
-  const row: Record<string, Cell> = idx >= 0 ? rows[idx] : { commodity_id: commodityId };
-  const set = (patch: Record<string, Cell>) => {
-    const next =
-      idx >= 0 ? rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)) : [...rows, { ...row, ...patch }];
-    onChange({ ...wb, commodities: next });
+  const row = (wb.commodities ?? []).find((r) => String(r.commodity_id) === commodityId) ?? {};
+  const show = (k: string, blank: string) => {
+    const v = (row as Record<string, Cell>)[k];
+    return v == null || v === "" ? blank : String(v);
   };
-  const numVal = (k: string) => {
-    const v = row[k];
-    return v == null || v === "" ? "" : String(v);
-  };
-  const onNum = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    set({ [k]: e.target.value === "" ? null : Number(e.target.value) });
-  const fld: React.CSSProperties = {
-    width: "100%",
-    padding: "4px 6px",
-    border: "1px solid var(--border-strong)",
-    borderRadius: 4,
-    font: "inherit",
-  };
-  const lbl: React.CSSProperties = { display: "block", marginBottom: 10, fontSize: "0.8rem" };
+  const stat: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 6, fontSize: "0.8rem" };
   return (
     <div style={{ padding: 16 }}>
       <div style={{ fontSize: "0.7rem", color: "var(--warn-text)", letterSpacing: "0.04em" }}>SOURCE STREAM</div>
@@ -479,23 +461,14 @@ export function SourceStreamInspector({
       <p className="muted" style={{ fontSize: "0.76rem", marginTop: 0 }}>
         A raw material consumed by the chain but produced by none — bought externally.
       </p>
-      <label style={lbl}>
-        Purchase price (/unit)
-        <input style={fld} type="number" value={numVal("price")} onChange={onNum("price")} />
-      </label>
-      <label style={lbl}>
-        Max purchase (/yr) <span className="muted">— blank = unlimited</span>
-        <input style={fld} type="number" value={numVal("max_purchase")} onChange={onNum("max_purchase")} placeholder="∞" />
-      </label>
-      <label style={lbl}>
-        Available from (yr)
-        <input style={fld} type="number" value={numVal("available_from")} onChange={onNum("available_from")} placeholder="any" />
-      </label>
-      <label style={lbl}>
-        Available until (yr)
-        <input style={fld} type="number" value={numVal("available_to")} onChange={onNum("available_to")} placeholder="any" />
-      </label>
-      <div style={{ marginTop: 12, fontSize: "0.78rem" }}>
+      <div style={stat}><span className="muted">Purchase price (/unit)</span><b>{show("price", "—")}</b></div>
+      <div style={stat}><span className="muted">Max purchase (/yr)</span><b>{show("max_purchase", "∞")}</b></div>
+      <div style={stat}><span className="muted">Available from</span><b>{show("available_from", "any")}</b></div>
+      <div style={stat}><span className="muted">Available until</span><b>{show("available_to", "any")}</b></div>
+      <p className="muted" style={{ fontSize: "0.74rem", marginTop: 12 }}>
+        Edit price, cap and availability in the <b>Component</b> view (its Streams sheet).
+      </p>
+      <div style={{ marginTop: 8, fontSize: "0.78rem" }}>
         <b>Feeds {consumerLabels.length} facilit{consumerLabels.length === 1 ? "y" : "ies"}</b>
         {consumerLabels.length > 0 && (
           <div className="muted" style={{ marginTop: 4 }}>{consumerLabels.slice(0, 12).join(", ")}</div>
