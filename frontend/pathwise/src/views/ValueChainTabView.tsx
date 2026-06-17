@@ -343,6 +343,13 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
       };
       const r = await runToCompletion(sessionId, scenario, { domain: "process", backend }, setRunning);
       setResult(r);
+      // An invalid run carries no usable outputs; surface its validation errors
+      // in the banner (the only place the user sees them — the analytics views
+      // render nothing for an invalid result).
+      if (r.status === "invalid" && r.validation?.errors?.length) {
+        setError(r.validation.errors.join(" "));
+        return;
+      }
       if (!isCascade(r)) onJointResult(r); // also surface joint runs in Analytics
     } catch (e) {
       setError(String(e));

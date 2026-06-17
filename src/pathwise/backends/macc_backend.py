@@ -167,20 +167,37 @@ def _baseline_emission(problem: Problem, process: Any, impact: str, year: int) -
 
 
 def _preflight(problem: Problem, impact: str) -> list[str]:
-    """Errors that block a greedy run (no measures / no cap for the impact)."""
-    errors: list[str] = []
+    """Errors that block a greedy run (no measures / no cap for the impact).
+
+    MACC is an abatement-only *mode*, not a cost optimiser: with no measures to
+    rank and no target to chase it has nothing to compute. When that's the case
+    the message points at the ``linopy`` backend — plain least-cost optimisation,
+    where an emission target is OPTIONAL — so a user who just wants cost
+    minimisation is steered to the right engine rather than told to invent a
+    ``CO2`` target they never wanted.
+    """
     abating = [m for m in problem.measures if m.measure_type in _ABATING and m.target == impact]
+    capped = any(i == impact for (_c, i, _y) in problem.impact_caps)
+    if abating and capped:
+        return []
+
+    missing: list[str] = []
     if not abating:
-        errors.append(
-            f"The MACC backend needs at least one abatement measure targeting '{impact}'. "
-            "Define measures (with cost-curve blocks) and link them to facilities."
+        missing.append(
+            f"at least one abatement measure targeting '{impact}' "
+            "(with cost-curve blocks, linked to facilities)"
         )
-    if not any(i == impact for (_c, i, _y) in problem.impact_caps):
-        errors.append(
-            f"The MACC backend needs an emission cap on '{impact}' to chase "
-            "(an impact_caps row). None was found."
-        )
-    return errors
+    if not capped:
+        missing.append(f"a '{impact}' emission cap to chase (an impact_caps row)")
+    return [
+        f"The MACC backend is an abatement-only mode — it ranks measures by "
+        f"$/{impact} and deploys them cheapest-first against a '{impact}' target, "
+        "so it needs " + " and ".join(missing) + ". "
+        f"If you just want least-cost optimisation (where the '{impact}' target is "
+        "OPTIONAL), switch the backend to 'linopy + HiGHS' in "
+        "Settings → Optimisation method — that minimises total discounted cost and "
+        "is the default."
+    ]
 
 
 # ── The greedy deployment ─────────────────────────────────────────────────────
