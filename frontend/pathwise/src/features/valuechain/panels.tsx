@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { SearchableSelect } from "../controls/SearchableSelect";
 import { SearchSelect } from "../controls/SearchSelect";
 import type { AvailableTechnology } from "../../lib/api/components";
-import type { RunResult, Workbook } from "../../types";
+import type { Cell, RunResult, Workbook } from "../../types";
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
 const inp: React.CSSProperties = {
@@ -386,6 +386,8 @@ export interface YearOverlay {
   throughput: (id: string) => number | undefined;
   /** Flow along a ``from → to`` link for a commodity that year. */
   flow: (from: string, to: string, commodity: string) => number | undefined;
+  /** External purchase of a commodity by a facility that year (a source stream). */
+  buy: (id: string, commodity: string) => number | undefined;
 }
 
 function _resultsOf(r: RunResult | CascadeResult): RunResult[] {
@@ -404,6 +406,7 @@ export function buildOverlay(r: RunResult | CascadeResult): {
   const tput = new Map<string, Map<number, number>>();
   const trans = new Map<string, Map<number, string>>();
   const flow = new Map<string, Map<number, number>>();
+  const buy = new Map<string, Map<number, number>>();
   const years = new Set<number>();
   const set = (m: Map<string, Map<number, string>>, k: string, y: number, v: string) => {
     (m.get(k) ?? m.set(k, new Map()).get(k)!).set(y, v);
@@ -421,14 +424,85 @@ export function buildOverlay(r: RunResult | CascadeResult): {
     for (const x of out.throughput ?? []) add(tput, x.process, x.period, x.value);
     for (const tr of out.transitions ?? []) set(trans, tr.process, tr.period, tr.to_technology);
     for (const f of out.flows ?? []) add(flow, `${f.from}|${f.to}|${f.commodity}`, f.period, f.value);
+    for (const tr of out.trade ?? []) if (tr.kind === "buy") add(buy, `${tr.process}|${tr.commodity}`, tr.period, tr.value);
   }
   const at = (year: number): YearOverlay => ({
     tech: (id) => tech.get(id)?.get(year),
     transitionedTo: (id) => trans.get(id)?.get(year),
     throughput: (id) => tput.get(id)?.get(year),
     flow: (from, to, commodity) => flow.get(`${from}|${to}|${commodity}`)?.get(year),
+    buy: (id, commodity) => buy.get(`${id}|${commodity}`)?.get(year),
   });
   return { years: [...years].sort((a, b) => a - b), at };
+}
+
+/** Right-rail editor for a source stream (a raw material bought externally):
+ *  purchase price, annual purchase cap, availability window. Writes the
+ *  `commodities` ("Streams") sheet row. */
+export function SourceStreamInspector({
+  wb,
+  commodityId,
+  consumerLabels,
+  onChange,
+}: {
+  wb: Workbook;
+  commodityId: string;
+  consumerLabels: string[];
+  onChange: (wb: Workbook) => void;
+}) {
+  const rows = wb.commodities ?? [];
+  const idx = rows.findIndex((r) => String(r.commodity_id) === commodityId);
+  const row: Record<string, Cell> = idx >= 0 ? rows[idx] : { commodity_id: commodityId };
+  const set = (patch: Record<string, Cell>) => {
+    const next =
+      idx >= 0 ? rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)) : [...rows, { ...row, ...patch }];
+    onChange({ ...wb, commodities: next });
+  };
+  const numVal = (k: string) => {
+    const v = row[k];
+    return v == null || v === "" ? "" : String(v);
+  };
+  const onNum = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    set({ [k]: e.target.value === "" ? null : Number(e.target.value) });
+  const fld: React.CSSProperties = {
+    width: "100%",
+    padding: "4px 6px",
+    border: "1px solid var(--border-strong)",
+    borderRadius: 4,
+    font: "inherit",
+  };
+  const lbl: React.CSSProperties = { display: "block", marginBottom: 10, fontSize: "0.8rem" };
+  return (
+    <div style={{ padding: 16 }}>
+      <div style={{ fontSize: "0.7rem", color: "var(--warn-text)", letterSpacing: "0.04em" }}>SOURCE STREAM</div>
+      <h2 style={{ margin: "2px 0 4px" }}>{commodityId}</h2>
+      <p className="muted" style={{ fontSize: "0.76rem", marginTop: 0 }}>
+        A raw material consumed by the chain but produced by none — bought externally.
+      </p>
+      <label style={lbl}>
+        Purchase price (/unit)
+        <input style={fld} type="number" value={numVal("price")} onChange={onNum("price")} />
+      </label>
+      <label style={lbl}>
+        Max purchase (/yr) <span className="muted">— blank = unlimited</span>
+        <input style={fld} type="number" value={numVal("max_purchase")} onChange={onNum("max_purchase")} placeholder="∞" />
+      </label>
+      <label style={lbl}>
+        Available from (yr)
+        <input style={fld} type="number" value={numVal("available_from")} onChange={onNum("available_from")} placeholder="any" />
+      </label>
+      <label style={lbl}>
+        Available until (yr)
+        <input style={fld} type="number" value={numVal("available_to")} onChange={onNum("available_to")} placeholder="any" />
+      </label>
+      <div style={{ marginTop: 12, fontSize: "0.78rem" }}>
+        <b>Feeds {consumerLabels.length} facilit{consumerLabels.length === 1 ? "y" : "ies"}</b>
+        {consumerLabels.length > 0 && (
+          <div className="muted" style={{ marginTop: 4 }}>{consumerLabels.slice(0, 12).join(", ")}</div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /** A slider that scrubs through the result years (the "chain over time" control). */

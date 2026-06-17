@@ -308,6 +308,77 @@ export interface EditEdge {
   lag: number;
 }
 
+/** A source stream: a commodity consumed by a facility but produced by none
+ *  (a raw material / external input — iron ore, coal). `consumers` are the
+ *  machine-node ids whose baseline technology consumes it. */
+export interface SourceStream {
+  id: string;
+  consumers: string[];
+}
+
+/** Detect source streams: commodities that are a technology INPUT somewhere (or
+ *  flagged purchasable) but never a technology OUTPUT — i.e. they must be
+ *  supplied from outside the modelled chain. */
+export function sourceStreams(wb: Workbook): SourceStream[] {
+  const io = wb.io ?? [];
+  const inputs = new Set<string>();
+  const outputs = new Set<string>();
+  const techInputs = new Map<string, string[]>();
+  for (const r of io) {
+    const target = s(r.target);
+    if (!target) continue;
+    if (s(r.role, "input") === "output") {
+      outputs.add(target);
+    } else {
+      inputs.add(target);
+      const tech = s(r.technology_id);
+      let arr = techInputs.get(tech);
+      if (!arr) techInputs.set(tech, (arr = []));
+      arr.push(target);
+    }
+  }
+  const isTrue = (v: unknown) => v === true || v === "true" || v === "TRUE" || v === 1;
+  const candidates = new Set<string>(inputs);
+  for (const c of wb.commodities ?? []) {
+    const id = s(c.commodity_id);
+    if (id && isTrue(c.purchasable)) candidates.add(id);
+  }
+  // Emissions (impacts) are not raw-material streams even if they appear as a
+  // recipe input for accounting — exclude them from the sources band.
+  const impacts = new Set((wb.impacts ?? []).map((r) => s(r.impact_id)).filter(Boolean));
+  const sources = [...candidates].filter((c) => !outputs.has(c) && !impacts.has(c)).sort();
+
+  // A machine can consume a stream via ANY feasible technology — its baseline or
+  // a transition target (e.g. scrap is consumed only after switching to EAF).
+  const transTargets = new Map<string, string[]>();
+  for (const tr of wb.transitions ?? []) {
+    const from = s(tr.from_technology);
+    const to = s(tr.to_technology);
+    if (!from || !to) continue;
+    let arr = transTargets.get(from);
+    if (!arr) transTargets.set(from, (arr = []));
+    arr.push(to);
+  }
+  // machine/process id → baseline technology (machines for hierarchy models).
+  const baseline = new Map<string, string>();
+  for (const m of wb.machines ?? []) {
+    const id = s(m.machine_id);
+    if (id) baseline.set(id, s(m.baseline_technology));
+  }
+  for (const p of wb.processes ?? []) {
+    const id = s(p.process_id);
+    if (id && !baseline.has(id)) baseline.set(id, s(p.baseline_technology));
+  }
+  return sources.map((c) => {
+    const consumers: string[] = [];
+    for (const [id, tech] of baseline) {
+      const techs = [tech, ...(transTargets.get(tech) ?? [])];
+      if (techs.some((tk) => (techInputs.get(tk) ?? []).includes(c))) consumers.push(id);
+    }
+    return { id: c, consumers };
+  });
+}
+
 export function editEdges(wb: Workbook, laid: LaidNode[]): EditEdge[] {
   const nodes = parseNodes(wb);
   const visible = new Set(laid.map((n) => n.id));

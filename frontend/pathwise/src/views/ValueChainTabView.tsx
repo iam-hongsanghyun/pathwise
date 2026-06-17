@@ -10,7 +10,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { HierarchyMap } from "../features/topology/HierarchyMap";
-import { Alternatives, CascadeSummary, FlowContext, MachineInspector, PortsPanel, type CascadeResult } from "../features/valuechain/panels";
+import { sourceStreams } from "../lib/hierarchyLayout";
+import { Alternatives, CascadeSummary, FlowContext, MachineInspector, PortsPanel, SourceStreamInspector, type CascadeResult } from "../features/valuechain/panels";
 import { useDialogs } from "../features/controls/Dialog";
 import { MultiSelect } from "../features/controls/MultiSelect";
 import { SearchableSelect } from "../features/controls/SearchableSelect";
@@ -222,6 +223,18 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   }
   function deleteConnection(rowIndex: number) {
     setWorkbook(setSheet(workbook, "connections", (workbook.connections ?? []).filter((_, i) => i !== rowIndex)));
+  }
+  function addSourceStream() {
+    const taken = new Set((workbook.commodities ?? []).map((r) => s(r.commodity_id)));
+    let id = "new_source";
+    for (let i = 2; taken.has(id); i++) id = `new_source_${i}`;
+    setWorkbook(
+      setSheet(workbook, "commodities", [
+        ...(workbook.commodities ?? []),
+        { commodity_id: id, kind: "material", purchasable: true, price: 0 },
+      ]),
+    );
+    setSelId(`stream:${id}`); // open it in the right rail to set price / cap
   }
 
   // ── Purchasing (markets scoped to a node) ───────────────────────────────────
@@ -482,6 +495,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 onSelect={setSelId}
                 onAddConnection={addConnection}
                 onDeleteConnection={deleteConnection}
+                onAddSource={addSourceStream}
                 commodities={commodities}
               />
             </div>
@@ -491,7 +505,21 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
 
         {/* RIGHT: detail of the selected item */}
         <aside style={{ width: 300, overflow: "auto", borderLeft: "1px solid var(--border)", flexShrink: 0 }}>
-          {!selNode ? (
+          {selId?.startsWith("stream:") ? (
+            (() => {
+              const cid = selId.slice("stream:".length);
+              const src = sourceStreams(workbook).find((x) => x.id === cid);
+              const labels = (src?.consumers ?? []).map((id) => nodeById.get(id)?.label ?? id);
+              return (
+                <SourceStreamInspector
+                  wb={workbook}
+                  commodityId={cid}
+                  consumerLabels={labels}
+                  onChange={setWorkbook}
+                />
+              );
+            })()
+          ) : !selNode ? (
             <div className="muted" style={{ padding: 16, fontSize: "0.82rem" }}>Select an item on the left to see its details. Right-click for actions.</div>
           ) : selNode.kind === "machine" ? (
             (() => {

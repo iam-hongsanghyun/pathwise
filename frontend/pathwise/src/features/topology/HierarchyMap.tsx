@@ -15,6 +15,7 @@ import { parseNodes, rootIds } from "../../lib/groupGraph";
 import {
   editEdges,
   layoutFor,
+  sourceStreams,
   type LaidNode,
   type MapMode,
 } from "../../lib/hierarchyLayout";
@@ -48,6 +49,7 @@ interface Props {
   onSelect?: (id: string) => void;
   onAddConnection?: (from: string, to: string, commodity: string, lag: number) => void;
   onDeleteConnection?: (rowIndex: number) => void;
+  onAddSource?: () => void;
   commodities?: string[];
 }
 
@@ -59,6 +61,7 @@ export function HierarchyMap({
   onSelect,
   onAddConnection,
   onDeleteConnection,
+  onAddSource,
   commodities = [],
 }: Props) {
   const [mode, setMode] = useState<MapMode>("nested");
@@ -77,7 +80,45 @@ export function HierarchyMap({
   useEffect(() => setExpanded(new Set(roots)), [roots]);
 
   const laid = useMemo(() => layoutFor(workbook, mode, expanded), [workbook, mode, expanded]);
-  const boxById = useMemo(() => new Map(laid.nodes.map((n) => [n.id, n])), [laid]);
+
+  // Source streams (consumed but produced by none — raw materials) sit in a band
+  // across the top; the hierarchy is shifted down by `bandH` to make room.
+  const sources = useMemo(() => sourceStreams(workbook), [workbook]);
+  const SRC_W = 158;
+  const SRC_H = 46;
+  const SRC_GAP = 18;
+  const SRC_X0 = 24;
+  const SRC_Y = 16;
+  const showBand = sources.length > 0 || (editable && !!onAddSource);
+  const bandH = showBand ? SRC_H + 50 : 0;
+  const srcPos = useMemo(
+    () => new Map(sources.map((sx, i) => [sx.id, { x: SRC_X0 + i * (SRC_W + SRC_GAP), y: SRC_Y }])),
+    [sources],
+  );
+  const addBtnX = SRC_X0 + sources.length * (SRC_W + SRC_GAP);
+  const bandW = showBand ? addBtnX + (editable && onAddSource ? SRC_W : 0) : 0;
+
+  const placed = useMemo(
+    () => (bandH ? laid.nodes.map((n) => ({ ...n, y: n.y + bandH })) : laid.nodes),
+    [laid, bandH],
+  );
+  const boxById = useMemo(() => new Map(placed.map((n) => [n.id, n])), [placed]);
+  // Nearest VISIBLE ancestor — routes a source→consumer arrow to a collapsed
+  // group when the consuming machine is hidden (expandable mode).
+  const parentOf = useMemo(
+    () => new Map(parseNodes(workbook).map((n) => [n.id, n.parentId])),
+    [workbook],
+  );
+  const resolveVisible = (id: string): string | null => {
+    let cur: string | null = id;
+    const seen = new Set<string>();
+    while (cur && !seen.has(cur)) {
+      if (boxById.has(cur)) return cur;
+      seen.add(cur);
+      cur = parentOf.get(cur) ?? null;
+    }
+    return null;
+  };
   const edges = useMemo(
     () =>
       editable
@@ -88,10 +129,12 @@ export function HierarchyMap({
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const { vb, setVb, onWheel, onPanStart, onPanMove, onPanEnd, toWorld } = useViewBox();
-  const fitKey = `${mode}|${laid.width}x${laid.height}|${laid.nodes.length}`;
+  const fitKey = `${mode}|${laid.width}x${laid.height}|${laid.nodes.length}|${sources.length}`;
   useEffect(() => {
     const pad = 50;
-    setVb({ x: -pad, y: -pad, w: laid.width + 2 * pad, h: laid.height + 2 * pad });
+    const w = Math.max(laid.width, bandW);
+    const h = bandH + laid.height;
+    setVb({ x: -pad, y: -pad, w: w + 2 * pad, h: h + 2 * pad });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitKey]);
 
@@ -133,10 +176,10 @@ export function HierarchyMap({
     onSelect?.(n.id);
   }
 
-  const containers = laid.nodes
+  const containers = placed
     .filter((n) => n.kind === "group" && !n.collapsed && mode !== "swimlane")
     .sort((a, b) => a.depth - b.depth);
-  const leaves = mode === "swimlane" ? laid.nodes : laid.nodes.filter((n) => n.kind === "machine" || n.collapsed);
+  const leaves = mode === "swimlane" ? placed : placed.filter((n) => n.kind === "machine" || n.collapsed);
 
   // Port circles (left = input, right = output) for editing every node box.
   const ports = (n: LaidNode) =>
@@ -213,8 +256,59 @@ export function HierarchyMap({
           </marker>
         </defs>
 
+        {/* Top sources band: raw-material streams feeding the chain. */}
+        {sources.map((src) => {
+          const sp = srcPos.get(src.id)!;
+          const consumed = overlay
+            ? src.consumers.reduce((acc, cid) => acc + (overlay.buy(cid, src.id) ?? 0), 0)
+            : 0;
+          const isSel = selectedId === `stream:${src.id}`;
+          return (
+            <g
+              key={`src-${src.id}`}
+              className="topo-node"
+              transform={`translate(${sp.x},${sp.y})`}
+              style={{ cursor: editable ? "pointer" : "default" }}
+              onClick={() => editable && onSelect?.(`stream:${src.id}`)}
+            >
+              <rect width={SRC_W} height={SRC_H} rx={3} fill="#fffbeb" stroke={isSel ? "var(--brand)" : "var(--warn)"} strokeWidth={isSel ? 2 : 1} />
+              <text x={8} y={14} fontSize={9} fill="var(--warn-text)">source ▾</text>
+              {overlay && consumed > 1e-6 && <text x={SRC_W - 8} y={14} fontSize={9} textAnchor="end" fill="var(--text)">{fmtVal(consumed)}</text>}
+              <text x={8} y={31} fontSize={12} fontWeight={600} fill="var(--text)">{clip(src.id, 20)}</text>
+              <text x={8} y={43} fontSize={9} fill="var(--muted)">{src.consumers.length} consumer{src.consumers.length === 1 ? "" : "s"}</text>
+            </g>
+          );
+        })}
+        {editable && onAddSource && (
+          <g transform={`translate(${addBtnX},${SRC_Y})`} style={{ cursor: "pointer" }} onClick={onAddSource}>
+            <rect width={SRC_W} height={SRC_H} rx={3} fill="var(--surface)" stroke="var(--warn)" strokeWidth={1} strokeDasharray="4 3" />
+            <text x={SRC_W / 2} y={SRC_H / 2 + 4} fontSize={12} fill="var(--warn-text)" textAnchor="middle">＋ add source stream</text>
+          </g>
+        )}
+        {/* arrows: source → each visible consumer */}
+        {sources.flatMap((src) => {
+          const sp = srcPos.get(src.id)!;
+          const seen = new Set<string>();
+          return src.consumers.flatMap((cid) => {
+            const vis = resolveVisible(cid);
+            if (!vis || seen.has(vis)) return [];
+            seen.add(vis);
+            const b = boxById.get(vis);
+            if (!b) return [];
+            const x1 = sp.x + SRC_W / 2;
+            const y1 = sp.y + SRC_H;
+            const x2 = b.x + b.w / 2;
+            const y2 = b.y;
+            const qty = overlay?.buy(cid, src.id);
+            const active = qty != null && qty > 1e-6;
+            return [
+              <path key={`sa-${src.id}-${vis}`} d={`M${x1},${y1} C${x1},${(y1 + y2) / 2} ${x2},${(y1 + y2) / 2} ${x2},${y2}`} fill="none" stroke="var(--warn)" strokeWidth={active ? 1.8 : 1} strokeDasharray="4 3" markerEnd="url(#hm-arrow)" opacity={overlay && !active ? 0.25 : 0.6} />,
+            ];
+          });
+        })}
+
         {mode === "swimlane" &&
-          laid.nodes.map((n) => {
+          placed.map((n) => {
             if (!n.parentId) return null;
             const p = boxById.get(n.parentId);
             if (!p) return null;
