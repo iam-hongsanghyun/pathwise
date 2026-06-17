@@ -53,6 +53,7 @@ const PAD = 16; // inner padding of a container
 const HEADER = 24; // container title strip
 
 const s = (v: unknown, d = ""): string => (v == null ? d : String(v));
+const num = (v: unknown, d = 0): number => (v == null || v === "" ? d : Number(v));
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -293,4 +294,30 @@ export function layoutFor(wb: Workbook, mode: MapMode, expanded?: Set<string>): 
   if (mode === "swimlane") return layoutSwimlane(wb);
   if (mode === "expandable") return layoutNested(wb, { expanded });
   return layoutNested(wb);
+}
+
+/** One editable edge per `connections` row, resolved to the deepest VISIBLE
+ *  endpoints (so a collapsed group still receives its descendants' links). Keeps
+ *  `rowIndex`/`lag` so the editor can address and delete the exact row — unlike
+ *  the read-only `Laid.edges`, which dedupes for display. */
+export interface EditEdge {
+  rowIndex: number;
+  from: string;
+  to: string;
+  commodity: string;
+  lag: number;
+}
+
+export function editEdges(wb: Workbook, laid: LaidNode[]): EditEdge[] {
+  const nodes = parseNodes(wb);
+  const visible = new Set(laid.map((n) => n.id));
+  const toVisible = visibleAncestor(nodes, visible);
+  const out: EditEdge[] = [];
+  (wb.connections ?? []).forEach((row, rowIndex) => {
+    const from = toVisible(s(row.from_node));
+    const to = toVisible(s(row.to_node));
+    if (!from || !to || from === to) return;
+    out.push({ rowIndex, from, to, commodity: s(row.commodity_id, "—"), lag: num(row.lag_years) });
+  });
+  return out;
 }

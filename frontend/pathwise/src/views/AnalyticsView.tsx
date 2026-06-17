@@ -4,7 +4,7 @@ import { MaccDesigner } from "../features/macc/MaccDesigner";
 import { MaccResult } from "../features/charts/MaccResult";
 import { PortfolioResult } from "../features/charts/PortfolioResult";
 import { TopologyCanvas } from "../features/topology/TopologyCanvas";
-import { HierarchyResultMap } from "../features/topology/HierarchyResultMap";
+import { HierarchyMap } from "../features/topology/HierarchyMap";
 import { RailList, type RailItem } from "../layout/RailList";
 import { Resizer } from "../layout/Resizer";
 import type { RunResult, Workbook } from "../types";
@@ -95,7 +95,7 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
           (workbook.nodes?.length ?? 0) > 0 ? (
             // Hierarchical model → the multi-level map (its own top toolbar:
             // layout toggle + year slider; shows every level in one chart).
-            <HierarchyResultMap workbook={workbook} result={result} />
+            <HierarchyMap workbook={workbook} result={result} />
           ) : (
             // Flat model → the plain process map, year slider on top.
             <>

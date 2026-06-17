@@ -9,8 +9,8 @@
 //           machine's required-stream satisfaction.
 
 import { useEffect, useMemo, useState } from "react";
-import { RelationshipCanvas } from "../features/topology/RelationshipCanvas";
-import { Alternatives, buildOverlay, CascadeSummary, FlowContext, MachineInspector, PortsPanel, ResultYearBar, type CascadeResult } from "../features/valuechain/panels";
+import { HierarchyMap } from "../features/topology/HierarchyMap";
+import { Alternatives, CascadeSummary, FlowContext, MachineInspector, PortsPanel, type CascadeResult } from "../features/valuechain/panels";
 import { useDialogs } from "../features/controls/Dialog";
 import { MultiSelect } from "../features/controls/MultiSelect";
 import { SearchableSelect } from "../features/controls/SearchableSelect";
@@ -84,7 +84,6 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   const [baseYear, setBaseYear] = useState(2025);
   const [endYear, setEndYear] = useState(2050);
   const [result, setResult] = useState<RunResult | CascadeResult | null>(null);
-  const [year, setYear] = useState<number | null>(null);
   const [libs, setLibs] = useState<LibrarySummary[]>([]);
   const [availableTechs, setAvailableTechs] = useState<AvailableTechnology[]>([]);
   const [picker, setPicker] = useState<{ parentId: string } | null>(null);
@@ -108,23 +107,10 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const selNode = selId ? nodeById.get(selId) : null;
 
-  // ── Result overlay (drawn on the same process map, per year) ─────────────────
+  // ── Result ───────────────────────────────────────────────────────────────────
+  // The map (HierarchyMap) builds its own per-year overlay + year slider from
+  // `result`; here we only need the cascade result for the summary below.
   const cascade = result && isCascade(result) ? result : null;
-  const overlayIdx = useMemo(() => (result ? buildOverlay(result) : null), [result]);
-  useEffect(() => {
-    if (overlayIdx && overlayIdx.years.length) {
-      setYear((y) => (y != null && overlayIdx.years.includes(y) ? y : overlayIdx.years[0]));
-    } else {
-      setYear(null);
-    }
-  }, [overlayIdx]);
-  const yearOverlay = useMemo(
-    () => (overlayIdx && year != null ? overlayIdx.at(year) : null),
-    [overlayIdx, year],
-  );
-  // The canvas always shows a group's children: the selected group, or a selected
-  // machine's parent (so the machine is shown in context).
-  const canvasGroupId = selNode?.kind === "machine" ? selNode.parentId : selId;
 
   const setSheet = (wb: Workbook, sheet: string, rows: Row[]): Workbook => ({ ...wb, [sheet]: rows });
 
@@ -267,22 +253,6 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   function delDemandRow(idx: number) {
     setWorkbook(setSheet(workbook, "demand", (workbook.demand ?? []).filter((_, j) => j !== idx)));
   }
-
-  // ── Market lanes for the canvas ─────────────────────────────────────────────
-  const childOfGroup = (companyId: string): string | null => {
-    let cur: string | null = companyId;
-    const walked = new Set<string>(); // cycle guard — never loop on malformed data
-    while (cur !== null && !walked.has(cur)) {
-      walked.add(cur);
-      const parent: string | null = nodeById.get(cur)?.parentId ?? null;
-      if (parent === canvasGroupId) return cur;
-      if (parent === null) return null;
-      cur = parent;
-    }
-    return null;
-  };
-  const externalIn = (workbook.markets ?? []).filter((r) => s(r.price) !== "").map((r) => ({ childId: childOfGroup(s(r.company)), commodity: s(r.target) })).filter((x): x is { childId: string; commodity: string } => x.childId !== null);
-  const externalOut = (workbook.markets ?? []).filter((r) => s(r.sell_price) !== "").map((r) => ({ childId: childOfGroup(s(r.company)), commodity: s(r.target) })).filter((x): x is { childId: string; commodity: string } => x.childId !== null);
 
   const commodities = useMemo(() => (workbook.commodities ?? []).map((c) => s(c.commodity_id)), [workbook]);
 
@@ -504,23 +474,15 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
             </div>
           ) : (
             <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-              <div style={{ padding: "4px 14px", fontSize: "0.78rem", color: "var(--muted)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title="drag a child's right dot to another's left dot to link, or right-click a node → Connect">
-                {canvasGroupId ? `Inside ${nodeById.get(canvasGroupId)?.label ?? canvasGroupId} — how its children connect` : "Top level — how the value chains connect"}
-              </div>
-              {overlayIdx && year != null && (
-                <ResultYearBar years={overlayIdx.years} year={year} onYear={setYear} />
-              )}
-              <RelationshipCanvas
-                wb={workbook}
-                groupId={canvasGroupId}
-                selectedChildId={selNode?.kind === "machine" ? selId : null}
-                onSelectChild={setSelId}
+              <HierarchyMap
+                workbook={workbook}
+                result={result}
+                editable
+                selectedId={selId}
+                onSelect={setSelId}
                 onAddConnection={addConnection}
                 onDeleteConnection={deleteConnection}
                 commodities={commodities}
-                externalIn={externalIn}
-                externalOut={externalOut}
-                overlay={yearOverlay}
               />
             </div>
           )}
