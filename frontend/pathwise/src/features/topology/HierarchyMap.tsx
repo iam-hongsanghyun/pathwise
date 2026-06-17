@@ -126,6 +126,26 @@ export function HierarchyMap({
         : laid.edges.map((e) => ({ ...e, rowIndex: -1, lag: 0 })),
     [editable, workbook, laid],
   );
+  const edgeKey = (e: { from: string; to: string; commodity: string; rowIndex: number }) =>
+    `${e.from}-${e.to}-${e.commodity}-${e.rowIndex}`;
+  // Stagger labels of edges whose midpoints collide, so two flows between the
+  // same area (e.g. two hydrogen links) don't print on top of each other.
+  const edgeLabelRank = useMemo(() => {
+    const bucket = new Map<string, number>();
+    const rank = new Map<string, number>();
+    for (const e of edges) {
+      const a = boxById.get(e.from);
+      const b = boxById.get(e.to);
+      if (!a || !b) continue;
+      const mx = (a.x + a.w + b.x) / 2;
+      const my = (a.y + a.h / 2 + b.y + b.h / 2) / 2;
+      const key = `${Math.round(mx / 30)}|${Math.round(my / 18)}`;
+      const r = bucket.get(key) ?? 0;
+      bucket.set(key, r + 1);
+      rank.set(edgeKey(e), r);
+    }
+    return rank;
+  }, [edges, boxById]);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const { vb, setVb, onWheel, onPanStart, onPanMove, onPanEnd, toWorld } = useViewBox();
@@ -317,20 +337,31 @@ export function HierarchyMap({
             );
           })}
 
-        {containers.map((g) => (
-          <g key={`c-${g.id}`} onClick={() => mode === "expandable" && toggle(g.id)} style={{ cursor: mode === "expandable" ? "pointer" : "default" }}>
-            <rect x={g.x} y={g.y} width={g.w} height={g.h} rx={6} fill="var(--surface)" stroke={selectedId === g.id ? "var(--brand)" : "var(--border-strong)"} strokeWidth={selectedId === g.id ? 2 : 1} opacity={0.5 + 0.12 * Math.min(3, g.depth)} />
-            <text x={g.x + 10} y={g.y + 16} fontSize={11} fontWeight={600} fill="var(--text)" style={{ cursor: editable ? "pointer" : "default" }} onClick={(e) => { e.stopPropagation(); onSelect?.(g.id); }}>
-              {clip(g.label, Math.max(8, Math.floor(g.w / 8)))}
-            </text>
-            <text x={g.x + g.w - 8} y={g.y + 16} fontSize={9} fill="var(--muted)" textAnchor="end">
-              {g.level || "group"}{mode === "expandable" ? " ▾" : ""}
-            </text>
-            {editable && (
-              <g transform={`translate(${g.x},${g.y})`}>{ports(g)}</g>
-            )}
-          </g>
-        ))}
+        {containers.map((g) => {
+          // In expandable mode the whole header strip toggles (click to collapse);
+          // otherwise it just selects. Children cover the body, so the header is
+          // the reliable click target.
+          const onHead = (e: React.MouseEvent) => {
+            e.stopPropagation();
+            if (mode === "expandable") toggle(g.id);
+            onSelect?.(g.id);
+          };
+          const headCursor = mode === "expandable" || editable ? "pointer" : "default";
+          return (
+            <g key={`c-${g.id}`}>
+              <rect x={g.x} y={g.y} width={g.w} height={g.h} rx={6} fill="var(--surface)" stroke={selectedId === g.id ? "var(--brand)" : "var(--border-strong)"} strokeWidth={selectedId === g.id ? 2 : 1} opacity={0.5 + 0.12 * Math.min(3, g.depth)} />
+              {/* header hit-strip — toggles (expandable) / selects */}
+              <rect x={g.x} y={g.y} width={g.w} height={22} rx={6} fill="transparent" style={{ cursor: headCursor }} onClick={onHead} />
+              <text x={g.x + 10} y={g.y + 16} fontSize={11} fontWeight={600} fill="var(--text)" style={{ cursor: headCursor, pointerEvents: "none" }}>
+                {clip(g.label, Math.max(8, Math.floor(g.w / 8)))}
+              </text>
+              <text x={g.x + g.w - 8} y={g.y + 16} fontSize={9} fill="var(--muted)" textAnchor="end" style={{ pointerEvents: "none" }}>
+                {g.level || "group"}{mode === "expandable" ? " ▾" : ""}
+              </text>
+              {editable && <g transform={`translate(${g.x},${g.y})`}>{ports(g)}</g>}
+            </g>
+          );
+        })}
 
         {edges.map((e) => {
           const a = boxById.get(e.from);
@@ -348,13 +379,14 @@ export function HierarchyMap({
           const sel = editable && e.rowIndex >= 0 && selEdge === e.rowIndex;
           const d = `M${x1},${y1} C${x1 + c},${y1} ${x2 - c},${y2} ${x2},${y2}`;
           const label = active ? `${clip(e.commodity, 8)} ${fmtVal(fv!)}` : clip(e.commodity, 10) + (e.lag ? ` ·${e.lag}y` : "");
+          const labelY = my - 4 - (edgeLabelRank.get(edgeKey(e)) ?? 0) * 12;
           return (
-            <g key={`${e.from}-${e.to}-${e.commodity}-${e.rowIndex}`} className="topo-edge">
+            <g key={edgeKey(e)} className="topo-edge">
               <path d={d} fill="none" stroke={sel ? "#0b5d56" : "#0f766e"} strokeWidth={sel ? 2.6 : active ? 2.2 : 1.3} markerEnd="url(#hm-arrow)" opacity={overlay && !active ? 0.28 : 0.78} />
               {editable && e.rowIndex >= 0 && (
                 <path d={d} fill="none" stroke="transparent" strokeWidth={12} style={{ cursor: "pointer" }} onClick={() => setSelEdge(sel ? null : e.rowIndex)} />
               )}
-              <text x={mx} y={my - 4} fontSize={9} fill={active ? "var(--text)" : "var(--muted)"} textAnchor="middle" style={{ pointerEvents: "none" }}>
+              <text x={mx} y={labelY} fontSize={9} fill={active ? "var(--text)" : "var(--muted)"} textAnchor="middle" style={{ pointerEvents: "none" }}>
                 {label}
               </text>
               {sel && onDeleteConnection && (
