@@ -146,13 +146,30 @@ export function HierarchyMap({
   const svgRef = useRef<SVGSVGElement | null>(null);
   const { vb, setVb, onWheel, onPanStart, onPanMove, onPanEnd, toWorld } = useViewBox();
   const fitKey = `${mode}|${laid.width}x${laid.height}|${laid.nodes.length}|${sources.length}`;
-  useEffect(() => {
+  // The "fit everything" viewBox — the 100% baseline and the reset target.
+  const fitBox = useMemo(() => {
     const pad = 50;
-    const w = Math.max(laid.width, bandW);
-    const h = bandH + laid.height;
-    setVb({ x: -pad, y: -pad, w: w + 2 * pad, h: h + 2 * pad });
+    return {
+      x: -pad,
+      y: -pad,
+      w: Math.max(laid.width, bandW) + 2 * pad,
+      h: bandH + laid.height + 2 * pad,
+    };
+  }, [laid.width, laid.height, bandW, bandH]);
+  useEffect(() => {
+    setVb(fitBox); // re-fit when the layout (mode / size) changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitKey]);
+  // Zoom controls: scale the viewBox around its centre; 100% = the fit view.
+  const zoomBy = (f: number) =>
+    setVb((v) => {
+      const cx = v.x + v.w / 2;
+      const cy = v.y + v.h / 2;
+      const w = Math.max(50, v.w / f);
+      const h = Math.max(50, v.h / f);
+      return { x: cx - w / 2, y: cy - h / 2, w, h };
+    });
+  const zoomPct = vb.w > 0 ? Math.round((fitBox.w / vb.w) * 100) : 100;
 
   // Editing gestures: a press (select), an output→input port drag (connect).
   const press = useRef<{ id: string; x: number; y: number; moved: boolean } | null>(null);
@@ -434,6 +451,38 @@ export function HierarchyMap({
           );
         })}
       </svg>
+
+      {/* zoom controls (bottom-right): − / fit% / + */}
+      <div
+        style={{
+          position: "absolute",
+          right: 12,
+          bottom: 12,
+          display: "flex",
+          alignItems: "stretch",
+          border: "1px solid var(--border-strong)",
+          borderRadius: 6,
+          overflow: "hidden",
+          background: "var(--surface)",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
+          fontSize: "0.8rem",
+        }}
+      >
+        <button className="ghost" style={{ borderRadius: 0, border: "none", padding: "4px 10px" }} title="Zoom out" onClick={() => zoomBy(1 / 1.2)}>
+          −
+        </button>
+        <button
+          className="ghost"
+          style={{ borderRadius: 0, border: "none", borderLeft: "1px solid var(--border)", borderRight: "1px solid var(--border)", padding: "4px 8px", minWidth: 52 }}
+          title="Fit to view (100%)"
+          onClick={() => setVb(fitBox)}
+        >
+          {zoomPct}%
+        </button>
+        <button className="ghost" style={{ borderRadius: 0, border: "none", padding: "4px 10px" }} title="Zoom in" onClick={() => zoomBy(1.2)}>
+          +
+        </button>
+      </div>
 
       {form && (
         <ConnectForm
