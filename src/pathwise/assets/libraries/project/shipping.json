@@ -7,6 +7,14 @@
 {
 "key": "source",
 "value": "PLANiT-Institute/shipping_operator (Reference, BAU)"
+},
+{
+"key": "status",
+"value": "first_cut"
+},
+{
+"key": "calibration",
+"value": "Uncalibrated first cut: structurally complete and solves to optimal per operator (independent mode), but fuel/cost/intensity numbers are NOT yet matched to the shipping_operator Reference. Pending: ship-set dedup, estimation.py port for missing-data ships, orderbook inclusion."
 }
 ],
 "periods": [
