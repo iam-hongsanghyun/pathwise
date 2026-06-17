@@ -1,6 +1,6 @@
 // HierarchyMap — one multi-level map for the WHOLE node hierarchy (country →
-// company → facility → machine) in a single chart, with a top toolbar to switch
-// layout: nested containers, swimlanes-by-level, or expandable drill-down.
+// company → facility → machine) in a single chart. Groups expand/collapse on
+// click (drill-down); Expand all / Collapse all are in the top-left toolbar.
 //
 // Read-only (Analytics result map): pass `result` → a year slider scrubs active
 // technology / throughput / flows per year.
@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SearchableSelect } from "../controls/SearchableSelect";
 import { buildOverlay, ResultYearBar, type CascadeResult, type YearOverlay } from "../valuechain/panels";
-import { parseNodes, rootIds } from "../../lib/groupGraph";
+import { parseNodes } from "../../lib/groupGraph";
 import {
   editEdges,
   layoutFor,
@@ -22,11 +22,6 @@ import {
 import { useViewBox } from "./useViewBox";
 import type { RunResult, Workbook } from "../../types";
 
-const MODES: { id: MapMode; label: string }[] = [
-  { id: "nested", label: "Nested" },
-  { id: "swimlane", label: "Swimlanes" },
-  { id: "expandable", label: "Expandable" },
-];
 const DRAG_PX = 3;
 
 function fmtVal(n: number): string {
@@ -62,7 +57,7 @@ export function HierarchyMap({
   onDeleteConnection,
   commodities = [],
 }: Props) {
-  const [mode, setMode] = useState<MapMode>("nested");
+  const mode: MapMode = "expandable"; // the only layout: an expandable drill-down
   const overlayIdx = useMemo(() => (result ? buildOverlay(result) : null), [result]);
   const [year, setYear] = useState<number>(() => overlayIdx?.years[0] ?? 0);
   useEffect(() => {
@@ -73,9 +68,17 @@ export function HierarchyMap({
     [overlayIdx, year],
   );
 
-  const roots = useMemo(() => rootIds(parseNodes(workbook)), [workbook]);
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(roots));
-  useEffect(() => setExpanded(new Set(roots)), [roots]);
+  // Every group that has children (the expand/collapse-able set). Default: all
+  // expanded (the whole tree visible); Collapse all → just the roots.
+  const allGroupIds = useMemo(() => {
+    const ns = parseNodes(workbook);
+    const parents = new Set(ns.map((n) => n.parentId).filter((p): p is string => !!p));
+    return ns.filter((n) => n.kind === "group" && parents.has(n.id)).map((n) => n.id);
+  }, [workbook]);
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(allGroupIds));
+  useEffect(() => setExpanded(new Set(allGroupIds)), [allGroupIds]);
+  const expandAll = () => setExpanded(new Set(allGroupIds));
+  const collapseAll = () => setExpanded(new Set());
 
   const laid = useMemo(() => layoutFor(workbook, mode, expanded), [workbook, mode, expanded]);
 
@@ -210,9 +213,9 @@ export function HierarchyMap({
   }
 
   const containers = placed
-    .filter((n) => n.kind === "group" && !n.collapsed && mode !== "swimlane")
+    .filter((n) => n.kind === "group" && !n.collapsed)
     .sort((a, b) => a.depth - b.depth);
-  const leaves = mode === "swimlane" ? placed : placed.filter((n) => n.kind === "machine" || n.collapsed);
+  const leaves = placed.filter((n) => n.kind === "machine" || n.collapsed);
 
   // Port circles (left = input, right = output) for editing every node box.
   const ports = (n: LaidNode) =>
@@ -249,23 +252,16 @@ export function HierarchyMap({
 
   return (
     <div className="canvas topo-canvas" style={{ display: "flex", flexDirection: "column", position: "relative" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "6px 12px", background: "var(--surface)" }}>
-        <div style={{ display: "inline-flex", border: "1px solid var(--border-strong)", borderRadius: 6, overflow: "hidden" }}>
-          {MODES.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => setMode(m.id)}
-              className={mode === m.id ? "run-button" : "ghost"}
-              style={{ borderRadius: 0, padding: "3px 12px", fontSize: "0.76rem", border: "none" }}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", background: "var(--surface)" }}>
+        <button className="ghost" style={{ padding: "3px 10px", fontSize: "0.76rem" }} onClick={expandAll} title="Expand every group">
+          ⊞ Expand all
+        </button>
+        <button className="ghost" style={{ padding: "3px 10px", fontSize: "0.76rem" }} onClick={collapseAll} title="Collapse every group">
+          ⊟ Collapse all
+        </button>
         <span className="muted" style={{ fontSize: "0.74rem" }}>
-          all levels in one chart
+          click a group to expand / collapse
           {editable ? " · drag a node's right dot → another's left dot to link" : ""}
-          {mode === "expandable" ? " · click a group to expand / collapse" : ""}
         </span>
       </div>
       {overlayIdx && overlayIdx.years.length > 0 && (
@@ -334,16 +330,6 @@ export function HierarchyMap({
             ];
           });
         })}
-
-        {mode === "swimlane" &&
-          placed.map((n) => {
-            if (!n.parentId) return null;
-            const p = boxById.get(n.parentId);
-            if (!p) return null;
-            return (
-              <line key={`pc-${n.id}`} x1={p.x + p.w / 2} y1={p.y + p.h} x2={n.x + n.w / 2} y2={n.y} stroke="var(--border-strong)" strokeWidth={1} opacity={0.5} />
-            );
-          })}
 
         {containers.map((g) => {
           // In expandable mode the whole header strip toggles (click to collapse);
