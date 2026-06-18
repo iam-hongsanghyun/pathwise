@@ -44,6 +44,7 @@ interface Props {
   selectedId?: string | null;
   onSelect?: (id: string) => void;
   onAddConnection?: (from: string, to: string, commodity: string, lag: number) => void;
+  onEditConnection?: (rowIndex: number, commodity: string, lag: number) => void;
   onDeleteConnection?: (rowIndex: number) => void;
   commodities?: string[];
 }
@@ -55,6 +56,7 @@ export function HierarchyMap({
   selectedId,
   onSelect,
   onAddConnection,
+  onEditConnection,
   onDeleteConnection,
   commodities = [],
 }: Props) {
@@ -186,7 +188,7 @@ export function HierarchyMap({
   // We record the pointer-down target's group id here and act on a no-move up.
   const bgPress = useRef<{ x: number; y: number; moved: boolean; groupId: string | null } | null>(null);
   const [connect, setConnect] = useState<{ from: string; wx: number; wy: number } | null>(null);
-  const [form, setForm] = useState<{ from: string; to: string; sx: number; sy: number } | null>(null);
+  const [form, setForm] = useState<{ from: string; to: string; sx: number; sy: number; editRowIndex?: number; commodity?: string; lag?: number } | null>(null);
   const [selEdge, setSelEdge] = useState<number | null>(null);
 
   const toggle = (id: string) =>
@@ -282,8 +284,14 @@ export function HierarchyMap({
         </button>
         <span className="muted" style={{ fontSize: "0.74rem" }}>
           click a group to expand / collapse
-          {editable ? " · drag a node's right dot → another's left dot to link" : ""}
+          {editable ? " · drag a node's right dot → another's left dot to link · click a link to edit or delete it" : ""}
         </span>
+        {sources.length > 0 && (
+          <span className="muted" style={{ fontSize: "0.72rem", marginLeft: "auto", display: "inline-flex", gap: 12, alignItems: "center" }}>
+            <span title="a node→node flow inside the chain (free internal transfer)"><span style={{ color: "#0f766e", fontWeight: 700 }}>→</span> connection (in-chain)</span>
+            <span title="a raw stream produced by no node — bought from outside the chain"><span style={{ color: "var(--warn)", fontWeight: 700 }}>▾</span> source (bought outside)</span>
+          </span>
+        )}
       </div>
       {overlayIdx && overlayIdx.years.length > 0 && (
         <ResultYearBar years={overlayIdx.years} year={year} onYear={setYear} />
@@ -414,6 +422,12 @@ export function HierarchyMap({
               <text x={mx} y={labelY} fontSize={9} fill={active ? "var(--text)" : "var(--muted)"} textAnchor="middle" style={{ pointerEvents: "none" }}>
                 {label}
               </text>
+              {sel && onEditConnection && (
+                <g style={{ cursor: "pointer" }} onClick={(ev) => setForm({ from: e.from, to: e.to, sx: ev.clientX, sy: ev.clientY, editRowIndex: e.rowIndex, commodity: e.commodity, lag: e.lag })}>
+                  <circle cx={mx + 22} cy={my - 2} r={8} fill="var(--brand)" />
+                  <text x={mx + 22} y={my - 1} fontSize={9} fill="#fff" textAnchor="middle" dominantBaseline="middle">✎</text>
+                </g>
+              )}
               {sel && onDeleteConnection && (
                 <g style={{ cursor: "pointer" }} onClick={() => { onDeleteConnection(e.rowIndex); setSelEdge(null); }}>
                   <circle cx={mx + 40} cy={my - 2} r={8} fill="var(--danger)" />
@@ -505,10 +519,18 @@ export function HierarchyMap({
           fromLabel={boxById.get(form.from)?.label ?? form.from}
           toLabel={boxById.get(form.to)?.label ?? form.to}
           commodities={commodities}
+          initialCommodity={form.commodity ?? ""}
+          initialLag={form.lag ?? 0}
+          editing={form.editRowIndex != null}
           x={form.sx}
           y={form.sy}
           onCancel={() => setForm(null)}
-          onConfirm={(commodity, lag) => { onAddConnection?.(form.from, form.to, commodity, lag); setForm(null); }}
+          onConfirm={(commodity, lag) => {
+            if (form.editRowIndex != null) onEditConnection?.(form.editRowIndex, commodity, lag);
+            else onAddConnection?.(form.from, form.to, commodity, lag);
+            setForm(null);
+            setSelEdge(null);
+          }}
         />
       )}
     </div>
@@ -516,13 +538,14 @@ export function HierarchyMap({
 }
 
 function ConnectForm({
-  fromLabel, toLabel, commodities, x, y, onConfirm, onCancel,
+  fromLabel, toLabel, commodities, x, y, onConfirm, onCancel, initialCommodity = "", initialLag = 0, editing = false,
 }: {
   fromLabel: string; toLabel: string; commodities: string[]; x: number; y: number;
   onConfirm: (commodity: string, lag: number) => void; onCancel: () => void;
+  initialCommodity?: string; initialLag?: number; editing?: boolean;
 }) {
-  const [commodity, setCommodity] = useState("");
-  const [lag, setLag] = useState(0);
+  const [commodity, setCommodity] = useState(initialCommodity);
+  const [lag, setLag] = useState(initialLag);
   return (
     <div style={{ position: "fixed", left: Math.min(x, window.innerWidth - 280), top: Math.min(y, window.innerHeight - 160), zIndex: 1000, background: "var(--surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-button)", boxShadow: "0 6px 24px rgba(0,0,0,0.14)", padding: 10, width: 250, fontSize: "0.78rem" }}>
       <div style={{ marginBottom: 6 }}><b>{fromLabel}</b> → <b>{toLabel}</b></div>
@@ -535,7 +558,7 @@ function ConnectForm({
       </label>
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
         <button className="ghost" onClick={onCancel}>cancel</button>
-        <button className="run-button" disabled={!commodity} onClick={() => onConfirm(commodity, lag)}>＋ link</button>
+        <button className="run-button" disabled={!commodity} onClick={() => onConfirm(commodity, lag)}>{editing ? "✓ update" : "＋ link"}</button>
       </div>
     </div>
   );

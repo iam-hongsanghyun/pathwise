@@ -48,6 +48,14 @@ export const FIELD_META: Record<string, FieldMeta> = {
   macc_id: { info: "Unique id of the MACC — a named bundle of individual measures." },
   level: { info: "The designed level this group sits at (free text, e.g. facility, company)." },
   notes: { info: "Free-text notes / references for your own use. The optimiser ignores it." },
+
+  // ── Value-chain (placed machines, links, purchasing, demand) ─────────────────
+  capacity: { info: "Nameplate throughput this machine can run at full load.", unit: "throughput / yr" },
+  lag_years: { info: "Years the commodity takes to traverse this link (0 = same year).", unit: "years" },
+  amount: { info: "Quantity of the product this node must deliver to demand each year.", unit: "stream unit / yr" },
+  max_purchase: { info: "Ceiling on how much of this stream may be bought externally per year (blank = no cap).", unit: "stream unit / yr" },
+  available_from: { info: "First year this stream can be bought externally (blank = always).", unit: "year" },
+  available_to: { info: "Last year this stream can be bought externally (blank = always).", unit: "year" },
 };
 
 export const fieldMeta = (key: string): FieldMeta | undefined => FIELD_META[key];

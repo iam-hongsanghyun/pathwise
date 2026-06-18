@@ -24,7 +24,6 @@ import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types
 import {
   addAlternative,
   type AvailableTechnology,
-  type ComponentLibrary,
   getComponentLibrary,
   instantiateComponent,
   type LibScope,
@@ -33,6 +32,7 @@ import {
   listComponentLibraries,
   placeTechnology,
 } from "../lib/api/components";
+import type { LibraryEntry } from "../lib/api/libraries";
 import { getFullModel, putModel } from "../lib/api/session";
 import { runToCompletion } from "../lib/api/run";
 import { parseNodes } from "../lib/groupGraph";
@@ -49,6 +49,9 @@ interface Props {
   /** Run status, owned by App so it survives a tab switch mid-run. */
   running: string | null;
   setRunning: (v: string | null) => void;
+  /** Importable libraries (for the blank-model "start from an example" affordance). */
+  libraries?: LibraryEntry[];
+  onPickLibrary?: (key: string) => void;
 }
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
@@ -79,7 +82,7 @@ const inp: React.CSSProperties = {
   fontSize: "0.78rem",
 };
 
-export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServerModel, onJointResult, backend = "linopy", running, setRunning }: Props) {
+export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServerModel, onJointResult, backend = "linopy", running, setRunning, libraries = [], onPickLibrary }: Props) {
   const [selId, setSelId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [scope, setScope] = useState("system");
@@ -231,6 +234,10 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   function addConnection(from: string, to: string, commodity: string, lag: number) {
     if (!from || !to || from === to || !commodity) return;
     setWorkbook(setSheet(workbook, "connections", [...(workbook.connections ?? []), { from_node: from, to_node: to, commodity_id: commodity, lag_years: lag }]));
+  }
+  function editConnection(rowIndex: number, commodity: string, lag: number) {
+    if (!commodity) return;
+    setWorkbook(setSheet(workbook, "connections", (workbook.connections ?? []).map((r, i) => (i === rowIndex ? { ...r, commodity_id: commodity, lag_years: lag } : r))));
   }
   function deleteConnection(rowIndex: number) {
     setWorkbook(setSheet(workbook, "connections", (workbook.connections ?? []).filter((_, i) => i !== rowIndex)));
@@ -547,9 +554,25 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
         {/* CENTER: relationship canvas */}
         <main style={{ flex: 1, minWidth: 220, overflow: "hidden", display: "flex", flexDirection: "column" }}>
           {!hasHierarchy ? (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
-              <p className="muted" style={{ maxWidth: 380, textAlign: "center" }}>Empty model. Click ＋ on the left to add a value chain, then right-click it to add subgroups or components.</p>
-              <button className="run-button" onClick={() => addSubgroup(null)}>＋ Add value chain</button>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 24 }}>
+              <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Start a value chain</h2>
+              <p className="muted" style={{ maxWidth: 420, textAlign: "center", margin: 0 }}>
+                A value chain is a tree of <b>nodes</b> (sector → company → facility) holding <b>machines</b> that run a <b>technology</b>; you wire them with <b>connections</b> (in-chain) and <b>markets</b> (buy/sell outside).
+              </p>
+              {(() => {
+                const vc = libraries.filter((l) => l.has_value_chain);
+                return vc.length > 0 && onPickLibrary ? (
+                  <div style={{ width: 320, textAlign: "center" }}>
+                    <div className="muted" style={{ fontSize: "0.76rem", marginBottom: 4 }}>start from an example</div>
+                    <SearchSelect value="" onChange={(key) => key && onPickLibrary(key)} placeholder="open an example model…"
+                      options={vc.map((l) => ({ value: `${l.tier}/${l.id}`, label: l.label }))} />
+                  </div>
+                ) : null;
+              })()}
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button className="run-button" onClick={() => addSubgroup(null)}>＋ Add value chain</button>
+                <span className="muted" style={{ fontSize: "0.76rem" }}>…then right-click it to add subgroups or components</span>
+              </div>
             </div>
           ) : (
             <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
@@ -560,6 +583,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 selectedId={selId}
                 onSelect={setSelId}
                 onAddConnection={addConnection}
+                onEditConnection={editConnection}
                 onDeleteConnection={deleteConnection}
                 commodities={commodities}
               />
@@ -672,35 +696,43 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
 // ── Library → component/technology picker ─────────────────────────────────────
 // Place a Component — a single machine or a composite group (e.g. CCGT = GT+ST) —
 // or a raw technology (as a single machine).
+interface PickItem { library: string; libLabel: string; name: string; label: string; kind: "technology" | "machine" | "group" }
+
 function ComponentPicker({ libs, onPick, onClose }: { libs: LibrarySummary[]; onPick: (library: string, name: string, kind: "technology" | "machine" | "group") => void; onClose: () => void }) {
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [body, setBody] = useState<ComponentLibrary | null>(null);
+  const [q, setQ] = useState("");
+  // Flatten EVERY library's components into one searchable list (cross-library),
+  // so you don't have to know which library a technology lives in.
+  const [items, setItems] = useState<PickItem[] | null>(null);
   useEffect(() => {
-    if (!openId) { setBody(null); return; }
-    getComponentLibrary(openId).then(setBody).catch(() => setBody(null));
-  }, [openId]);
+    let alive = true;
+    Promise.all(libs.map((l) => getComponentLibrary(l.id).then((b) => ({ l, b })).catch(() => null)))
+      .then((results) => {
+        if (!alive) return;
+        const out: PickItem[] = [];
+        for (const r of results) {
+          if (!r) continue;
+          const { l, b } = r;
+          for (const g of b.groups) out.push({ library: l.id, libLabel: l.label, name: g.name, label: g.label || g.name, kind: "group" });
+          for (const m of b.machines) out.push({ library: l.id, libLabel: l.label, name: m.name, label: m.label || m.name, kind: "machine" });
+          for (const t of b.technologies) out.push({ library: l.id, libLabel: l.label, name: t.technology_id, label: t.technology_id, kind: "technology" });
+        }
+        setItems(out);
+      });
+    return () => { alive = false; };
+  }, [libs]);
+  const ql = q.toLowerCase();
+  const filtered = (items ?? []).filter((it) => !ql || it.label.toLowerCase().includes(ql) || it.libLabel.toLowerCase().includes(ql));
+  const glyph = (k: PickItem["kind"]) => (k === "group" ? "▦" : k === "machine" ? "▪" : "▫");
   return (
     <Modal onClose={onClose} title="Add a component">
       {libs.length === 0 && <p className="muted">No component libraries — build one in the Component tab.</p>}
-      {libs.map((l) => (
-        <div key={l.id} style={{ marginBottom: 4 }}>
-          <button className="ghost" style={{ width: "100%", textAlign: "left" }} onClick={() => setOpenId(openId === l.id ? null : l.id)}>{openId === l.id ? "▾" : "▸"} {l.label}</button>
-          {openId === l.id && body && (
-            <div style={{ paddingLeft: 14 }}>
-              {(body.groups.length > 0 || body.machines.length > 0) && <div className="muted" style={{ fontSize: "0.7rem", margin: "4px 0 2px" }}>COMPONENTS</div>}
-              {body.groups.map((g) => (
-                <button key={`g${g.name}`} className="rail-item" style={{ width: "100%", textAlign: "left" }} onClick={() => onPick(l.id, g.name, "group")}>▦ {g.label || g.name} <span className="muted">(group)</span></button>
-              ))}
-              {body.machines.map((m) => (
-                <button key={`m${m.name}`} className="rail-item" style={{ width: "100%", textAlign: "left" }} onClick={() => onPick(l.id, m.name, "machine")}>▪ {m.label || m.name}</button>
-              ))}
-              <div className="muted" style={{ fontSize: "0.7rem", margin: "6px 0 2px" }}>TECHNOLOGIES (place as a single machine)</div>
-              {body.technologies.map((t) => (
-                <button key={`t${t.technology_id}`} className="rail-item" style={{ width: "100%", textAlign: "left" }} onClick={() => onPick(l.id, t.technology_id, "technology")}>▫ {t.technology_id}</button>
-              ))}
-            </div>
-          )}
-        </div>
+      <input autoFocus placeholder="search all libraries…" value={q} onChange={(e) => setQ(e.target.value)} style={{ ...inp, width: "100%", marginBottom: 8 }} />
+      {items === null && <p className="muted">loading…</p>}
+      {items !== null && filtered.length === 0 && <p className="muted">{items.length === 0 ? "No components yet — add some in the Component tab." : "No matches."}</p>}
+      {filtered.map((it) => (
+        <button key={`${it.kind}/${it.library}/${it.name}`} className="rail-item" style={{ width: "100%", textAlign: "left" }} onClick={() => onPick(it.library, it.name, it.kind)}>
+          {glyph(it.kind)} {it.label} <span className="muted">· {it.libLabel}{it.kind === "technology" ? " · technology" : it.kind === "group" ? " · group" : ""}</span>
+        </button>
       ))}
     </Modal>
   );

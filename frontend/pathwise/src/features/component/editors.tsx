@@ -4,6 +4,7 @@
 import { InfoTooltip } from "../controls/InfoTooltip";
 import { SearchableSelect } from "../controls/SearchableSelect";
 import { SearchSelect } from "../controls/SearchSelect";
+import { RecipePreview } from "./RecipePreview";
 import { fieldMeta } from "./fieldMeta";
 import type {
   CommodityTemplate,
@@ -229,7 +230,7 @@ export function TechnologyEditor({
                   options={[{ value: "input" }, { value: "output" }, { value: "impact" }]} />
               </td>
               <td>
-                <input style={{ ...inputStyle, width: 70 }} type="number" value={r.coefficient} onChange={(e) => setIo(i, { coefficient: num(e.target.value) })} />
+                <input style={{ ...inputStyle, width: 70 }} type="number" min={0} value={r.coefficient} onChange={(e) => setIo(i, { coefficient: num(e.target.value) })} />
               </td>
               <td style={{ textAlign: "center" }}>
                 {r.role === "output" && (
@@ -240,10 +241,10 @@ export function TechnologyEditor({
                 <input style={{ ...inputStyle, width: 80 }} value={r.group ?? ""} onChange={(e) => setIo(i, { group: e.target.value || null })} />
               </td>
               <td>
-                <input style={{ ...inputStyle, width: 56 }} type="number" value={r.share_min ?? ""} onChange={(e) => setIo(i, { share_min: e.target.value === "" ? null : num(e.target.value) })} />
+                <input style={{ ...inputStyle, width: 56 }} type="number" min={0} max={1} value={r.share_min ?? ""} onChange={(e) => setIo(i, { share_min: e.target.value === "" ? null : num(e.target.value) })} />
               </td>
               <td>
-                <input style={{ ...inputStyle, width: 56 }} type="number" value={r.share_max ?? ""} onChange={(e) => setIo(i, { share_max: e.target.value === "" ? null : num(e.target.value) })} />
+                <input style={{ ...inputStyle, width: 56 }} type="number" min={0} max={1} value={r.share_max ?? ""} onChange={(e) => setIo(i, { share_max: e.target.value === "" ? null : num(e.target.value) })} />
               </td>
               <td>
                 <button className="ghost" title="remove" onClick={() => delIo(i)}>
@@ -255,6 +256,7 @@ export function TechnologyEditor({
         </tbody>
       </table>
       {value.io.length === 0 && <p className="muted" style={{ fontSize: "0.78rem" }}>No streams yet — a technology needs at least one product output.</p>}
+      <RecipePreview ioRows={value.io} />
     </section>
   );
 }

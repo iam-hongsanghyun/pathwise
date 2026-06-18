@@ -5,6 +5,9 @@
 import { useMemo } from "react";
 import { SearchableSelect } from "../controls/SearchableSelect";
 import { SearchSelect } from "../controls/SearchSelect";
+import { RecipePreview } from "../component/RecipePreview";
+import { InfoTooltip } from "../controls/InfoTooltip";
+import { fieldMeta } from "../component/fieldMeta";
 import type { AvailableTechnology } from "../../lib/api/components";
 import type { Cell, RunResult, Workbook } from "../../types";
 
@@ -124,7 +127,7 @@ export function MachineInspector({
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 12, fontSize: "0.82rem" }}>
         <div><span className="muted">technology</span><br />{tech || "—"}</div>
         <div>
-          <span className="muted">capacity</span><br />
+          <span className="muted">capacity <InfoTooltip text={fieldMeta("capacity")?.info ?? ""} unit={fieldMeta("capacity")?.unit} /></span><br />
           <input type="number" min={0} defaultValue={Number(machine.capacity) || 0} style={{ ...inp, width: 100 }} onBlur={(e) => onCapacity(Number(e.target.value) || 0)} />
         </div>
         <div><span className="muted">available</span><br />{avail}</div>
@@ -162,6 +165,11 @@ export function MachineInspector({
           </div>
         </>
       )}
+
+      <div style={{ margin: "12px -20px 0" }}>
+        <RecipePreview ioRows={io} defaultN={Number(machine.capacity) || 100} />
+      </div>
+
       <h3 style={{ fontSize: "0.85rem", margin: "12px 0 4px" }}>
         MACC <span className="muted" style={{ fontWeight: 400 }}>(measures — abate without switching technology)</span>
       </h3>

@@ -285,6 +285,8 @@ export function App() {
             backend={backend}
             running={running}
             setRunning={setRunning}
+            libraries={libraries}
+            onPickLibrary={onPickLibrary}
           />
         )}
         {view === "analytics" && (
