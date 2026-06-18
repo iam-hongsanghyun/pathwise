@@ -107,20 +107,6 @@ def test_load_sqlite_value_chain_example() -> None:
     assert any(str(n["node_id"]).endswith("/ccgt") for n in model["nodes"]), "the CCGT group"
 
 
-def test_library_insert_into_session() -> None:
-    libraries = {e["id"] for e in client.get("/api/library").json()}
-    assert "aluminium" in libraries
-    sid = _new_session()
-    res = client.post(
-        f"/api/session/{sid}/library",
-        json={"library": "aluminium", "kind": "chain", "id": "aluminium_chain"},
-    ).json()
-    assert res["created"]
-    model = client.get(f"/api/session/{sid}/model").json()["model"]
-    assert len(model["processes"]) == 3 and len(model["edges"]) == 2
-    assert model["demand"], "chain insert seeds demand"
-
-
 def test_run_by_session_id() -> None:
     res = client.post("/api/session/model", json={"model": example_workbook()}).json()
     sid = res["sessionId"]
@@ -145,33 +131,6 @@ def test_run_by_session_id() -> None:
 def test_unknown_session_404() -> None:
     assert client.get("/api/session/nope/model").status_code == 404
     assert client.get("/api/session/nope/sheet/processes").status_code == 404
-
-
-def test_library_replacement_insert() -> None:
-    sid = _new_session()
-    client.post(
-        f"/api/session/{sid}/library",
-        json={"library": "aluminium", "kind": "facility", "id": "alumina_refinery"},
-    )
-    model = client.get(f"/api/session/{sid}/model").json()["model"]
-    pid = model["processes"][-1]["process_id"]
-    res = client.post(
-        f"/api/session/{sid}/library",
-        json={
-            "library": "aluminium",
-            "kind": "facility",
-            "id": "smelter",
-            "mode": "replacement",
-            "replace_process": pid,
-        },
-    ).json()
-    assert res["created"] == ["Smelt_Grid"]
-    model = client.get(f"/api/session/{sid}/model").json()["model"]
-    assert len(model["processes"]) == 1, "no new facility for a replacement"
-    assert any(
-        t["from_technology"] == "Refine_Gas" and t["to_technology"] == "Smelt_Grid"
-        for t in model["transitions"]
-    )
 
 
 def test_clear_session_resets_to_core_sheets() -> None:

@@ -19,7 +19,7 @@ from pathwise.data.components import (
     instantiate_into,
     place_technology,
 )
-from pathwise.data.library import MeasureBlockTemplate, MeasureTemplate
+from pathwise.data.templates import MeasureBlockTemplate, MeasureTemplate
 
 SC = ScenarioConfig.from_dict({"economics": {"base_year": 2025, "discount_rate": 0.0}})
 

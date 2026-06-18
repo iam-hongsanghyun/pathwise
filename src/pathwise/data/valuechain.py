@@ -7,9 +7,9 @@ for a shared commodity (its price, carbon intensity, or produced volume) feeds
 the downstream stage's inputs, optionally **lagged** by a number of years. The
 orchestrator in :mod:`pathwise.core.valuechain` consumes this spec.
 
-The format mirrors the facility/chain library (:mod:`pathwise.data.library`):
-plain JSON validated by pydantic, kept sector-agnostic (a stage references a
-model by an opaque id the caller resolves; nothing here is industry-specific).
+The format is plain JSON validated by pydantic, kept sector-agnostic (a stage
+references a model by an opaque id the caller resolves; nothing here is
+industry-specific).
 """
 
 from __future__ import annotations

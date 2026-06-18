@@ -53,14 +53,6 @@ a `sessionId`.
 | `GET` | `/api/examples` | The example-library index. |
 | `POST` | `/api/session/{id}/example/{example_id}` | Load a bundled example into the session; returns `{sessionId, sheets, library_id}`. |
 
-## Facility/chain template library
-
-| Method | Path | Purpose |
-|---|---|---|
-| `GET` | `/api/library` | The template-library index. |
-| `GET` | `/api/library/{name}` | One library's templates (for preview cards). |
-| `POST` | `/api/session/{id}/library` | Insert a facility or chain template into the session model. |
-
 ## Component libraries (shared base catalogue)
 
 | Method | Path | Purpose |

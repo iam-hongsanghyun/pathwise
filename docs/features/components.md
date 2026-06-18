@@ -104,7 +104,7 @@ cheapest-first, with no-regret (negative-cost) blocks below the axis.
 
 ## Where libraries live
 
-- **Base / bundled libraries** ship with pathwise (`assets/component_libraries/`)
+- **Base / bundled libraries** ship with pathwise (`assets/component_seeds/`)
   and seed a writable copy on first run; they are the shared, reusable catalogue.
 - **Per-session libraries** — each imported scenario carries its own component
   library, loaded alongside the base set, so a scenario's specific recipes don't

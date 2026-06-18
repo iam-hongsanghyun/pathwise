@@ -10,26 +10,18 @@ wiring and reusing the group reuses the wiring.
 Placing a component **instantiates** it: :func:`instantiate` walks the chosen
 component top-down and stamps a fresh INSTANCE of every descendant into the
 recursive ``nodes`` / ``machines`` / ``connections`` hierarchy (path-qualified
-ids keep instances unique), so one definition can be reused in many groups. This
-is the recursive generalization of :func:`pathwise.data.library.instantiate_chain`
-and produces a workbook the engine (and :func:`pathwise.core.run.run_model`)
-consumes directly.
+ids keep instances unique), so one definition can be reused in many groups, and
+produces a workbook the engine (and :func:`pathwise.core.run.run_model`) consumes
+directly.
 
 This is the "vertical" (composition) and "horizontal" (connections) design,
 together, as data.
 
-.. note:: **Two distinct "library" concepts exist in pathwise.**
-
-   This module defines :class:`ComponentLibrary` — the *component library*: the
-   editable, SQLite-backed catalogue of technologies, commodities, measures, and
-   MACCs that the authoring UI builds interactively.  It is the authorable
-   palette a user populates and then places into a value-chain model.
-
-   A separate concept is the *facility-template library* (:class:`pathwise.data.library.Library`),
-   which holds static, read-only JSON assets (prebuilt facility archetypes and
-   process chains) that users insert wholesale into a model without editing them.
-   The two libraries operate at different layers and serve different purposes;
-   neither is a subset of the other.
+:class:`ComponentLibrary` is the *component library*: the editable, SQLite-backed
+catalogue of technologies, commodities, measures, and MACCs the authoring UI
+builds interactively. It reuses the shared component-template models in
+:mod:`pathwise.data.templates`. (The separate, importable-workbook catalogue lives
+in :mod:`pathwise.data.libraries`.)
 """
 
 from __future__ import annotations
@@ -40,16 +32,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
 
-from pathwise.data.library import (
-    CommodityTemplate,
-    IoRow,
-    MeasureBlockTemplate,
-    MeasureTemplate,
-    TechnologyTemplate,
-    _io_rows,
-    _measure_block_t_rows,
-    _tech_row,
-)
 from pathwise.data.sheets import (
     COMMODITIES,
     COMMODITY_PRICES,
@@ -68,6 +50,16 @@ from pathwise.data.sheets import (
     TECHNOLOGIES,
     TECHNOLOGIES_PRICES,
     TRANSITIONS,
+)
+from pathwise.data.templates import (
+    CommodityTemplate,
+    IoRow,
+    MeasureBlockTemplate,
+    MeasureTemplate,
+    TechnologyTemplate,
+    _io_rows,
+    _measure_block_t_rows,
+    _tech_row,
 )
 from pathwise.data.workbook import Workbook
 

@@ -27,13 +27,6 @@ from pathwise.config import get_settings
 from pathwise.core.valuechain import run_value_chain
 from pathwise.data.components import extract_library_from_workbook, load_component_library
 from pathwise.data.libraries import discover_libraries, load_library_workbook
-from pathwise.data.library import (
-    Library,
-    add_chain,
-    add_facility,
-    add_replacement,
-    load_library,
-)
 from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.valuechain import ValueChainSpec, load_value_chain
 from pathwise.logger import get_logger
@@ -90,24 +83,6 @@ class PatchOps(BaseModel):
     """Body for ``PATCH /api/session/{sid}/sheet/{name}``."""
 
     ops: list[dict[str, Any]]
-
-
-class LibraryInsert(BaseModel):
-    """Body for ``POST /api/session/{sid}/library``.
-
-    ``mode="initial"`` creates a facility instance running the template today;
-    ``mode="replacement"`` registers the template's technology as a TRANSITION
-    OPTION of ``replace_process``'s baseline (no new facility) — the future
-    system the optimiser may switch into.
-    """
-
-    library: str
-    kind: str = Field(pattern="^(facility|chain)$")
-    id: str
-    mode: str = Field(default="initial", pattern="^(initial|replacement)$")
-    replace_process: str | None = None
-    x: float | None = None
-    y: float | None = None
 
 
 @router.post("/session")
@@ -351,62 +326,6 @@ def import_library(session_id: str, tier: str, library_id: str) -> dict[str, Any
         "imported_value_chain": has_chain,
         "sheets": sheets,
     }
-
-
-# ── Facility-template library (insert server-side) ────────────────────────────
-
-
-def _library(name: str) -> Library:
-    path = Path(get_settings().library_dir) / f"{name}.json"
-    if not path.exists():
-        raise HTTPException(status_code=404, detail=f"unknown library '{name}'")
-    return load_library(path)
-
-
-@router.get("/library")
-def list_library() -> list[dict[str, Any]]:
-    """The template-library index."""
-    index = Path(get_settings().library_dir) / "index.json"
-    if not index.exists():
-        return []
-    return json.loads(index.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
-
-
-@router.get("/library/{name}")
-def library_detail(name: str) -> dict[str, Any]:
-    """One library's templates (for the preview cards)."""
-    return _library(name).model_dump()
-
-
-@router.post("/session/{session_id}/library")
-def insert_template(session_id: str, body: LibraryInsert) -> dict[str, Any]:
-    """Insert a facility or chain template into the session model."""
-    store = _store()
-    model = _model_or_404(store, session_id)
-    lib = _library(body.library)
-    try:
-        if body.kind == "chain":
-            model = add_chain(model, lib, body.id)
-            created = [str(r["process_id"]) for r in model["processes"][-1:]]
-        elif body.mode == "replacement":
-            if not body.replace_process:
-                raise ValueError("replacement insert needs 'replace_process'")
-            model = add_replacement(model, lib, body.id, body.replace_process)
-            created = [lib.facility(body.id).technology.technology_id]
-        else:
-            model = add_facility(model, lib, body.id)
-            pid = str(model["processes"][-1]["process_id"])
-            if body.x is not None and body.y is not None:
-                layout = [
-                    r for r in model.get("node_layout", []) if str(r.get("id")) != f"process:{pid}"
-                ]
-                layout.append({"id": f"process:{pid}", "x": round(body.x), "y": round(body.y)})
-                model["node_layout"] = layout
-            created = [pid]
-    except (KeyError, ValueError) as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    store.put_model(session_id, model)
-    return {"sessionId": session_id, "created": created}
 
 
 # ── Value chains (coupled multi-stage models, solved as a forward cascade) ─────

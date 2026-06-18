@@ -139,7 +139,7 @@ export const downloadResultSqlite = (result: unknown): Promise<void> =>
 export const downloadResultXlsx = (result: unknown): Promise<void> =>
   _downloadResult(result, "/api/export/result", "pathwise_result.xlsx");
 
-// ── Examples + facility-template library (served and inserted by the backend) ─
+// ── Example / importable libraries (served by the backend) ──────────────────
 
 export interface ExampleModel {
   id: string;
@@ -164,29 +164,4 @@ export async function loadExample(sessionId: string, exampleId: string): Promise
     }),
   );
   return getFullModel(sessionId);
-}
-
-/** Backend inserts a facility/chain template; returns refreshed model + ids. */
-export async function insertTemplate(
-  sessionId: string,
-  body: {
-    library: string;
-    kind: "facility" | "chain";
-    id: string;
-    /** "initial" creates a facility running the template today; "replacement"
-     *  registers it as a transition OPTION of `replace_process`'s baseline. */
-    mode?: "initial" | "replacement";
-    replace_process?: string;
-    x?: number;
-    y?: number;
-  },
-): Promise<{ model: Workbook; created: string[] }> {
-  const res = await json<{ created: string[] }>(
-    await fetch(`/api/session/${sessionId}/library`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }),
-  );
-  return { model: await getFullModel(sessionId), created: res.created };
 }

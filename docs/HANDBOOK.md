@@ -29,5 +29,5 @@ def f(...) -> ...:
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) and the `src/pathwise/` tree. Tests mirror
 `src/`. `pyproject.toml` is the single source of truth for tooling.
 
-For how to build and ship the bundled assets (component libraries, facility-template
-libraries, value chains, example workbooks), see [`AUTHORING.md`](AUTHORING.md).
+For how to build and ship the bundled assets (component libraries, value chains,
+example workbooks), see [`AUTHORING.md`](AUTHORING.md).

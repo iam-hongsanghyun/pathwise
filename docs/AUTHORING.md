@@ -1,6 +1,6 @@
 # Authoring guide — prebuilt assets
 
-This guide covers how to author and ship the four categories of bundled asset that pathwise serves at startup: component libraries, facility-template libraries, value chains, and example workbooks. Read this if you are adding a new sector, updating a cost dataset, or building a new worked example.
+This guide covers how to author and ship the three categories of bundled asset that pathwise serves at startup: component libraries, value chains, and example workbooks. Read this if you are adding a new sector, updating a cost dataset, or building a new worked example.
 
 **Prerequisite**: read [ARCHITECTURE.md](ARCHITECTURE.md) (storage section) before this document. The storage table there explains which format lives where and why.
 
@@ -8,12 +8,11 @@ This guide covers how to author and ship the four categories of bundled asset th
 
 ## 1. Overview
 
-Pathwise ships four categories of bundled asset, each in a distinct directory:
+Pathwise ships three categories of bundled asset, each in a distinct directory:
 
 | Asset type | Source format | Directory | Loaded by |
 |---|---|---|---|
-| Component library seeds | JSON (`.json`) | `src/pathwise/assets/component_libraries/` | `GET /api/component-libraries` on first run |
-| Facility-template libraries | JSON (`.json`) | `src/pathwise/assets/library/` | `GET /api/library/{lib_id}` |
+| Component library seeds | JSON (`.json`) | `src/pathwise/assets/component_seeds/` | `GET /api/component-libraries` on first run |
 | Value-chain specs + stage workbooks | JSON (`.json`) | `src/pathwise/assets/value_chains/` | `GET /api/value-chains` |
 | Example workbooks | SQLite (`.sqlite`) | `src/pathwise/assets/examples/` | `POST /api/session/{sid}/example/{id}` |
 
@@ -280,9 +279,9 @@ A **component library** (`ComponentLibrary` in `data/components.py`) is the edit
 
 ### 4c. Runtime loading
 
-Component library seeds (JSON files in `src/pathwise/assets/component_libraries/`) are automatically converted to SQLite on the first call to `GET /api/component-libraries` and written to `data/component_libraries/<stem>.sqlite`. That directory is writable; the seed directory is read-only.
+Component library seeds (JSON files in `src/pathwise/assets/component_seeds/`) are automatically converted to SQLite on the first call to `GET /api/component-libraries` and written to `data/component_libraries/<stem>.sqlite`. That directory is writable; the seed directory is read-only.
 
-Config variable: `PATHWISE_COMPONENT_SEEDS_DIR` (default: the bundled `assets/component_libraries/`).
+Config variable: `PATHWISE_COMPONENT_SEEDS_DIR` (default: the bundled `assets/component_seeds/`).
 
 No `index.json` is needed for component libraries — the router enumerates all `.sqlite` files in the writable directory.
 
@@ -295,131 +294,7 @@ No `index.json` is needed for component libraries — the router enumerates all 
 
 ---
 
-## 5. Authoring a facility-template library
-
-A **facility-template library** (`Library` in `data/library.py`) is a static, read-only catalogue of prebuilt facility archetypes and process chains. Users insert them wholesale into a model from the Library panel, rather than building cross-referenced tables by hand.
-
-### 5a. Field reference
-
-**`Library`**
-
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `id` | `str` | yes | Matches the file stem and the `index.json` entry id. |
-| `label` | `str` | yes | Display name. |
-| `commodities` | `list[CommodityTemplate]` | no | Streams the facilities use. |
-| `facilities` | `list[FacilityTemplate]` | yes (min 1) | The facility archetypes. |
-| `chains` | `list[ChainTemplate]` | no | Multi-stage process chains. |
-
-**`FacilityTemplate`**
-
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `facility_id` | `str` | yes | Unique id within the library. |
-| `label` | `str` | yes | Display name. |
-| `description` | `str` | no | Short description. |
-| `technology` | `TechnologyTemplate` | yes | The baseline technology (recipe + costs). |
-| `alternatives` | `list[Alternative]` | no | Lower-carbon options the facility may transition to. |
-| `measures` | `list[MeasureTemplate]` | no | Retrofit measures stamped on every instance. |
-| `default_capacity` | `float` | no | Capacity used when instantiating (must be > 0; default 1000). |
-| `source` | `SourceRef` | **yes** | Citation — mandatory; an uncited entry is a validation error. |
-
-**`Alternative`**
-
-| Field | Type | Notes |
-|---|---|---|
-| `technology` | `TechnologyTemplate` | The alternative technology (its own recipe + costs). |
-| `transition_capex_per_capacity` | `float` | CAPEX to switch into this alternative per unit capacity. |
-
-**`SourceRef`** — mandatory on every `FacilityTemplate` and `ChainTemplate`
-
-| Field | Type | Notes |
-|---|---|---|
-| `name` | `str` | Source title (min 3 chars). |
-| `url` | `str` | Must start with `http://` or `https://`. A validation error is raised if absent or non-http. |
-| `year` | `int` | Publication/data year (1900–2100). |
-| `region` | `str` | Geographic basis (e.g. `"global"`, `"KR"`, `"EU"`; default `"global"`). |
-| `basis` | `str` | What the numbers represent (default `"indicative"`). |
-| `notes` | `str \| None` | Optional caveats. |
-
-**`ChainTemplate`**
-
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `chain_id` | `str` | yes | Unique id within the library. |
-| `label` | `str` | yes | Display name. |
-| `description` | `str` | no | |
-| `stages` | `list[ChainStage]` | yes (min 1) | Ordered stages. |
-| `demand_hint` | `DemandHint \| None` | no | Suggested demand when the chain is instantiated. |
-| `source` | `SourceRef` | **yes** | Mandatory citation. |
-
-**`ChainStage`**
-
-| Field | Type | Notes |
-|---|---|---|
-| `facility` | `str` | A `facility_id` in this library. |
-| `feeds` | `list[str]` | Upstream `facility_id` values whose outputs this stage consumes. The assembler derives `edges` from the shared commodity. |
-
-### 5b. Minimal library JSON snippet
-
-```json
-{
-  "id": "heat",
-  "label": "District heat",
-  "commodities": [
-    { "commodity_id": "natural_gas", "kind": "energy", "unit": "GJ", "price": 8.0 },
-    { "commodity_id": "heat",        "kind": "product",  "unit": "GJ" }
-  ],
-  "facilities": [
-    {
-      "facility_id": "boiler",
-      "label": "Gas boiler",
-      "technology": {
-        "technology_id": "GasBoiler",
-        "lifespan": 20,
-        "capex": 120.0,
-        "opex": 5.0,
-        "io": [
-          { "target": "natural_gas", "role": "input",  "coefficient": 1.05 },
-          { "target": "heat",        "role": "output", "coefficient": 1.0, "is_product": true }
-        ]
-      },
-      "alternatives": [],
-      "default_capacity": 200.0,
-      "source": {
-        "name": "IEA Energy Technology Perspectives 2023",
-        "url": "https://www.iea.org/reports/energy-technology-perspectives-2023",
-        "year": 2023,
-        "region": "global",
-        "basis": "indicative"
-      }
-    }
-  ]
-}
-```
-
-### 5c. index.json
-
-`src/pathwise/assets/library/index.json` is a JSON array. Each entry must have at minimum `id`, `label`, and `file`:
-
-```json
-[
-  {
-    "id": "heat",
-    "label": "District heat",
-    "file": "heat.json",
-    "description": "1 facility template(s)"
-  }
-]
-```
-
-Config variable: `PATHWISE_LIBRARY_DIR` (default: `src/pathwise/assets/library/`).
-
-API route: `GET /api/library` lists entries; `POST /api/session/{sid}/library` inserts a facility or chain into the session workbook.
-
----
-
-## 6. Authoring a value chain
+## 5. Authoring a value chain
 
 A **value chain** (`ValueChainSpec` in `data/valuechain.py`) links several pathwise models (stages) into a directed acyclic graph. An upstream stage's solved price, marginal price, carbon intensity, or produced volume is injected into the downstream stage's inputs before it solves.
 
@@ -533,7 +408,7 @@ load_value_chain("src/pathwise/assets/value_chains/my_chain.json")  # raises on 
 
 ---
 
-## 7. Building an example workbook (.sqlite)
+## 6. Building an example workbook (.sqlite)
 
 Example workbooks are SQLite files committed to `src/pathwise/assets/examples/`. They are generated by Python scripts (see `scripts/build_green_steel_example.py`) rather than authored by hand because they embed solved-baseline values (e.g. sizing a CO₂ cap from unconstrained throughput).
 
@@ -590,20 +465,19 @@ API route: `GET /api/examples` returns the index; `POST /api/session/{sid}/examp
 
 ---
 
-## 8. Validation and CI
+## 7. Validation and CI
 
 Every JSON asset is validated against its pydantic model by the test suite before it can be merged:
 
 | Test file | What it checks |
 |---|---|
-| `tests/data/test_library.py` | Every `library/*.json` file validates against `Library`, every `source.url` is a real http link, every `io` target is a declared commodity, every chain assembles into a solvable workbook (`instantiate_chain` → `assemble_problem` → `solve`). |
 | `tests/data/test_components.py` | `ComponentLibrary` round-trips cleanly through `library_to_workbook` → `library_from_workbook`. |
 | `tests/api/test_component_libraries.py` | Seed libraries load on first access via the API; full CRUD works; `instantiate` and `place_technology` routes work end-to-end. |
 
 Before shipping a new asset:
 
 ```bash
-uv run pytest tests/data/test_library.py tests/data/test_components.py tests/api/test_component_libraries.py -v
+uv run pytest tests/data/test_components.py tests/api/test_component_libraries.py -v
 ```
 
 Or run the full suite:
@@ -616,7 +490,7 @@ If you add a new library file, add it to `index.json` and ensure the test parame
 
 If you add a new example workbook, add an entry to `examples/index.json`. The example workbooks are not auto-validated by CI (they are SQLite), but the build script that generates them should assert both a system-scope and a value-chain-scope solve succeed before writing the file.
 
-## 9. Optimisation methods (backends)
+## 8. Optimisation methods (backends)
 
 The optimisation *method* is a user choice in **Settings → Optimisation method**, populated from `/api/config`'s `backends` list. Each backend implements the same `run(model, scenario, options)` contract but solves a different problem:
 

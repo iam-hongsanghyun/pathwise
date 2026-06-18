@@ -58,22 +58,20 @@ class Settings(BaseSettings):
     # ── Server-side data (ragnarok pattern: the backend owns the model) ───────
     # Working sessions (one SQLite file each) live under <data_dir>/sessions.
     data_dir: str = "data"
-    # Bundled example workbooks + the facility-template library — static assets
-    # that ship inside the backend package (read server-side; the frontend never
-    # parses files itself and never serves them statically).
+    # Bundled static assets that ship inside the backend package (read server-side;
+    # the frontend never parses files itself and never serves them statically).
     examples_dir: str = str(_ASSETS / "examples")
     # Importable libraries, auto-discovered: <libraries_dir>/<tier>/<id>.json, each
     # a workbook bundling components + a value chain. Tier = the subfolder name
     # (base / example / project). Dropping a JSON in here is enough — no index.
     libraries_dir: str = str(_ASSETS / "libraries")
-    library_dir: str = str(_ASSETS / "library")
     # Value-chain specs (a DAG of coupled stage-models) + their stage workbooks.
     value_chains_dir: str = str(_ASSETS / "value_chains")
     # Read-only STARTER component libraries that ship with the package; copied
     # into the writable <data_dir>/component_libraries on first access so a fresh
     # install opens with real, editable content (see the component_libraries
     # router). User-created libraries never touch this directory.
-    component_seeds_dir: str = str(_ASSETS / "component_libraries")
+    component_seeds_dir: str = str(_ASSETS / "component_seeds")
     # Paging cap for session sheet reads.
     max_sheet_page: int = 1000
 

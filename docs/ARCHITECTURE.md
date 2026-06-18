@@ -34,9 +34,8 @@ frontend (React + React Flow)  ──HTTP──▶  api (FastAPI)
 | Working sessions | SQLite (`.db`) | `data/sessions/*.db` | Server-held editable model per browser session |
 | Component libraries (shared) | SQLite (`.sqlite`) | `data/component_libraries/*.sqlite` | User-editable shared catalogue; seeded from bundled starters on first run |
 | Component libraries (per-session) | SQLite (`.sqlite`) | `data/session_libraries/<sid>/*.sqlite` | Scenario-specific components; isolated from the shared catalogue |
-| Bundled component library seeds | JSON | `src/pathwise/assets/component_libraries/*.json` | Read-only starters; converted to SQLite on first run |
+| Bundled component library seeds | JSON | `src/pathwise/assets/component_seeds/*.json` | Read-only starters; converted to SQLite on first run |
 | Bundled example workbooks | SQLite (`.sqlite`) | `src/pathwise/assets/examples/*.sqlite` | Pre-built example models; read server-side and loaded into a session |
-| Bundled facility/chain templates | JSON | `src/pathwise/assets/library/*.json` | Template library for inserting facilities into a session |
 | Bundled value-chain specs | JSON | `src/pathwise/assets/value_chains/*.json` | DAG-of-stages definitions for coupled multi-stage runs |
 
 JSON files are the **immutable bundled source**. SQLite is the **mutable working/persistence layer**. There are no CSV files anywhere in the persistence stack.
