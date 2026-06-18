@@ -77,11 +77,14 @@ def options_from_scenario(scenario: Any) -> SolverOptions:
     s = getattr(scenario, "solver", None)
     if s is None:
         return SolverOptions()
+    # Source the per-field fallbacks from the dataclass defaults (single source of
+    # truth) rather than repeating the literals, so they can't silently drift.
+    d = SolverOptions()
     return SolverOptions(
-        solver_name=str(getattr(s, "name", "highs")),
-        time_limit_s=float(getattr(s, "time_limit_s", 600.0)),
-        mip_rel_gap=float(getattr(s, "mip_gap", 0.01)),
-        threads=int(getattr(s, "threads", 4)),
+        solver_name=str(getattr(s, "name", d.solver_name)),
+        time_limit_s=float(getattr(s, "time_limit_s", d.time_limit_s)),
+        mip_rel_gap=float(getattr(s, "mip_gap", d.mip_rel_gap)),
+        threads=int(getattr(s, "threads", d.threads)),
     )
 
 
