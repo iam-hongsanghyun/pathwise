@@ -289,6 +289,40 @@ function resolveEdges(
   return out;
 }
 
+/** Groups to expand BY DEFAULT when a model first loads.
+ *
+ *  Expands the tree breadth-first, one whole level at a time, while the visible
+ *  node count stays within `budget`. Small models (green steel, steel) fall under
+ *  budget and fully expand — unchanged behaviour. Large ones (the 248-machine
+ *  petrochemical chain) stop a level or two down, so the canvas never tries to
+ *  paint hundreds of machine boxes and their source-stream fan-out lines at once
+ *  (which froze the browser). The ▦ Expand-all button still forces the full tree.
+ *
+ *  All-or-nothing per level keeps the result predictable: you never see one
+ *  branch drilled deeper than its siblings on first load. */
+export function defaultExpanded(wb: Workbook, budget = 120): Set<string> {
+  const nodes = parseNodes(wb);
+  const kids = new Map<string, GroupNode[]>();
+  for (const n of nodes) {
+    if (n.parentId === null) continue;
+    (kids.get(n.parentId) ?? kids.set(n.parentId, []).get(n.parentId)!).push(n);
+  }
+  const hasChildren = (id: string) => (kids.get(id)?.length ?? 0) > 0;
+  const roots = nodes.filter((n) => n.parentId === null);
+  const expanded = new Set<string>();
+  let visible = roots.length;
+  let frontier = roots; // currently-shown nodes whose children are still hidden
+  while (frontier.length) {
+    const groups = frontier.filter((n) => n.kind === "group" && hasChildren(n.id));
+    const added = groups.reduce((a, g) => a + (kids.get(g.id)?.length ?? 0), 0);
+    if (groups.length === 0 || visible + added > budget) break;
+    for (const g of groups) expanded.add(g.id);
+    visible += added;
+    frontier = groups.flatMap((g) => kids.get(g.id) ?? []);
+  }
+  return expanded;
+}
+
 /** Convenience: lay out for any mode. */
 export function layoutFor(wb: Workbook, mode: MapMode, expanded?: Set<string>): Laid {
   if (mode === "swimlane") return layoutSwimlane(wb);

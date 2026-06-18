@@ -13,6 +13,7 @@ import { SearchableSelect } from "../controls/SearchableSelect";
 import { buildOverlay, ResultYearBar, type CascadeResult, type YearOverlay } from "../valuechain/panels";
 import { parseNodes } from "../../lib/groupGraph";
 import {
+  defaultExpanded,
   editEdges,
   layoutFor,
   sourceStreams,
@@ -68,15 +69,19 @@ export function HierarchyMap({
     [overlayIdx, year],
   );
 
-  // Every group that has children (the expand/collapse-able set). Default: all
-  // expanded (the whole tree visible); Collapse all → just the roots.
+  // Every group that has children (the expand/collapse-able set). The ▦ Expand-all
+  // button uses this; Collapse all → just the roots.
   const allGroupIds = useMemo(() => {
     const ns = parseNodes(workbook);
     const parents = new Set(ns.map((n) => n.parentId).filter((p): p is string => !!p));
     return ns.filter((n) => n.kind === "group" && parents.has(n.id)).map((n) => n.id);
   }, [workbook]);
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(allGroupIds));
-  useEffect(() => setExpanded(new Set(allGroupIds)), [allGroupIds]);
+  // Default: expand as much as fits a node budget — small models open fully, large
+  // ones (e.g. the 248-machine petrochemical chain) open a level or two down so the
+  // canvas doesn't paint hundreds of boxes + source-flow lines at once and freeze.
+  const initialExpanded = useMemo(() => defaultExpanded(workbook), [workbook]);
+  const [expanded, setExpanded] = useState<Set<string>>(initialExpanded);
+  useEffect(() => setExpanded(initialExpanded), [initialExpanded]);
   const expandAll = () => setExpanded(new Set(allGroupIds));
   const collapseAll = () => setExpanded(new Set());
 
