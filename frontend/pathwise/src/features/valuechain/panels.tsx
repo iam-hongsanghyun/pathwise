@@ -125,7 +125,7 @@ export function MachineInspector({
         <div><span className="muted">technology</span><br />{tech || "—"}</div>
         <div>
           <span className="muted">capacity</span><br />
-          <input type="number" defaultValue={Number(machine.capacity) || 0} style={{ ...inp, width: 100 }} onBlur={(e) => onCapacity(Number(e.target.value) || 0)} />
+          <input type="number" min={0} defaultValue={Number(machine.capacity) || 0} style={{ ...inp, width: 100 }} onBlur={(e) => onCapacity(Number(e.target.value) || 0)} />
         </div>
         <div><span className="muted">available</span><br />{avail}</div>
       </div>
@@ -323,12 +323,14 @@ export function PortsPanel({
   nodeId,
   commodities,
   onAdd,
+  onPrice,
   onRemove,
 }: {
   wb: Workbook;
   nodeId: string;
   commodities: string[];
   onAdd: (commodity: string, kind: "buy" | "sell") => void;
+  onPrice: (rowIndex: number, field: "price" | "sell_price", value: number) => void;
   onRemove: (rowIndex: number) => void;
 }) {
   const rows = (wb.markets ?? [])
@@ -337,15 +339,29 @@ export function PortsPanel({
   return (
     <div className="rail-section">
       <div className="rail-head">Purchasing (this node)</div>
-      {rows.map(({ idx, r }) => (
-        <div key={idx} style={{ display: "flex", gap: 4, padding: "2px 8px", alignItems: "center", fontSize: "0.74rem" }}>
-          <span style={{ flex: 1 }}>
-            {s(r.price) !== "" ? "buy" : "sell"} <b>{s(r.target)}</b>{" "}
-            <span className="muted">@ {s(r.price) || s(r.sell_price) || "—"}</span>
-          </span>
-          <button className="ghost" onClick={() => onRemove(idx)}>✕</button>
-        </div>
-      ))}
+      {rows.map(({ idx, r }) => {
+        // Classify by which price KEY is present (not its value), so clearing a
+        // buy price to 0 doesn't silently reclassify the row as a sell.
+        const isBuy = "price" in r;
+        const field: "price" | "sell_price" = isBuy ? "price" : "sell_price";
+        return (
+          <div key={idx} style={{ display: "flex", gap: 4, padding: "2px 8px", alignItems: "center", fontSize: "0.74rem" }}>
+            <span style={{ flex: 1 }}>
+              {isBuy ? "buy" : "sell"} <b>{s(r.target)}</b>
+            </span>
+            <span className="muted">@</span>
+            <input
+              type="number"
+              min={0}
+              value={Number(r[field]) || 0}
+              onChange={(e) => onPrice(idx, field, Number(e.target.value) || 0)}
+              style={{ ...inp, width: 72 }}
+              title={isBuy ? "purchase price per unit" : "sale price per unit"}
+            />
+            <button className="ghost" onClick={() => onRemove(idx)}>✕</button>
+          </div>
+        );
+      })}
       <PortAdder commodities={commodities} onAdd={onAdd} />
     </div>
   );

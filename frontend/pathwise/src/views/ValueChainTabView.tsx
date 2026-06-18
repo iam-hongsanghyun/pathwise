@@ -238,10 +238,18 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
 
   // ── Purchasing (markets scoped to a node) ───────────────────────────────────
   function addMarket(nodeId: string, commodity: string, kind: "buy" | "sell") {
+    // A new BUY market defaults to the stream's own price (not 0) so it doesn't
+    // silently let the optimiser buy for free — the validation layer flags a 0.
+    const comm = (workbook.commodities ?? []).find((c) => s(c.commodity_id) === commodity);
+    const buyPrice = Number(comm?.price) || 0;
+    const sellPrice = Number(comm?.sale_price) || 0;
     const row: Row = kind === "buy"
-      ? { market_id: genId("buy"), target: commodity, company: nodeId, price: 0 }
-      : { market_id: genId("sell"), target: commodity, company: nodeId, sell_price: 0 };
+      ? { market_id: genId("buy"), target: commodity, company: nodeId, price: buyPrice }
+      : { market_id: genId("sell"), target: commodity, company: nodeId, sell_price: sellPrice };
     setWorkbook(setSheet(workbook, "markets", [...(workbook.markets ?? []), row]));
+  }
+  function setMarketPrice(rowIndex: number, field: "price" | "sell_price", value: number) {
+    setWorkbook(setSheet(workbook, "markets", (workbook.markets ?? []).map((r, i) => (i === rowIndex ? { ...r, [field]: value } : r))));
   }
   function removeMarket(rowIndex: number) {
     setWorkbook(setSheet(workbook, "markets", (workbook.markets ?? []).filter((_, i) => i !== rowIndex)));
@@ -608,7 +616,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
 
               <FlowContext wb={workbook} nodeId={selId!} />
 
-              <PortsPanel wb={workbook} nodeId={selId!} commodities={commodities} onAdd={(c, k) => addMarket(selId!, c, k)} onRemove={removeMarket} />
+              <PortsPanel wb={workbook} nodeId={selId!} commodities={commodities} onAdd={(c, k) => addMarket(selId!, c, k)} onPrice={setMarketPrice} onRemove={removeMarket} />
 
               <div className="rail-section">
                 <div className="rail-head-row">
@@ -621,7 +629,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                       <SearchSelect value={s(r.commodity_id)} onChange={(v) => setDemandRow(idx, { commodity_id: v })}
                         options={products.map((p) => ({ value: p }))} placeholder="stream…" />
                     </span>
-                    <input type="number" value={Number(r.amount) || 0} onChange={(e) => setDemandRow(idx, { amount: Number(e.target.value) || 0 })} style={{ ...inp, width: 70 }} />
+                    <input type="number" min={0} value={Number(r.amount) || 0} onChange={(e) => setDemandRow(idx, { amount: Number(e.target.value) || 0 })} style={{ ...inp, width: 70 }} />
                     <button className="ghost" onClick={() => delDemandRow(idx)}>✕</button>
                   </div>
                 ))}
