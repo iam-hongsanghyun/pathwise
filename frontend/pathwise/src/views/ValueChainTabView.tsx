@@ -12,6 +12,8 @@ import { useEffect, useMemo, useState } from "react";
 import { HierarchyMap } from "../features/topology/HierarchyMap";
 import { sourceStreams } from "../lib/hierarchyLayout";
 import { Alternatives, CascadeSummary, FlowContext, MachineInspector, PortsPanel, SourceStreamInspector, type CascadeResult } from "../features/valuechain/panels";
+import { ModelHealth } from "../features/valuechain/ModelHealth";
+import { indexIssues, rollUpBadges, validateModel, type FixDescriptor, type Issue } from "../lib/validate";
 import { useDialogs } from "../features/controls/Dialog";
 import { MultiSelect } from "../features/controls/MultiSelect";
 import { SearchableSelect } from "../features/controls/SearchableSelect";
@@ -266,6 +268,32 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
 
   const commodities = useMemo(() => (workbook.commodities ?? []).map((c) => s(c.commodity_id)), [workbook]);
 
+  // ── Validation (live, client-side mirror of the most common model issues) ─────
+  const issues = useMemo(() => validateModel(workbook), [workbook]);
+  const issueIdx = useMemo(() => indexIssues(issues), [issues]);
+  const badges = useMemo(() => rollUpBadges(workbook, issueIdx.byNode), [workbook, issueIdx]);
+
+  /** Apply an issue's one-click fix (declarative descriptor → setSheet mutation,
+   *  undoable + persisted by App). Value-requiring fixes prompt first. */
+  async function applyFix(issue: Issue) {
+    const fix = issue.fix;
+    if (!fix) return;
+    let d: FixDescriptor = fix.descriptor;
+    if (fix.promptFor) {
+      const raw = (await prompt({ title: fix.label, label: fix.promptFor.label, defaultValue: fix.promptFor.defaultValue != null ? String(fix.promptFor.defaultValue) : undefined }))?.trim();
+      const val = Number(raw);
+      if (!raw || !Number.isFinite(val)) return;
+      const f = fix.promptFor.field;
+      if (d.kind === "patchRow") d = { ...d, patch: { ...d.patch, [f]: val } };
+      else if (d.kind === "appendRow") d = { ...d, row: { ...d.row, [f]: val } };
+      else if (d.kind === "setCommodityField") d = { ...d, patch: { ...d.patch, [f]: val } };
+    }
+    if (d.kind === "appendRow") setWorkbook(setSheet(workbook, d.sheet, [...(workbook[d.sheet] ?? []), d.row]));
+    else if (d.kind === "removeRow") setWorkbook(setSheet(workbook, d.sheet, (workbook[d.sheet] ?? []).filter((_, i) => i !== d.rowIndex)));
+    else if (d.kind === "patchRow") setWorkbook(setSheet(workbook, d.sheet, (workbook[d.sheet] ?? []).map((r, i) => (i === d.rowIndex ? { ...r, ...d.patch } : r))));
+    else if (d.kind === "setCommodityField") setWorkbook(setSheet(workbook, "commodities", (workbook.commodities ?? []).map((r) => (s(r.commodity_id) === d.commodityId ? { ...r, ...d.patch } : r))));
+  }
+
   // Designed levels, labelled L0…Ln by their depth in the tree (+ whole-model).
   const levelOptions = useMemo(() => {
     const depthOf = (id: string): number => {
@@ -301,6 +329,26 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   // ── Run ──────────────────────────────────────────────────────────────────────
   async function run() {
     if (!sessionId) return;
+    // Pre-flight: errors block the run, warnings warn-and-allow. The server still
+    // runs its authoritative validation — this just catches the common issues
+    // before we submit, and points at the Model-health panel for the details.
+    const blocking = issues.filter((i) => i.severity === "error");
+    const warns = issues.filter((i) => i.severity === "warning");
+    if (blocking.length) {
+      setSelId(null); // reveal the Model-health panel in the right rail
+      await confirm({
+        title: `${blocking.length} issue${blocking.length === 1 ? "" : "s"} must be fixed before running`,
+        message: `${blocking.slice(0, 5).map((i) => i.title).join(" · ")} — see Model health on the right.`,
+        danger: true,
+        confirmLabel: "OK",
+      });
+      return;
+    }
+    if (warns.length && !(await confirm({
+      title: `${warns.length} warning${warns.length === 1 ? "" : "s"}`,
+      message: `${warns.slice(0, 5).map((i) => i.title).join(" · ")}. Run anyway?`,
+      confirmLabel: "Run anyway",
+    }))) return;
     setError(null);
     setResult(null);
     setRunning("submitting");
@@ -394,6 +442,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
         level: n.level || undefined, order: n.order,
         hasChildren: nodes.some((c) => c.parentId === n.id) || alts.length > 0,
         droppable: n.kind === "group",
+        badge: badges.get(n.id),
       });
       // Alternatives the optimiser may switch this machine to — greyed-out leaves.
       alts.forEach((tech, i) =>
@@ -401,7 +450,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
       );
     }
     return out;
-  }, [nodes, workbook]);
+  }, [nodes, workbook, badges]);
 
   // Selecting an alternative leaf selects its owning machine (alternatives are
   // not real nodes), so the right-hand inspector shows the machine + its options.
@@ -446,6 +495,17 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
               </span>
             </label>
           </>
+        )}
+        {issueIdx.errorCount + issueIdx.warnCount > 0 && (
+          <button
+            className="ghost health-chip"
+            onClick={() => setSelId(null)}
+            title="show model health"
+          >
+            {issueIdx.errorCount > 0 && <span className="health-dot error" />}
+            {issueIdx.warnCount > 0 && <span className="health-dot warning" />}
+            {issueIdx.errorCount + issueIdx.warnCount}
+          </button>
         )}
         <button className="run-button" onClick={run} disabled={running != null || !sessionId}>{running ? `▶ ${running}…` : "▶ Run"}</button>
       </div>
@@ -513,7 +573,10 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
               );
             })()
           ) : !selNode ? (
-            <div className="muted" style={{ padding: 16, fontSize: "0.82rem" }}>Select an item on the left to see its details. Right-click for actions.</div>
+            <div style={{ padding: "8px 0" }}>
+              <ModelHealth issues={issues} onJump={(id) => setSelId(id)} onFix={applyFix} />
+              <div className="muted" style={{ padding: "8px 16px", fontSize: "0.82rem" }}>Select an item on the left to see its details. Right-click for actions.</div>
+            </div>
           ) : selNode.kind === "machine" ? (
             (() => {
               const baseline = s((workbook.machines ?? []).find((m) => s(m.machine_id) === selId)?.baseline_technology);

@@ -23,6 +23,8 @@ export interface TreeNode {
   draggable?: boolean;
   /** Can accept children dropped "inside" (default: groups/libraries yes). */
   droppable?: boolean;
+  /** Optional severity dot for validation issues on or under this node. */
+  badge?: { severity: "error" | "warning"; count: number };
 }
 
 export interface TreeAction {

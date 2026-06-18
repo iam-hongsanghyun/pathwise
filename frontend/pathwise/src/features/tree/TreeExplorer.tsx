@@ -174,6 +174,13 @@ export function TreeExplorer({
           </span>
           <span className="tree-label">{nd.label}</span>
           {nd.level && <span className="tree-level"> · {nd.level}</span>}
+          {nd.badge && (
+            <span
+              className={`tree-badge ${nd.badge.severity}`}
+              style={{ marginLeft: "auto", flex: "none" }}
+              title={`${nd.badge.count} issue${nd.badge.count === 1 ? "" : "s"} here or inside`}
+            />
+          )}
         </div>,
       );
       if (expanded && nd.hasChildren) out.push(...rows(nd.id, depth + 1));
