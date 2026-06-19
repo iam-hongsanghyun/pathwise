@@ -4,7 +4,7 @@
     {
       "commodity_id": "BF_gas_BB",
       "kind": "energy",
-      "unit": "unit",
+      "unit": "GJ",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -16,7 +16,7 @@
     {
       "commodity_id": "BF_gas_BX",
       "kind": "energy",
-      "unit": "unit",
+      "unit": "GJ",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -28,7 +28,7 @@
     {
       "commodity_id": "BOF_gas_BB",
       "kind": "energy",
-      "unit": "unit",
+      "unit": "GJ",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -40,7 +40,7 @@
     {
       "commodity_id": "BOF_gas_BX",
       "kind": "energy",
-      "unit": "unit",
+      "unit": "GJ",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -52,7 +52,7 @@
     {
       "commodity_id": "COG_BB",
       "kind": "energy",
-      "unit": "unit",
+      "unit": "GJ",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -64,7 +64,7 @@
     {
       "commodity_id": "Coal_BB",
       "kind": "energy",
-      "unit": "unit",
+      "unit": "GJ",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -76,7 +76,7 @@
     {
       "commodity_id": "Coal_BX",
       "kind": "energy",
-      "unit": "unit",
+      "unit": "GJ",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -88,7 +88,7 @@
     {
       "commodity_id": "Electricity_EAF",
       "kind": "energy",
-      "unit": "unit",
+      "unit": "GJ",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -100,7 +100,7 @@
     {
       "commodity_id": "Electricity_H2",
       "kind": "energy",
-      "unit": "unit",
+      "unit": "GJ",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -112,7 +112,7 @@
     {
       "commodity_id": "Hydrogen_H2",
       "kind": "energy",
-      "unit": "unit",
+      "unit": "GJ",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -124,7 +124,7 @@
     {
       "commodity_id": "HBI_EAF",
       "kind": "material",
-      "unit": "unit",
+      "unit": "t",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -136,7 +136,7 @@
     {
       "commodity_id": "Iron_ore_BB",
       "kind": "material",
-      "unit": "unit",
+      "unit": "t",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -148,7 +148,7 @@
     {
       "commodity_id": "Iron_ore_BX",
       "kind": "material",
-      "unit": "unit",
+      "unit": "t",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -160,7 +160,7 @@
     {
       "commodity_id": "Iron_ore_H2",
       "kind": "material",
-      "unit": "unit",
+      "unit": "t",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -172,7 +172,7 @@
     {
       "commodity_id": "Scrap_BB",
       "kind": "material",
-      "unit": "unit",
+      "unit": "t",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -184,7 +184,7 @@
     {
       "commodity_id": "Scrap_EAF",
       "kind": "material",
-      "unit": "unit",
+      "unit": "t",
       "price": null,
       "sale_price": null,
       "price_by_year": {},

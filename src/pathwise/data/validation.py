@@ -12,6 +12,7 @@ from pathwise.data.hierarchy import load_hierarchy
 from pathwise.data.schema import REQUIRED_SHEETS
 from pathwise.data.sheets import (
     COMMODITIES,
+    COMMODITY_PROPERTIES,
     CONNECTIONS,
     DEMAND,
     EDGES,
@@ -26,6 +27,12 @@ from pathwise.data.sheets import (
     TECHNOLOGIES,
 )
 from pathwise.data.workbook import Workbook
+from pathwise.units import dimension_of, is_parseable
+
+#: A commodity may legitimately be measured outside its kind's dimension (e.g. a
+#: fuel in tonnes rather than GJ) when it carries a factor that bridges back —
+#: an ``energy_content`` property or any calorific-value (``lhv*``) key.
+_ENERGY_CONTENT_KEYS = ("energy_content", "lhv")
 
 
 @dataclass(slots=True)
@@ -237,4 +244,54 @@ def validate(workbook: Workbook) -> ValidationReport:
         if q and q not in product_ids:
             report.warnings.append(f"demand for '{q}' which is not produced as a product")
 
+    _check_units(workbook, report)
     return report
+
+
+def _check_units(workbook: Workbook, report: ValidationReport) -> None:
+    """Warn (never block) on unitless / unparseable / mis-dimensioned streams.
+
+    Units are metadata: a missing or wrong unit can't make the solve infeasible,
+    so every finding here is a warning. Checks each commodity / impact declares a
+    real, pint-parseable unit, and that an ``energy`` stream is energy-dimensioned
+    unless it carries an ``energy_content`` factor (the legitimate tonnes-of-fuel
+    case — see commodity-specific conversions).
+    """
+    # commodity_id -> set of property names it declares (for the fuel exception).
+    props: dict[str, set[str]] = {}
+    for r in workbook.get(COMMODITY_PROPERTIES, []):
+        cid, prop = str(r.get("commodity_id", "")), str(r.get("property", "")).lower()
+        if cid and prop:
+            props.setdefault(cid, set()).add(prop)
+
+    def _has_energy_content(cid: str) -> bool:
+        return any(key.startswith(_ENERGY_CONTENT_KEYS) for key in props.get(cid, set()))
+
+    def _check_unit(label: str, unit: str) -> bool:
+        """Common placeholder / parseability check; True if the unit is real."""
+        if unit in ("", "unit"):
+            report.warnings.append(f"{label} has no real unit (still the 'unit' placeholder)")
+            return False
+        if not is_parseable(unit):
+            report.warnings.append(f"{label} has an unrecognised unit '{unit}'")
+            return False
+        return True
+
+    for r in workbook.get(COMMODITIES, []):
+        cid = str(r.get("commodity_id", ""))
+        if not cid:
+            continue
+        unit = str(r.get("unit", "") or "")
+        if not _check_unit(f"commodity '{cid}'", unit):
+            continue
+        kind = str(r.get("kind", "") or "")
+        if kind == "energy" and dimension_of(unit) != "energy" and not _has_energy_content(cid):
+            report.warnings.append(
+                f"energy commodity '{cid}' has non-energy unit '{unit}' and no energy_content "
+                "factor — add one so it can be converted to energy"
+            )
+
+    for r in workbook.get(IMPACTS, []):
+        iid = str(r.get("impact_id", ""))
+        if iid:
+            _check_unit(f"impact '{iid}'", str(r.get("unit", "") or ""))

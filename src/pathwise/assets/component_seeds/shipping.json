@@ -4,7 +4,7 @@
     {
       "commodity_id": "ifo380",
       "kind": "energy",
-      "unit": "MT",
+      "unit": "t",
       "price": 500.0,
       "sale_price": null,
       "properties": {
@@ -14,7 +14,7 @@
     {
       "commodity_id": "bio_diesel",
       "kind": "energy",
-      "unit": "MT",
+      "unit": "t",
       "price": 1449.0,
       "sale_price": null,
       "properties": {
@@ -24,7 +24,7 @@
     {
       "commodity_id": "lng",
       "kind": "energy",
-      "unit": "MT",
+      "unit": "t",
       "price": 753.0,
       "sale_price": null,
       "properties": {
@@ -35,7 +35,7 @@
     {
       "commodity_id": "e_ammonia",
       "kind": "energy",
-      "unit": "MT",
+      "unit": "t",
       "price": 834.0,
       "sale_price": null,
       "properties": {

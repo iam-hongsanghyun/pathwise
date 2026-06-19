@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     # install opens with real, editable content (see the component_libraries
     # router). User-created libraries never touch this directory.
     component_seeds_dir: str = str(_ASSETS / "component_seeds")
+    # Bundled DEFAULT unit system (canonical bases, allowed picker units, custom
+    # unit definitions). Copied to a writable <data_dir>/units.yaml on first edit;
+    # reads fall back to this seed until then (see src/pathwise/units.py).
+    units_seed: str = str(_ASSETS / "units.yaml")
     # Paging cap for session sheet reads.
     max_sheet_page: int = 1000
 

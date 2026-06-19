@@ -119,32 +119,38 @@
 {
 "commodity_id": "Byproduct_Gas",
 "kind": "energy",
-"purchasable": 1
+"purchasable": 1,
+"unit": "GJ"
 },
 {
 "commodity_id": "Electricity",
 "kind": "energy",
-"purchasable": 1
+"purchasable": 1,
+"unit": "MWh"
 },
 {
 "commodity_id": "Fuel_Gas",
 "kind": "energy",
-"purchasable": 1
+"purchasable": 1,
+"unit": "GJ"
 },
 {
 "commodity_id": "H2",
 "kind": "energy",
-"purchasable": 1
+"purchasable": 1,
+"unit": "GJ"
 },
 {
 "commodity_id": "LNG",
 "kind": "energy",
-"purchasable": 1
+"purchasable": 1,
+"unit": "GJ"
 },
 {
 "commodity_id": "Naphtha",
 "kind": "energy",
-"purchasable": 1
+"purchasable": 1,
+"unit": "GJ"
 },
 {
 "commodity_id": "ABS",
@@ -1209,7 +1215,7 @@
 "impacts": [
 {
 "impact_id": "CO2",
-"unit": "tCO2"
+"unit": "tCO2e"
 }
 ],
 "technologies": [

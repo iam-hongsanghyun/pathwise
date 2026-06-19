@@ -34,8 +34,8 @@ def _model() -> dict[str, list[dict[str, Any]]]:
             },
         ],
         "commodities": [
-            {"commodity_id": "iron", "kind": "material"},
-            {"commodity_id": "steel", "kind": "product"},
+            {"commodity_id": "iron", "kind": "material", "unit": "t"},
+            {"commodity_id": "steel", "kind": "product", "unit": "t"},
         ],
         "periods": [{"year": 2025, "duration_years": 1}],
         "demand": [{"company": "all", "commodity_id": "steel", "year": 2025, "amount": 50}],

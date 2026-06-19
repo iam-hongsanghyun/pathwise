@@ -1,0 +1,41 @@
+# pathwise unit system — canonical reference data (sector-agnostic).
+#
+# This ships as a default *seed*. On first edit via the API it is copied to a
+# writable <data_dir>/units.yaml that you own; the bundled copy is never written.
+#
+# Two kinds of conversion live in pathwise:
+#   * dimension-universal (MWh<->GJ, kg<->t, KRW<->USD): handled here + by pint.
+#   * commodity-specific  (1 t gas != 1 t coal in GJ; 1 t steel = N currency):
+#     those factors live ON each commodity (its `properties`), not here.
+
+# Canonical base unit per physical dimension, plus the units offered in the UI
+# picker for that dimension. `base` is what aggregate/report figures roll up to.
+dimensions:
+  energy:    {base: GJ,    allowed: [GJ, MWh, kWh, TJ, MJ]}
+  mass:      {base: t,     allowed: [t, kg, g]}
+  currency:  {base: USD,   allowed: [USD, EUR, KRW]}
+  emissions: {base: tCO2e, allowed: [tCO2e, kgCO2e]}
+  # volume / count dimensions can be added as real data needs them.
+
+# Definitions fed to the pint registry, in order. USER-EDITABLE.
+# `= [name]` introduces a new base dimension; everything else is a factor.
+# Currency cross-rates are nominal placeholders — set them to your own basis.
+custom_units:
+  - "USD = [currency]"          # currency base dimension
+  - "EUR = 1.08 * USD"          # nominal; edit to your reference rate
+  - "KRW = USD / 1300"          # nominal; edit to your reference rate
+  - "tCO2e = [emissions]"       # emissions base dimension (kept distinct from mass)
+  - "kgCO2e = 0.001 * tCO2e"
+  - "boe = 6.118 * GJ"          # barrel of oil equivalent — example custom factor
+  # Discrete count units (each its own dimension; products counted, not measured).
+  - "vehicle = [vehicle]"       # manufactured vehicles
+  - "veh = vehicle"
+  - "ship = [ship]"             # built ships
+  - "voyage = [voyage]"         # one ship voyage (shipping service unit)
+
+# Preferred dimension per commodity kind. Advisory, not absolute: a fuel may be
+# measured in mass/volume so long as it carries an `energy_content` factor
+# (see Phase 3 commodity-specific conversions).
+kind_dimension:
+  energy: energy
+  # material / product / byproduct / indirect: any pint-parseable unit.

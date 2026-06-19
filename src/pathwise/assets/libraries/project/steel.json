@@ -123,82 +123,98 @@
 {
 "commodity_id": "BF_gas_BB",
 "kind": "energy",
-"purchasable": 1
+"purchasable": 1,
+"unit": "GJ"
 },
 {
 "commodity_id": "BF_gas_BX",
 "kind": "energy",
-"purchasable": 1
+"purchasable": 1,
+"unit": "GJ"
 },
 {
 "commodity_id": "BOF_gas_BB",
 "kind": "energy",
-"purchasable": 1
+"purchasable": 1,
+"unit": "GJ"
 },
 {
 "commodity_id": "BOF_gas_BX",
 "kind": "energy",
-"purchasable": 1
+"purchasable": 1,
+"unit": "GJ"
 },
 {
 "commodity_id": "COG_BB",
 "kind": "energy",
-"purchasable": 1
+"purchasable": 1,
+"unit": "GJ"
 },
 {
 "commodity_id": "Coal_BB",
 "kind": "energy",
-"purchasable": 1
+"purchasable": 1,
+"unit": "GJ"
 },
 {
 "commodity_id": "Coal_BX",
 "kind": "energy",
-"purchasable": 1
+"purchasable": 1,
+"unit": "GJ"
 },
 {
 "commodity_id": "Electricity_EAF",
 "kind": "energy",
-"purchasable": 1
+"purchasable": 1,
+"unit": "GJ"
 },
 {
 "commodity_id": "Electricity_H2",
 "kind": "energy",
-"purchasable": 1
+"purchasable": 1,
+"unit": "GJ"
 },
 {
 "commodity_id": "Hydrogen_H2",
 "kind": "energy",
-"purchasable": 1
+"purchasable": 1,
+"unit": "GJ"
 },
 {
 "commodity_id": "HBI_EAF",
 "kind": "material",
-"purchasable": 1
+"purchasable": 1,
+"unit": "t"
 },
 {
 "commodity_id": "Iron_ore_BB",
 "kind": "material",
-"purchasable": 1
+"purchasable": 1,
+"unit": "t"
 },
 {
 "commodity_id": "Iron_ore_BX",
 "kind": "material",
-"purchasable": 1
+"purchasable": 1,
+"unit": "t"
 },
 {
 "commodity_id": "Iron_ore_H2",
 "kind": "material",
-"purchasable": 1
+"purchasable": 1,
+"unit": "t"
 },
 {
 "commodity_id": "Scrap_BB",
 "kind": "material",
-"purchasable": 1
+"purchasable": 1,
+"unit": "t"
 },
 {
 "commodity_id": "Scrap_EAF",
 "kind": "material",
-"purchasable": 1
+"purchasable": 1,
+"unit": "t"
 },
 {
 "commodity_id": "steel",
@@ -2291,7 +2307,7 @@
 "impacts": [
 {
 "impact_id": "CO2",
-"unit": "tCO2"
+"unit": "tCO2e"
 }
 ],
 "technologies": [

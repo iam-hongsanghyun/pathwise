@@ -4,8 +4,8 @@
     {"year": 2030, "duration_years": 1}
   ],
   "commodities": [
-    {"commodity_id": "electricity", "kind": "energy"},
-    {"commodity_id": "steel", "kind": "product"}
+    {"commodity_id": "electricity", "kind": "energy", "unit": "MWh"},
+    {"commodity_id": "steel", "kind": "product", "unit": "t"}
   ],
   "technologies": [{"technology_id": "Arc"}, {"technology_id": "Arc_HR"}],
   "io": [

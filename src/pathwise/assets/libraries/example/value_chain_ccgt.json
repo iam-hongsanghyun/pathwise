@@ -272,7 +272,7 @@
 "impacts": [
 {
 "impact_id": "CO2",
-"unit": "t"
+"unit": "tCO2e"
 }
 ],
 "io": [

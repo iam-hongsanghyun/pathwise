@@ -197,35 +197,35 @@
 {
 "commodity_id": "gas",
 "kind": "energy",
-"unit": "unit",
+"unit": "GJ",
 "price": 5.0
 },
 {
 "commodity_id": "coal",
 "kind": "energy",
-"unit": "unit",
+"unit": "t",
 "price": 3.0
 },
 {
 "commodity_id": "scrap",
 "kind": "material",
-"unit": "unit",
+"unit": "t",
 "price": 8.0
 },
 {
 "commodity_id": "iron",
 "kind": "material",
-"unit": "unit"
+"unit": "t"
 },
 {
 "commodity_id": "electricity",
 "kind": "energy",
-"unit": "unit"
+"unit": "MWh"
 },
 {
 "commodity_id": "steel",
 "kind": "product",
-"unit": "unit"
+"unit": "t"
 }
 ],
 "periods": [
@@ -241,7 +241,7 @@
 "impacts": [
 {
 "impact_id": "CO2",
-"unit": "tCO2"
+"unit": "tCO2e"
 }
 ],
 "commodity_impacts": [

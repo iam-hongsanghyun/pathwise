@@ -94,7 +94,7 @@
 "impacts": [
 {
 "impact_id": "CO2",
-"unit": "tCO2"
+"unit": "tCO2e"
 }
 ],
 "commodities": [

@@ -4,7 +4,7 @@
     {
       "commodity_id": "Byproduct_Gas",
       "kind": "energy",
-      "unit": "unit",
+      "unit": "GJ",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -16,7 +16,7 @@
     {
       "commodity_id": "Electricity",
       "kind": "energy",
-      "unit": "unit",
+      "unit": "MWh",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -28,7 +28,7 @@
     {
       "commodity_id": "Fuel_Gas",
       "kind": "energy",
-      "unit": "unit",
+      "unit": "GJ",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -40,7 +40,7 @@
     {
       "commodity_id": "H2",
       "kind": "energy",
-      "unit": "unit",
+      "unit": "GJ",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -52,7 +52,7 @@
     {
       "commodity_id": "LNG",
       "kind": "energy",
-      "unit": "unit",
+      "unit": "GJ",
       "price": null,
       "sale_price": null,
       "price_by_year": {},
@@ -64,7 +64,7 @@
     {
       "commodity_id": "Naphtha",
       "kind": "energy",
-      "unit": "unit",
+      "unit": "GJ",
       "price": null,
       "sale_price": null,
       "price_by_year": {},

@@ -9,32 +9,32 @@
 {
 "commodity_id": "Byproduct_Gas",
 "kind": "energy",
-"unit": "unit"
+"unit": "GJ"
 },
 {
 "commodity_id": "Electricity",
 "kind": "energy",
-"unit": "unit"
+"unit": "MWh"
 },
 {
 "commodity_id": "Fuel_Gas",
 "kind": "energy",
-"unit": "unit"
+"unit": "GJ"
 },
 {
 "commodity_id": "H2",
 "kind": "energy",
-"unit": "unit"
+"unit": "GJ"
 },
 {
 "commodity_id": "LNG",
 "kind": "energy",
-"unit": "unit"
+"unit": "GJ"
 },
 {
 "commodity_id": "Naphtha",
 "kind": "energy",
-"unit": "unit"
+"unit": "GJ"
 },
 {
 "commodity_id": "ABS",
