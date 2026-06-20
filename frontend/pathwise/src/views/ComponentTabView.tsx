@@ -35,6 +35,7 @@ import {
   saveSessionComponentLibrary,
   type TechnologyTemplate,
 } from "../lib/api/components";
+import type { LibraryEntry } from "../lib/api/libraries";
 import { allowedUnits, getUnits } from "../lib/api/units";
 
 // A library is addressed as `${scope}/${id}` ("base/power", "session/steel") so
@@ -178,11 +179,16 @@ export function ComponentTabView({
   mode = "library",
   activeProjectId = null,
   setActiveProjectId,
+  libraries = [],
+  onPickLibrary,
 }: {
   sessionId: string | null;
   mode?: "library" | "project";
   activeProjectId?: string | null;
   setActiveProjectId?: (id: string | null) => void;
+  /** Importable libraries — the Component view imports the component-bearing ones. */
+  libraries?: LibraryEntry[];
+  onPickLibrary?: (key: string) => void;
 }) {
   const { prompt, confirm, node: dialogNode } = useDialogs();
   const [libs, setLibs] = useState<LibrarySummary[]>([]);
@@ -1012,6 +1018,18 @@ export function ComponentTabView({
                 </button>
                 <button className="rail-add" title="new library" onClick={newLibrary}>＋</button>
               </div>
+              {onPickLibrary && (
+                <div style={{ padding: "0 10px 6px" }}>
+                  <SearchSelect
+                    value=""
+                    onChange={(v) => v && onPickLibrary(v)}
+                    options={libraries
+                      .filter((l) => l.has_components)
+                      .map((l) => ({ value: `${l.tier}/${l.id}`, label: `${l.label}` }))}
+                    placeholder="import components…"
+                  />
+                </div>
+              )}
               <div style={{ flex: 1, minHeight: 60, overflow: "auto" }}>
                 {libTree(railNodes, "No base libraries — ＋ to add one.")}
               </div>

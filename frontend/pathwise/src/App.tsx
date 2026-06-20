@@ -11,7 +11,6 @@ import {
   uploadWorkbook,
 } from "./lib/api/session";
 import { type LibraryEntry, type LibraryTier, importLibrary, listLibraries } from "./lib/api/libraries";
-import { SearchSelect } from "./features/controls/SearchSelect";
 import { ActivityBar, type View } from "./layout/ActivityBar";
 import { useTheme } from "./lib/useTheme";
 import { AnalyticsView } from "./views/AnalyticsView";
@@ -152,7 +151,7 @@ export function App() {
     try {
       const res = await importLibrary(sessionId, tier, id);
       adoptServerModel(res.model);
-      setView(res.imported_value_chain ? "valuechain" : "component");
+      // No view switch — each view imports its own type and stays put.
     } catch (e) {
       setError(String(e));
     }
@@ -259,24 +258,6 @@ export function App() {
           </div>
 
           <label>
-            Library
-            <span style={{ display: "inline-block", width: 280 }}>
-              <SearchSelect
-                value=""
-                onChange={(v) => v && onPickLibrary(v)}
-                disabled={libraries.length === 0}
-                placeholder={libraries.length ? "Import a library…" : "no libraries"}
-                options={libraries.map((l) => ({
-                  value: `${l.tier}/${l.id}`,
-                  label: `${l.tier[0].toUpperCase()}${l.tier.slice(1)} · ${l.label}${
-                    l.has_value_chain ? "" : " (components)"
-                  }`,
-                }))}
-              />
-            </span>
-          </label>
-
-          <label>
             Upload
             <input
               type="file"
@@ -307,13 +288,17 @@ export function App() {
 
         {error && <div className="error" style={{ padding: "4px 16px" }}>{error}</div>}
 
-        {view === "component" && <ComponentTabView sessionId={sessionId} mode="library" />}
+        {view === "component" && (
+          <ComponentTabView sessionId={sessionId} mode="library" libraries={libraries} onPickLibrary={onPickLibrary} />
+        )}
         {view === "facility" && (
           <FacilityView
             workbook={workbook}
             setWorkbook={updateWorkbook}
             sessionId={sessionId}
             adoptServerModel={adoptServerModel}
+            libraries={libraries}
+            onPickLibrary={onPickLibrary}
           />
         )}
         {view === "valuechain" && (
