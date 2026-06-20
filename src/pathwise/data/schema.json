@@ -1295,6 +1295,42 @@
         }
       }
     },
+    "max_production": {
+      "label": "Maximum production",
+      "columns": {
+        "max_id": {
+          "label": "Ceiling",
+          "type": "string"
+        },
+        "company": {
+          "label": "Company (or all)",
+          "type": "string"
+        },
+        "commodity_id": {
+          "label": "Product",
+          "type": "string",
+          "required": true
+        },
+        "year": {
+          "label": "Year (legacy)",
+          "type": "integer"
+        },
+        "amount": {
+          "label": "Max produced (legacy /yr)",
+          "type": "number"
+        }
+      }
+    },
+    "max_production_t__amount": {
+      "label": "Maximum production · by year",
+      "columns": {
+        "year": {
+          "label": "Year",
+          "type": "integer",
+          "required": true
+        }
+      }
+    },
     "demand": {
       "label": "Product demand",
       "columns": {

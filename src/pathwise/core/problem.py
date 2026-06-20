@@ -63,6 +63,8 @@ class Problem:
             [currency / yr]; company ``"all"`` ⇒ sector-wide.
         min_production: Minimum delivered product, keyed by
             ``(company, commodity_id, year)`` [commodity unit / yr].
+        max_production: Maximum delivered product (a hard ceiling), keyed by
+            ``(company, commodity_id, year)`` [commodity unit / yr].
         company_objective: Per-company goal (``cost`` default, or ``profit``).
         discount_rate: Annual discount rate ``ρ`` [1/yr].
         base_year: Baseline period ``t₀``.
@@ -98,11 +100,15 @@ class Problem:
     impact_cap_intensity: dict[tuple[str, str], bool] = field(default_factory=dict)
     investment_budget: dict[tuple[str, int], float] = field(default_factory=dict)
     min_production: dict[tuple[str, str, int], float] = field(default_factory=dict)
+    max_production: dict[tuple[str, str, int], float] = field(default_factory=dict)
     # Upper bound on how many processes may run a technology in any one year
     # (fleet-wide adoption cap), keyed by technology id — e.g. only N greenfield
     # H2-DRI plants can exist by a given year.
     technology_caps: dict[str, int] = field(default_factory=dict)
     company_objective: dict[str, ObjectiveMode] = field(default_factory=dict)
+    # Default goal for companies without a company_config override (the run-level
+    # objective set in the Optimisation tab). Falls back to COST.
+    default_objective: ObjectiveMode = ObjectiveMode.COST
     # Vintage timing: when True, a facility may switch (replace) or rebuild (renew)
     # ONLY at end-of-life boundaries — years where ``(year - introduced_year) %
     # lifespan == 0`` — and must continue its current technology in between. Off by
@@ -177,8 +183,8 @@ class Problem:
         return crf_due * horizon
 
     def objective_of(self, company: str) -> ObjectiveMode:
-        """Objective mode for ``company`` (default :attr:`ObjectiveMode.COST`)."""
-        return self.company_objective.get(company, ObjectiveMode.COST)
+        """Objective mode for ``company`` (default :attr:`default_objective`)."""
+        return self.company_objective.get(company, self.default_objective)
 
     def commodity_impact(self, commodity: str, impact: str, year: int) -> float:
         """Impact factor of consuming ``commodity`` in ``year`` [impact / unit].

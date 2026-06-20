@@ -1,159 +1,286 @@
-// Targets & constraints — one place to set, scoped by system / sector / company /
-// facility, the optimisation's production targets and limits. Pure UI over the
-// existing backend sheets (demand, min_production, impact_caps, investment_budget,
-// company_config); edits mutate the workbook and the host debounce-syncs them.
+// Optimisation cockpit — define the whole run here: the OBJECTIVE (minimise cost /
+// maximise profit, system-wide or per-company), a fully flexible list of CONSTRAINTS
+// (any stream/impact/budget × any scope × produce-target / minimum / maximum), and
+// the RUN button. Constraints are stored in their native backend sheets (demand,
+// min_production, max_production, impact_caps, investment_budget); this view gathers
+// them into one editable list and scatters edits back. Edits debounce-sync via the host.
 
 import { useMemo, useState } from "react";
-import { type Column, DataTable } from "../features/controls/DataTable";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { impactIds, productIds, scopeOptions } from "../lib/scope";
 import type { Row, Workbook } from "../types";
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
-const setSheet = (wb: Workbook, sheet: string, rows: Row[]): Workbook => ({ ...wb, [sheet]: rows });
-const numCol = (
-  key: string,
-  label: string,
-  opts: { integer?: boolean; nullable?: boolean; metaKey?: string } = {},
-): Column<Row> => ({
-  key,
-  label,
-  type: "number",
-  metaKey: opts.metaKey,
-  nullable: opts.nullable,
-  integer: opts.integer,
-  get: (r) => (typeof r[key] === "number" ? (r[key] as number) : s(r[key])),
-  set: (r, v) => {
-    if (v.trim() === "") return { ...r, [key]: opts.nullable ? null : 0 };
-    const n = Number(v) || 0;
-    return { ...r, [key]: opts.integer ? Math.round(n) : n };
-  },
-});
-const enumCol = (key: string, label: string, options: string[], metaKey?: string): Column<Row> => ({
-  key, label, type: "enum", options, metaKey, get: (r) => s(r[key]), set: (r, v) => ({ ...r, [key]: v }),
-});
-const boolCol = (key: string, label: string): Column<Row> => ({
-  key, label, type: "boolean", get: (r) => r[key] === true, set: (r, v) => ({ ...r, [key]: v === "true" }),
-});
+const n = (v: unknown): number => (v == null || v === "" ? 0 : Number(v) || 0);
+const setSheets = (wb: Workbook, sheets: Record<string, Row[]>): Workbook => ({ ...wb, ...sheets });
+
+type Kind = "production" | "emission" | "budget";
+
+// (kind, type) → the backend sheet + which column holds the target id / the value.
+const MAP: Record<string, { sheet: string; target?: string; value: string }> = {
+  "production:produce": { sheet: "demand", target: "commodity_id", value: "amount" },
+  "production:min": { sheet: "min_production", target: "commodity_id", value: "amount" },
+  "production:max": { sheet: "max_production", target: "commodity_id", value: "amount" },
+  "emission:cap": { sheet: "impact_caps", target: "impact_id", value: "limit" },
+  "budget:cap": { sheet: "investment_budget", value: "limit" },
+};
+const CONSTRAINT_SHEETS = ["demand", "min_production", "max_production", "impact_caps", "investment_budget"];
+const KIND_OPTS = [
+  { value: "production", label: "Production" },
+  { value: "emission", label: "Emission" },
+  { value: "budget", label: "Budget" },
+];
+const TYPE_OPTS: Record<Kind, { value: string; label: string }[]> = {
+  production: [
+    { value: "produce", label: "Target (produce)" },
+    { value: "min", label: "Minimum" },
+    { value: "max", label: "Maximum" },
+  ],
+  emission: [{ value: "cap", label: "Cap (max)" }],
+  budget: [{ value: "cap", label: "Cap (max)" }],
+};
+
+/** One row of the unified constraint list. `extra` carries sheet-specific columns
+ *  (e.g. impact_caps' soft/penalty/intensity) so scatter round-trips them. */
+interface UC {
+  kind: Kind;
+  type: string;
+  target: string;
+  scope: string;
+  value: number;
+  year: number;
+  extra: Row;
+}
+
+const MAPPED_KEYS = new Set(["company", "year", "commodity_id", "impact_id", "amount", "limit"]);
+
+function gather(wb: Workbook): UC[] {
+  const out: UC[] = [];
+  for (const [key, m] of Object.entries(MAP)) {
+    const [kind, type] = key.split(":") as [Kind, string];
+    for (const r of wb[m.sheet] ?? []) {
+      const extra: Row = {};
+      for (const [k, v] of Object.entries(r)) if (!MAPPED_KEYS.has(k)) extra[k] = v;
+      out.push({
+        kind,
+        type,
+        target: m.target ? s(r[m.target]) : "",
+        scope: s(r.company) || "all",
+        value: n(r[m.value]),
+        year: n(r.year),
+        extra,
+      });
+    }
+  }
+  return out;
+}
+
+/** Inverse of gather: regroup the unified list back into the native sheets. */
+function scatter(rows: UC[]): Record<string, Row[]> {
+  const out: Record<string, Row[]> = Object.fromEntries(CONSTRAINT_SHEETS.map((sh) => [sh, []]));
+  for (const c of rows) {
+    const m = MAP[`${c.kind}:${c.type}`];
+    if (!m) continue;
+    const row: Row = { ...c.extra, company: c.scope, year: c.year, [m.value]: c.value };
+    if (m.target) row[m.target] = c.target;
+    out[m.sheet].push(row);
+  }
+  return out;
+}
 
 export function TargetsTabView({
   workbook,
   setWorkbook,
+  onRun,
+  running,
+  canRun,
 }: {
   workbook: Workbook;
   setWorkbook: (wb: Workbook) => void;
+  onRun: (scenario: Record<string, unknown>) => void;
+  running: string | null;
+  canRun: boolean;
 }) {
   const scopes = useMemo(() => scopeOptions(workbook), [workbook]);
   const products = useMemo(() => productIds(workbook), [workbook]);
   const impacts = useMemo(() => impactIds(workbook), [workbook]);
-  const baseYear = useMemo(() => {
-    const ys = (workbook.periods ?? []).map((r) => Number(r.year)).filter(Number.isFinite);
-    return ys.length ? Math.min(...ys) : 2025;
-  }, [workbook]);
-  const [scope, setScope] = useState<string>(scopes[0]?.value ?? "all");
-  const scopeLabel = scopes.find((o) => o.value === scope)?.label ?? scope;
+  const years = useMemo(
+    () => (workbook.periods ?? []).map((r) => Number(r.year)).filter(Number.isFinite),
+    [workbook],
+  );
+  const baseYear = years.length ? Math.min(...years) : 2025;
+  const endYear = years.length ? Math.max(...years) : baseYear;
 
-  // ── one scoped sheet section ─────────────────────────────────────────────────
-  function Section({ sheet, title, hint, columns, blank }: {
-    sheet: string; title: string; hint: string; columns: Column<Row>[]; blank: () => Row;
-  }) {
-    const all = workbook[sheet] ?? [];
-    const mine = all.filter((r) => s(r.company) === scope);
-    const writeMine = (next: Row[]) =>
-      setWorkbook(setSheet(workbook, sheet, [...all.filter((r) => s(r.company) !== scope), ...next]));
-    const del: Column<Row> = {
-      key: "_del", label: "", type: "readonly", width: 28,
-      get: () => "✕",
-      onClick: (r) => setWorkbook(setSheet(workbook, sheet, all.filter((x) => x !== r))),
-    };
-    return (
-      <section style={{ marginBottom: 22 }}>
-        <h3 style={{ margin: "0 0 2px", fontSize: "0.92rem" }}>{title}</h3>
-        <p className="muted" style={{ fontSize: "0.74rem", margin: "0 0 8px" }}>{hint}</p>
-        <button className="ghost" style={{ marginBottom: 8 }} onClick={() => writeMine([...mine, { company: scope, ...blank() }])}>
-          ＋ add
-        </button>
-        <DataTable
-          rows={mine}
-          columns={[...columns, del]}
-          onChange={writeMine}
-          rowKey={(r) => String(mine.indexOf(r))}
-          empty="No rows for this scope yet — ＋ add one."
-        />
-      </section>
-    );
+  // ── Objective (goal × scope) ────────────────────────────────────────────────
+  const [goal, setGoal] = useState<"cost" | "profit">("cost");
+  const [perCompany, setPerCompany] = useState(false);
+
+  // ── Constraints (unified) ───────────────────────────────────────────────────
+  const rows = useMemo(() => gather(workbook), [workbook]);
+  const commit = (next: UC[]) => setWorkbook(setSheets(workbook, scatter(next)));
+  const patch = (i: number, p: Partial<UC>) =>
+    commit(rows.map((r, j) => (j === i ? normalise({ ...r, ...p }) : r)));
+  const add = () =>
+    commit([
+      ...rows,
+      { kind: "production", type: "produce", target: products[0] ?? "", scope: "all", value: 100, year: baseYear, extra: {} },
+    ]);
+  const del = (i: number) => commit(rows.filter((_, j) => j !== i));
+
+  // Keep type/target valid when the kind changes.
+  function normalise(c: UC): UC {
+    const types = TYPE_OPTS[c.kind].map((t) => t.value);
+    const type = types.includes(c.type) ? c.type : types[0];
+    let target = c.target;
+    if (c.kind === "emission") target = impacts.includes(target) ? target : (impacts[0] ?? "");
+    else if (c.kind === "production") target = products.includes(target) ? target : (products[0] ?? "");
+    else target = "";
+    return { ...c, type, target };
   }
 
-  // company objective lives in company_config (per company); meaningless for "all".
-  const objective = s((workbook.company_config ?? []).find((r) => s(r.company) === scope)?.objective) || "cost";
-  const setObjective = (v: string) => {
-    const rows = workbook.company_config ?? [];
-    const exists = rows.some((r) => s(r.company) === scope);
-    const next = exists
-      ? rows.map((r) => (s(r.company) === scope ? { ...r, objective: v } : r))
-      : [...rows, { company: scope, objective: v }];
-    setWorkbook(setSheet(workbook, "company_config", next));
-  };
+  function run() {
+    onRun({
+      economics: { base_year: baseYear },
+      horizon: { start: baseYear, end: endYear },
+      optimisation_scope: perCompany ? "company" : "system",
+      optimisation_mode: perCompany ? "independent" : "joint",
+      objective: goal,
+    });
+  }
+
+  const targetOpts = (k: Kind) => (k === "emission" ? impacts : k === "production" ? products : []);
+  const cell: React.CSSProperties = { padding: "2px 4px" };
+  const small = { minWidth: 120 };
 
   return (
     <div className="body-row">
-      <main className="main-area" style={{ overflow: "auto", padding: "16px 22px", maxWidth: 920 }}>
-        <h2 style={{ margin: "0 0 4px" }}>Targets &amp; constraints</h2>
-        <p className="muted" style={{ fontSize: "0.78rem", margin: "0 0 14px" }}>
-          Production targets and limits for the optimisation, scoped to part of the model.
-          Pick a scope; each row below applies to it.
+      <main className="main-area" style={{ overflow: "auto", padding: "16px 22px", maxWidth: 980 }}>
+        <h2 style={{ margin: "0 0 4px" }}>Optimisation</h2>
+        <p className="muted" style={{ fontSize: "0.78rem", margin: "0 0 16px" }}>
+          Define the whole run here — the objective, any number of constraints, then ▶ Run.
         </p>
 
-        <label className="inspector-field" style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 18, maxWidth: 460 }}>
-          <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>Scope</span>
-          <div style={{ flex: 1 }}>
-            <SearchSelect value={scope} onChange={setScope} options={scopes} />
+        {/* Objective */}
+        <section style={{ marginBottom: 22 }}>
+          <h3 style={{ margin: "0 0 6px", fontSize: "0.92rem" }}>Objective</h3>
+          <div style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
+            <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>Goal</span>
+              <div style={small}>
+                <SearchSelect
+                  value={goal}
+                  onChange={(v) => setGoal(v as "cost" | "profit")}
+                  options={[
+                    { value: "cost", label: "Minimise cost" },
+                    { value: "profit", label: "Maximise profit" },
+                  ]}
+                />
+              </div>
+            </label>
+            <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>Solve</span>
+              <div style={small}>
+                <SearchSelect
+                  value={perCompany ? "company" : "system"}
+                  onChange={(v) => setPerCompany(v === "company")}
+                  options={[
+                    { value: "system", label: "Whole system (one problem)" },
+                    { value: "company", label: "Each company (independent)" },
+                  ]}
+                />
+              </div>
+            </label>
+            <span className="muted" style={{ fontSize: "0.74rem" }}>
+              horizon {baseYear}–{endYear}
+            </span>
           </div>
-        </label>
+        </section>
 
-        <Section
-          sheet="demand" title="Production targets (demand)"
-          hint={`How much of a product ${scopeLabel} must deliver each year (a floor in cost mode, a ceiling in profit mode).`}
-          columns={[enumCol("commodity_id", "product", products, "amount"), numCol("year", "year", { integer: true }), numCol("amount", "amount", { metaKey: "amount" })]}
-          blank={() => ({ commodity_id: products[0] ?? "", year: baseYear, amount: 100 })}
-        />
-        <Section
-          sheet="min_production" title="Minimum production"
-          hint="A hard floor on delivered product (always enforced, unlike demand)."
-          columns={[enumCol("commodity_id", "product", products, "amount"), numCol("year", "year", { integer: true }), numCol("amount", "amount", { metaKey: "amount" })]}
-          blank={() => ({ commodity_id: products[0] ?? "", year: baseYear, amount: 0 })}
-        />
-        <Section
-          sheet="impact_caps" title="Emission caps"
-          hint="A per-year limit on an impact (e.g. tCO2e). Soft = exceedance allowed at a penalty; intensity = limit is per unit product."
-          columns={[
-            enumCol("impact_id", "impact", impacts), numCol("year", "year", { integer: true }),
-            numCol("limit", "limit"), boolCol("soft", "soft?"), numCol("penalty", "penalty", { nullable: true }), boolCol("intensity", "intensity?"),
-          ]}
-          blank={() => ({ impact_id: impacts[0] ?? "", year: baseYear, limit: 0, soft: true })}
-        />
-        <Section
-          sheet="investment_budget" title="Investment budget"
-          hint="A per-year ceiling on capital spend (currency)."
-          columns={[numCol("year", "year", { integer: true }), numCol("limit", "limit")]}
-          blank={() => ({ year: baseYear, limit: 0 })}
-        />
+        {/* Constraints */}
+        <section style={{ marginBottom: 22 }}>
+          <h3 style={{ margin: "0 0 2px", fontSize: "0.92rem" }}>Constraints</h3>
+          <p className="muted" style={{ fontSize: "0.74rem", margin: "0 0 8px" }}>
+            Each row: pick what (a stream's production, an emission, or the budget), the scope it
+            applies to, whether it's a target / minimum / maximum, the value and the year. Add as many
+            as you like.
+          </p>
+          <button className="ghost" style={{ marginBottom: 8 }} onClick={add}>
+            ＋ add constraint
+          </button>
+          {rows.length === 0 ? (
+            <p className="muted" style={{ fontSize: "0.78rem" }}>No constraints yet — ＋ add one.</p>
+          ) : (
+            <table className="grid" style={{ width: "100%", fontSize: "0.76rem" }}>
+              <thead>
+                <tr style={{ textAlign: "left", color: "var(--muted)" }}>
+                  <th>what</th>
+                  <th>target</th>
+                  <th>scope</th>
+                  <th>type</th>
+                  <th>value</th>
+                  <th>year</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i}>
+                    <td style={cell}>
+                      <SearchSelect value={r.kind} onChange={(v) => patch(i, { kind: v as Kind })} options={KIND_OPTS} />
+                    </td>
+                    <td style={cell}>
+                      {r.kind === "budget" ? (
+                        <span className="muted">—</span>
+                      ) : (
+                        <SearchSelect
+                          value={r.target}
+                          onChange={(v) => patch(i, { target: v })}
+                          options={targetOpts(r.kind).map((o) => ({ value: o }))}
+                        />
+                      )}
+                    </td>
+                    <td style={cell}>
+                      <SearchSelect value={r.scope} onChange={(v) => patch(i, { scope: v })} options={scopes} />
+                    </td>
+                    <td style={cell}>
+                      <SearchSelect value={r.type} onChange={(v) => patch(i, { type: v })} options={TYPE_OPTS[r.kind]} />
+                    </td>
+                    <td style={cell}>
+                      <input
+                        type="number"
+                        value={r.value}
+                        onChange={(e) => patch(i, { value: n(e.target.value) })}
+                        style={{ width: 90, padding: "3px 5px", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-button)", font: "inherit" }}
+                      />
+                    </td>
+                    <td style={cell}>
+                      <input
+                        type="number"
+                        value={r.year}
+                        onChange={(e) => patch(i, { year: Math.round(n(e.target.value)) })}
+                        style={{ width: 70, padding: "3px 5px", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-button)", font: "inherit" }}
+                      />
+                    </td>
+                    <td>
+                      <button className="ghost" title="remove" onClick={() => del(i)}>✕</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
 
-        {scope !== "all" && (
-          <section style={{ marginBottom: 22 }}>
-            <h3 style={{ margin: "0 0 2px", fontSize: "0.92rem" }}>Objective</h3>
-            <p className="muted" style={{ fontSize: "0.74rem", margin: "0 0 8px" }}>
-              Whether {scopeLabel} minimises cost (demand is a floor) or maximises profit (demand is a ceiling).
-            </p>
-            <div style={{ maxWidth: 280 }}>
-              <SearchSelect
-                value={objective}
-                onChange={setObjective}
-                options={[{ value: "cost", label: "Minimise cost" }, { value: "profit", label: "Maximise profit" }]}
-              />
-            </div>
-          </section>
-        )}
+        {/* Run */}
+        <section style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
+          <button className="run-button" onClick={run} disabled={running != null || !canRun}>
+            {running ? `▶ ${running}…` : "▶ Run"}
+          </button>
+          <span className="muted" style={{ fontSize: "0.74rem", marginLeft: 10 }}>
+            Solves {goal === "cost" ? "least-cost" : "max-profit"},{" "}
+            {perCompany ? "per company" : "whole system"}, over {baseYear}–{endYear}.
+          </span>
+        </section>
       </main>
     </div>
   );

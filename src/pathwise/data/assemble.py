@@ -63,6 +63,8 @@ from pathwise.data.sheets import (
     MARKETS_T_MAX_SELL,
     MARKETS_T_PRICE,
     MARKETS_T_SELL_PRICE,
+    MAX_PRODUCTION,
+    MAX_PRODUCTION_T_AMOUNT,
     MEASURE_BLOCKS,
     MEASURE_BLOCKS_T,
     MEASURE_LINKS,
@@ -1037,6 +1039,14 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         ["company", "commodity_id"],
         "amount",
     )
+    max_production = _temporal_dict(
+        workbook,
+        MAX_PRODUCTION,
+        MAX_PRODUCTION_T_AMOUNT,
+        "max_id",
+        ["company", "commodity_id"],
+        "amount",
+    )
     demand = _temporal_dict(
         workbook, DEMAND, DEMAND_T_AMOUNT, "demand_id", ["company", "commodity_id"], "amount"
     )
@@ -1102,8 +1112,10 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         impact_cap_intensity=impact_cap_intensity,
         investment_budget=investment_budget,
         min_production=min_production,
+        max_production=max_production,
         technology_caps=technology_caps,
         company_objective=company_objective,
+        default_objective=ObjectiveMode(scenario.objective),
         vintage_timing=vintage_timing,
         discount_rate=econ.discount_rate,
         base_year=base_year,

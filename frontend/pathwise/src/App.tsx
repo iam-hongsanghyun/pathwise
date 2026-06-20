@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { getConfig } from "./lib/api/run";
+import { getConfig, runToCompletion } from "./lib/api/run";
 import {
   clearCache,
   clearModel,
@@ -173,6 +173,28 @@ export function App() {
     setView("analytics");
   }
 
+  /** Run the optimisation from the Optimisation tab: sync the model, solve with the
+   *  given scenario, then show the result (or surface validation errors). */
+  async function runOptimisation(scenario: Record<string, unknown>) {
+    if (!sessionId) return;
+    setError(null);
+    try {
+      setRunning("submitting");
+      await putModel(sessionId, workbook);
+      const res = await runToCompletion(sessionId, scenario, { domain: "process", backend }, setRunning);
+      setResult(res);
+      if (res.status === "invalid" && res.validation?.errors?.length) {
+        setError(res.validation.errors.join(" "));
+      } else {
+        setView("analytics");
+      }
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setRunning(null);
+    }
+  }
+
   async function onNewModel() {
     if (!sessionId) return;
     setError(null);
@@ -299,7 +321,15 @@ export function App() {
             onPickLibrary={onPickLibrary}
           />
         )}
-        {view === "targets" && <TargetsTabView workbook={workbook} setWorkbook={updateWorkbook} />}
+        {view === "targets" && (
+          <TargetsTabView
+            workbook={workbook}
+            setWorkbook={updateWorkbook}
+            onRun={runOptimisation}
+            running={running}
+            canRun={!!sessionId}
+          />
+        )}
         {view === "analytics" && (
           <AnalyticsView workbook={workbook} result={result} leftW={leftW} setLeftW={setLeftW} />
         )}

@@ -188,6 +188,9 @@ INVESTMENT_BUDGET = "investment_budget"
 #: Per-year minimum production floors (company, commodity_id, year?, amount?).
 MIN_PRODUCTION = "min_production"
 
+#: Per-year maximum production ceilings (company, commodity_id, year?, amount?).
+MAX_PRODUCTION = "max_production"
+
 #: Per-year environmental impact caps (company, impact_id, year?, limit?, soft?, …).
 IMPACT_CAPS = "impact_caps"
 
@@ -253,6 +256,9 @@ INVESTMENT_BUDGET_T_LIMIT = "investment_budget_t__limit"
 
 #: Wide temporal minimum-production amounts.
 MIN_PRODUCTION_T_AMOUNT = "min_production_t__amount"
+
+#: Wide temporal maximum-production amounts.
+MAX_PRODUCTION_T_AMOUNT = "max_production_t__amount"
 
 #: Wide temporal demand amounts.
 DEMAND_T_AMOUNT = "demand_t__amount"

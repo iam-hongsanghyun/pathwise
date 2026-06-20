@@ -1451,6 +1451,14 @@ def _controls(ctx: BuildContext) -> None:
         if delivered is not None:
             m.add_constraints(delivered >= amount, name=f"minprod[{c},{q},{y}]")
 
+    # Maximum annual production (hard ceiling on delivered product).
+    for (c, q, y), amount in prob.max_production.items():
+        delivered = _lin_sum(
+            [ctx.deliver.sel(process=p, commodity=q, period=y) for p in _scope_processes(ctx, c)]
+        )
+        if delivered is not None:
+            m.add_constraints(delivered <= amount, name=f"maxprod[{c},{q},{y}]")
+
 
 def _adoption_caps(ctx: BuildContext) -> None:
     r"""Fleet-wide cap on the number of processes running a technology each year.
