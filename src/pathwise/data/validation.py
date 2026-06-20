@@ -27,7 +27,7 @@ from pathwise.data.sheets import (
     TECHNOLOGIES,
 )
 from pathwise.data.workbook import Workbook
-from pathwise.units import dimension_of, is_parseable
+from pathwise.units import CoefficientConverter, dimension_of, is_parseable
 
 #: A commodity may legitimately be measured outside its kind's dimension (e.g. a
 #: fuel in tonnes rather than GJ) when it carries a factor that bridges back —
@@ -295,3 +295,43 @@ def _check_units(workbook: Workbook, report: ValidationReport) -> None:
         iid = str(r.get("impact_id", ""))
         if iid:
             _check_unit(f"impact '{iid}'", str(r.get("unit", "") or ""))
+
+    _check_io_units(workbook, report)
+
+
+def _check_io_units(workbook: Workbook, report: ValidationReport) -> None:
+    """Warn (never block) on io rows whose declared unit can't reach the stream's.
+
+    Dry-runs the SAME :class:`CoefficientConverter` the assembler uses (the single
+    source of truth for "is this convertible"), so the warning matches exactly what
+    assembly does — leave the coefficient as authored. Only rows that actually declare
+    a unit are checked, so libraries without units stay silent.
+    """
+    io_rows = workbook.get(IO, [])
+    if not any(str(r.get("unit", "") or "").strip() for r in io_rows):
+        return
+    props: dict[str, dict[str, float]] = {}
+    for r in workbook.get(COMMODITY_PROPERTIES, []):
+        cid, prop, val = r.get("commodity_id"), r.get("property"), r.get("value")
+        if cid and prop and isinstance(val, (int, float)):
+            props.setdefault(str(cid), {})[str(prop)] = float(val)
+    converter = CoefficientConverter(
+        commodity_units={
+            str(r["commodity_id"]): str(r.get("unit", "") or "")
+            for r in workbook.get(COMMODITIES, [])
+            if r.get("commodity_id")
+        },
+        commodity_props=props,
+        impact_units={
+            str(r["impact_id"]): str(r.get("unit", "") or "")
+            for r in workbook.get(IMPACTS, [])
+            if r.get("impact_id")
+        },
+    )
+    for r in io_rows:
+        unit = str(r.get("unit", "") or "").strip()
+        target = str(r.get("target", "") or "")
+        if unit and target:
+            role = (str(r.get("role", "") or "input")).lower()
+            converter.to_canonical(1.0, unit, target, role)  # value is irrelevant here
+    report.warnings.extend(f"io unit: {issue}" for issue in converter.issues)

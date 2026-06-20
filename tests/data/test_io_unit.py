@@ -1,11 +1,12 @@
-"""The optional per-row IO `unit` is authoring metadata that round-trips.
+"""The optional per-row IO `unit` round-trips and is honoured at assembly.
 
-PR1 (A1) only captures + carries the unit; nothing reads it in the solve yet, so a
-library without declared units is unchanged and a declared unit survives the
-library ↔ workbook projection.
+The unit survives the library ↔ workbook projection (PR1); at assembly (PR3) a
+declared unit that differs from the target stream's unit is converted to it.
 """
 
 from __future__ import annotations
+
+import numpy as np
 
 from pathwise.data import ScenarioConfig, assemble_problem
 from pathwise.data.components import (
@@ -50,9 +51,11 @@ def test_io_unit_is_emitted_to_the_workbook_only_when_set() -> None:
     assert rows[("steel", "output")].get("unit") is None
 
 
-def test_library_with_io_units_still_assembles() -> None:
-    # The unit is ignored by assembly in PR1 — the model loads exactly as before.
+def test_library_with_io_units_assembles_and_converts() -> None:
+    # _LIB authors elec at 2.5 GJ against an MWh stream; assembly converts to MWh.
     wb = library_to_workbook(ComponentLibrary.model_validate(_LIB))
     wb["periods"] = [{"year": 2025, "duration_years": 1}]
     prob = assemble_problem(wb, ScenarioConfig.from_dict({}))
-    assert prob.technologies["EAF"].input_intensity["elec"] == 2.5
+    np.testing.assert_allclose(
+        prob.technologies["EAF"].input_intensity["elec"], 2.5 / 3.6, rtol=1e-9
+    )

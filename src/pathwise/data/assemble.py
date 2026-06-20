@@ -99,6 +99,7 @@ from pathwise.data.sheets import (
 )
 from pathwise.data.trajectory import interpolate
 from pathwise.data.workbook import Workbook
+from pathwise.units import CoefficientConverter
 
 Rows = list[dict[str, Any]]
 
@@ -465,12 +466,28 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         hi = min(max(float(hi_raw if hi_raw is not None else 1.0), 0.0), 1.0)
         return lo, max(lo, hi)
 
+    # Per-recipe-row units: an io coefficient authored in a `unit` that differs from
+    # its target stream's canonical unit is converted to that unit here, so the
+    # matrix stays in one unit per commodity (linking technologies needs none).
+    # Absent/blank unit ⇒ factor 1, so a library with no declared units is unchanged.
+    converter = CoefficientConverter(
+        commodity_units={cid: c.unit for cid, c in commodities.items()},
+        commodity_props=props_by_commodity,
+        impact_units={iid: imp.unit for iid, imp in impacts.items()},
+        unit_overrides=scenario.unit_overrides,
+    )
+    # The unit each static io row declares per (tech, target, role); io_t rows carry
+    # no unit of their own and inherit it, so the trajectory never kinks at a unit.
+    io_unit_by_key: dict[tuple[str, str, str], str | None] = {}
+
     for r in _rows(workbook, IO):
         k, target = _str(r.get("technology_id")), _str(r.get("target"))
         role = (_str(r.get("role")) or "input").lower()
-        coef = _num(r.get("coefficient"), 0.0) or 0.0
         if not k or not target:
             continue
+        unit = _str(r.get("unit"))
+        io_unit_by_key[(k, target, role)] = unit
+        coef = converter.to_canonical(_num(r.get("coefficient"), 0.0) or 0.0, unit, target, role)
         if role == "output":
             outputs.setdefault(k, {})[target] = coef
             if (g := _str(r.get("group"))) is not None:
@@ -498,6 +515,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         if k is None or target is None or yv is None:
             continue
         if cv is not None:
+            cv = converter.to_canonical(cv, io_unit_by_key.get((k, target, role)), target, role)
             io_t_points.setdefault((k, target, role), {})[yv] = cv
         smin, smax = _num(r.get("share_min")), _num(r.get("share_max"))
         if smin is not None:
