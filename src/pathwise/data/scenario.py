@@ -142,6 +142,13 @@ class ScenarioConfig(BaseModel):
     #   ``independent`` — each unit solved on its own, no coupling (it trades with
     #                     the market). A single unit is always solved on its own.
     optimisation_mode: str = Field(default="valuechain", pattern="^(valuechain|joint|independent)$")
+    # Project-level unit-rate overrides, layered over the global ``units.yaml`` when
+    # the model is assembled (the project beats the global rates). Same shape as
+    # ``units.yaml``'s ``custom_units`` — either the list directly, or a dict
+    # ``{"custom_units": [...]}`` — e.g. a project with its own FX rate sets
+    # ``["KRW = USD / 1200"]``. Empty ⇒ use the global rates unchanged. Carried with
+    # the project bundle so a project travels with its own conversion rates.
+    unit_overrides: dict[str, Any] | list[Any] = Field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ScenarioConfig:

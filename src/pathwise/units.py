@@ -86,6 +86,17 @@ def load_units_config() -> dict[str, Any]:
     return _config_cache
 
 
+def _build_registry(custom_units: list[Any]) -> UnitRegistry:
+    """A fresh registry with ``custom_units`` defined (bad entries logged + skipped)."""
+    ureg: UnitRegistry = UnitRegistry()
+    for definition in custom_units:
+        try:
+            ureg.define(str(definition))
+        except Exception as exc:  # one bad entry must not break every unit
+            logger.warning("skipping invalid custom unit %r: %s", definition, exc)
+    return ureg
+
+
 def get_registry() -> UnitRegistry:
     """Return the process-wide pint :class:`UnitRegistry` (cached).
 
@@ -94,13 +105,7 @@ def get_registry() -> UnitRegistry:
     """
     global _registry_cache
     if _registry_cache is None:
-        ureg: UnitRegistry = UnitRegistry()
-        for definition in load_units_config().get("custom_units", []):
-            try:
-                ureg.define(str(definition))
-            except Exception as exc:  # one bad entry must not break every unit
-                logger.warning("skipping invalid custom unit %r: %s", definition, exc)
-        _registry_cache = ureg
+        _registry_cache = _build_registry(load_units_config().get("custom_units", []))
     return _registry_cache
 
 
@@ -211,3 +216,246 @@ def unit_factors() -> dict[str, dict[str, Any]]:
             except ValueError:
                 logger.warning("allowed unit %r not convertible to base %r", unit, base)
     return out
+
+
+# ── Project-override-aware registry building ──────────────────────────────────
+
+
+def _definition_name(definition: Any) -> str | None:
+    """The unit name a pint definition defines — the token left of ``=``."""
+    head = str(definition).split("=", 1)[0].strip()
+    return head or None
+
+
+def _override_definitions(unit_overrides: dict[str, Any] | list[Any] | None) -> list[Any]:
+    """Pull the ``custom_units`` definition list out of a project's ``unit_overrides``.
+
+    Accepts the list directly or a ``{"custom_units": [...]}`` mapping (mirrors
+    ``units.yaml``); anything else yields an empty list.
+    """
+    if not unit_overrides:
+        return []
+    if isinstance(unit_overrides, list):
+        return list(unit_overrides)
+    if isinstance(unit_overrides, dict):
+        return list(unit_overrides.get("custom_units", []))
+    return []
+
+
+def merged_custom_units(unit_overrides: dict[str, Any] | list[Any] | None) -> list[Any]:
+    """Global ``custom_units`` with a project's overrides applied (override wins).
+
+    An override that redefines a global unit REPLACES it in place — so pint never
+    sees a redefinition and the existing dependency order is preserved — while a
+    brand-new unit is appended after the globals it may depend on.
+    """
+    base = list(load_units_config().get("custom_units", []))
+    extra = _override_definitions(unit_overrides)
+    if not extra:
+        return base
+    pos_by_name = {_definition_name(d): i for i, d in enumerate(base) if _definition_name(d)}
+    merged = list(base)
+    for d in extra:
+        name = _definition_name(d)
+        if name is not None and name in pos_by_name:
+            merged[pos_by_name[name]] = d  # redefine in place — the override wins
+        else:
+            merged.append(d)
+    return merged
+
+
+# ── Coefficient conversion (recipe IO → the stream's canonical unit) ──────────
+
+#: Property-key prefixes recognised as per-commodity conversion factors. Convention
+#: A (no library migration): a key ``<measure>_<NUM>_per_<DEN>`` with scalar value
+#: ``V`` means ``V <NUM>/<DEN>`` — e.g. ``lhv_MJ_per_kg = 45`` is 45 MJ/kg, an
+#: energy-per-mass factor that bridges this commodity's [mass] <-> [energy]. This
+#: reads keys libraries already use (``lhv_*``) and the generalised names.
+_FACTOR_PREFIXES: tuple[str, ...] = ("energy_content", "lhv", "density", "value", "price")
+
+
+def _scale_to(q: Any) -> Any:
+    """A pint Context transformation that multiplies its value by the factor ``q``."""
+
+    def _t(ureg: Any, value: Any, **kwargs: Any) -> Any:
+        return value * q
+
+    return _t
+
+
+def _scale_by_inverse(q: Any) -> Any:
+    """A pint Context transformation that divides its value by the factor ``q``."""
+
+    def _t(ureg: Any, value: Any, **kwargs: Any) -> Any:
+        return value / q
+
+    return _t
+
+
+def _parse_factor_key(key: str) -> tuple[str, str] | None:
+    """Split a recognised factor key into ``(numerator_unit, denominator_unit)``.
+
+    ``lhv_MJ_per_kg`` -> ``("MJ", "kg")``; returns ``None`` for any key that is not
+    a recognised ``<measure>_<NUM>_per_<DEN>`` factor (e.g. ``temperature_C``).
+    """
+    for prefix in _FACTOR_PREFIXES:
+        if key == prefix or key.startswith(prefix + "_"):
+            rest = key[len(prefix) :].lstrip("_")
+            if "_per_" in rest:
+                num, den = rest.split("_per_", 1)
+                if num and den:
+                    return num, den
+            return None
+    return None
+
+
+class CoefficientConverter:
+    """Convert an authored IO coefficient to its target stream's canonical unit.
+
+    Built once per assemble from the model's commodity/impact units (plus each
+    commodity's conversion-factor properties) and the project's optional
+    ``unit_overrides``. It owns its own pint registry and per-commodity Contexts,
+    so nothing leaks onto the process-wide registry and editing ``units.yaml`` can
+    never collide with it.
+
+    **Degrade-never-raise.** Anything that cannot be converted — missing factor,
+    unparseable unit, incompatible dimensions — is recorded in :attr:`issues` and
+    the coefficient is returned UNCHANGED, so a model always assembles (existing
+    libraries keep loading). An absent/empty row unit is a no-op: the coefficient
+    is already in the stream's unit. That is the invariance guarantee — a library
+    with no declared IO units converts every coefficient by a factor of exactly 1.
+
+    Two conversion lanes, selected automatically by ``(row_unit, canonical_unit)``:
+
+    * **universal** (same dimension, e.g. ``MWh -> GJ``): the registry factor.
+    * **commodity-specific** (cross dimension, e.g. ``t -> GJ``): that commodity's
+      own ``energy_content``/``density``/``value`` factor, via a pint Context.
+      Impacts are universal-only (emissions is its own dimension with no factors).
+    """
+
+    def __init__(
+        self,
+        *,
+        commodity_units: dict[str, str],
+        commodity_props: dict[str, dict[str, float]] | None = None,
+        impact_units: dict[str, str] | None = None,
+        unit_overrides: dict[str, Any] | list[Any] | None = None,
+    ) -> None:
+        self._ureg = _build_registry(merged_custom_units(unit_overrides))
+        self._commodity_units = commodity_units
+        self._commodity_props = commodity_props or {}
+        self._impact_units = impact_units or {}
+        self._ctx_cache: dict[str, Any] = {}  # commodity_id -> pint.Context | None
+        self.issues: list[str] = []
+
+    def to_canonical(
+        self, coefficient: float, row_unit: str | None, target_id: str, role: str
+    ) -> float:
+        """``coefficient`` (authored in ``row_unit``) in ``target_id``'s canonical unit.
+
+        Returns the coefficient unchanged — recording an issue — whenever the
+        conversion can't be done; an absent ``row_unit`` is a no-op (factor 1).
+        """
+        row_unit = row_unit.strip() if row_unit else row_unit
+        if not row_unit:  # absent/blank — already the stream's unit (invariance, no pint)
+            return coefficient
+        canonical = self._canonical_unit(target_id, role)
+        if canonical is None:
+            self._note(
+                f"{target_id!r} ({role}) has no canonical unit; left {row_unit!r} as authored"
+            )
+            return coefficient
+        if not self._parseable(row_unit) or not self._parseable(canonical):
+            self._note(
+                f"unparseable unit ({row_unit!r} -> {canonical!r}) on "
+                f"{target_id!r}; left as authored"
+            )
+            return coefficient
+        if self._same_dimension(row_unit, canonical):
+            return self._convert(coefficient, row_unit, canonical, target_id)
+        if role == "impact":
+            self._note(
+                f"cannot convert impact {target_id!r} across dimensions "
+                f"({row_unit!r} -> {canonical!r}); left as authored"
+            )
+            return coefficient
+        ctx = self._commodity_context(target_id)
+        if ctx is None:
+            self._note(
+                f"no conversion factor on {target_id!r} for {row_unit!r} -> {canonical!r}; "
+                "set its energy_content / density / value to convert"
+            )
+            return coefficient
+        try:
+            with self._ureg.context(ctx):
+                return float((coefficient * self._ureg(row_unit)).to(canonical).magnitude)
+        except Exception as exc:  # degrade-never-raise
+            self._note(f"conversion {row_unit!r} -> {canonical!r} for {target_id!r} failed: {exc}")
+            return coefficient
+
+    # -- internals -------------------------------------------------------------
+
+    def _note(self, message: str) -> None:
+        if message in self.issues:  # dedup — io_t replays the same (target, unit) per year
+            return
+        self.issues.append(message)
+        logger.warning("unit conversion: %s", message)
+
+    def _canonical_unit(self, target_id: str, role: str) -> str | None:
+        unit = (
+            self._impact_units.get(target_id)
+            if role == "impact"
+            else self._commodity_units.get(target_id)
+        )
+        return unit or None
+
+    def _parseable(self, unit: str) -> bool:
+        try:
+            self._ureg.Unit(unit)
+            return True
+        except Exception:
+            return False
+
+    def _same_dimension(self, a: str, b: str) -> bool:
+        try:
+            return bool(self._ureg.Unit(a).dimensionality == self._ureg.Unit(b).dimensionality)
+        except Exception:
+            return False
+
+    def _convert(self, coef: float, from_unit: str, to_unit: str, target_id: str) -> float:
+        try:
+            return float((coef * self._ureg(from_unit)).to(to_unit).magnitude)
+        except Exception as exc:  # degrade-never-raise
+            self._note(f"conversion {from_unit!r} -> {to_unit!r} for {target_id!r} failed: {exc}")
+            return coef
+
+    def _commodity_context(self, commodity_id: str) -> Any:
+        if commodity_id not in self._ctx_cache:
+            self._ctx_cache[commodity_id] = self._build_context(commodity_id)
+        return self._ctx_cache[commodity_id]
+
+    def _build_context(self, commodity_id: str) -> Any:
+        from pint import Context
+
+        ctx = Context(f"cmdty_{commodity_id}")
+        added = False
+        for key, value in self._commodity_props.get(commodity_id, {}).items():
+            parsed = _parse_factor_key(str(key))
+            if parsed is None:
+                continue
+            num, den = parsed
+            if not (self._parseable(num) and self._parseable(den)):
+                continue
+            try:
+                q = float(value) * self._ureg(num) / self._ureg(den)
+                num_dim = self._ureg.Unit(num).dimensionality
+                den_dim = self._ureg.Unit(den).dimensionality
+            except Exception:
+                continue
+            if num_dim == den_dim:  # not a cross-dimension bridge — skip
+                continue
+            # q has dimensionality [num]/[den]: bridge this commodity's measures.
+            ctx.add_transformation(den_dim, num_dim, _scale_to(q))
+            ctx.add_transformation(num_dim, den_dim, _scale_by_inverse(q))
+            added = True
+        return ctx if added else None
