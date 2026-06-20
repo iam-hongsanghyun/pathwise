@@ -13,6 +13,7 @@ import { useTheme } from "./lib/useTheme";
 import { AnalyticsView } from "./views/AnalyticsView";
 import { ComponentTabView } from "./views/ComponentTabView";
 import { FacilityView } from "./views/FacilityView";
+import { ProjectView } from "./views/ProjectView";
 import { SettingsView } from "./views/SettingsView";
 import { TargetsTabView } from "./views/TargetsTabView";
 import { ValueChainTabView } from "./views/ValueChainTabView";
@@ -25,7 +26,7 @@ export function App() {
   // The last model state known to be on the backend; sheet-level reference
   // equality against this drives the debounced patch sync below.
   const synced = useRef<Workbook>({});
-  const [view, setView] = useState<View>("valuechain");
+  const [view, setView] = useState<View>("project");
   const [discount, setDiscount] = useState(0.08);
   const [objScope, setObjScope] = useState<"system" | "company" | "facility">("company");
   const [backend, setBackend] = useState("linopy");
@@ -241,6 +242,15 @@ export function App() {
 
         {error && <div className="error" style={{ padding: "4px 16px" }}>{error}</div>}
 
+        {view === "project" && (
+          <ProjectView
+            sessionId={sessionId}
+            workbook={workbook}
+            setWorkbook={updateWorkbook}
+            adoptServerModel={adoptServerModel}
+            setError={setError}
+          />
+        )}
         {view === "component" && (
           <ComponentTabView sessionId={sessionId} mode="library" libraries={libraries} onPickLibrary={onPickLibrary} />
         )}

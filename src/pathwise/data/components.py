@@ -291,6 +291,83 @@ def copy_component_into(
     return out
 
 
+# ── Project bundle (a self-contained, portable project) ───────────────────────
+
+#: Discriminator stamped on an exported project so import can reject other JSON.
+PROJECT_BUNDLE_FORMAT = "pathwise.project"
+
+
+class ProjectBundle(BaseModel):
+    """A self-contained, portable **project** — a named workspace bundling its
+    Facility + Value-Chain model with every component it needs to re-open and
+    re-edit on any machine.
+
+    Maps onto the three-layer model:
+
+    - ``model``: the shared Facility + Value-Chain workbook
+      (nodes / machines / connections / … + the ``project`` sheet that carries the
+      name). The engine runs off this alone — placed recipes are already inlined.
+    - ``session_libraries``: the project's OWN (project-specific) component
+      libraries, kept verbatim. They live only with the project, never in the base
+      catalogue.
+    - ``base_libraries``: every BASE component the model references, sliced to the
+      dependency closure actually used, so the Library tab and component pickers
+      resolve after import even on a host that lacks those base libraries.
+    """
+
+    format: str = PROJECT_BUNDLE_FORMAT
+    version: int = 1
+    name: str = ""
+    model: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
+    session_libraries: dict[str, ComponentLibrary] = Field(default_factory=dict)
+    base_libraries: dict[str, ComponentLibrary] = Field(default_factory=dict)
+
+
+def referenced_technology_ids(model: dict[str, list[dict[str, Any]]]) -> set[str]:
+    """Every technology id a model uses: each machine's baseline technology plus
+    both endpoints of every transition.
+
+    Used to slice base libraries down to the components a project actually needs
+    (the recipe rows themselves already live inline in the model).
+
+    Args:
+        model: A session workbook (reads its ``machines`` + ``transitions`` sheets).
+
+    Returns:
+        The set of referenced ``technology_id`` strings (falsy ids dropped).
+    """
+    out: set[str] = set()
+    for row in model.get("machines", []):
+        tid = str(row.get("baseline_technology") or "")
+        if tid:
+            out.add(tid)
+    for row in model.get("transitions", []):
+        for key in ("from_technology", "to_technology"):
+            tid = str(row.get(key) or "")
+            if tid:
+                out.add(tid)
+    return out
+
+
+def slice_library_to_technologies(src: ComponentLibrary, tech_ids: set[str]) -> ComponentLibrary:
+    """A minimal closed sub-library of ``src`` holding only the technologies in
+    ``tech_ids`` that ``src`` actually defines, plus their dependency closure
+    (io-target commodities, linked MACCs and their measures).
+
+    Args:
+        src: The source (base) library to slice — not mutated.
+        tech_ids: Technology ids to keep (typically :func:`referenced_technology_ids`).
+
+    Returns:
+        A NEW :class:`ComponentLibrary` (empty if ``src`` defines none of ``tech_ids``).
+    """
+    out = ComponentLibrary(label=src.label)
+    for tid in sorted(tech_ids):
+        if src.technology(tid) is not None:
+            out = copy_component_into(out, src, "technology", tid)
+    return out
+
+
 def load_component_library(path: str | Path) -> ComponentLibrary:
     """Load and validate a component library from a ``.sqlite`` (preferred) or
     ``.json`` file (the format is chosen by suffix)."""

@@ -1,4 +1,11 @@
-export type View = "component" | "facility" | "valuechain" | "targets" | "analytics" | "settings";
+export type View =
+  | "project"
+  | "component"
+  | "facility"
+  | "valuechain"
+  | "targets"
+  | "analytics"
+  | "settings";
 
 interface Entry {
   id: View;
@@ -8,6 +15,11 @@ interface Entry {
 
 const I = {
   // shared svg props keep the strip visually consistent
+  project: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    </svg>
+  ),
   component: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 2 3 7v10l9 5 9-5V7z" />
@@ -55,6 +67,7 @@ const I = {
 // Component / Value-chain / Targets / Analytics live at the top; Settings is
 // pinned to the bottom of the strip (separated by a flex spacer).
 const TOP: Entry[] = [
+  { id: "project", label: "Project — name, import/export the whole project (components + facilities + value chain)", icon: I.project },
   { id: "component", label: "Library — shared, reusable building blocks (base catalogue)", icon: I.component },
   { id: "facility", label: "Facility — real-world facilities: capacity, owners & build years", icon: I.facility },
   { id: "valuechain", label: "Value chain — assemble the model (subgroups → companies → facilities)", icon: I.valuechain },

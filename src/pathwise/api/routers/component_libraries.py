@@ -22,7 +22,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 
 from pathwise.api.session_library_store import SessionLibraryStore
@@ -30,13 +30,17 @@ from pathwise.api.session_store import SessionNotFound, SessionStore
 from pathwise.api.workbook_io import write_sqlite
 from pathwise.config import get_settings
 from pathwise.data.components import (
+    PROJECT_BUNDLE_FORMAT,
     ComponentLibrary,
+    ProjectBundle,
     add_alternative,
     copy_component_into,
     instantiate_into,
     library_to_workbook,
     load_component_library,
     place_technology,
+    referenced_technology_ids,
+    slice_library_to_technologies,
 )
 from pathwise.logger import get_logger
 
@@ -291,6 +295,105 @@ def copy_into_project(session_id: str, lib_id: str, body: CopyComponentInsert) -
         lib_id,
     )
     return _summary(lib_id, out, scope="session")
+
+
+# ── Project bundle (self-contained import / export) ───────────────────────────
+
+
+def _project_name(model: dict[str, list[dict[str, Any]]]) -> str:
+    """The project name, stored as the single ``project`` sheet row's ``name``."""
+    rows = model.get("project") or []
+    return str(rows[0].get("name", "")) if rows else ""
+
+
+@router.get("/session/{session_id}/project/export")
+def export_project(session_id: str) -> Response:
+    """Download the whole project as one self-contained ``.pathwise.json`` bundle:
+    the name, the full Facility + Value-Chain model, the project's own component
+    libraries, and every referenced base component (sliced to the closure used) so
+    it re-opens and re-edits on any host."""
+    try:
+        model = _store().get_model(session_id)
+    except SessionNotFound as exc:
+        raise HTTPException(status_code=404, detail=f"unknown session '{session_id}'") from exc
+
+    sess_store = _session_libs()
+    session_libraries: dict[str, ComponentLibrary] = {}
+    for lib_id in sess_store.list_ids(session_id):
+        lib = sess_store.get(session_id, lib_id)
+        if lib is not None:
+            session_libraries[lib_id] = lib
+
+    refs = referenced_technology_ids(model)
+    base_libraries: dict[str, ComponentLibrary] = {}
+    for f in sorted(_components_dir().glob("*.sqlite")):
+        try:
+            sliced = slice_library_to_technologies(load_component_library(f), refs)
+        except Exception as exc:  # a malformed base library shouldn't abort export
+            logger.warning("skipping unreadable base library %s: %s", f.name, exc)
+            continue
+        if sliced.technologies:  # keep only libraries that actually contribute
+            base_libraries[f.stem] = sliced
+
+    name = _project_name(model)
+    bundle = ProjectBundle(
+        name=name,
+        model=model,
+        session_libraries=session_libraries,
+        base_libraries=base_libraries,
+    )
+    safe = "".join(c for c in (name or "project") if c.isalnum() or c in "-_") or "project"
+    return Response(
+        content=bundle.model_dump_json(),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{safe}.pathwise.json"'},
+    )
+
+
+@router.post("/session/{session_id}/project/import")
+def import_project(session_id: str, bundle: ProjectBundle) -> dict[str, Any]:
+    """Load a previously-exported project bundle into the session: replace the
+    model, restore the project's own component libraries, and restore any
+    referenced base libraries the host is missing (never overwriting an existing
+    base library — the host's own copy may be richer than the sliced one)."""
+    store = _store()
+    if not store.exists(session_id):
+        raise HTTPException(status_code=404, detail=f"unknown session '{session_id}'")
+    if bundle.format != PROJECT_BUNDLE_FORMAT:
+        raise HTTPException(status_code=422, detail="not a pathwise project bundle")
+
+    # The project's own (session-scoped) libraries replace whatever this session had.
+    sess_store = _session_libs()
+    sess_store.delete_session(session_id)
+    for lib_id, lib in bundle.session_libraries.items():
+        if _LIB_ID.match(lib_id):
+            sess_store.put(session_id, lib_id, lib)
+
+    # Restore referenced base libraries the host lacks — never overwrite one it has.
+    restored: list[str] = []
+    for lib_id, lib in bundle.base_libraries.items():
+        if not _LIB_ID.match(lib_id):
+            continue
+        path = _components_dir() / f"{lib_id}.sqlite"
+        if not path.exists():
+            path.write_bytes(write_sqlite(library_to_workbook(lib)))
+            restored.append(lib_id)
+
+    counts = store.put_model(session_id, bundle.model)
+    logger.info(
+        "imported project '%s' into %s: %d project libs, %d base libs restored",
+        bundle.name,
+        session_id,
+        len(bundle.session_libraries),
+        len(restored),
+    )
+    return {
+        "sessionId": session_id,
+        "name": bundle.name,
+        "sheets": counts,
+        "project_libraries": list(bundle.session_libraries.keys()),
+        "restored_base_libraries": restored,
+    }
 
 
 class InstantiateInsert(BaseModel):
