@@ -68,3 +68,13 @@ def test_min_production_year_less_floor_applies_to_every_year() -> None:
     prob = assemble_problem(wb, SC)
     assert prob.min_production[("co/bf", "iron", 2025)] == 30
     assert prob.min_production[("co/bf", "iron", 2030)] == 30
+
+
+def test_demand_year_less_target_applies_to_every_year() -> None:
+    # A static (year-less) Optimisation constraint holds across the whole horizon —
+    # so the UI can store one row instead of one per year.
+    wb = _wb([])
+    wb["demand"] = [{"company": "all", "commodity_id": "iron", "amount": 500}]
+    prob = assemble_problem(wb, SC)
+    assert prob.demand[("all", "iron", 2025)] == 500
+    assert prob.demand[("all", "iron", 2030)] == 500

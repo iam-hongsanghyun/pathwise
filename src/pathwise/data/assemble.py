@@ -1046,6 +1046,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         "budget_id",
         ["company"],
         "limit",
+        base_years=years,  # a year-less (static) budget cap holds every year
     )
     min_production = _temporal_dict(
         workbook,
@@ -1066,10 +1067,22 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         base_years=years,  # a year-less cap (per-machine / per-stream) holds every year
     )
     demand = _temporal_dict(
-        workbook, DEMAND, DEMAND_T_AMOUNT, "demand_id", ["company", "commodity_id"], "amount"
+        workbook,
+        DEMAND,
+        DEMAND_T_AMOUNT,
+        "demand_id",
+        ["company", "commodity_id"],
+        "amount",
+        base_years=years,  # a year-less (static) demand/target holds every year
     )
     impact_caps = _temporal_dict(
-        workbook, IMPACT_CAPS, IMPACT_CAPS_T_LIMIT, "cap_id", ["company", "impact_id"], "limit"
+        workbook,
+        IMPACT_CAPS,
+        IMPACT_CAPS_T_LIMIT,
+        "cap_id",
+        ["company", "impact_id"],
+        "limit",
+        base_years=years,  # a year-less (static) emission cap holds every year
     )
     # Hard/soft per (company, impact): a cap row may set `soft` (default true) and
     # a `penalty` (per unit exceedance); a hard cap must hold exactly.

@@ -7,6 +7,7 @@
 
 import { useMemo, useState } from "react";
 import { SearchSelect } from "../features/controls/SearchSelect";
+import { TemporalValue, type TemporalVal } from "../features/controls/TemporalValue";
 import { impactIds, productIds, scopeOptions } from "../lib/scope";
 import type { Row, Workbook } from "../types";
 
@@ -40,50 +41,69 @@ const TYPE_OPTS: Record<Kind, { value: string; label: string }[]> = {
   budget: [{ value: "cap", label: "Cap (max)" }],
 };
 
-/** One row of the unified constraint list. `extra` carries sheet-specific columns
- *  (e.g. impact_caps' soft/penalty/intensity) so scatter round-trips them. */
+/** One row of the unified constraint list — ONE per (kind, type, target, scope),
+ *  with a value that is static (a number, every year) or temporal (by-year).
+ *  `extra` carries sheet-specific columns (e.g. impact_caps' soft/penalty) so the
+ *  round-trip preserves them. */
 interface UC {
   kind: Kind;
   type: string;
   target: string;
   scope: string;
-  value: number;
-  year: number;
+  value: TemporalVal;
   extra: Row;
 }
 
 const MAPPED_KEYS = new Set(["company", "year", "commodity_id", "impact_id", "amount", "limit"]);
 
+/** Read the native sheets and COLLAPSE the per-year rows into one constraint each:
+ *  a single year-less row → a static value; rows carrying years → a {year: value}
+ *  temporal value. (This is what turns the old row-per-year table into one row.) */
 function gather(wb: Workbook): UC[] {
-  const out: UC[] = [];
+  type G = { kind: Kind; type: string; target: string; scope: string; extra: Row; pts: { yr: number | null; v: number }[] };
+  const groups = new Map<string, G>();
   for (const [key, m] of Object.entries(MAP)) {
     const [kind, type] = key.split(":") as [Kind, string];
     for (const r of wb[m.sheet] ?? []) {
       const extra: Row = {};
       for (const [k, v] of Object.entries(r)) if (!MAPPED_KEYS.has(k)) extra[k] = v;
-      out.push({
-        kind,
-        type,
-        target: m.target ? s(r[m.target]) : "",
-        scope: s(r.company) || "all",
-        value: n(r[m.value]),
-        year: n(r.year),
-        extra,
-      });
+      const target = m.target ? s(r[m.target]) : "";
+      const scope = s(r.company) || "all";
+      const gk = `${kind}:${type}|${scope}|${target}|${JSON.stringify(extra)}`;
+      let g = groups.get(gk);
+      if (!g) groups.set(gk, (g = { kind, type, target, scope, extra, pts: [] }));
+      const yr = r.year == null || r.year === "" ? null : Math.round(n(r.year));
+      g.pts.push({ yr, v: n(r[m.value]) });
     }
   }
-  return out;
+  return [...groups.values()].map((g) => {
+    const yearPts = g.pts.filter((p) => p.yr != null);
+    let value: TemporalVal;
+    if (yearPts.length) {
+      const by: Record<string, number> = {};
+      for (const p of yearPts) by[String(p.yr)] = p.v;
+      value = by;
+    } else {
+      value = g.pts[0]?.v ?? 0;
+    }
+    return { kind: g.kind, type: g.type, target: g.target, scope: g.scope, extra: g.extra, value };
+  });
 }
 
-/** Inverse of gather: regroup the unified list back into the native sheets. */
+/** Inverse of gather: a static value → one year-less row (the engine applies it to
+ *  every year); a temporal value → one row per year. */
 function scatter(rows: UC[]): Record<string, Row[]> {
   const out: Record<string, Row[]> = Object.fromEntries(CONSTRAINT_SHEETS.map((sh) => [sh, []]));
   for (const c of rows) {
     const m = MAP[`${c.kind}:${c.type}`];
     if (!m) continue;
-    const row: Row = { ...c.extra, company: c.scope, year: c.year, [m.value]: c.value };
-    if (m.target) row[m.target] = c.target;
-    out[m.sheet].push(row);
+    const base: Row = { ...c.extra, company: c.scope };
+    if (m.target) base[m.target] = c.target;
+    if (typeof c.value === "number") {
+      out[m.sheet].push({ ...base, [m.value]: c.value });
+    } else {
+      for (const [yr, v] of Object.entries(c.value)) out[m.sheet].push({ ...base, year: Number(yr), [m.value]: v });
+    }
   }
   return out;
 }
@@ -123,7 +143,7 @@ export function TargetsTabView({
   const add = () =>
     commit([
       ...rows,
-      { kind: "production", type: "produce", target: products[0] ?? "", scope: "all", value: 100, year: baseYear, extra: {} },
+      { kind: "production", type: "produce", target: products[0] ?? "", scope: "all", value: 100, extra: {} },
     ]);
   const del = (i: number) => commit(rows.filter((_, j) => j !== i));
 
@@ -202,8 +222,8 @@ export function TargetsTabView({
           <h3 className="section-title" style={{ marginBottom: 2 }}>Constraints</h3>
           <p className="muted" style={{ fontSize: "0.74rem", margin: "0 0 8px" }}>
             Each row: pick what (a stream's production, an emission, or the budget), the scope it
-            applies to, whether it's a target / minimum / maximum, the value and the year. Add as many
-            as you like.
+            applies to, whether it's a target / minimum / maximum, and the value. The value is one
+            number for the whole horizon, or click it to set a value <b>per year</b>.
           </p>
           <button className="ghost" style={{ marginBottom: 8 }} onClick={add}>
             ＋ add constraint
@@ -218,8 +238,7 @@ export function TargetsTabView({
                   <th>target</th>
                   <th>scope</th>
                   <th>type</th>
-                  <th>value</th>
-                  <th>year</th>
+                  <th>value (／yr)</th>
                   <th />
                 </tr>
               </thead>
@@ -247,19 +266,11 @@ export function TargetsTabView({
                       <SearchSelect value={r.type} onChange={(v) => patch(i, { type: v })} options={TYPE_OPTS[r.kind]} />
                     </td>
                     <td style={cell}>
-                      <input
-                        type="number"
+                      <TemporalValue
                         value={r.value}
-                        onChange={(e) => patch(i, { value: n(e.target.value) })}
-                        style={{ width: 90, padding: "3px 5px", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-button)", font: "inherit" }}
-                      />
-                    </td>
-                    <td style={cell}>
-                      <input
-                        type="number"
-                        value={r.year}
-                        onChange={(e) => patch(i, { year: Math.round(n(e.target.value)) })}
-                        style={{ width: 70, padding: "3px 5px", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-button)", font: "inherit" }}
+                        onChange={(v) => patch(i, { value: v ?? 0 })}
+                        label={`${r.kind}${r.target ? ` · ${r.target}` : ""} · ${r.scope}`}
+                        baseYear={baseYear}
                       />
                     </td>
                     <td>

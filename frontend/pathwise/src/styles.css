@@ -808,6 +808,43 @@
 .rail-head-row.is-divided {
   border-top: 1px solid var(--border);
 }
+/* A compact value button that opens the static/temporal editor (TemporalValue). */
+.temporal-btn {
+  font: inherit;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-button);
+  padding: 4px 8px;
+  color: var(--text);
+  cursor: pointer;
+  min-width: 84px;
+}
+.temporal-btn:hover {
+  border-color: var(--brand);
+}
+/* Centered modal overlay (TemporalValue editor; reusable). */
+.modal-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.28);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-card {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  width: 460px;
+  max-width: 92vw;
+  max-height: 82vh;
+  overflow: auto;
+  padding: 16px 18px;
+  box-shadow: var(--shadow-lg);
+}
+
 /* A small segmented control in a rail head (e.g. Base / Project scope). */
 .seg {
   display: inline-flex;

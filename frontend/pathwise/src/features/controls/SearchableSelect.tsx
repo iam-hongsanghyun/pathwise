@@ -139,7 +139,7 @@ export function SearchableSelect({
   return (
     <div className={`combo${broken ? " ref-broken" : ""}`} ref={wrap}>
       <input
-        value={query ?? value}
+        value={query ?? value ?? ""}
         placeholder={value || placeholder || "search…"}
         title={broken ? `'${value}' does not match any existing component` : undefined}
         onFocus={() => {
