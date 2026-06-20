@@ -24,11 +24,12 @@ import {
   addAlternative,
   type AvailableTechnology,
   getComponentLibrary,
+  getSessionComponentLibrary,
   instantiateComponent,
   type LibScope,
   type LibrarySummary,
+  listAllComponentLibraries,
   listAvailableTechnologies,
-  listComponentLibraries,
   placeTechnology,
 } from "../lib/api/components";
 import type { LibraryEntry } from "../lib/api/libraries";
@@ -76,8 +77,9 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   const { prompt, confirm, node: dialogNode } = useDialogs();
 
   useEffect(() => {
-    listComponentLibraries().then(setLibs).catch((e) => setError(String(e)));
-  }, []);
+    if (!sessionId) return;
+    listAllComponentLibraries(sessionId).then(setLibs).catch((e) => setError(String(e)));
+  }, [sessionId]);
 
   // The technology pool an alternative can be drawn from (base + session libs);
   // refetch when the model changes so an imported project's techs appear.
@@ -162,15 +164,15 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     setWorkbook(setSheet(workbook, "nodes", (workbook.nodes ?? []).map((r) => (s(r.node_id) === e.dragId ? { ...r, parent_id: newParent } : r))));
   }
 
-  async function dropPick(library: string, name: string, kind: "technology" | "machine" | "group", parentId: string) {
+  async function dropPick(library: string, name: string, kind: "technology" | "machine" | "group", parentId: string, scope: LibScope) {
     if (!sessionId) return;
     setError(null);
     try {
       await putModel(sessionId, workbook);
       const res =
         kind === "technology"
-          ? await placeTechnology(sessionId, { library, technology: name, parent_id: parentId, capacity: 1000 })
-          : await instantiateComponent(sessionId, { library, component: name, parent_id: parentId });
+          ? await placeTechnology(sessionId, { library, technology: name, parent_id: parentId, capacity: 1000, scope })
+          : await instantiateComponent(sessionId, { library, component: name, parent_id: parentId, scope });
       adoptServerModel(await getFullModel(sessionId));
       setExpanded((p) => new Set(p).add(parentId));
       // Select the freshly instantiated node so it's immediately editable in the
@@ -496,7 +498,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
         </aside>
       </div>
 
-      {picker && <ComponentPicker libs={libs} onPick={(lib, name, kind) => { void dropPick(lib, name, kind, picker.parentId); setPicker(null); }} onClose={() => setPicker(null)} />}
+      {picker && <ComponentPicker sessionId={sessionId} libs={libs} onPick={(lib, name, kind, scope) => { void dropPick(lib, name, kind, picker.parentId, scope); setPicker(null); }} onClose={() => setPicker(null)} />}
       {altPicker && (() => {
         const baseline = s((workbook.machines ?? []).find((m) => s(m.machine_id) === altPicker.machineId)?.baseline_technology);
         const existing = new Set((workbook.transitions ?? []).filter((r) => s(r.from_technology) === baseline).map((r) => s(r.to_technology)));
@@ -528,30 +530,33 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
 // ── Library → component/technology picker ─────────────────────────────────────
 // Place a Component — a single machine or a composite group (e.g. CCGT = GT+ST) —
 // or a raw technology (as a single machine).
-interface PickItem { library: string; libLabel: string; name: string; label: string; kind: "technology" | "machine" | "group" }
+interface PickItem { library: string; libLabel: string; scope: LibScope; name: string; label: string; kind: "technology" | "machine" | "group" }
 
-function ComponentPicker({ libs, onPick, onClose }: { libs: LibrarySummary[]; onPick: (library: string, name: string, kind: "technology" | "machine" | "group") => void; onClose: () => void }) {
+function ComponentPicker({ sessionId, libs, onPick, onClose }: { sessionId: string | null; libs: LibrarySummary[]; onPick: (library: string, name: string, kind: "technology" | "machine" | "group", scope: LibScope) => void; onClose: () => void }) {
   const [q, setQ] = useState("");
   // Flatten EVERY library's components into one searchable list (cross-library),
-  // so you don't have to know which library a technology lives in.
+  // base + this project's own, so you don't have to know which library a
+  // technology lives in.
   const [items, setItems] = useState<PickItem[] | null>(null);
   useEffect(() => {
     let alive = true;
-    Promise.all(libs.map((l) => getComponentLibrary(l.id).then((b) => ({ l, b })).catch(() => null)))
+    const body = (l: LibrarySummary) =>
+      l.scope === "session" && sessionId ? getSessionComponentLibrary(sessionId, l.id) : getComponentLibrary(l.id);
+    Promise.all(libs.map((l) => body(l).then((b) => ({ l, b })).catch(() => null)))
       .then((results) => {
         if (!alive) return;
         const out: PickItem[] = [];
         for (const r of results) {
           if (!r) continue;
           const { l, b } = r;
-          for (const g of b.groups) out.push({ library: l.id, libLabel: l.label, name: g.name, label: g.label || g.name, kind: "group" });
-          for (const m of b.machines) out.push({ library: l.id, libLabel: l.label, name: m.name, label: m.label || m.name, kind: "machine" });
-          for (const t of b.technologies) out.push({ library: l.id, libLabel: l.label, name: t.technology_id, label: t.technology_id, kind: "technology" });
+          for (const g of b.groups) out.push({ library: l.id, libLabel: l.label, scope: l.scope, name: g.name, label: g.label || g.name, kind: "group" });
+          for (const m of b.machines) out.push({ library: l.id, libLabel: l.label, scope: l.scope, name: m.name, label: m.label || m.name, kind: "machine" });
+          for (const t of b.technologies) out.push({ library: l.id, libLabel: l.label, scope: l.scope, name: t.technology_id, label: t.technology_id, kind: "technology" });
         }
         setItems(out);
       });
     return () => { alive = false; };
-  }, [libs]);
+  }, [libs, sessionId]);
   const ql = q.toLowerCase();
   const filtered = (items ?? []).filter((it) => !ql || it.label.toLowerCase().includes(ql) || it.libLabel.toLowerCase().includes(ql));
   const glyph = (k: PickItem["kind"]) => (k === "group" ? "▦" : k === "machine" ? "▪" : "▫");
@@ -562,8 +567,8 @@ function ComponentPicker({ libs, onPick, onClose }: { libs: LibrarySummary[]; on
       {items === null && <p className="muted">loading…</p>}
       {items !== null && filtered.length === 0 && <p className="muted">{items.length === 0 ? "No components yet — add some in the Component tab." : "No matches."}</p>}
       {filtered.map((it) => (
-        <button key={`${it.kind}/${it.library}/${it.name}`} className="rail-item" style={{ width: "100%", textAlign: "left" }} onClick={() => onPick(it.library, it.name, it.kind)}>
-          {glyph(it.kind)} {it.label} <span className="muted">· {it.libLabel}{it.kind === "technology" ? " · technology" : it.kind === "group" ? " · group" : ""}</span>
+        <button key={`${it.kind}/${it.scope}/${it.library}/${it.name}`} className="rail-item" style={{ width: "100%", textAlign: "left" }} onClick={() => onPick(it.library, it.name, it.kind, it.scope)}>
+          {glyph(it.kind)} {it.label} <span className="muted">· {it.libLabel}{it.scope === "session" ? " · project" : ""}{it.kind === "technology" ? " · technology" : it.kind === "group" ? " · group" : ""}</span>
         </button>
       ))}
     </Modal>

@@ -15,8 +15,10 @@ import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types
 import {
   type ComponentLibrary,
   getComponentLibrary,
+  getSessionComponentLibrary,
   type LibrarySummary,
-  listComponentLibraries,
+  type LibScope,
+  listAllComponentLibraries,
   placeTechnology,
 } from "../lib/api/components";
 import type { LibraryEntry } from "../lib/api/libraries";
@@ -61,17 +63,29 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   const machineRow = (id: string): Row | undefined =>
     (workbook.machines ?? []).find((r) => s(r.machine_id) === id);
 
-  // ── Base library catalogue (read-only drag source at the bottom of the rail) ──
-  const [baseLibs, setBaseLibs] = useState<LibrarySummary[]>([]);
+  // ── Library catalogue (read-only drag source at the bottom of the rail) ──────
+  // Both BASE (shared) and the PROJECT's own (session) component libraries — so a
+  // user can drag in project-specific components alongside the base ones. Each is
+  // keyed by `${scope}/${id}` so a base and a project library can share an id.
+  const [allLibs, setAllLibs] = useState<LibrarySummary[]>([]);
   const [libBodies, setLibBodies] = useState<Map<string, ComponentLibrary>>(new Map());
   useEffect(() => {
-    listComponentLibraries().then(setBaseLibs).catch((e) => setError(String(e)));
-  }, []);
-  async function loadLibBody(libId: string) {
-    if (libBodies.has(libId)) return;
+    if (!sessionId) return;
+    listAllComponentLibraries(sessionId)
+      .then(setAllLibs)
+      .catch((e) => setError(String(e)));
+  }, [sessionId]);
+  async function loadLibBody(key: string) {
+    if (libBodies.has(key)) return;
+    const slash = key.indexOf("/");
+    const scope = key.slice(0, slash) as LibScope;
+    const id = key.slice(slash + 1);
     try {
-      const body = await getComponentLibrary(libId);
-      setLibBodies((p) => new Map(p).set(libId, body));
+      const body =
+        scope === "session" && sessionId
+          ? await getSessionComponentLibrary(sessionId, id)
+          : await getComponentLibrary(id);
+      setLibBodies((p) => new Map(p).set(key, body));
     } catch (e) {
       setError(String(e));
     }
@@ -160,7 +174,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   // target, then place it there. A technology becomes a real machine (recipe
   // hard-copied via placeTechnology) carrying physical data; other kinds become
   // a named real-world entry under their group.
-  async function dropComponent(libId: string, kind: DragKind, compId: string, parentId: string) {
+  async function dropComponent(scope: LibScope, libId: string, kind: DragKind, compId: string, parentId: string) {
     if (!sessionId) return;
     const kindWord = { t: "technology", s: "stream", m: "measure", g: "MACC" }[kind];
     const name = (await prompt({ title: `Name this ${kindWord}`, label: "name", defaultValue: compId, placeholder: "e.g. Pohang BF#3" }))?.trim();
@@ -171,7 +185,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
       if (kind === "t") {
         setWorkbook(wb);
         await putModel(sessionId, wb); // the endpoint operates on the stored model
-        const res = await placeTechnology(sessionId, { library: libId, technology: compId, parent_id: kgId, capacity: 0 });
+        const res = await placeTechnology(sessionId, { library: libId, technology: compId, parent_id: kgId, capacity: 0, scope });
         let fresh = await getFullModel(sessionId);
         const newId = res.root ?? res.created[0];
         if (newId) {
@@ -226,17 +240,27 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     return out;
   }, [nodes]);
 
-  // The base Library catalogue (bottom): READ-ONLY drag source. Each library
-  // shows its components by kind (Technology / Stream / Measures & MACC); every
-  // component leaf is draggable, its id encoding the kind (t/s/m/g).
+  // The Library catalogue (bottom): READ-ONLY drag source — base + project libs.
+  // Each library shows its components by kind (Technology / Stream / Measures &
+  // MACC); every component leaf is draggable, its id encoding kind + scope + lib
+  // so placement resolves the right (base vs project) library.
   const libraryNodes = useMemo<TreeNode[]>(() => {
     const out: TreeNode[] = [];
-    for (const l of baseLibs) {
+    for (const l of allLibs) {
+      const key = `${l.scope}/${l.id}`;
       const total = l.technologies + l.commodities + l.measures + l.maccs;
-      out.push({ id: `lib:${l.id}`, parentId: null, kind: "library", label: l.label || l.id, hasChildren: total > 0, draggable: false });
-      const body = libBodies.get(l.id);
+      out.push({
+        id: `lib:${key}`,
+        parentId: null,
+        kind: "library",
+        label: l.label || l.id,
+        level: l.scope === "session" ? "project" : undefined,
+        hasChildren: total > 0,
+        draggable: false,
+      });
+      const body = libBodies.get(key);
       if (!body) continue;
-      const lib = `lib:${l.id}`;
+      const lib = `lib:${key}`;
       const grp = (sub: string, label: string, has: boolean) => {
         const id = `${lib}:${sub}`;
         out.push({ id, parentId: lib, kind: "group", label, hasChildren: has, draggable: false });
@@ -244,18 +268,18 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
       };
       const tg = grp("tech", "Technology", body.technologies.length > 0);
       for (const t of body.technologies)
-        out.push({ id: `t:${l.id}:${t.technology_id}`, parentId: tg, kind: "leaf", label: t.technology_id, hasChildren: false, draggable: true });
+        out.push({ id: `t:${l.scope}:${l.id}:${t.technology_id}`, parentId: tg, kind: "leaf", label: t.technology_id, hasChildren: false, draggable: true });
       const sg = grp("stream", "Stream", body.commodities.length > 0);
       for (const c of body.commodities)
-        out.push({ id: `s:${l.id}:${c.commodity_id}`, parentId: sg, kind: "leaf", label: c.commodity_id, hasChildren: false, draggable: true });
+        out.push({ id: `s:${l.scope}:${l.id}:${c.commodity_id}`, parentId: sg, kind: "leaf", label: c.commodity_id, hasChildren: false, draggable: true });
       const mg = grp("meas", "Measures & MACC", body.measures.length + body.maccs.length > 0);
       for (const g of body.maccs)
-        out.push({ id: `g:${l.id}:${g.macc_id}`, parentId: mg, kind: "leaf", label: g.label || g.macc_id, hasChildren: false, draggable: true });
+        out.push({ id: `g:${l.scope}:${l.id}:${g.macc_id}`, parentId: mg, kind: "leaf", label: g.label || g.macc_id, hasChildren: false, draggable: true });
       for (const m of body.measures)
-        out.push({ id: `m:${l.id}:${m.measure_id}`, parentId: mg, kind: "leaf", label: m.label || m.measure_id, hasChildren: false, draggable: true });
+        out.push({ id: `m:${l.scope}:${l.id}:${m.measure_id}`, parentId: mg, kind: "leaf", label: m.label || m.measure_id, hasChildren: false, draggable: true });
     }
     return out;
-  }, [baseLibs, libBodies]);
+  }, [allLibs, libBodies]);
 
   function actionsFor(node: TreeNode): TreeAction[] {
     if (node.kind === "machine") return [{ id: "delete", label: "Delete", danger: true }];
@@ -406,8 +430,10 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
           ? (payload, target) => {
               const parts = payload.split(":");
               const kind = parts[0];
+              const scope = parts[1];
               if (kind !== "t" && kind !== "s" && kind !== "m" && kind !== "g") return;
-              void dropComponent(parts[1], kind, parts.slice(2).join(":"), target.id);
+              if (scope !== "base" && scope !== "session") return;
+              void dropComponent(scope, parts[2], kind, parts.slice(3).join(":"), target.id);
             }
           : undefined
       }

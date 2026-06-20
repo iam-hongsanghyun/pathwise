@@ -162,6 +162,20 @@ def _session_libs() -> SessionLibraryStore:
     return SessionLibraryStore(Path(get_settings().data_dir) / "session_libraries")
 
 
+def _resolve_library(session_id: str, library: str, scope: str) -> ComponentLibrary:
+    """Load a component library by scope: ``session`` (this project's own) or
+    ``base`` (the shared catalogue). Raises 404 if it doesn't exist."""
+    if scope == "session":
+        lib = _session_libs().get(session_id, library)
+        if lib is None:
+            raise HTTPException(status_code=404, detail=f"unknown session library '{library}'")
+        return lib
+    path = _lib_path(library)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"unknown component library '{library}'")
+    return load_component_library(path)
+
+
 @router.get("/component-libraries")
 def list_component_libraries() -> list[dict[str, Any]]:
     """Every writable component library, summarised (id + label + counts)."""
@@ -408,15 +422,13 @@ class InstantiateInsert(BaseModel):
     component: str
     parent_id: str
     instance_id: str | None = None
+    scope: str = "base"  # "base" (shared) | "session" (this project's own)
 
 
 @router.post("/session/{session_id}/instantiate")
 def instantiate_component(session_id: str, body: InstantiateInsert) -> dict[str, Any]:
     """Stamp a fresh component instance into the session's node hierarchy."""
-    path = _lib_path(body.library)
-    if not path.exists():
-        raise HTTPException(status_code=404, detail=f"unknown component library '{body.library}'")
-    lib = load_component_library(path)
+    lib = _resolve_library(session_id, body.library, body.scope)
     store = _store()
     try:
         model = store.get_model(session_id)
@@ -455,15 +467,13 @@ class PlaceTechnology(BaseModel):
     parent_id: str
     capacity: float = 1000.0
     instance_id: str | None = None
+    scope: str = "base"  # "base" (shared) | "session" (this project's own)
 
 
 @router.post("/session/{session_id}/place-technology")
 def place_technology_route(session_id: str, body: PlaceTechnology) -> dict[str, Any]:
     """Add one technology as a machine node to the session's hierarchy."""
-    path = _lib_path(body.library)
-    if not path.exists():
-        raise HTTPException(status_code=404, detail=f"unknown component library '{body.library}'")
-    lib = load_component_library(path)
+    lib = _resolve_library(session_id, body.library, body.scope)
     store = _store()
     try:
         model = store.get_model(session_id)

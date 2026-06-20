@@ -244,7 +244,7 @@ export async function listAllComponentLibraries(
 /** Drop a fresh copy of a (legacy) composite component under a group node. */
 export async function instantiateComponent(
   sessionId: string,
-  body: { library: string; component: string; parent_id: string; instance_id?: string },
+  body: { library: string; component: string; parent_id: string; instance_id?: string; scope?: LibScope },
 ): Promise<{ created: string[]; root: string | null }> {
   return json<{ created: string[]; root: string | null }>(
     await fetch(`/api/session/${sessionId}/instantiate`, {
@@ -306,7 +306,14 @@ export async function addAlternative(
 /** Place a technology as a fresh machine under a group node of the session. */
 export async function placeTechnology(
   sessionId: string,
-  body: { library: string; technology: string; parent_id: string; capacity?: number; instance_id?: string },
+  body: {
+    library: string;
+    technology: string;
+    parent_id: string;
+    capacity?: number;
+    instance_id?: string;
+    scope?: LibScope;
+  },
 ): Promise<{ created: string[]; root: string | null }> {
   return json<{ created: string[]; root: string | null }>(
     await fetch(`/api/session/${sessionId}/place-technology`, {

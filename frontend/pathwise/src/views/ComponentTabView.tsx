@@ -195,6 +195,9 @@ export function ComponentTabView({
   const [openLibs, setOpenLibs] = useState<Map<string, ComponentLibrary>>(new Map());
   const [dirty, setDirty] = useState<Set<string>>(new Set());
   const [sel, setSel] = useState<Sel | null>(null);
+  // Which catalogue the rail shows: "base" (shared) or "session" (this project's
+  // own components — never written to base, but usable by Facility & Value Chain).
+  const [scope, setScope] = useState<LibScope>("base");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -651,27 +654,29 @@ export function ComponentTabView({
       if (mode === "project") setActiveProjectId?.(l.id);
       setSel({ libId: key, kind: "library" });
     };
-    // Library mode lands on the base catalogue; project mode on this session's projects.
-    const shown = mode === "project" ? sessionProjects : libs.filter((l) => l.scope === "base");
+    // The landing reflects the chosen scope: the shared base catalogue, or this
+    // project's own (session-scoped) component libraries.
+    const session = scope === "session";
+    const shown = mode === "project" ? sessionProjects : libs.filter((l) => l.scope === scope);
     return (
       <section className="lib-landing">
         <div className="lib-landing-head">
           <div>
-            <h2 className="lib-landing-title">{mode === "project" ? "Your projects" : "All libraries"}</h2>
+            <h2 className="lib-landing-title">{session ? "Project components" : "All libraries"}</h2>
             <p className="muted lib-landing-sub">
-              {mode === "project"
-                ? "A project is your own working set — start one, then design components from scratch or copy them in from a library."
+              {session
+                ? "Project-specific component libraries — kept with this project, never written to the base catalogue, and usable in the Facility and Value-Chain views."
                 : "A library is a catalogue of reusable building blocks — technologies, streams & abatement measures — organised by sector. Open one to author its contents."}
             </p>
           </div>
-          <button className="lib-new" onClick={mode === "project" ? newProject : newLibrary}>
-            {mode === "project" ? "+ New project" : "+ New library"}
+          <button className="lib-new" onClick={session ? newProject : newLibrary}>
+            {session ? "+ New project library" : "+ New library"}
           </button>
         </div>
         {shown.length === 0 ? (
           <p className="muted">
-            {mode === "project" ? (
-              <>No projects yet — click <b>New project</b> to start.</>
+            {session ? (
+              <>No project libraries yet — click <b>New project library</b> to start.</>
             ) : (
               <>No libraries yet — click <b>New library</b> to start.</>
             )}
@@ -953,7 +958,7 @@ export function ComponentTabView({
   const railNodes =
     mode === "project"
       ? treeNodes.filter((nd) => activeLibId != null && parseId(nd.id).libId === activeLibId)
-      : treeNodes.filter((nd) => parseId(nd.id).libId.startsWith("base/"));
+      : treeNodes.filter((nd) => splitLib(parseId(nd.id).libId)[0] === scope);
   const libTree = (nodes: TreeNode[], emptyHint: string) => (
     <TreeExplorer
       nodes={nodes}
@@ -1008,12 +1013,31 @@ export function ComponentTabView({
           ) : (
             <>
               <div className="rail-head-row">
-                <button className="rail-head" title="Show all libraries" onClick={() => setSel(null)}>
-                  Library
+                <div className="seg" role="group" aria-label="Library scope">
+                  <button
+                    className={scope === "base" ? "is-active" : ""}
+                    title="Shared base catalogue"
+                    onClick={() => { setScope("base"); setSel(null); }}
+                  >
+                    Base
+                  </button>
+                  <button
+                    className={scope === "session" ? "is-active" : ""}
+                    title="This project's own components"
+                    onClick={() => { setScope("session"); setSel(null); }}
+                  >
+                    Project
+                  </button>
+                </div>
+                <button
+                  className="rail-add"
+                  title={scope === "session" ? "new project library" : "new base library"}
+                  onClick={scope === "session" ? newProject : newLibrary}
+                >
+                  ＋
                 </button>
-                <button className="rail-add" title="new library" onClick={newLibrary}>＋</button>
               </div>
-              {onPickLibrary && (
+              {scope === "base" && onPickLibrary && (
                 <div className="rail-import">
                   <SearchSelect
                     value=""
@@ -1026,7 +1050,12 @@ export function ComponentTabView({
                 </div>
               )}
               <div className="rail-scroll">
-                {libTree(railNodes, "No base libraries — ＋ to add one.")}
+                {libTree(
+                  railNodes,
+                  scope === "session"
+                    ? "No project libraries — ＋ to add one."
+                    : "No base libraries — ＋ to add one.",
+                )}
               </div>
             </>
           )}
@@ -1034,7 +1063,7 @@ export function ComponentTabView({
         </aside>
         <main className="builder-main">
           <div className="view-head">
-            <div className="eyebrow">{mode === "project" ? "project workbench" : "component library"}</div>
+            <div className="eyebrow">{mode === "project" ? "project workbench" : scope === "session" ? "project components" : "component library"}</div>
             <span className="view-status">{status}</span>
           </div>
           <div style={{ flex: 1, minHeight: 0 }}>{renderDetail()}</div>
