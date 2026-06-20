@@ -198,6 +198,8 @@ export function MachineInspector({
         {io.length === 0 && <div className="muted" style={{ padding: "8px 0", fontSize: "0.8rem" }}>no recipe</div>}
       </div>
 
+      {/* Output block: capacity + CO₂ intensity on top, min + max output together. */}
+      <div className="mi-section-head"><span>output</span></div>
       <div className="mi-cards">
         <div className="mi-card">
           <div className="mi-card-label">capacity</div>
@@ -206,38 +208,6 @@ export function MachineInspector({
             <span className="mi-unit">{thru}/yr</span>
           </div>
         </div>
-        {onMinOutput && (
-          <div className="mi-card">
-            <div className="mi-card-label">min output</div>
-            <div className="mi-card-val">
-              <input
-                type="number"
-                min={0}
-                placeholder="no floor"
-                value={minOutput ?? ""}
-                className="mi-cap-input"
-                onChange={(e) => onMinOutput(e.target.value === "" ? null : Number(e.target.value) || 0)}
-              />
-              <span className="mi-unit">{unitLabel}/yr</span>
-            </div>
-          </div>
-        )}
-        {onMaxOutput && (
-          <div className="mi-card">
-            <div className="mi-card-label">max output</div>
-            <div className="mi-card-val">
-              <input
-                type="number"
-                min={0}
-                placeholder="no cap"
-                value={maxOutput ?? ""}
-                className="mi-cap-input"
-                onChange={(e) => onMaxOutput(e.target.value === "" ? null : Number(e.target.value) || 0)}
-              />
-              <span className="mi-unit">{unitLabel}/yr</span>
-            </div>
-          </div>
-        )}
         {co2Intensity != null && (
           <div className="mi-card">
             <div className="mi-card-label">CO₂ intensity</div>
@@ -245,6 +215,42 @@ export function MachineInspector({
           </div>
         )}
       </div>
+      {(onMinOutput || onMaxOutput) && (
+        <div className="mi-cards">
+          {onMinOutput && (
+            <div className="mi-card">
+              <div className="mi-card-label">min output</div>
+              <div className="mi-card-val">
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="no floor"
+                  value={minOutput ?? ""}
+                  className="mi-cap-input"
+                  onChange={(e) => onMinOutput(e.target.value === "" ? null : Number(e.target.value) || 0)}
+                />
+                <span className="mi-unit">{unitLabel}/yr</span>
+              </div>
+            </div>
+          )}
+          {onMaxOutput && (
+            <div className="mi-card">
+              <div className="mi-card-label">max output</div>
+              <div className="mi-card-val">
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="no cap"
+                  value={maxOutput ?? ""}
+                  className="mi-cap-input"
+                  onChange={(e) => onMaxOutput(e.target.value === "" ? null : Number(e.target.value) || 0)}
+                />
+                <span className="mi-unit">{unitLabel}/yr</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <p className="muted mi-note">Recipe values are edited in the Component tab — shown here for wiring. ★ = a final product (can meet demand).</p>
 
