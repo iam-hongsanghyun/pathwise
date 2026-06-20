@@ -2,12 +2,9 @@
 // how each is satisfied), ports/purchasing, demand targets, and the per-level
 // cascade result summary. Presentational; the host mutates the workbook.
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { SearchableSelect } from "../controls/SearchableSelect";
 import { SearchSelect } from "../controls/SearchSelect";
-import { RecipePreview } from "../component/RecipePreview";
-import { InfoTooltip } from "../controls/InfoTooltip";
-import { fieldMeta } from "../component/fieldMeta";
 import type { AvailableTechnology } from "../../lib/api/components";
 import type { Cell, RunResult, Workbook } from "../../types";
 
@@ -81,6 +78,11 @@ export function MachineInspector({
     if (scope && !appliedMeasures.has(s(mm.measure_id))) appliedMeasures.set(s(mm.measure_id), scope);
   }
   const measureType = new Map((wb.measures ?? []).map((m) => [s(m.measure_id), s(m.type)]));
+  const measureTarget = new Map((wb.measures ?? []).map((m) => [s(m.measure_id), s(m.target)]));
+  const measureLabel = new Map((wb.measures ?? []).map((m) => [s(m.measure_id), s(m.label)]));
+  // A measure id may be instance-scoped ("node/path · name") — show just the name.
+  const measureName = (mid: string): string =>
+    measureLabel.get(mid) || (mid.includes("·") ? mid.split("·").pop()!.trim() : mid.split("/").pop() || mid);
   const scope = useMemo(() => new Set(chain(wb, machineId)), [wb, machineId]);
   const labelOf = useMemo(
     () => new Map((wb.nodes ?? []).map((r) => [s(r.node_id), s(r.label) || s(r.node_id)])),
@@ -116,83 +118,113 @@ export function MachineInspector({
 
   if (!machine) return <p className="muted" style={{ padding: 16 }}>Machine not found.</p>;
 
+  // Units come from the streams (commodities sheet); throughput is measured in the
+  // product output's unit. Each coefficient is "per unit of throughput".
+  const unitOf = (cid: string): string =>
+    s((wb.commodities ?? []).find((x) => s(x.commodity_id) === cid)?.unit) || "";
+  const fmt = (v: unknown): string => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return s(v);
+    return Number.isInteger(n) ? n.toLocaleString() : n.toLocaleString(undefined, { maximumFractionDigits: 3 });
+  };
+  const product = outputs.find((r) => r.is_product) ?? outputs[0];
+  const thru = unitOf(s(product?.target)) || "unit";
+
+  // CO2 intensity per unit output: direct (tech impact rows) + indirect (purchased
+  // inputs' carbon factors, when the model carries commodity_impacts). Omitted when
+  // no CO2 impact is wired.
+  const co2 = (wb.impacts ?? []).find((i) => /co2/i.test(s(i.impact_id)));
+  const co2Id = s(co2?.impact_id);
+  let co2Intensity: number | null = null;
+  if (co2Id) {
+    let v = 0;
+    for (const r of impacts) if (s(r.target) === co2Id) v += Number(r.coefficient) || 0;
+    for (const r of inputs) {
+      const f = (wb.commodity_impacts ?? []).find(
+        (x) => s(x.commodity_id) === s(r.target) && s(x.impact_id) === co2Id,
+      );
+      if (f) v += (Number(r.coefficient) || 0) * (Number(f.factor) || 0);
+    }
+    co2Intensity = v;
+  }
+  const otherImpacts = impacts.filter((r) => s(r.target) !== co2Id);
+
   const yFrom = techRow?.introduction_year, yTo = techRow?.phase_out_year;
-  const avail = yFrom == null && yTo == null ? "always" : `${yFrom ?? "—"} → ${yTo ?? "—"}`;
-  const th = { textAlign: "left", color: "var(--muted)", fontWeight: 500 } as React.CSSProperties;
+  const avail = yFrom == null && yTo == null ? "always available" : `available ${yFrom ?? "—"} → ${yTo ?? "—"}`;
+
+  const wireRow = (r: Record<string, Cell>, role: "IN" | "OUT") => {
+    const c = s(r.target);
+    const sub = role === "IN" ? inFrom(c) : { text: outTo(c, !!r.is_product), ok: true };
+    return (
+      <div className="mi-row" key={`${role}:${c}`}>
+        <span className={`mi-badge ${role === "OUT" ? "mi-out" : ""}`}>{role}</span>
+        <div className="mi-stream">
+          <div className="mi-name">{c}{r.is_product ? " ★" : ""}</div>
+          <div className="mi-sub" style={sub.ok === false ? { color: "var(--danger)" } : undefined}>{sub.text}</div>
+        </div>
+        <div className="mi-val">{fmt(r.coefficient)} <span className="mi-unit">{unitOf(c)}</span></div>
+      </div>
+    );
+  };
 
   return (
-    <div style={{ padding: "16px 20px", overflow: "auto" }}>
-      <div className="eyebrow">machine · technology</div>
-      <h2 style={{ margin: "4px 0 10px" }}>{machineId.split("/").pop()}</h2>
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 12, fontSize: "0.82rem" }}>
-        <div><span className="muted">technology</span><br />{tech || "—"}</div>
-        <div>
-          <span className="muted">capacity <InfoTooltip text={fieldMeta("capacity")?.info ?? ""} unit={fieldMeta("capacity")?.unit} /></span><br />
-          <input type="number" min={0} defaultValue={Number(machine.capacity) || 0} style={{ ...inp, width: 100 }} onBlur={(e) => onCapacity(Number(e.target.value) || 0)} />
-        </div>
-        <div><span className="muted">available</span><br />{avail}</div>
+    <div className="mi" style={{ padding: "16px 20px", overflow: "auto" }}>
+      <div className="eyebrow">machine</div>
+      <h2 className="mi-title">{s(machine.label) || machineId.split("/").pop()}</h2>
+      <div className="mi-chips">
+        {tech && <span className="mi-chip">runs {tech}</span>}
+        <span className="mi-avail">{avail}</span>
       </div>
 
-      <h3 style={{ fontSize: "0.85rem", margin: "10px 0 4px" }}>Inputs <span className="muted" style={{ fontWeight: 400 }}>(consumed)</span></h3>
-      <table className="grid" style={{ fontSize: "0.78rem", width: "100%" }}>
-        <thead><tr><th style={th}>stream</th><th style={th}>per unit</th><th style={th}>from</th></tr></thead>
-        <tbody>
-          {inputs.map((r) => {
-            const c = s(r.target); const f = inFrom(c);
-            return <tr key={c}><td>{c}</td><td>{s(r.coefficient)}</td><td style={{ color: f.ok ? "var(--text)" : "var(--danger)" }}>{f.text}</td></tr>;
-          })}
-          {inputs.length === 0 && <tr><td colSpan={3} className="muted">no inputs</td></tr>}
-        </tbody>
-      </table>
+      <div className="mi-section-head"><span>recipe — wiring</span><span className="muted">per {thru} output</span></div>
+      <div>
+        {inputs.map((r) => wireRow(r, "IN"))}
+        {outputs.map((r) => wireRow(r, "OUT"))}
+        {io.length === 0 && <div className="muted" style={{ padding: "8px 0", fontSize: "0.8rem" }}>no recipe</div>}
+      </div>
 
-      <h3 style={{ fontSize: "0.85rem", margin: "12px 0 4px" }}>Outputs <span className="muted" style={{ fontWeight: 400 }}>(produced)</span></h3>
-      <table className="grid" style={{ fontSize: "0.78rem", width: "100%" }}>
-        <thead><tr><th style={th}>stream</th><th style={th}>per unit</th><th style={th}>to</th></tr></thead>
-        <tbody>
-          {outputs.map((r) => {
-            const c = s(r.target);
-            return <tr key={c}><td>{c}{r.is_product ? " ★" : ""}</td><td>{s(r.coefficient)}</td><td>{outTo(c, !!r.is_product)}</td></tr>;
-          })}
-          {outputs.length === 0 && <tr><td colSpan={3} className="muted">no outputs</td></tr>}
-        </tbody>
-      </table>
-
-      {impacts.length > 0 && (
-        <>
-          <h3 style={{ fontSize: "0.85rem", margin: "12px 0 4px" }}>Impacts</h3>
-          <div className="muted" style={{ fontSize: "0.78rem" }}>
-            {impacts.map((r) => `${s(r.target)} ${s(r.coefficient)}`).join(" · ")}
+      <div className="mi-cards">
+        <div className="mi-card">
+          <div className="mi-card-label">capacity</div>
+          <div className="mi-card-val">
+            <input type="number" min={0} defaultValue={Number(machine.capacity) || 0} className="mi-cap-input" onBlur={(e) => onCapacity(Number(e.target.value) || 0)} />
+            <span className="mi-unit">{thru}/yr</span>
           </div>
-        </>
+        </div>
+        {co2Intensity != null && (
+          <div className="mi-card">
+            <div className="mi-card-label">CO₂ intensity</div>
+            <div className="mi-card-val"><b>{fmt(co2Intensity)}</b> <span className="mi-unit">{s(co2?.unit)}/{thru}</span></div>
+          </div>
+        )}
+      </div>
+
+      <p className="muted mi-note">Recipe values are edited in the Component tab — shown here for wiring. ★ = a final product (can meet demand).</p>
+
+      {otherImpacts.length > 0 && (
+        <div className="mi-block">
+          <div className="mi-section-head"><span>other impacts</span></div>
+          <div className="muted" style={{ fontSize: "0.78rem" }}>
+            {otherImpacts.map((r) => `${s(r.target)} ${fmt(r.coefficient)}`).join(" · ")}
+          </div>
+        </div>
       )}
 
-      <div style={{ margin: "12px -20px 0" }}>
-        <RecipePreview ioRows={io} defaultN={Number(machine.capacity) || 100} />
-      </div>
-
-      <h3 style={{ fontSize: "0.85rem", margin: "12px 0 4px" }}>
-        MACC <span className="muted" style={{ fontWeight: 400 }}>(measures — abate without switching technology)</span>
-      </h3>
-      <table className="grid" style={{ fontSize: "0.78rem", width: "100%" }}>
-        <thead><tr><th style={th}>measure</th><th style={th}>type</th><th style={th}>applies to</th></tr></thead>
-        <tbody>
-          {[...appliedMeasures.entries()].map(([mid, scope]) => (
-            <tr key={mid}>
-              <td>{mid.split(" @ ")[0]}</td>
-              <td className="muted">{measureType.get(mid) || "—"}</td>
-              <td>{scope}</td>
-            </tr>
-          ))}
-          {appliedMeasures.size === 0 && <tr><td colSpan={3} className="muted">no measures</td></tr>}
-        </tbody>
-      </table>
-
-      <p className="muted" style={{ fontSize: "0.72rem", marginTop: 12 }}>
-        Recipe &amp; measures are edited in the Component tab; ★ = a final product (can meet demand).
-        A technology- or stream-scoped MACC is copied to every matching facility but
-        each adopts it independently (isolated); transitions (technology switches) are
-        shown separately under <em>Alternatives</em>.
-      </p>
+      {appliedMeasures.size > 0 && (
+        <div className="mi-block">
+          <div className="mi-section-head"><span>measures (MACC)</span></div>
+          {[...appliedMeasures.keys()].map((mid) => {
+            const t = measureTarget.get(mid);
+            const verb = measureType.get(mid) === "energy_efficiency" ? "saves" : "cuts";
+            return (
+              <div className="mi-measure" key={mid}>
+                <span className="mi-measure-name">{measureName(mid)}</span>
+                <span className="mi-sub">{t ? `${verb} ${t}` : measureType.get(mid) || ""}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -286,41 +318,55 @@ export function Alternatives({
   onAdd: (technology: string, library: string, scope: "base" | "session") => void;
   onRemove: (technology: string) => void;
 }) {
+  const [adding, setAdding] = useState(false);
   const taken = new Set([baseline, ...alternatives]);
   const seen = new Set<string>();
   const fromTech = new Map<string, AvailableTechnology>();
+  const libOf = new Map<string, string>();
   const opts: { value: string; label: string }[] = [];
   for (const a of available) {
+    if (!libOf.has(a.technology)) libOf.set(a.technology, a.library);
     if (taken.has(a.technology) || seen.has(a.technology)) continue;
     seen.add(a.technology);
     fromTech.set(a.technology, a);
     opts.push({ value: a.technology, label: `${a.technology} · ${a.library}` });
   }
+  const swap = (
+    <svg className="mi-alt-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 4 3 8l4 4" /><path d="M3 8h13" /><path d="m17 20 4-4-4-4" /><path d="M21 16H8" />
+    </svg>
+  );
   return (
-    <div className="rail-section">
-      <div className="rail-head">Alternatives (optimiser may switch to)</div>
-      {alternatives.length === 0 && (
-        <div className="rail-empty" style={{ fontSize: "0.78rem" }}>
-          none — the optimiser only runs {baseline || "the baseline"}.
-        </div>
+    <div className="mi-section">
+      <div className="mi-section-head">
+        <span>alternatives</span>
+        <button className="mi-add" onClick={() => setAdding((v) => !v)}>+ add…</button>
+      </div>
+      <p className="muted mi-note" style={{ marginTop: 0 }}>Technologies the optimiser may switch this machine to.</p>
+      {alternatives.length === 0 && !adding && (
+        <div className="rail-empty" style={{ fontSize: "0.78rem" }}>none — the optimiser only runs {baseline || "the baseline"}.</div>
       )}
       {alternatives.map((a) => (
-        <div key={a} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.82rem", padding: "2px 0" }}>
-          <span style={{ flex: 1 }}>{a}</span>
-          <button className="ghost" title="remove alternative" onClick={() => onRemove(a)}>✕</button>
+        <div className="mi-alt" key={a}>
+          {swap}
+          <span className="mi-alt-name">{a}</span>
+          <span className="mi-alt-lib">{libOf.get(a) || ""}</span>
+          <button className="mi-alt-x" title="remove alternative" onClick={() => onRemove(a)}>✕</button>
         </div>
       ))}
-      <div style={{ marginTop: 6 }}>
-        <SearchSelect
-          value=""
-          placeholder="add a technology…"
-          options={opts}
-          onChange={(v) => {
-            const a = fromTech.get(v);
-            if (a) onAdd(a.technology, a.library, a.scope);
-          }}
-        />
-      </div>
+      {adding && (
+        <div style={{ marginTop: 8 }}>
+          <SearchSelect
+            value=""
+            placeholder="add a technology…"
+            options={opts}
+            onChange={(v) => {
+              const a = fromTech.get(v);
+              if (a) { onAdd(a.technology, a.library, a.scope); setAdding(false); }
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -473,31 +519,37 @@ export function SourceStreamInspector({
   consumerLabels: string[];
 }) {
   const row = (wb.commodities ?? []).find((r) => String(r.commodity_id) === commodityId) ?? {};
-  const show = (k: string, blank: string) => {
+  const g = (k: string): string | null => {
     const v = (row as Record<string, Cell>)[k];
-    return v == null || v === "" ? blank : String(v);
+    return v == null || v === "" ? null : String(v);
   };
-  const stat: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 6, fontSize: "0.8rem" };
+  const unit = g("unit") || "";
+  const kv = (label: string, value: string, suffix?: string) => (
+    <div className="mi-kv">
+      <span>{label}</span>
+      <span className="mi-val">{value}{suffix ? <span className="mi-unit"> {suffix}</span> : null}</span>
+    </div>
+  );
   return (
-    <div style={{ padding: 16 }}>
-      <div style={{ fontSize: "0.7rem", color: "var(--warn-text)", letterSpacing: "0.04em" }}>SOURCE STREAM</div>
-      <h2 style={{ margin: "2px 0 4px" }}>{commodityId}</h2>
-      <p className="muted" style={{ fontSize: "0.76rem", marginTop: 0 }}>
+    <div className="mi" style={{ padding: "16px 20px" }}>
+      <div className="eyebrow" style={{ color: "var(--warn-text)" }}>source stream</div>
+      <h2 className="mi-title">{commodityId}</h2>
+      <p className="muted mi-note" style={{ marginTop: 0 }}>
         A raw material consumed by the chain but produced by none — bought externally.
+        {unit ? ` Measured in ${unit}.` : ""}
       </p>
-      <div style={stat}><span className="muted">Purchase price (/unit)</span><b>{show("price", "—")}</b></div>
-      <div style={stat}><span className="muted">Max purchase (/yr)</span><b>{show("max_purchase", "∞")}</b></div>
-      <div style={stat}><span className="muted">Available from</span><b>{show("available_from", "any")}</b></div>
-      <div style={stat}><span className="muted">Available until</span><b>{show("available_to", "any")}</b></div>
-      <p className="muted" style={{ fontSize: "0.74rem", marginTop: 12 }}>
-        Edit price, cap and availability in the <b>Component</b> view (its Streams sheet).
-      </p>
-      <div style={{ marginTop: 8, fontSize: "0.78rem" }}>
-        <b>Feeds {consumerLabels.length} facilit{consumerLabels.length === 1 ? "y" : "ies"}</b>
-        {consumerLabels.length > 0 && (
-          <div className="muted" style={{ marginTop: 4 }}>{consumerLabels.slice(0, 12).join(", ")}</div>
-        )}
+      <div className="mi-section-head"><span>purchasing</span></div>
+      {kv("purchase price", g("price") ?? "—", unit ? `/${unit}` : undefined)}
+      {kv("max purchase / yr", g("max_purchase") ?? "∞", unit || undefined)}
+      {kv("available from", g("available_from") ?? "any")}
+      {kv("available until", g("available_to") ?? "any")}
+      <p className="muted mi-note">Edit price, cap and availability in the <b>Component</b> view (its Streams sheet).</p>
+      <div className="mi-section-head">
+        <span>feeds {consumerLabels.length} facilit{consumerLabels.length === 1 ? "y" : "ies"}</span>
       </div>
+      {consumerLabels.length > 0 && (
+        <div className="muted" style={{ fontSize: "0.8rem" }}>{consumerLabels.slice(0, 12).join(", ")}</div>
+      )}
     </div>
   );
 }

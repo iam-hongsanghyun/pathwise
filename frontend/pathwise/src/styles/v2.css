@@ -1,0 +1,860 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   pathwise v2 — shell polish layer.
+   Loaded AFTER styles.css (see main.tsx). Refines the high-visibility chrome
+   to the upgraded design while leaving every feature/view's behaviour intact.
+   Colours, radii and density all come from tokens.css custom properties, so
+   theme + density switching flows through here automatically.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* smooth re-theme */
+.studio-shell,
+.activity-bar,
+.topbar,
+.left-rail,
+.right-rail,
+.node,
+.card,
+button {
+  transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+
+/* ── Activity bar ─────────────────────────────────────────────────────── */
+.activity-bar {
+  width: 58px;
+  gap: 6px;
+  padding: 12px 0;
+  background: var(--chrome);
+  border-right: 1px solid var(--chrome-border);
+}
+.activity-bar-brand {
+  color: var(--chrome-active);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  margin-bottom: 10px;
+}
+.activity-bar-btn {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  border: none;
+  color: var(--chrome-text);
+  border-radius: var(--radius-sm);
+}
+.activity-bar-btn svg {
+  width: 19px;
+  height: 19px;
+}
+.activity-bar-btn:hover {
+  background: var(--chrome-2);
+  color: var(--chrome-active);
+}
+.activity-bar-btn.is-active {
+  background: var(--chrome-2);
+  color: var(--chrome-active);
+  border-color: transparent;
+}
+.activity-bar-btn.is-active::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--brand);
+}
+/* push the trailing (settings) button to the bottom */
+.activity-bar .activity-spacer {
+  flex: 1;
+}
+
+/* ── Topbar ───────────────────────────────────────────────────────────── */
+.topbar {
+  gap: 14px;
+  padding: 6px var(--pad-x);
+  min-height: 54px;
+  align-items: center;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.topbar h1 {
+  font-size: 0.98rem;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: baseline;
+}
+.topbar-title {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.topbar .eyebrow {
+  font-size: 0.66rem;
+  letter-spacing: 0.11em;
+}
+.topbar .build-tag {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--muted);
+  margin-left: 8px;
+}
+.topbar label {
+  gap: 3px;
+  font-size: 0.62rem;
+}
+
+/* model status pill */
+.pw-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 11px;
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-tint);
+  border-radius: var(--radius-pill);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+.pw-pill .pw-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand);
+}
+.pw-pill b {
+  color: var(--brand-strong);
+  font-weight: 600;
+}
+.pw-pill .pw-meta {
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+/* grouped icon actions */
+.pw-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.pw-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  font-size: 0.72rem;
+}
+.pw-iconbtn svg {
+  width: 14px;
+  height: 14px;
+}
+.pw-iconbtn:hover:not(:disabled) {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+.pw-iconbtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* theme + density switcher */
+.pw-design {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+.pw-design .pw-design-label {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.pw-swatches {
+  display: inline-flex;
+  gap: 4px;
+}
+.pw-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+}
+.pw-swatch.is-active {
+  border-color: currentColor;
+}
+.pw-swatch.sw-refined {
+  background: #0f766e;
+  color: #0f766e;
+}
+.pw-swatch.sw-warm {
+  background: #0e7c66;
+  color: #0e7c66;
+  box-shadow: inset 0 0 0 2px #f3f1ec;
+}
+.pw-swatch.sw-bold {
+  background: #0d2b29;
+  color: #0d2b29;
+}
+.pw-density {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  padding: 4px 6px;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+/* ── Buttons (refined) ────────────────────────────────────────────────── */
+button {
+  border-radius: var(--radius-button);
+}
+.run-button,
+button.run-button {
+  box-shadow: var(--shadow);
+}
+.run-button:hover {
+  background: var(--brand-strong);
+}
+button.ghost {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow);
+}
+button.ghost:hover {
+  background: var(--bg-hover);
+  border-color: var(--muted);
+}
+
+/* ── Inputs / selects ─────────────────────────────────────────────────── */
+input,
+select,
+textarea {
+  border-radius: var(--radius-sm);
+  border-color: var(--border-strong);
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--brand-ring);
+  outline-offset: -1px;
+  border-color: var(--brand);
+}
+
+/* ── Rails (left/right structure + analytics) ─────────────────────────── */
+.left-rail,
+.right-rail {
+  background: var(--surface);
+}
+.rail-head {
+  font-size: 0.66rem;
+  letter-spacing: 0.07em;
+  font-weight: 600;
+}
+.rail-item {
+  border-radius: var(--radius-sm);
+  margin: 1px 6px;
+  width: auto;
+}
+.rail-item.is-active {
+  background: var(--brand-fill);
+  color: var(--brand-strong);
+  border-left: none;
+  box-shadow: inset 2px 0 0 var(--brand);
+  font-weight: 600;
+}
+
+/* ── Tree explorer rows ───────────────────────────────────────────────── */
+.tree-row {
+  border-radius: var(--radius-sm);
+  margin: 1px 4px;
+  padding: 4px 6px;
+}
+.tree-row.is-active {
+  background: var(--brand-fill);
+  box-shadow: inset 2px 0 0 var(--brand);
+}
+.tree-row.is-active .tree-label {
+  color: var(--brand-strong);
+  font-weight: 600;
+}
+
+/* ── Cards / panels / depth ───────────────────────────────────────────── */
+.card {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: var(--card-pad);
+}
+.detail-panel,
+.modal,
+.lib-card {
+  border-radius: var(--radius);
+}
+.modal {
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius);
+}
+.modal-overlay {
+  background: rgba(15, 23, 42, 0.30);
+  backdrop-filter: blur(1.5px);
+}
+.context-menu {
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+/* node cards on the designer canvas — keep square-ish but lift on hover */
+.node {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.node.commodity {
+  border-radius: 999px;
+}
+
+/* ── Tables (crisper, sticky header) ──────────────────────────────────── */
+th {
+  background: var(--bg-hover);
+  letter-spacing: 0.02em;
+}
+.table-wrap {
+  border-radius: var(--radius-sm);
+}
+
+/* ── Tabs / chips ─────────────────────────────────────────────────────── */
+.tab {
+  border-radius: var(--radius-sm);
+}
+.tab.active {
+  background: var(--brand-fill);
+  color: var(--brand-strong);
+  border-color: var(--brand-ring);
+  font-weight: 600;
+}
+
+/* ── Model banner / error ─────────────────────────────────────────────── */
+.model-banner {
+  background: var(--brand-soft);
+}
+
+/* ── Refined scrollbars ───────────────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+  background-clip: padding-box;
+  border: 3px solid transparent;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ── Machine inspector (v2 right rail) ───────────────────────────────────── */
+.mi-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 2px 0 8px;
+}
+.mi-chips {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.mi-chip {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  background: var(--brand-fill);
+  color: var(--brand-strong);
+  padding: 4px 11px;
+  border-radius: var(--radius-pill);
+}
+.mi-avail {
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+.mi-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 18px 0 2px;
+}
+.mi-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+}
+.mi-badge {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 3px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  color: var(--muted);
+  min-width: 34px;
+  text-align: center;
+}
+.mi-badge.mi-out {
+  background: var(--brand-fill);
+  color: var(--brand-strong);
+}
+.mi-stream {
+  flex: 1;
+  min-width: 0;
+}
+.mi-name {
+  font-size: 0.96rem;
+  font-weight: 500;
+}
+.mi-sub {
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+.mi-val {
+  font-family: var(--font-mono);
+  font-size: 0.96rem;
+  white-space: nowrap;
+}
+.mi-unit {
+  color: var(--muted);
+  font-size: 0.82em;
+}
+.mi-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 16px 0 4px;
+}
+.mi-card {
+  flex: 1 1 120px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 11px 13px;
+}
+.mi-card-label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 7px;
+}
+.mi-card-val {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  min-width: 0;
+}
+.mi-cap-input {
+  width: 64px;
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: 1px 6px;
+}
+.mi-note {
+  font-size: 0.74rem;
+  line-height: 1.4;
+  margin: 10px 0;
+}
+.mi-block {
+  margin-top: 6px;
+}
+.mi-measure {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+.mi-measure-name {
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+.mi-section {
+  padding-top: 4px;
+}
+.mi-kv {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.86rem;
+}
+.mi-kv > span:first-child {
+  color: var(--muted);
+}
+
+/* Component cards — inputs (left) · component (middle) · outputs (right). */
+.comp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.comp-card {
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.comp-card:hover {
+  border-color: var(--brand);
+  box-shadow: var(--shadow);
+}
+.comp-card-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.comp-io {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.comp-io-out {
+  align-items: flex-end;
+  text-align: right;
+}
+.comp-io-head {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.comp-io-item {
+  font-size: 0.8rem;
+  background: var(--bg-hover);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.comp-io-out .comp-io-item {
+  background: var(--brand-fill);
+  color: var(--brand-strong);
+}
+.comp-io-none {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.comp-card-mid {
+  flex: 0 0 auto;
+  max-width: 38%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  text-align: center;
+  padding: 0 4px;
+}
+.comp-card-mid-wide {
+  max-width: none;
+  flex: 1;
+  align-items: flex-start;
+  text-align: left;
+}
+.comp-card-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  word-break: break-word;
+}
+.comp-card-meta {
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+.comp-card-macc {
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--brand-strong);
+  background: var(--brand-fill);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.comp-card-ts {
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--warn-text);
+}
+
+/* Time-series table cells — read as an editable table, not form inputs. */
+.ts-cell {
+  width: 100%;
+  min-width: 52px;
+  font: inherit;
+  font-family: var(--font-mono);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  padding: 3px 6px;
+}
+.ts-cell:hover {
+  border-color: var(--border);
+}
+.ts-cell:focus {
+  border-color: var(--brand);
+  background: var(--surface);
+  outline: none;
+}
+
+/* Component overview card — the "overall picture" above each editor. */
+.comp-overview {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 2px 16px 14px;
+  margin-bottom: 16px;
+}
+.comp-overview .mi-section-head:first-child {
+  margin-top: 10px;
+}
+.mi-add {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+  border-radius: var(--radius-pill);
+  padding: 3px 11px;
+  cursor: pointer;
+  color: var(--muted);
+}
+.mi-add:hover {
+  color: var(--brand-strong);
+  border-color: var(--brand);
+}
+.mi-alt {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 11px 13px;
+  margin-top: 8px;
+}
+.mi-alt:hover {
+  border-color: var(--brand);
+}
+.mi-alt-icon {
+  color: var(--brand-strong);
+  flex-shrink: 0;
+}
+.mi-alt-name {
+  flex: 1;
+  font-size: 0.96rem;
+}
+.mi-alt-lib {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+.mi-alt-x {
+  opacity: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.85rem;
+  transition: opacity 0.12s;
+}
+.mi-alt:hover .mi-alt-x {
+  opacity: 1;
+}
+.mi-alt-x:hover {
+  color: var(--danger);
+}
+
+/* ── Component view — "All libraries" landing (v2 card grid) ──────────────── */
+.lib-landing {
+  max-width: 1120px;
+}
+.lib-landing-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin: 2px 0 20px;
+}
+.lib-landing-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 2px 0 6px;
+}
+.lib-landing-sub {
+  font-size: 0.84rem;
+  line-height: 1.5;
+  max-width: 660px;
+  margin: 0;
+}
+.lib-new {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  background: var(--brand);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 9px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lib-new:hover {
+  background: var(--brand-strong);
+}
+.lib-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 16px;
+}
+.lib-card-v2 {
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.lib-card-v2:hover {
+  border-color: var(--brand);
+  box-shadow: var(--shadow);
+}
+.lib-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.lib-card-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.lib-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--brand);
+  display: inline-block;
+  flex-shrink: 0;
+}
+.lib-tier {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  background: var(--bg-hover);
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+}
+.lib-card-sub {
+  font-size: 0.8rem;
+  margin: 7px 0 0;
+}
+.lib-card-stats {
+  display: flex;
+  gap: 30px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.lib-card-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.lib-card-stats b {
+  font-family: var(--font-mono);
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.lib-card-stats span {
+  font-size: 0.72rem;
+}
+
+/* ── Model-health rows — stack the fix below the message so a long fix label
+      never overflows / clips the narrow right rail (the "unstable" look). ──── */
+.health-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.health-msg {
+  width: 100%;
+}
+.health-fix {
+  align-self: flex-start;
+  white-space: normal;
+  text-align: left;
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+}

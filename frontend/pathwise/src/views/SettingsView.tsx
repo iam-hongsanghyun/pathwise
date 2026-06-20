@@ -2,6 +2,7 @@ import { useState } from "react";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { RailList, type RailItem } from "../layout/RailList";
 import { Resizer } from "../layout/Resizer";
+import type { Density, ThemeName } from "../lib/useTheme";
 import type {
   AssetLevel,
   ConfigBundle,
@@ -10,7 +11,7 @@ import type {
   RewardMode,
 } from "../types";
 
-type Section = "economics" | "method" | "snapshots" | "solver" | "policy";
+type Section = "appearance" | "economics" | "method" | "snapshots" | "solver" | "policy";
 type Scope = "system" | "company" | "facility";
 
 interface Props {
@@ -23,6 +24,10 @@ interface Props {
   onBackend: (b: string) => void;
   portfolio: PortfolioConfig;
   onPortfolio: (p: PortfolioConfig) => void;
+  theme: ThemeName;
+  onTheme: (t: ThemeName) => void;
+  density: Density;
+  onDensity: (d: Density) => void;
   leftW: number;
   setLeftW: (w: number) => void;
 }
@@ -46,11 +51,16 @@ export function SettingsView({
   onBackend,
   portfolio,
   onPortfolio,
+  theme,
+  onTheme,
+  density,
+  onDensity,
   leftW,
   setLeftW,
 }: Props) {
-  const [section, setSection] = useState<Section>("economics");
+  const [section, setSection] = useState<Section>("appearance");
   const items: RailItem[] = [
+    { id: "appearance", label: "Appearance" },
     { id: "economics", label: "Economics" },
     { id: "method", label: "Optimisation method" },
     { id: "snapshots", label: "Snapshots" },
@@ -74,6 +84,52 @@ export function SettingsView({
       <Resizer width={leftW} setWidth={setLeftW} side="left" />
       <main className="main-area">
         <div className="view">
+          {section === "appearance" && (
+            <section className="card">
+              <h3>Appearance</h3>
+              <label className="inspector-field">
+                <span>Theme</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div className="pw-swatches">
+                    <button
+                      className={`pw-swatch sw-refined${theme === "refined" ? " is-active" : ""}`}
+                      title="Refined — crisp, flat, light"
+                      aria-label="Refined theme"
+                      onClick={() => onTheme("refined")}
+                    />
+                    <button
+                      className={`pw-swatch sw-warm${theme === "warm" ? " is-active" : ""}`}
+                      title="Warm — softer neutrals, gentle depth"
+                      aria-label="Warm theme"
+                      onClick={() => onTheme("warm")}
+                    />
+                    <button
+                      className={`pw-swatch sw-bold${theme === "bold" ? " is-active" : ""}`}
+                      title="Bold Studio — dark chrome, brighter accent"
+                      aria-label="Bold Studio theme"
+                      onClick={() => onTheme("bold")}
+                    />
+                  </div>
+                  <span className="muted" style={{ textTransform: "capitalize" }}>
+                    {theme === "bold" ? "Bold Studio" : theme}
+                  </span>
+                </div>
+              </label>
+              <label className="inspector-field">
+                <span>Density</span>
+                <SearchSelect value={density} onChange={(v) => onDensity(v as Density)}
+                  options={[
+                    { value: "compact", label: "Compact" },
+                    { value: "comfortable", label: "Comfortable" },
+                    { value: "spacious", label: "Spacious" },
+                  ]} />
+              </label>
+              <p className="muted">
+                Theme and density are saved to this browser. <strong>Refined</strong> is the default
+                light theme; <strong>Bold Studio</strong> is dark.
+              </p>
+            </section>
+          )}
           {section === "economics" && (
             <section className="card">
               <h3>Economics</h3>

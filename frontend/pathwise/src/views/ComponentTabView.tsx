@@ -13,7 +13,7 @@ import {
   TechnologyEditor,
 } from "../features/component/editors";
 import { TimeSeriesRail } from "../features/component/TimeSeriesRail";
-import { type Column, DataTable } from "../features/controls/DataTable";
+import { Resizer } from "../layout/Resizer";
 import { useDialogs } from "../features/controls/Dialog";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
 import type { TreeAction, TreeNode } from "../features/tree/types";
@@ -72,11 +72,6 @@ const uniq = (base: string, taken: Set<string>): string => {
   while (taken.has(`${base}_${i}`)) i++;
   return `${base}_${i}`;
 };
-
-// Parse a table cell back to a number: "" → 0 (pnum), "" → null (pnull/pint).
-const pnum = (raw: string): number => (raw.trim() === "" ? 0 : Number(raw) || 0);
-const pnull = (raw: string): number | null => (raw.trim() === "" ? null : Number(raw) || 0);
-const pint = (raw: string): number | null => (raw.trim() === "" ? null : Math.round(Number(raw) || 0));
 
 function parseId(treeId: string): Sel {
   const parts = treeId.split(":");
@@ -170,7 +165,7 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
-  const [railMember, setRailMember] = useState<string>(""); // active member in a bucket's time-series rail
+  const [rightW, setRightW] = useState(340); // resizable right-rail (time series) width
   const [unitOptions, setUnitOptions] = useState<string[]>([]); // allowed units for the IO unit picker
   const saved = useRef<Map<string, string>>(new Map());
 
@@ -217,9 +212,6 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
     return () => clearTimeout(t);
   }, [dirty, openLibs, sessionId]);
 
-  // Reset the bucket time-series rail's active member when the selection changes.
-  useEffect(() => { setRailMember(""); }, [sel?.libId, sel?.kind, sel?.id]);
-
   function editLib(libId: string, fn: (l: ComponentLibrary) => ComponentLibrary) {
     setOpenLibs((prev) => {
       const cur = prev.get(libId);
@@ -244,15 +236,20 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
       if (!body) continue;
 
       const { order, buckets } = libraryBuckets(body);
+      // Sector → Group → Components, but the sector level is only worth showing
+      // when the library spans more than one sector; otherwise the groups
+      // (Technology / Stream / Measures) hang straight off the library.
+      const multiSector = order.length > 1;
       for (const s of order) {
         const b = buckets.get(s)!;
         const secId = `cat:${lk}:${s}`;
-        node(secId, `lib:${lk}`, s, "group", true);
-        node(`cat:${lk}:${s}/tech`, secId, "Technology", "group", b.techs.length > 0);
+        const groupParent = multiSector ? secId : `lib:${lk}`;
+        if (multiSector) node(secId, `lib:${lk}`, s, "group", true);
+        node(`cat:${lk}:${s}/tech`, groupParent, "Technology", "group", b.techs.length > 0);
         for (const t of b.techs) node(`t:${lk}:${t.technology_id}`, `cat:${lk}:${s}/tech`, t.technology_id, "leaf", false);
-        node(`cat:${lk}:${s}/stream`, secId, "Stream", "group", b.streams.length > 0);
+        node(`cat:${lk}:${s}/stream`, groupParent, "Stream", "group", b.streams.length > 0);
         for (const c of b.streams) node(`s:${lk}:${c.commodity_id}`, `cat:${lk}:${s}/stream`, c.commodity_id, "leaf", false);
-        node(`cat:${lk}:${s}/measures`, secId, "Measures & MACC", "group", b.maccs.length + b.measures.length > 0);
+        node(`cat:${lk}:${s}/measures`, groupParent, "Measures & MACC", "group", b.maccs.length + b.measures.length > 0);
         node(`cat:${lk}:${s}/macc`, `cat:${lk}:${s}/measures`, "MACC", "group", b.maccs.length > 0);
         for (const g of b.maccs) node(`g:${lk}:${g.macc_id}`, `cat:${lk}:${s}/macc`, g.label || g.macc_id, "leaf", false);
         node(`cat:${lk}:${s}/indiv`, `cat:${lk}:${s}/measures`, "Individual", "group", b.measures.length > 0);
@@ -422,116 +419,233 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
     if (!b) return <p className="muted">This sector is empty.</p>;
     const drill = (kind: Kind, id: string) => setSel({ libId, kind, id });
 
-    if (sub === "tech") {
-      const cols: Column<TechnologyTemplate>[] = [
-        { key: "id", label: "id", type: "readonly", get: (t) => t.technology_id, onClick: (t) => drill("tech", t.technology_id) },
-        { key: "lifespan", label: "lifespan", metaKey: "lifespan", type: "number", get: (t) => t.lifespan, set: (t, v) => ({ ...t, lifespan: pnum(v) }) },
-        { key: "capex", label: "capex /cap", metaKey: "capex", type: "number", get: (t) => t.capex, set: (t, v) => ({ ...t, capex: pnum(v) }) },
-        { key: "opex", label: "opex /unit", metaKey: "opex", type: "number", get: (t) => t.opex, set: (t, v) => ({ ...t, opex: pnum(v) }) },
-        { key: "from", label: "avail. from", metaKey: "introduction_year", type: "number", get: (t) => t.introduction_year ?? "", set: (t, v) => ({ ...t, introduction_year: pint(v) }) },
-        { key: "to", label: "avail. to", metaKey: "phase_out_year", type: "number", get: (t) => t.phase_out_year ?? "", set: (t, v) => ({ ...t, phase_out_year: pint(v) }) },
-      ];
+    // Each component is its own card showing its relationships — inputs on the
+    // left, the component in the middle, outputs on the right (technologies and
+    // streams are never mixed). Clicking opens the component's overview + editor.
+    const ioCol = (head: string, items: string[], side: "in" | "out") => (
+      <div className={`comp-io comp-io-${side}`}>
+        <div className="comp-io-head">{head}</div>
+        {items.length
+          ? items.map((s) => <div className="comp-io-item" key={s} title={s}>{s}</div>)
+          : <div className="comp-io-none">—</div>}
+      </div>
+    );
+    // Distinct count of per-year override years across the given trajectories.
+    const tsYears = (...maps: (Record<string, number> | undefined)[]): number => {
+      const ys = new Set<string>();
+      for (const m of maps) for (const k of Object.keys(m ?? {})) ys.add(k);
+      return ys.size;
+    };
+    const tsChip = (n: number) => (n > 0 ? <div className="comp-card-ts">↻ {n}-year time-series</div> : null);
+    const techCard = (t: TechnologyTemplate) => {
+      const ins = t.io.filter((r) => r.role === "input").map((r) => String(r.target));
+      const outs = t.io.filter((r) => r.role === "output").map((r) => String(r.target));
       return (
-        <BucketShell title={`${sector} · Technologies`} add={() => addTech(libId)}>
-          <DataTable rows={b.techs} columns={cols} rowKey={(t) => t.technology_id} empty="No technologies in this sector."
-            onChange={(rows) => editLib(libId, (l) => { const by = new Map(rows.map((r) => [r.technology_id, r])); return { ...l, technologies: l.technologies.map((t) => by.get(t.technology_id) ?? t) }; })} />
-        </BucketShell>
+        <button className="comp-card" key={`t:${t.technology_id}`} onClick={() => drill("tech", t.technology_id)}>
+          <div className="comp-card-row">
+            {ioCol("inputs", ins, "in")}
+            <div className="comp-card-mid">
+              <span className="lib-tier">technology</span>
+              <div className="comp-card-title">{t.technology_id}</div>
+              <div className="comp-card-meta">capex {t.capex} · opex {t.opex}</div>
+              {t.maccs.length > 0 && <div className="comp-card-macc">MACC · {t.maccs.join(", ")}</div>}
+              {tsChip(tsYears(t.capex_by_year, t.opex_by_year))}
+            </div>
+            {ioCol("outputs", outs, "out")}
+          </div>
+        </button>
       );
-    }
-    if (sub === "stream") {
-      const cols: Column<CommodityTemplate>[] = [
-        { key: "id", label: "id", type: "readonly", get: (c) => c.commodity_id, onClick: (c) => drill("stream", c.commodity_id) },
-        { key: "kind", label: "kind", metaKey: "kind", type: "enum", options: ["energy", "material", "indirect", "product", "byproduct"], get: (c) => c.kind, set: (c, v) => ({ ...c, kind: v as CommodityTemplate["kind"] }) },
-        { key: "unit", label: "unit", metaKey: "unit", type: "text", get: (c) => c.unit, set: (c, v) => ({ ...c, unit: v }) },
-        { key: "sector", label: "sector", metaKey: "sector", type: "text", get: (c) => c.sector ?? "", set: (c, v) => ({ ...c, sector: v.trim() === "" ? null : v }) },
-        { key: "price", label: "price", metaKey: "price", type: "number", get: (c) => c.price ?? "", set: (c, v) => ({ ...c, price: pnull(v) }) },
-        { key: "sale", label: "sale price", metaKey: "sale_price", type: "number", get: (c) => c.sale_price ?? "", set: (c, v) => ({ ...c, sale_price: pnull(v) }) },
-      ];
+    };
+    const streamCard = (c: CommodityTemplate) => {
+      const prod = (body?.technologies ?? []).filter((t) => t.io.some((r) => r.role === "output" && r.target === c.commodity_id)).map((t) => t.technology_id);
+      const cons = (body?.technologies ?? []).filter((t) => t.io.some((r) => r.role === "input" && r.target === c.commodity_id)).map((t) => t.technology_id);
       return (
-        <BucketShell title={`${sector} · Streams`} add={() => addStream(libId, sector === OTHER ? null : sector)}>
-          <DataTable rows={b.streams} columns={cols} rowKey={(c) => c.commodity_id} empty="No streams produced in this sector."
-            onChange={(rows) => editLib(libId, (l) => { const by = new Map(rows.map((r) => [r.commodity_id, r])); return { ...l, commodities: l.commodities.map((c) => by.get(c.commodity_id) ?? c) }; })} />
-        </BucketShell>
+        <button className="comp-card" key={`s:${c.commodity_id}`} onClick={() => drill("stream", c.commodity_id)}>
+          <div className="comp-card-row">
+            {ioCol("produced by", prod, "in")}
+            <div className="comp-card-mid">
+              <span className="lib-tier">stream</span>
+              <div className="comp-card-title">{c.commodity_id}</div>
+              <div className="comp-card-meta">{c.unit ? `${c.kind} · ${c.unit}` : c.kind}</div>
+              {tsChip(tsYears(c.price_by_year, c.sale_price_by_year))}
+            </div>
+            {ioCol("consumed by", cons, "out")}
+          </div>
+        </button>
       );
-    }
-    if (sub === "indiv") {
-      const cols: Column<MeasureTemplate>[] = [
-        { key: "id", label: "id", type: "readonly", get: (m) => m.measure_id, onClick: (m) => drill("measure", m.measure_id) },
-        { key: "label", label: "label", metaKey: "label", type: "text", get: (m) => m.label, set: (m, v) => ({ ...m, label: v }) },
-        { key: "type", label: "type", metaKey: "measure_type", type: "enum", options: ["energy_efficiency", "emission_reduction", "environmental"], get: (m) => m.type, set: (m, v) => ({ ...m, type: v as MeasureTemplate["type"] }) },
-        { key: "target", label: "target", metaKey: "target", type: "text", get: (m) => m.target, set: (m, v) => ({ ...m, target: v }) },
-        { key: "lifetime", label: "lifetime", metaKey: "lifetime", type: "number", get: (m) => m.lifetime, set: (m, v) => ({ ...m, lifetime: pnum(v) }) },
-        { key: "blocks", label: "# blocks", type: "readonly", get: (m) => m.blocks.length },
-      ];
+    };
+    const maccCard = (g: MaccGroup) => {
+      const meas = g.measures.map((mid) => (body?.measures ?? []).find((m) => m.measure_id === mid)).filter((m): m is MeasureTemplate => !!m);
+      const usedBy = (body?.technologies ?? []).filter((t) => t.maccs.includes(g.macc_id)).map((t) => t.technology_id);
       return (
-        <BucketShell title={`${sector} · Measures`} add={() => addMeasure(libId)}>
-          <DataTable rows={b.measures} columns={cols} rowKey={(m) => m.measure_id} empty="No individual measures in this sector."
-            onChange={(rows) => editLib(libId, (l) => { const by = new Map(rows.map((r) => [r.measure_id, r])); return { ...l, measures: l.measures.map((m) => by.get(m.measure_id) ?? m) }; })} />
-        </BucketShell>
+        <button className="comp-card" key={`g:${g.macc_id}`} onClick={() => drill("macc", g.macc_id)}>
+          <div className="comp-card-row">
+            {ioCol("measures", meas.map((m) => `${m.label || m.measure_id}${m.target ? ` → ${m.target}` : ""}`), "in")}
+            <div className="comp-card-mid">
+              <span className="lib-tier">MACC</span>
+              <div className="comp-card-title">{g.label || g.macc_id}</div>
+            </div>
+            {ioCol("applied to", usedBy, "out")}
+          </div>
+        </button>
       );
-    }
-    if (sub === "macc") {
-      const cols: Column<MaccGroup>[] = [
-        { key: "id", label: "id", type: "readonly", get: (g) => g.macc_id, onClick: (g) => drill("macc", g.macc_id) },
-        { key: "label", label: "label", metaKey: "label", type: "text", get: (g) => g.label, set: (g, v) => ({ ...g, label: v }) },
-        { key: "measures", label: "# measures", type: "readonly", get: (g) => g.measures.length },
-      ];
+    };
+    const measureCard = (m: MeasureTemplate) => (
+      <button className="comp-card" key={`m:${m.measure_id}`} onClick={() => drill("measure", m.measure_id)}>
+        <div className="comp-card-row">
+          <div className="comp-card-mid comp-card-mid-wide">
+            <span className="lib-tier">measure</span>
+            <div className="comp-card-title">{m.label || m.measure_id}</div>
+            <div className="comp-card-meta">{m.target ? `abates ${m.target}` : m.type} · {m.blocks.length} block{m.blocks.length === 1 ? "" : "s"}</div>
+            {tsChip(tsYears(...m.blocks.flatMap((b) => [b.capex_per_capacity_by_year, b.opex_per_capacity_by_year])))}
+          </div>
+        </div>
+      </button>
+    );
+    const grid = (cards: JSX.Element[], empty: string) =>
+      cards.length ? <div className="comp-grid">{cards}</div> : <p className="muted" style={{ fontSize: "0.78rem" }}>{empty}</p>;
+
+    if (sub === "tech")
+      return <BucketShell title={`${sector} · Technologies`} add={() => addTech(libId)}>{grid(b.techs.map(techCard), "No technologies in this sector.")}</BucketShell>;
+    if (sub === "stream")
+      return <BucketShell title={`${sector} · Streams`} add={() => addStream(libId, sector === OTHER ? null : sector)}>{grid(b.streams.map(streamCard), "No streams produced in this sector.")}</BucketShell>;
+    if (sub === "indiv")
+      return <BucketShell title={`${sector} · Measures`} add={() => addMeasure(libId)}>{grid(b.measures.map(measureCard), "No individual measures in this sector.")}</BucketShell>;
+    if (sub === "macc")
+      return <BucketShell title={`${sector} · MACCs`} add={() => addMacc(libId)}>{grid(b.maccs.map(maccCard), "No MACC bundles in this sector.")}</BucketShell>;
+
+    // Sector group ("") → Group cards (Sector → Group → Components). Keeps
+    // technologies / streams / measures separate instead of one flat list.
+    if (sub === "") {
+      const cards = groupCards(libId, sector, b);
       return (
-        <BucketShell title={`${sector} · MACCs`} add={() => addMacc(libId)}>
-          <DataTable rows={b.maccs} columns={cols} rowKey={(g) => g.macc_id} empty="No MACC bundles in this sector."
-            onChange={(rows) => editLib(libId, (l) => { const by = new Map(rows.map((r) => [r.macc_id, r])); return { ...l, maccs: l.maccs.map((g) => by.get(g.macc_id) ?? g) }; })} />
-        </BucketShell>
+        <section>
+          <h2 style={{ margin: "0 0 4px" }}>{sector}</h2>
+          <p className="muted" style={{ fontSize: "0.78rem", margin: "0 0 12px" }}>
+            Choose a group to view and edit its components.
+          </p>
+          {cards.length === 0 ? (
+            <p className="muted" style={{ fontSize: "0.78rem" }}>This sector is empty.</p>
+          ) : (
+            <div className="lib-grid">{cards}</div>
+          )}
+        </section>
       );
     }
 
-    // Sector group ("") or the Measures & MACC parent ("measures") → an
-    // aggregated, read-only roll-up of the members (click an id to drill in).
-    const noop = () => undefined;
-    const roll = <T,>(title: string, rows: T[], rowKey: (r: T) => string, cols: Column<T>[]) =>
-      rows.length === 0 ? null : (
-        <div style={{ marginBottom: 16 }}>
-          <h3 style={{ margin: "0 0 6px", fontSize: "0.85rem" }}>{title} <span className="muted">({rows.length})</span></h3>
-          <DataTable rows={rows} columns={cols} rowKey={rowKey} onChange={noop} />
-        </div>
-      );
-    const onlyMeasures = sub === "measures";
+    // Measures & MACC parent ("measures") → MACC + individual-measure cards.
     return (
       <section>
-        <h2 style={{ margin: "0 0 4px" }}>{sector}{onlyMeasures ? " · Measures & MACC" : ""}</h2>
-        <p className="muted" style={{ fontSize: "0.76rem", margin: "0 0 12px" }}>
-          {onlyMeasures
-            ? `${b.measures.length} measures · ${b.maccs.length} MACCs in this sector.`
-            : `${b.techs.length} technologies · ${b.streams.length} streams · ${b.measures.length} measures · ${b.maccs.length} MACCs in this sector.`}
-          {" "}Open a bucket on the left to edit a column at a time, or click an id below.
+        <h2 style={{ margin: "0 0 4px" }}>{sector} · Measures &amp; MACC</h2>
+        <p className="muted" style={{ fontSize: "0.78rem", margin: "0 0 12px" }}>
+          {b.maccs.length} MACC bundle{b.maccs.length === 1 ? "" : "s"} · {b.measures.length} individual
+          measure{b.measures.length === 1 ? "" : "s"}.
         </p>
-        {!onlyMeasures && roll<TechnologyTemplate>("Technologies", b.techs, (t) => t.technology_id, [
-          { key: "id", label: "id", type: "readonly", get: (t) => t.technology_id, onClick: (t) => drill("tech", t.technology_id) },
-          { key: "capex", label: "capex /cap", metaKey: "capex", type: "readonly", get: (t) => t.capex },
-          { key: "opex", label: "opex /unit", metaKey: "opex", type: "readonly", get: (t) => t.opex },
-        ])}
-        {!onlyMeasures && roll<CommodityTemplate>("Streams (outputs)", b.streams, (c) => c.commodity_id, [
-          { key: "id", label: "id", type: "readonly", get: (c) => c.commodity_id, onClick: (c) => drill("stream", c.commodity_id) },
-          { key: "kind", label: "kind", metaKey: "kind", type: "readonly", get: (c) => c.kind },
-          { key: "price", label: "price", metaKey: "price", type: "readonly", get: (c) => c.price ?? "—" },
-        ])}
-        {roll<MeasureTemplate>("Measures", b.measures, (m) => m.measure_id, [
-          { key: "id", label: "id", type: "readonly", get: (m) => m.label || m.measure_id, onClick: (m) => drill("measure", m.measure_id) },
-          { key: "type", label: "type", metaKey: "measure_type", type: "readonly", get: (m) => m.type },
-          { key: "target", label: "target", metaKey: "target", type: "readonly", get: (m) => m.target },
-        ])}
-        {roll<MaccGroup>("MACCs", b.maccs, (g) => g.macc_id, [
-          { key: "id", label: "id", type: "readonly", get: (g) => g.label || g.macc_id, onClick: (g) => drill("macc", g.macc_id) },
-          { key: "measures", label: "# measures", type: "readonly", get: (g) => g.measures.length },
-        ])}
-        {b.techs.length + b.streams.length + b.measures.length + b.maccs.length === 0 && (
-          <p className="muted" style={{ fontSize: "0.78rem" }}>This sector is empty.</p>
+        {grid([...b.maccs.map(maccCard), ...b.measures.map(measureCard)], "No measures in this sector.")}
+      </section>
+    );
+  }
+
+  function renderLanding() {
+    const tier = (sc: LibScope): string => (sc === "session" ? "scenario" : sc);
+    const open = (l: LibrarySummary) => {
+      const key = keyOf(l);
+      setExpanded((p) => new Set(p).add(`lib:${key}`));
+      void loadLib(key);
+      setSel({ libId: key, kind: "library" });
+    };
+    return (
+      <section className="lib-landing">
+        <div className="lib-landing-head">
+          <div>
+            <h2 className="lib-landing-title">All libraries</h2>
+            <p className="muted lib-landing-sub">
+              A library is a catalogue of reusable building blocks — technologies, streams &amp;
+              abatement measures — organised by sector. Open one to author its contents.
+            </p>
+          </div>
+          <button className="lib-new" onClick={newLibrary}>+ New library</button>
+        </div>
+        {libs.length === 0 ? (
+          <p className="muted">No libraries yet — click <b>New library</b> to start.</p>
+        ) : (
+          <div className="lib-grid">
+            {libs.map((l) => (
+              <button className="lib-card-v2" key={keyOf(l)} onClick={() => open(l)}>
+                <div className="lib-card-top">
+                  <span className="lib-card-name"><span className="lib-dot" /> {l.label || l.id}</span>
+                  <span className="lib-tier">{tier(l.scope)}</span>
+                </div>
+                <div className="lib-card-sub muted">
+                  {l.scope === "session" ? "this scenario's set" : "shared building blocks"}
+                </div>
+                <div className="lib-card-stats">
+                  <div><b>{l.technologies}</b><span className="muted">tech</span></div>
+                  <div><b>{l.commodities}</b><span className="muted">streams</span></div>
+                  <div><b>{l.measures}</b><span className="muted">measures</span></div>
+                </div>
+              </button>
+            ))}
+          </div>
         )}
       </section>
     );
   }
 
+  // A clickable catalogue card (same chrome as the top-level library cards),
+  // reused for sector and component drill-downs.
+  function infoCard(o: {
+    key: string;
+    title: string;
+    badge?: string;
+    sub?: string;
+    stats?: { n: string | number; label: string }[];
+    onClick: () => void;
+  }) {
+    return (
+      <button className="lib-card-v2" key={o.key} onClick={o.onClick}>
+        <div className="lib-card-top">
+          <span className="lib-card-name"><span className="lib-dot" /> {o.title}</span>
+          {o.badge && <span className="lib-tier">{o.badge}</span>}
+        </div>
+        {o.sub && <div className="lib-card-sub muted">{o.sub}</div>}
+        {o.stats && o.stats.length > 0 && (
+          <div className="lib-card-stats">
+            {o.stats.map((st, i) => (
+              <div key={i}><b>{st.n}</b><span className="muted">{st.label}</span></div>
+            ))}
+          </div>
+        )}
+      </button>
+    );
+  }
+
+  // Group cards (Technologies / Streams / MACCs / Measures) for one sector —
+  // the middle level of Sector → Group → Components. Clicking opens the group's
+  // editable table.
+  function groupCards(libId: string, sector: string, b: Bucket) {
+    const groups = [
+      { sub: "tech", label: "Technologies", desc: "Process recipes — inputs, outputs, costs & impacts", n: b.techs.length },
+      { sub: "stream", label: "Streams", desc: "Commodities produced here, and how they connect", n: b.streams.length },
+      { sub: "measures", label: "Measures & MACC", desc: "Abatement levers and their cost curves", n: b.maccs.length + b.measures.length },
+    ].filter((g) => g.n > 0);
+    return groups.map((g) =>
+      infoCard({
+        key: g.sub,
+        title: g.label,
+        sub: g.desc,
+        stats: [{ n: g.n, label: "components" }],
+        onClick: () => {
+          setExpanded((p) => new Set(p).add(`cat:${libId}:${sector}`).add(`cat:${libId}:${sector}/${g.sub}`));
+          setSel({ libId, kind: "cat", id: `${sector}/${g.sub}` });
+        },
+      }),
+    );
+  }
+
   function renderDetail() {
-    if (!sel || !body) return <p className="muted">Pick or create a library on the left to start building.</p>;
+    if (!sel) return renderLanding();
+    if (!body) return <p className="muted">Loading…</p>;
     if (sel.kind === "library") {
       const l = libs.find((x) => keyOf(x) === sel.libId);
       return (
@@ -551,6 +665,29 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
             {l?.technologies ?? 0} technologies · {l?.commodities ?? 0} streams · {l?.measures ?? 0} measures · {l?.maccs ?? 0} MACCs.
             {" "}A technology gets its own input/output streams; measures are reusable and bundled into MACCs; a technology links the MACCs that apply to it.
           </p>
+          {buckets && buckets.order.length > 0 && (
+            <div className="lib-grid" style={{ marginTop: 8 }}>
+              {buckets.order.length > 1
+                ? buckets.order.map((sec) => {
+                    const b = buckets.buckets.get(sec)!;
+                    return infoCard({
+                      key: sec,
+                      title: sec,
+                      sub: "sector",
+                      stats: [
+                        { n: b.techs.length, label: "tech" },
+                        { n: b.streams.length, label: "streams" },
+                        { n: b.measures.length + b.maccs.length, label: "measures" },
+                      ],
+                      onClick: () => {
+                        setExpanded((p) => new Set(p).add(`cat:${sel.libId}:${sec}`));
+                        setSel({ libId: sel.libId, kind: "cat", id: sec });
+                      },
+                    });
+                  })
+                : groupCards(sel.libId, buckets.order[0], buckets.buckets.get(buckets.order[0])!)}
+            </div>
+          )}
         </section>
       );
     }
@@ -679,8 +816,8 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
     return null;
   }
 
-  // ── Bottom-rail per-year cost trajectories for a single selected item ────────
-  function bottomRail() {
+  // ── Right-rail per-year time-series table for the selected single component ──
+  function tsRail() {
     if (!sel || !body) return null;
     if (sel.kind === "tech") {
       const t = body.technologies.find((x) => x.technology_id === sel.id);
@@ -694,41 +831,11 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
       const m = body.measures.find((x) => x.measure_id === sel.id);
       return m == null ? null : <TimeSeriesRail kind="measure" value={m} onChange={(v) => editLib(sel.libId, (l) => ({ ...l, measures: l.measures.map((x) => (x.measure_id === sel.id ? v : x)) }))} />;
     }
-    // Bucket selection → pick a member (per-series toggle), edit its trajectory.
-    if (sel.kind === "cat" && buckets) {
-      const raw = sel.id ?? "";
-      const sector = raw.split("/")[0] || OTHER;
-      const sub = raw.includes("/") ? raw.split("/")[1] : "";
-      const b = buckets.buckets.get(sector);
-      if (!b) return null;
-      const libId = sel.libId;
-      const toggle = (ids: string[], active: string) => (
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-          <span className="muted" style={{ fontSize: "0.72rem", alignSelf: "center" }}>edit by-year for:</span>
-          {ids.map((id) => (
-            <button key={id} className="ghost" style={active === id ? { borderColor: "var(--brand)", color: "var(--brand)" } : undefined} onClick={() => setRailMember(id)}>{id}</button>
-          ))}
-        </div>
-      );
-      if (sub === "tech" && b.techs.length) {
-        const t = b.techs.find((x) => x.technology_id === railMember) ?? b.techs[0];
-        return (<>{toggle(b.techs.map((x) => x.technology_id), t.technology_id)}<TimeSeriesRail kind="tech" value={t} onChange={(v) => editLib(libId, (l) => ({ ...l, technologies: l.technologies.map((x) => (x.technology_id === t.technology_id ? v : x)) }))} /></>);
-      }
-      if (sub === "stream" && b.streams.length) {
-        const c = b.streams.find((x) => x.commodity_id === railMember) ?? b.streams[0];
-        return (<>{toggle(b.streams.map((x) => x.commodity_id), c.commodity_id)}<TimeSeriesRail kind="stream" value={c} onChange={(v) => editLib(libId, (l) => ({ ...l, commodities: l.commodities.map((x) => (x.commodity_id === c.commodity_id ? v : x)) }))} /></>);
-      }
-      if (sub === "indiv" && b.measures.length) {
-        const m = b.measures.find((x) => x.measure_id === railMember) ?? b.measures[0];
-        return (<>{toggle(b.measures.map((x) => x.measure_id), m.measure_id)}<TimeSeriesRail kind="measure" value={m} onChange={(v) => editLib(libId, (l) => ({ ...l, measures: l.measures.map((x) => (x.measure_id === m.measure_id ? v : x)) }))} /></>);
-      }
-      return null;
-    }
     return null;
   }
 
   const notes = notesFor();
-  const rail = bottomRail();
+  const rail = tsRail();
 
   return (
     <div className="view-full builder" style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
@@ -736,7 +843,14 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
         <aside style={{ width: 280, overflow: "auto", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", flexShrink: 0 }}>
           <div className="rail-head-row" style={{ padding: "6px 10px" }}>
-            <span className="rail-head">Libraries</span>
+            <button
+              className="rail-head"
+              style={{ background: "none", border: "none", padding: 0, font: "inherit", cursor: "pointer", textAlign: "left" }}
+              title="Show all libraries"
+              onClick={() => setSel(null)}
+            >
+              Libraries
+            </button>
             <button className="rail-add" title="new library" onClick={newLibrary}>＋</button>
           </div>
           <TreeExplorer
@@ -747,7 +861,11 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
               setExpanded((p) => { const m = new Set(p); if (exp) m.add(id); else m.delete(id); return m; });
               if (exp && id.startsWith("lib:")) void loadLib(id.slice(4));
             }}
-            onSelect={(id) => setSel(parseId(id))}
+            onSelect={(id) => {
+              const next = parseId(id);
+              if (!openLibs.has(next.libId)) void loadLib(next.libId);
+              setSel(next);
+            }}
             actionsFor={actionsFor}
             onContextAction={onContextAction}
             onMove={() => undefined}
@@ -755,38 +873,40 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
           />
           <div className="muted" style={{ fontSize: "0.7rem", padding: "8px 10px", borderTop: "1px solid var(--border)" }}>Right-click for actions</div>
         </aside>
-        <main style={{ flex: 1, overflow: "auto", padding: "16px 20px", minWidth: 0 }}>
+        <main style={{ flex: 1, overflow: "auto", padding: "16px 20px", minWidth: 0, display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
             <div className="eyebrow">component builder</div>
             <span className="muted" style={{ fontSize: "0.78rem" }}>{status}</span>
           </div>
-          {renderDetail()}
-        </main>
-        {/* RIGHT rail: editable notes / references for the selected item or sector. */}
-        <aside style={{ width: 264, overflow: "auto", borderLeft: "1px solid var(--border)", flexShrink: 0, padding: "14px 14px" }}>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>notes &amp; references</div>
-          {notes ? (
-            <>
-              <div className="muted" style={{ fontSize: "0.74rem", marginBottom: 6 }}>{notes.label}</div>
+          <div style={{ flex: 1, minHeight: 0 }}>{renderDetail()}</div>
+          {/* Notes & references — at the bottom of the main area. */}
+          {notes && (
+            <div style={{ borderTop: "1px solid var(--border)", marginTop: 20, paddingTop: 12 }}>
+              <div className="eyebrow" style={{ marginBottom: 6 }}>
+                notes &amp; references <span className="muted" style={{ textTransform: "none", letterSpacing: 0 }}>· {notes.label}</span>
+              </div>
               <textarea
                 value={notes.value}
                 onChange={(e) => notes.set(e.target.value)}
                 placeholder="Sources, assumptions, caveats… (free text — the optimiser ignores it)"
-                style={{ ...inp, width: "100%", minHeight: 180, resize: "vertical", lineHeight: 1.45 }}
+                style={{ ...inp, width: "100%", minHeight: 80, resize: "vertical", lineHeight: 1.45 }}
               />
-            </>
-          ) : (
-            <p className="muted" style={{ fontSize: "0.78rem" }}>Select a technology, stream, measure, MACC, or a sector to add notes.</p>
+            </div>
           )}
-        </aside>
+        </main>
+        {/* RIGHT rail (resizable): per-year time-series table for the selected component. */}
+        {rail && (
+          <>
+            <Resizer width={rightW} setWidth={setRightW} side="right" />
+            <aside style={{ width: rightW, overflow: "auto", borderLeft: "1px solid var(--border)", flexShrink: 0, padding: "14px 14px" }}>
+              <div className="eyebrow" style={{ marginBottom: 8 }}>
+                time series <span className="muted" style={{ textTransform: "none", letterSpacing: 0 }}>· per-year overrides; empty = latest value</span>
+              </div>
+              {rail}
+            </aside>
+          </>
+        )}
       </div>
-      {/* BOTTOM rail: per-year cost/price trajectories for the selected item. */}
-      {rail && (
-        <div style={{ flexShrink: 0, borderTop: "1px solid var(--border)", maxHeight: 240, overflow: "auto", padding: "10px 16px", background: "var(--surface)" }}>
-          <div className="eyebrow" style={{ marginBottom: 6 }}>time series <span className="muted" style={{ textTransform: "none", letterSpacing: 0 }}>· per-year overrides of the values above</span></div>
-          {rail}
-        </div>
-      )}
       {dialogNode}
     </div>
   );

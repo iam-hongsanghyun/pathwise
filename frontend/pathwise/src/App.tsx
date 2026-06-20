@@ -13,6 +13,7 @@ import {
 import { type LibraryEntry, type LibraryTier, importLibrary, listLibraries } from "./lib/api/libraries";
 import { SearchSelect } from "./features/controls/SearchSelect";
 import { ActivityBar, type View } from "./layout/ActivityBar";
+import { useTheme } from "./lib/useTheme";
 import { AnalyticsView } from "./views/AnalyticsView";
 import { ComponentTabView } from "./views/ComponentTabView";
 import { SettingsView } from "./views/SettingsView";
@@ -49,6 +50,8 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [leftW, setLeftW] = useState(232);
   const [libraries, setLibraries] = useState<LibraryEntry[]>([]);
+  // v2: visual theme + density (persisted; reflected on <html data-theme/density>).
+  const { theme, setTheme, density, setDensity } = useTheme();
 
   // Boot: config handshake + a backend session (the model's source of truth).
   useEffect(() => {
@@ -201,36 +204,40 @@ export function App() {
       <ActivityBar view={view} onChange={setView} />
       <div className="workspace">
         <header className="topbar">
-          <div>
+          <div className="topbar-title">
             <div className="eyebrow">process value-chain optimiser</div>
-            <h1>pathwise{config ? ` · build ${config.buildId}` : ""}</h1>
+            <h1>
+              pathwise
+              {config ? <span className="build-tag">build {config.buildId}</span> : null}
+            </h1>
           </div>
-          <button
-            className="ghost"
-            onClick={undo}
-            title="undo the last model change (Ctrl/Cmd+Z)"
-          >
-            ↩ Undo
-          </button>
-          <button
-            className="ghost"
-            onClick={onNewModel}
-            disabled={!sessionId}
-            title="clear the session and start from an empty model (undoable)"
-          >
-            ✕ New model
-          </button>
-          <button
-            className="ghost"
-            onClick={onClearCache}
-            title="wipe ALL working session data (sessions + session libraries) and start fresh — not undoable"
-          >
-            🧹 Clear cache
-          </button>
+
+          <span className="pw-pill" title={sessionId ? `session ${sessionId}` : "no backend session"}>
+            <span className="pw-dot" />
+            <b>working model</b>
+            <span className="pw-meta">{sessionId ? sessionId.slice(0, 8) : "no session"}</span>
+          </span>
+
           <span className="spacer" />
+
+          <div className="pw-actions" role="group" aria-label="Model actions">
+            <button className="pw-iconbtn" onClick={undo} title="Undo the last model change (Ctrl/Cmd+Z)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></svg>
+              Undo
+            </button>
+            <button className="pw-iconbtn" onClick={onNewModel} disabled={!sessionId} title="Clear the session and start from an empty model (undoable)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M12 11v6M9 14h6" /></svg>
+              New
+            </button>
+            <button className="pw-iconbtn" onClick={onClearCache} title="Wipe ALL working session data (sessions + session libraries) and start fresh — not undoable">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /></svg>
+              Clear
+            </button>
+          </div>
+
           <label>
             Library
-            <span style={{ display: "inline-block", width: 300 }}>
+            <span style={{ display: "inline-block", width: 280 }}>
               <SearchSelect
                 value=""
                 onChange={(v) => v && onPickLibrary(v)}
@@ -245,6 +252,7 @@ export function App() {
               />
             </span>
           </label>
+
           <label>
             Upload
             <input
@@ -253,6 +261,7 @@ export function App() {
               onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])}
             />
           </label>
+
           <button
             className="ghost"
             disabled={!sessionId}
@@ -305,6 +314,10 @@ export function App() {
             onBackend={setBackend}
             portfolio={portfolio}
             onPortfolio={setPortfolio}
+            theme={theme}
+            onTheme={setTheme}
+            density={density}
+            onDensity={setDensity}
             leftW={leftW}
             setLeftW={setLeftW}
           />

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en" data-theme="refined" data-density="comfortable">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pathwise v2 — style harness</title>
+  <!-- DEV-ONLY harness: verifies tokens.css + v2.css against the real class
+       names without running Vite. Not part of the app bundle. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./styles/v2.css" />
+</head>
+<body>
+  <div class="studio-shell">
+    <!-- activity bar -->
+    <nav class="activity-bar" aria-label="Views">
+      <div class="activity-bar-brand">pathwise</div>
+      <button class="activity-bar-btn" title="Components">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m3 7 9 5 9-5"/><path d="M12 12v10"/></svg>
+      </button>
+      <button class="activity-bar-btn is-active" title="Value chain">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="5" cy="18" r="2.4"/><circle cx="19" cy="12" r="2.4"/><path d="M7.3 6.8 16.7 11M7.3 17.2 16.7 13"/></svg>
+      </button>
+      <button class="activity-bar-btn" title="Analytics">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3.5-4 3 2.5L21 6"/></svg>
+      </button>
+      <span class="activity-spacer"></span>
+      <button class="activity-bar-btn" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </nav>
+
+    <div class="workspace">
+      <!-- topbar -->
+      <header class="topbar">
+        <div class="topbar-title">
+          <div class="eyebrow">process value-chain optimiser</div>
+          <h1>pathwise<span class="build-tag">build 2026.6.1</span></h1>
+        </div>
+        <span class="pw-pill"><span class="pw-dot"></span><b>working model</b><span class="pw-meta">a31c7bbb</span></span>
+        <span class="spacer"></span>
+        <div class="pw-actions">
+          <button class="pw-iconbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>Undo</button>
+          <button class="pw-iconbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 11v6M9 14h6"/></svg>New</button>
+          <button class="pw-iconbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Clear</button>
+        </div>
+        <label>Library<span style="display:inline-block;width:200px;"><select><option>Steel · Korea Steel Pathway</option></select></span></label>
+        <button class="ghost">Export model</button>
+        <button class="ghost" disabled>Export result</button>
+        <div class="pw-design">
+          <span class="pw-design-label">theme</span>
+          <div class="pw-swatches">
+            <button class="pw-swatch sw-refined is-active" title="Refined" onclick="setTheme('refined',this)"></button>
+            <button class="pw-swatch sw-warm" title="Warm" onclick="setTheme('warm',this)"></button>
+            <button class="pw-swatch sw-bold" title="Bold Studio" onclick="setTheme('bold',this)"></button>
+          </div>
+          <select class="pw-density" onchange="document.documentElement.dataset.density=this.value">
+            <option value="compact">Compact</option>
+            <option value="comfortable" selected>Comfortable</option>
+            <option value="spacious">Spacious</option>
+          </select>
+        </div>
+      </header>
+
+      <div class="body-row">
+        <!-- left rail -->
+        <aside class="left-rail">
+          <div class="rail-group">
+            <div class="rail-head">Structure</div>
+            <button class="rail-item is-active">POSCO</button>
+            <button class="rail-item">Pohang Works</button>
+            <button class="rail-item">Blast Furnace #2</button>
+            <button class="rail-item">Hyundai Steel</button>
+          </div>
+        </aside>
+
+        <!-- main -->
+        <main class="main-area">
+          <div class="toolbar">
+            <strong style="font-size:0.9rem;">Value chain</strong>
+            <span class="spacer"></span>
+            <button class="run-button">▶ Run</button>
+          </div>
+          <div class="view">
+            <div class="card" style="max-width:520px;">
+              <h3 style="margin:0 0 6px;">Blast Furnace #2</h3>
+              <p class="muted" style="margin:0 0 10px;">runs BF-BOF · capacity 4,200 kt/yr</p>
+              <div class="tabs">
+                <button class="tab active">Recipe</button>
+                <button class="tab">Impacts</button>
+                <button class="tab">Alternatives</button>
+              </div>
+              <table>
+                <thead><tr><th>Stream</th><th>Dir</th><th>Coeff</th></tr></thead>
+                <tbody>
+                  <tr><td>Iron ore</td><td>in</td><td>1.58 t</td></tr>
+                  <tr><td>Coke</td><td>in</td><td>0.45 t</td></tr>
+                  <tr><td>Crude steel</td><td>out</td><td>1.00 t</td></tr>
+                </tbody>
+              </table>
+              <div style="margin-top:12px;display:flex;gap:8px;">
+                <button class="run-button">Add alternative</button>
+                <button class="ghost">Connect to…</button>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function setTheme(t, el) {
+      document.documentElement.dataset.theme = t;
+      document.querySelectorAll('.pw-swatch').forEach((s) => s.classList.remove('is-active'));
+      el.classList.add('is-active');
+    }
+  </script>
+</body>
+</html>

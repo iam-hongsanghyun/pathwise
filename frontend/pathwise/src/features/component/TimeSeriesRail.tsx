@@ -7,7 +7,6 @@ import { useState } from "react";
 import { InfoTooltip } from "../controls/InfoTooltip";
 import { SearchSelect } from "../controls/SearchSelect";
 import { fieldMeta } from "./fieldMeta";
-import { inputStyle } from "./editors";
 import type {
   ByYear,
   CommodityTemplate,
@@ -113,7 +112,7 @@ function TimeSeriesTable({
                 {series.map((s) => (
                   <td key={s.key}>
                     <input
-                      style={{ ...inputStyle, width: 90 }}
+                      className="ts-cell"
                       type="number"
                       placeholder={String(s.fallback)}
                       value={s.values[String(y)] ?? ""}

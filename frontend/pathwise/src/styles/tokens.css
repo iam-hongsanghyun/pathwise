@@ -1,32 +1,163 @@
-/* Design tokens — ported from Ragnarok. Engineering-tool aesthetic: flat,
-   monospace-leaning, no gradients, no shadows, square boxes (radius 0); only
-   buttons are rounded (4px). Teal brand. Single source of truth. */
+/* ─────────────────────────────────────────────────────────────────────────
+   Design tokens — pathwise v2.
+   Engineering-tool aesthetic, sharpened: flat, monospace-leaning, teal brand,
+   refined spacing + subtle depth. SINGLE SOURCE OF TRUTH.
+
+   Every variable name from the original tokens.css is preserved, so the whole
+   existing styles.css keeps working unchanged. New names (--chrome*, --shadow*,
+   density scale) are additive and consumed by v2.css.
+
+   THEME  : default = "Refined". [data-theme="warm"|"bold"] override the palette.
+   DENSITY: default = "comfortable". [data-density="compact"|"spacious"] retune.
+   Both attributes live on <html> and are toggled by lib/useTheme.ts.
+   ───────────────────────────────────────────────────────────────────────── */
 
 :root {
-  --bg: #f8fafc;
-  --bg-hover: #f1f5f9;
-  --surface: #ffffff;
-  --panel: #ffffff;
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --text: #0f172a;
-  --muted: #64748b;
-  --brand: #0f766e;
-  --brand-strong: #0b5d56;
-  --brand-soft: #f0fdfa;
-  --brand-tint: #ccfbf1;
-  --brand-ring: rgba(15, 118, 110, 0.35);
-  --brand-fill: rgba(15, 118, 110, 0.08);
-  --danger: #dc2626;
-  --danger-soft: #fee2e2;
-  --warn: #f59e0b;
-  --warn-text: #b45309;
+  /* ── type ───────────────────────────────────────────────────────────── */
   --font-sans: "IBM Plex Sans", "Inter", "Segoe UI", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --radius-button: 4px;
-  --radius: 0;
+
+  /* ── REFINED palette (default) ──────────────────────────────────────── */
+  --bg: #f4f6f8;
+  --bg-hover: #eef2f5;
+  --surface: #ffffff;
+  --panel: #ffffff;
+  --border: #e6eaef;
+  --border-strong: #cdd5df;
+  --text: #111827;
+  --muted: #6b7785;
+  --brand: #0f766e;
+  --brand-strong: #0b5d56;
+  --brand-soft: #effdfb;
+  --brand-tint: #cdeee9;
+  --brand-ring: rgba(15, 118, 110, 0.40);
+  --brand-fill: rgba(15, 118, 110, 0.07);
+  --danger: #dc2626;
+  --danger-soft: #fde8e8;
+  --warn: #d97706;
+  --warm: #d97706; /* original referenced --warm (undefined); aliased to avoid a broken border */
+  --warn-soft: #fdf0d5;
+  --warn-text: #a8620a;
+  --accent-violet: #7c3aed; /* storage nodes */
+
+  /* ── chrome (activity bar + any dark surface) ───────────────────────── */
+  --chrome: #ffffff;
+  --chrome-2: #eef2f5;
+  --chrome-text: #5b6672;
+  --chrome-active: #0f766e;
+  --chrome-border: #e6eaef;
+
+  /* ── shape + depth ──────────────────────────────────────────────────── */
+  --radius: 6px;
+  --radius-button: 6px;
+  --radius-sm: 5px;
+  --radius-pill: 999px;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-lg: 0 10px 30px -8px rgba(16, 24, 40, 0.16);
+
+  /* ── density scale (comfortable default) ────────────────────────────── */
+  --fs: 13px;
+  --fs-sm: 11px;
+  --pad-x: 14px;
+  --pad-y: 10px;
+  --gap: 10px;
+  --row-h: 30px;
+  --card-pad: 16px;
 }
 
+/* ── WARM ─────────────────────────────────────────────────────────────── */
+:root[data-theme="warm"] {
+  --bg: #f3f1ec;
+  --bg-hover: #ece6db;
+  --surface: #fffdfa;
+  --panel: #fffdfa;
+  --border: #e7e1d6;
+  --border-strong: #d6cdbd;
+  --text: #2b2620;
+  --muted: #8a7f6f;
+  --brand: #0e7c66;
+  --brand-strong: #0a6354;
+  --brand-soft: #f0faf4;
+  --brand-tint: #cdeadd;
+  --brand-ring: rgba(14, 124, 102, 0.40);
+  --brand-fill: rgba(14, 124, 102, 0.08);
+  --danger: #c2410c;
+  --danger-soft: #fbe6da;
+  --warn: #b45309;
+  --warm: #b45309;
+  --warn-soft: #f7ecd2;
+  --warn-text: #92400e;
+
+  --chrome: #fbf8f3;
+  --chrome-2: #efe9de;
+  --chrome-text: #6b6053;
+  --chrome-active: #0e7c66;
+  --chrome-border: #e7e1d6;
+
+  --radius: 11px;
+  --radius-button: 9px;
+  --radius-sm: 8px;
+  --shadow: 0 2px 6px rgba(60, 50, 30, 0.07);
+  --shadow-lg: 0 14px 38px -10px rgba(60, 50, 30, 0.18);
+}
+
+/* ── BOLD STUDIO (dark chrome, brighter accent) ───────────────────────── */
+:root[data-theme="bold"] {
+  --bg: #eaeef2;
+  --bg-hover: #e1e7ed;
+  --surface: #ffffff;
+  --panel: #ffffff;
+  --border: #dde3ea;
+  --border-strong: #c3ccd6;
+  --text: #0c1a22;
+  --muted: #5d6b76;
+  --brand: #0d9488;
+  --brand-strong: #0f766e;
+  --brand-soft: #ecfdf9;
+  --brand-tint: #c5efe9;
+  --brand-ring: rgba(13, 148, 136, 0.45);
+  --brand-fill: rgba(13, 148, 136, 0.08);
+  --danger: #e11d48;
+  --danger-soft: #fde7ec;
+  --warn: #ea8c00;
+  --warm: #ea8c00;
+  --warn-soft: #fdf0d8;
+  --warn-text: #b45309;
+
+  --chrome: #0d2b29;
+  --chrome-2: #15413c;
+  --chrome-text: #9fc4be;
+  --chrome-active: #5eead4;
+  --chrome-border: #1c3b38;
+
+  --radius: 6px;
+  --radius-button: 6px;
+  --radius-sm: 4px;
+  --shadow: 0 1px 2px rgba(8, 20, 26, 0.08);
+  --shadow-lg: 0 12px 34px -8px rgba(8, 20, 26, 0.26);
+}
+
+/* ── DENSITY ──────────────────────────────────────────────────────────── */
+:root[data-density="compact"] {
+  --fs: 12px;
+  --fs-sm: 10.5px;
+  --pad-x: 11px;
+  --pad-y: 7px;
+  --gap: 7px;
+  --row-h: 26px;
+  --card-pad: 13px;
+}
+:root[data-density="spacious"] {
+  --fs: 14px;
+  --fs-sm: 12px;
+  --pad-x: 18px;
+  --pad-y: 13px;
+  --gap: 14px;
+  --row-h: 38px;
+  --card-pad: 22px;
+}
+
+/* ── resets (unchanged from original) ─────────────────────────────────── */
 * {
   box-sizing: border-box;
 }
@@ -38,11 +169,18 @@ body,
   margin: 0;
 }
 
+/* The density scale is the single sizing lever: root font-size = --fs, so every
+   rem in the app scales with the chosen density (compact/comfortable/spacious)
+   instead of the browser's 16px default — which was making everything oversized. */
+:root {
+  font-size: var(--fs);
+}
+
 body {
   font-family: var(--font-sans);
   color: var(--text);
   background: var(--bg);
-  font-size: 13px;
+  font-size: var(--fs);
   -webkit-font-smoothing: antialiased;
 }
 
