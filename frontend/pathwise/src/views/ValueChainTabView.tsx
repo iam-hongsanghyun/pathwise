@@ -11,11 +11,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { HierarchyMap } from "../features/topology/HierarchyMap";
 import { sourceStreams } from "../lib/hierarchyLayout";
-import { Alternatives, CascadeSummary, FlowContext, MachineInspector, PortsPanel, SourceStreamInspector, type CascadeResult } from "../features/valuechain/panels";
+import { Alternatives, FlowContext, MachineInspector, PortsPanel, SourceStreamInspector } from "../features/valuechain/panels";
 import { ModelHealth } from "../features/valuechain/ModelHealth";
 import { indexIssues, rollUpBadges, validateModel, type FixDescriptor, type Issue } from "../lib/validate";
 import { useDialogs } from "../features/controls/Dialog";
-import { MultiSelect } from "../features/controls/MultiSelect";
 import { SearchableSelect } from "../features/controls/SearchableSelect";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
@@ -34,21 +33,14 @@ import {
 } from "../lib/api/components";
 import type { LibraryEntry } from "../lib/api/libraries";
 import { getFullModel, putModel } from "../lib/api/session";
-import { runToCompletion } from "../lib/api/run";
 import { parseNodes } from "../lib/groupGraph";
-import type { Cell, RunResult, Row, Workbook } from "../types";
+import type { Cell, Row, Workbook } from "../types";
 
 interface Props {
   workbook: Workbook;
   setWorkbook: (wb: Workbook) => void;
   sessionId: string | null;
   adoptServerModel: (wb: Workbook) => void;
-  onJointResult: (r: RunResult) => void;
-  /** Optimisation method chosen in Settings (linopy | portfolio | macc | …). */
-  backend?: string;
-  /** Run status, owned by App so it survives a tab switch mid-run. */
-  running: string | null;
-  setRunning: (v: string | null) => void;
   /** Importable libraries (for the blank-model "start from an example" affordance). */
   libraries?: LibraryEntry[];
   onPickLibrary?: (key: string) => void;
@@ -57,9 +49,6 @@ interface Props {
 const s = (v: unknown): string => (v == null ? "" : String(v));
 let _ctr = 0;
 const genId = (p: string): string => `${p}_${Date.now().toString(36)}${(_ctr++).toString(36)}`;
-const isCascade = (r: unknown): r is CascadeResult =>
-  !!r && typeof r === "object" && "stages" in (r as Record<string, unknown>);
-
 // Alternative technologies are shown as synthetic, muted child rows under a
 // machine (they are not real nodes — they live in the `transitions` sheet). The
 // row id encodes which machine + which target technology so the context menu can
@@ -73,24 +62,9 @@ function parseAltId(id: string): { machineId: string; technology: string } | nul
   return sep < 0 ? null : { machineId: rest.slice(0, sep), technology: rest.slice(sep + 2) };
 }
 
-const inp: React.CSSProperties = {
-  padding: "3px 6px",
-  border: "1px solid var(--border-strong)",
-  borderRadius: "var(--radius-button)",
-  background: "var(--surface)",
-  font: "inherit",
-  fontSize: "0.78rem",
-};
-
-export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServerModel, onJointResult, backend = "linopy", running, setRunning, libraries = [], onPickLibrary }: Props) {
+export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServerModel, libraries = [], onPickLibrary }: Props) {
   const [selId, setSelId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [scope, setScope] = useState("system");
-  const [units, setUnits] = useState<Set<string>>(new Set()); // selected unit ids at the level
-  const [mode, setMode] = useState<"valuechain" | "joint" | "independent">("valuechain");
-  const [baseYear, setBaseYear] = useState(2025);
-  const [endYear, setEndYear] = useState(2050);
-  const [result, setResult] = useState<RunResult | CascadeResult | null>(null);
   const [libs, setLibs] = useState<LibrarySummary[]>([]);
   const [availableTechs, setAvailableTechs] = useState<AvailableTechnology[]>([]);
   const [picker, setPicker] = useState<{ parentId: string } | null>(null);
@@ -115,11 +89,6 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   const nodes = useMemo(() => parseNodes(workbook), [workbook]);
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const selNode = selId ? nodeById.get(selId) : null;
-
-  // ── Result ───────────────────────────────────────────────────────────────────
-  // The map (HierarchyMap) builds its own per-year overlay + year slider from
-  // `result`; here we only need the cascade result for the summary below.
-  const cascade = result && isCascade(result) ? result : null;
 
   const setSheet = (wb: Workbook, sheet: string, rows: Row[]): Workbook => ({ ...wb, [sheet]: rows });
 
@@ -272,7 +241,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   const demandFor = (nodeId: string) =>
     (workbook.demand ?? []).map((r, idx) => ({ idx, r })).filter(({ r }) => s(r.company) === nodeId);
   function addTarget(nodeId: string) {
-    setWorkbook(setSheet(workbook, "demand", [...(workbook.demand ?? []), { company: nodeId, commodity_id: products[0] ?? "", year: baseYear, amount: 100 }]));
+    setWorkbook(setSheet(workbook, "demand", [...(workbook.demand ?? []), { company: nodeId, commodity_id: products[0] ?? "", year: 2025, amount: 100 }]));
   }
   function setDemandRow(idx: number, patch: Record<string, Cell>) {
     setWorkbook(setSheet(workbook, "demand", (workbook.demand ?? []).map((r, j) => (j === idx ? { ...r, ...patch } : r))));
@@ -309,97 +278,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     else if (d.kind === "setCommodityField") setWorkbook(setSheet(workbook, "commodities", (workbook.commodities ?? []).map((r) => (s(r.commodity_id) === d.commodityId ? { ...r, ...d.patch } : r))));
   }
 
-  // Designed levels, labelled L0…Ln by their depth in the tree (+ whole-model).
-  const levelOptions = useMemo(() => {
-    const depthOf = (id: string): number => {
-      let d = 0;
-      let cur: string | null = nodeById.get(id)?.parentId ?? null;
-      const walked = new Set<string>([id]); // cycle guard — never loop on malformed data
-      while (cur && !walked.has(cur)) { walked.add(cur); d++; cur = nodeById.get(cur)?.parentId ?? null; }
-      return d;
-    };
-    const minDepth = new Map<string, number>();
-    for (const n of nodes) if (n.kind === "group" && n.level) {
-      const d = depthOf(n.id);
-      minDepth.set(n.level, Math.min(minDepth.get(n.level) ?? d, d));
-    }
-    const sorted = [...minDepth.entries()].sort((a, b) => a[1] - b[1]);
-    return [{ value: "system", label: "System (whole model)" }, ...sorted.map(([name, d]) => ({ value: name, label: `L${d} · ${name}` }))];
-  }, [nodes, nodeById]);
-
-  // The units (group nodes) at the chosen level.
-  const unitsAtLevel = useMemo(
-    () => (scope === "system" ? [] : nodes.filter((n) => n.kind === "group" && n.level === scope).map((n) => ({ id: n.id, label: n.label }))),
-    [nodes, scope],
-  );
-  const unitKey = unitsAtLevel.map((u) => u.id).join("|");
-  // Default to optimising every unit at the level; reset when the level changes.
-  useEffect(() => {
-    setUnits(new Set(unitsAtLevel.map((u) => u.id)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope, unitKey]);
-
   const hasHierarchy = (workbook.nodes ?? []).length > 0;
-
-  // ── Run ──────────────────────────────────────────────────────────────────────
-  async function run() {
-    if (!sessionId) return;
-    // Pre-flight: errors block the run, warnings warn-and-allow. The server still
-    // runs its authoritative validation — this just catches the common issues
-    // before we submit, and points at the Model-health panel for the details.
-    const blocking = issues.filter((i) => i.severity === "error");
-    const warns = issues.filter((i) => i.severity === "warning");
-    if (blocking.length) {
-      setSelId(null); // reveal the Model-health panel in the right rail
-      await confirm({
-        title: `${blocking.length} issue${blocking.length === 1 ? "" : "s"} must be fixed before running`,
-        message: `${blocking.slice(0, 5).map((i) => i.title).join(" · ")} — see Model health on the right.`,
-        danger: true,
-        confirmLabel: "OK",
-      });
-      return;
-    }
-    if (warns.length && !(await confirm({
-      title: `${warns.length} warning${warns.length === 1 ? "" : "s"}`,
-      message: `${warns.slice(0, 5).map((i) => i.title).join(" · ")}. Run anyway?`,
-      confirmLabel: "Run anyway",
-    }))) return;
-    setError(null);
-    setResult(null);
-    setRunning("submitting");
-    try {
-      // The base→end toolbar fields define the run horizon (annual periods).
-      const last = Math.max(baseYear, endYear);
-      const years = Array.from({ length: last - baseYear + 1 }, (_, i) => baseYear + i);
-      const wb = setSheet(workbook, "periods", years.map((y) => ({ year: y, duration_years: 1 })));
-      if (wb !== workbook) setWorkbook(wb);
-      await putModel(sessionId, wb);
-      // all units selected ⇒ empty targets (= all); a subset ⇒ those ids.
-      const allIds = unitsAtLevel.map((u) => u.id);
-      const targets = scope === "system" || units.size === 0 || units.size === allIds.length ? [] : [...units];
-      const scenario = {
-        economics: { base_year: baseYear },
-        optimisation_scope: scope,
-        optimisation_targets: targets,
-        optimisation_mode: mode,
-        coupling: { signals: ["price", "carbon_intensity"], iterations: 3, damping: 0.5 },
-      };
-      const r = await runToCompletion(sessionId, scenario, { domain: "process", backend }, setRunning);
-      setResult(r);
-      // An invalid run carries no usable outputs; surface its validation errors
-      // in the banner (the only place the user sees them — the analytics views
-      // render nothing for an invalid result).
-      if (r.status === "invalid" && r.validation?.errors?.length) {
-        setError(r.validation.errors.join(" "));
-        return;
-      }
-      if (!isCascade(r)) onJointResult(r); // also surface joint runs in Analytics
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setRunning(null);
-    }
-  }
 
   // ── Context menu ──────────────────────────────────────────────────────────────
   function actionsFor(node: TreeNode): TreeAction[] {
@@ -475,95 +354,50 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   }
 
   return (
-    <div className="view-full builder" style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
-      {/* toolbar */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 14px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
-        <strong style={{ fontSize: "0.9rem" }}>Value chain</strong>
-        <span style={{ flex: 1 }} />
-        <label style={{ fontSize: "0.78rem", display: "flex", gap: 4, alignItems: "center" }} title="The model runs one period per year from the base year to the end year (inclusive).">
-          <span className="muted">years</span>
-          <input type="number" value={baseYear} onChange={(e) => setBaseYear(Number(e.target.value) || 2025)} style={{ width: 64, ...inp }} />
-          <span className="muted">→</span>
-          <input type="number" value={endYear} onChange={(e) => setEndYear(Number(e.target.value) || baseYear)} style={{ width: 64, ...inp }} />
-        </label>
-        <label style={{ fontSize: "0.78rem", display: "flex", gap: 4, alignItems: "center" }}>
-          <span className="muted">optimise at</span>
-          <span style={{ display: "inline-block", width: 200 }} title="the level whose items become optimisation units (System = whole model)">
-            <SearchSelect value={scope} onChange={setScope} options={levelOptions.map((l) => ({ value: l.value, label: l.label }))} />
-          </span>
-        </label>
-        {scope !== "system" && unitsAtLevel.length > 0 && (
-          <>
-            <MultiSelect label="units" options={unitsAtLevel} selected={units} onChange={setUnits} />
-            <label style={{ fontSize: "0.78rem", display: "flex", gap: 4, alignItems: "center" }}>
-              <span className="muted">solve</span>
-              <span style={{ display: "inline-block", width: 230 }} title="Value chain = in series upstream→downstream, coupled; Joint = all selected units as one problem; Independent = each on its own, no coupling">
-                <SearchSelect
-                  value={mode}
-                  onChange={(v) => setMode(v as "valuechain" | "joint" | "independent")}
-                  options={[
-                    { value: "valuechain", label: "Value chain (upstream → downstream)" },
-                    { value: "joint", label: "Joint (all together)" },
-                    { value: "independent", label: "Independent (each on its own)" },
-                  ]}
-                />
-              </span>
-            </label>
-          </>
-        )}
-        {issueIdx.errorCount + issueIdx.warnCount > 0 && (
-          <button
-            className="ghost health-chip"
-            onClick={() => setSelId(null)}
-            title="show model health"
-          >
-            {issueIdx.errorCount > 0 && <span className="health-dot error" />}
-            {issueIdx.warnCount > 0 && <span className="health-dot warning" />}
-            {issueIdx.errorCount + issueIdx.warnCount}
-          </button>
-        )}
-        <button className="run-button" onClick={run} disabled={running != null || !sessionId}>{running ? `▶ ${running}…` : "▶ Run"}</button>
-      </div>
+    <div className="view-full builder">
+      {error && <div className="error error-bar" onClick={() => setError(null)}>{error} <span className="muted">(dismiss)</span></div>}
 
-      {error && <div className="error" style={{ padding: "4px 12px" }} onClick={() => setError(null)}>{error} <span className="muted">(dismiss)</span></div>}
-
-      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+      <div className="builder-body">
         {/* LEFT: structure only */}
-        <aside style={{ width: leftW, overflow: "auto", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", flexShrink: 0 }}>
-          <div className="rail-head-row" style={{ padding: "6px 10px" }}>
+        <aside className="builder-rail" style={{ width: leftW }}>
+          <div className="rail-head-row">
             <span className="rail-head">Structure</span>
             <button className="rail-add" title="add top-level subgroup" onClick={() => addSubgroup(null)}>＋</button>
           </div>
-          <TreeExplorer
-            nodes={treeNodes}
-            selectedId={selId}
-            expandedIds={expanded}
-            onToggle={(id, exp) => setExpanded((p) => { const m = new Set(p); if (exp) m.add(id); else m.delete(id); return m; })}
-            onSelect={selectNode}
-            actionsFor={actionsFor}
-            onContextAction={onContextAction}
-            onMove={onMove}
-            emptyHint="Empty — click ＋ (or right-click) to add a value chain / sector."
-          />
-          <div className="muted" style={{ fontSize: "0.7rem", padding: "8px 10px", borderTop: "1px solid var(--border)" }}>
-            Right-click an item for actions · drag to move
+          <div className="rail-scroll">
+            <TreeExplorer
+              nodes={treeNodes}
+              selectedId={selId}
+              expandedIds={expanded}
+              onToggle={(id, exp) => setExpanded((p) => { const m = new Set(p); if (exp) m.add(id); else m.delete(id); return m; })}
+              onSelect={selectNode}
+              actionsFor={actionsFor}
+              onContextAction={onContextAction}
+              onMove={onMove}
+              emptyHint="Empty — click ＋ (or right-click) to add a value chain / sector."
+            />
           </div>
+          <div className="rail-foot">Right-click an item for actions · drag to move</div>
         </aside>
         <Resizer width={leftW} setWidth={setLeftW} side="left" />
 
         {/* CENTER: relationship canvas */}
-        <main style={{ flex: 1, minWidth: 220, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <main className="builder-canvas">
+          <div className="view-head" style={{ padding: "12px 16px 0" }}>
+            <div className="eyebrow">value chain</div>
+            <span className="view-status">connections &amp; flows between facilities</span>
+          </div>
           {!hasHierarchy ? (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 24 }}>
-              <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Start a value chain</h2>
-              <p className="muted" style={{ maxWidth: 420, textAlign: "center", margin: 0 }}>
+            <div className="vc-empty">
+              <h2 className="view-title" style={{ margin: 0 }}>Start a value chain</h2>
+              <p className="detail-note" style={{ maxWidth: 420, textAlign: "center", margin: 0 }}>
                 A value chain is a tree of <b>nodes</b> (sector → company → facility) holding <b>machines</b> that run a <b>technology</b>; you wire them with <b>connections</b> (in-chain) and <b>markets</b> (buy/sell outside).
               </p>
               {(() => {
                 const vc = libraries.filter((l) => l.has_value_chain);
                 return vc.length > 0 && onPickLibrary ? (
                   <div style={{ width: 320, textAlign: "center" }}>
-                    <div className="muted" style={{ fontSize: "0.76rem", marginBottom: 4 }}>start from an example</div>
+                    <div className="detail-note" style={{ marginBottom: 4 }}>start from an example</div>
                     <SearchSelect value="" onChange={(key) => key && onPickLibrary(key)} placeholder="open an example model…"
                       options={vc.map((l) => ({ value: `${l.tier}/${l.id}`, label: l.label }))} />
                   </div>
@@ -571,14 +405,13 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
               })()}
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <button className="run-button" onClick={() => addSubgroup(null)}>＋ Add value chain</button>
-                <span className="muted" style={{ fontSize: "0.76rem" }}>…then right-click it to add subgroups or components</span>
+                <span className="detail-note">…then right-click it to add subgroups or components</span>
               </div>
             </div>
           ) : (
             <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
               <HierarchyMap
                 workbook={workbook}
-                result={result}
                 editable
                 selectedId={selId}
                 onSelect={setSelId}
@@ -589,12 +422,11 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
               />
             </div>
           )}
-          {cascade && <CascadeSummary cascade={cascade} label={(id) => nodeById.get(id)?.label ?? id} />}
         </main>
 
         <Resizer width={rightW} setWidth={setRightW} side="right" />
         {/* RIGHT: detail of the selected item */}
-        <aside style={{ width: rightW, overflow: "auto", borderLeft: "1px solid var(--border)", flexShrink: 0 }}>
+        <aside className="builder-rail is-right" style={{ width: rightW }}>
           {selId?.startsWith("stream:") ? (
             (() => {
               const cid = selId.slice("stream:".length);
@@ -632,10 +464,10 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
           ) : (
             <div style={{ padding: "14px 16px" }}>
               <div className="eyebrow">group</div>
-              <input value={selNode.label} onChange={(e) => renameNode(selId!, e.target.value)} style={{ ...inp, fontSize: "1rem", fontWeight: 600, width: "100%", margin: "4px 0 8px", border: "none", padding: 0 }} />
-              <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.78rem", marginBottom: 14 }}>
+              <input className="title-input" value={selNode.label} onChange={(e) => renameNode(selId!, e.target.value)} />
+              <label className="field-row" style={{ marginBottom: 14 }}>
                 <span className="muted">level</span>
-                <input value={selNode.level} onChange={(e) => setLevel(selId!, e.target.value)} style={{ ...inp, flex: 1 }} placeholder="value_chain / company / facility" />
+                <input className="field-input" style={{ flex: 1 }} value={selNode.level} onChange={(e) => setLevel(selId!, e.target.value)} placeholder="value_chain / company / facility" />
               </label>
 
               <FlowContext wb={workbook} nodeId={selId!} />
@@ -653,7 +485,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                       <SearchSelect value={s(r.commodity_id)} onChange={(v) => setDemandRow(idx, { commodity_id: v })}
                         options={products.map((p) => ({ value: p }))} placeholder="stream…" />
                     </span>
-                    <input type="number" min={0} value={Number(r.amount) || 0} onChange={(e) => setDemandRow(idx, { amount: Number(e.target.value) || 0 })} style={{ ...inp, width: 70 }} />
+                    <input className="field-input" style={{ width: 70 }} type="number" min={0} value={Number(r.amount) || 0} onChange={(e) => setDemandRow(idx, { amount: Number(e.target.value) || 0 })} />
                     <button className="ghost" onClick={() => delDemandRow(idx)}>✕</button>
                   </div>
                 ))}
@@ -726,7 +558,7 @@ function ComponentPicker({ libs, onPick, onClose }: { libs: LibrarySummary[]; on
   return (
     <Modal onClose={onClose} title="Add a component">
       {libs.length === 0 && <p className="muted">No component libraries — build one in the Component tab.</p>}
-      <input autoFocus placeholder="search all libraries…" value={q} onChange={(e) => setQ(e.target.value)} style={{ ...inp, width: "100%", marginBottom: 8 }} />
+      <input autoFocus placeholder="search all libraries…" value={q} onChange={(e) => setQ(e.target.value)} className="field-input" style={{ width: "100%", marginBottom: 8 }} />
       {items === null && <p className="muted">loading…</p>}
       {items !== null && filtered.length === 0 && <p className="muted">{items.length === 0 ? "No components yet — add some in the Component tab." : "No matches."}</p>}
       {filtered.map((it) => (
@@ -757,7 +589,7 @@ function AltPicker({ machineLabel, baseline, available, exclude, onPick, onClose
       <p className="muted" style={{ fontSize: "0.78rem", marginTop: 0 }}>
         Currently runs <strong>{baseline || "—"}</strong>. Pick a technology the optimiser may switch it to. Shared streams are reused automatically; the technology's own inputs/outputs are added as needed.
       </p>
-      <input autoFocus placeholder="search technologies…" value={q} onChange={(e) => setQ(e.target.value)} style={{ ...inp, width: "100%", marginBottom: 8 }} />
+      <input autoFocus placeholder="search technologies…" value={q} onChange={(e) => setQ(e.target.value)} className="field-input" style={{ width: "100%", marginBottom: 8 }} />
       {filtered.length === 0 && <p className="muted">{opts.length === 0 ? "No other technologies available — add some in the Component tab." : "No matches."}</p>}
       {filtered.map((a) => (
         <button key={`${a.scope}/${a.library}/${a.technology}`} className="rail-item" style={{ width: "100%", textAlign: "left" }} onClick={() => onPick(a.technology, a.library, a.scope)}>
@@ -787,7 +619,7 @@ function ConnectDialog({ fromLabel, targets, commodities, onConfirm, onClose }: 
         </label>
         <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <span className="muted">lag (yr)</span>
-          <input type="number" value={lag} onChange={(e) => setLag(Number(e.target.value) || 0)} style={{ ...inp, width: 64 }} />
+          <input type="number" value={lag} onChange={(e) => setLag(Number(e.target.value) || 0)} className="field-input" style={{ width: 64 }} />
         </label>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 4 }}>
           <button className="ghost" onClick={onClose}>cancel</button>

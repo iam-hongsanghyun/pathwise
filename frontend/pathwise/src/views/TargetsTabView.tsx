@@ -155,14 +155,15 @@ export function TargetsTabView({
   return (
     <div className="body-row">
       <main className="main-area" style={{ overflow: "auto", padding: "16px 22px", maxWidth: 980 }}>
-        <h2 style={{ margin: "0 0 4px" }}>Optimisation</h2>
-        <p className="muted" style={{ fontSize: "0.78rem", margin: "0 0 16px" }}>
+        <div className="eyebrow">optimisation</div>
+        <h2 className="view-title">Optimisation</h2>
+        <p className="view-lead">
           Define the whole run here — the objective, any number of constraints, then ▶ Run.
         </p>
 
         {/* Objective */}
         <section style={{ marginBottom: 22 }}>
-          <h3 style={{ margin: "0 0 6px", fontSize: "0.92rem" }}>Objective</h3>
+          <h3 className="section-title">Objective</h3>
           <div style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
             <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>Goal</span>
@@ -198,7 +199,7 @@ export function TargetsTabView({
 
         {/* Constraints */}
         <section style={{ marginBottom: 22 }}>
-          <h3 style={{ margin: "0 0 2px", fontSize: "0.92rem" }}>Constraints</h3>
+          <h3 className="section-title" style={{ marginBottom: 2 }}>Constraints</h3>
           <p className="muted" style={{ fontSize: "0.74rem", margin: "0 0 8px" }}>
             Each row: pick what (a stream's production, an emission, or the budget), the scope it
             applies to, whether it's a target / minimum / maximum, the value and the year. Add as many

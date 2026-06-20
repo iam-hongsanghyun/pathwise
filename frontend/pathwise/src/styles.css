@@ -70,13 +70,6 @@
   font-size: 0.95rem;
   font-weight: 600;
 }
-.topbar .eyebrow {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
-}
 .topbar label {
   display: flex;
   flex-direction: column;
@@ -586,6 +579,205 @@
   overflow: hidden;
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   CANONICAL DESIGN SYSTEM — every view uses these; no view styles its own
+   headers, fonts, colours or skeleton inline. Change a value here once and
+   all four views (Library / Facility / Value chain / Optimisation) move
+   together.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── View typography ────────────────────────────────────────────────────── */
+/* The small mono breadcrumb above a title (was scoped to .topbar only). */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+/* A non-uppercased continuation appended inside an eyebrow ("· detail"). */
+.eyebrow-soft {
+  text-transform: none;
+  letter-spacing: 0;
+}
+/* The one-and-only view / detail heading. */
+.view-title {
+  margin: 2px 0 8px;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+/* The muted lead paragraph under a title. */
+.view-lead {
+  margin: 0 0 16px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  max-width: 64ch;
+}
+/* A second-level section heading inside a view. */
+.section-title {
+  margin: 0 0 6px;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+/* The persistent breadcrumb row at the top of a builder's main panel:
+   the view-name eyebrow + a muted status. */
+.view-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.view-status {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+/* A muted sub-line directly under a .view-title. */
+.detail-sub {
+  margin: -4px 0 12px;
+  font-size: 0.78rem;
+}
+/* A divided block at the bottom of a detail panel (e.g. notes & references). */
+.detail-section {
+  border-top: 1px solid var(--border);
+  margin-top: 20px;
+  padding-top: 12px;
+}
+
+/* ── Builder skeleton — Library / Facility / Value chain share this shell ── */
+.builder {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.builder-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.builder-rail {
+  width: 280px;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  min-height: 0;
+}
+/* Right-hand inspector rail (border on the other side). */
+.builder-rail.is-right {
+  width: auto;
+  border-right: none;
+  border-left: 1px solid var(--border);
+  overflow: auto;
+}
+.builder-main {
+  flex: 1;
+  overflow: auto;
+  padding: 16px 20px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* A center panel that hosts a full-bleed canvas (the value-chain map) rather
+   than a scrolling document. */
+.builder-canvas {
+  flex: 1;
+  min-width: 220px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+/* Centered empty-state inside a canvas panel. */
+.vc-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+}
+/* A borderless inline title input (rename-in-place). */
+.title-input {
+  width: 100%;
+  margin: 4px 0 8px;
+  border: none;
+  padding: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+}
+/* The scrolling tree area between a rail's head and foot. */
+.rail-scroll {
+  flex: 1;
+  min-height: 60px;
+  overflow: auto;
+}
+/* The importer dropdown that sits under a rail head. */
+.rail-import {
+  padding: 0 10px 6px;
+}
+/* Inline hint text on a rail head row. */
+.rail-hint {
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+/* The muted footer strip at the bottom of a rail. */
+.rail-foot {
+  font-size: 0.7rem;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+}
+/* Pad every rail-head row consistently (was inline on each). */
+.rail-head-row {
+  padding: 6px 10px;
+}
+/* A rail head that opens a new section below a divider. */
+.rail-head-row.is-divided {
+  border-top: 1px solid var(--border);
+}
+
+/* ── Detail panel + forms ───────────────────────────────────────────────── */
+/* A constrained reading column for a detail editor. */
+.detail-col {
+  max-width: 460px;
+}
+/* Muted explanatory copy in a detail panel. */
+.detail-note {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+/* The standard text/number input (was a per-view `inp` CSSProperties object). */
+.field-input {
+  padding: 4px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-button);
+  background: var(--surface);
+  font: inherit;
+}
+/* A label : value form grid. */
+.field-grid {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 8px 10px;
+  align-items: center;
+  font-size: 0.84rem;
+}
+/* An inline "label  input" pair. */
+.field-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.8rem;
+}
+/* The dismissable error strip every view shows at its top. */
+.error-bar {
+  padding: 4px 12px;
+}
+
 /* ── Buttons / inputs ───────────────────────────────────────────────────── */
 button {
   border: 1px solid var(--brand);
@@ -1025,9 +1217,17 @@ td input:focus {
   font-weight: 600;
   margin-bottom: 2px;
 }
-h2,
-h3 {
+/* Canonical heading sizes app-wide so a bare <h2>/<h3> matches .view-title /
+   .section-title — no view sets its own header font-size inline. */
+h2 {
+  font-size: 1.05rem;
   font-weight: 600;
+  margin: 0 0 8px;
+}
+h3 {
+  font-size: 0.92rem;
+  font-weight: 600;
+  margin: 0 0 6px;
 }
 section {
   margin-bottom: 16px;

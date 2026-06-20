@@ -162,7 +162,7 @@ export function libraryBuckets(body: ComponentLibrary): { order: string[]; bucke
 function BucketShell({ title, add, children }: { title: string; add?: () => void; children: React.ReactNode }) {
   return (
     <section>
-      <h2 style={{ margin: "0 0 4px" }}>{title}</h2>
+      <h2 className="view-title">{title}</h2>
       <p className="muted" style={{ fontSize: "0.74rem", margin: "0 0 10px" }}>Edit values inline — changes autosave. Click an id to open the full item.</p>
       {add && <button className="ghost" style={{ marginBottom: 8 }} onClick={add}>＋ add</button>}
       {children}
@@ -612,7 +612,7 @@ export function ComponentTabView({
       const cards = groupCards(libId, sector, b);
       return (
         <section>
-          <h2 style={{ margin: "0 0 4px" }}>{sector}</h2>
+          <h2 className="view-title">{sector}</h2>
           <p className="muted" style={{ fontSize: "0.78rem", margin: "0 0 12px" }}>
             Choose a group to view and edit its components.
           </p>
@@ -628,7 +628,7 @@ export function ComponentTabView({
     // Measures & MACC parent ("measures") → MACC + individual-measure cards.
     return (
       <section>
-        <h2 style={{ margin: "0 0 4px" }}>{sector} · Measures &amp; MACC</h2>
+        <h2 className="view-title">{sector} · Measures &amp; MACC</h2>
         <p className="muted" style={{ fontSize: "0.78rem", margin: "0 0 8px" }}>
           {b.maccs.length} MACC bundle{b.maccs.length === 1 ? "" : "s"} · {b.measures.length} individual
           measure{b.measures.length === 1 ? "" : "s"}.
@@ -760,10 +760,10 @@ export function ComponentTabView({
       const l = libs.find((x) => keyOf(x) === sel.libId);
       return (
         <section>
-          <h2 style={{ margin: "0 0 8px" }}>{body.label || sel.libId}</h2>
+          <h2 className="view-title">{body.label || sel.libId}</h2>
           <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.8rem", marginBottom: 12 }}>
             <span className="muted">label</span>
-            <input style={{ ...inp, flex: 1, maxWidth: 280 }} value={body.label} onChange={(e) => editLib(sel.libId, (lib) => ({ ...lib, label: e.target.value }))} />
+            <input className="field-input" style={{ flex: 1, maxWidth: 280 }} value={body.label} onChange={(e) => editLib(sel.libId, (lib) => ({ ...lib, label: e.target.value }))} />
           </label>
           <p className="muted" style={{ fontSize: "0.78rem" }}>
             {l?.technologies ?? 0} technologies · {l?.commodities ?? 0} streams · {l?.measures ?? 0} measures · {l?.maccs ?? 0} MACCs.
@@ -981,10 +981,10 @@ export function ComponentTabView({
   );
 
   return (
-    <div className="view-full builder" style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
-      {error && <div className="error" style={{ padding: "4px 12px" }} onClick={() => setError(null)}>{error} <span className="muted">(dismiss)</span></div>}
-      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-        <aside style={{ width: 280, borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", flexShrink: 0, minHeight: 0 }}>
+    <div className="view-full builder">
+      {error && <div className="error error-bar" onClick={() => setError(null)}>{error} <span className="muted">(dismiss)</span></div>}
+      <div className="builder-body">
+        <aside className="builder-rail">
           {mode === "project" ? (
             <>
               <div className="rail-head-row" style={{ padding: "6px 10px" }}>
@@ -1007,19 +1007,14 @@ export function ComponentTabView({
             </>
           ) : (
             <>
-              <div className="rail-head-row" style={{ padding: "6px 10px" }}>
-                <button
-                  className="rail-head"
-                  style={{ background: "none", border: "none", padding: 0, font: "inherit", cursor: "pointer", textAlign: "left" }}
-                  title="Show all libraries"
-                  onClick={() => setSel(null)}
-                >
-                  Libraries
+              <div className="rail-head-row">
+                <button className="rail-head" title="Show all libraries" onClick={() => setSel(null)}>
+                  Library
                 </button>
                 <button className="rail-add" title="new library" onClick={newLibrary}>＋</button>
               </div>
               {onPickLibrary && (
-                <div style={{ padding: "0 10px 6px" }}>
+                <div className="rail-import">
                   <SearchSelect
                     value=""
                     onChange={(v) => v && onPickLibrary(v)}
@@ -1030,30 +1025,31 @@ export function ComponentTabView({
                   />
                 </div>
               )}
-              <div style={{ flex: 1, minHeight: 60, overflow: "auto" }}>
+              <div className="rail-scroll">
                 {libTree(railNodes, "No base libraries — ＋ to add one.")}
               </div>
             </>
           )}
-          <div className="muted" style={{ fontSize: "0.7rem", padding: "8px 10px", borderTop: "1px solid var(--border)" }}>Right-click for actions</div>
+          <div className="rail-foot">Right-click for actions</div>
         </aside>
-        <main style={{ flex: 1, overflow: "auto", padding: "16px 20px", minWidth: 0, display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+        <main className="builder-main">
+          <div className="view-head">
             <div className="eyebrow">{mode === "project" ? "project workbench" : "component library"}</div>
-            <span className="muted" style={{ fontSize: "0.78rem" }}>{status}</span>
+            <span className="view-status">{status}</span>
           </div>
           <div style={{ flex: 1, minHeight: 0 }}>{renderDetail()}</div>
           {/* Notes & references — at the bottom of the main area. */}
           {notes && (
-            <div style={{ borderTop: "1px solid var(--border)", marginTop: 20, paddingTop: 12 }}>
+            <div className="detail-section">
               <div className="eyebrow" style={{ marginBottom: 6 }}>
-                notes &amp; references <span className="muted" style={{ textTransform: "none", letterSpacing: 0 }}>· {notes.label}</span>
+                notes &amp; references <span className="eyebrow-soft">· {notes.label}</span>
               </div>
               <textarea
+                className="field-input"
                 value={notes.value}
                 onChange={(e) => notes.set(e.target.value)}
                 placeholder="Sources, assumptions, caveats… (free text — the optimiser ignores it)"
-                style={{ ...inp, width: "100%", minHeight: 80, resize: "vertical", lineHeight: 1.45 }}
+                style={{ width: "100%", minHeight: 80, resize: "vertical", lineHeight: 1.45 }}
               />
             </div>
           )}
@@ -1062,9 +1058,9 @@ export function ComponentTabView({
         {rail && (
           <>
             <Resizer width={rightW} setWidth={setRightW} side="right" />
-            <aside style={{ width: rightW, overflow: "auto", borderLeft: "1px solid var(--border)", flexShrink: 0, padding: "14px 14px" }}>
+            <aside className="builder-rail is-right" style={{ width: rightW, padding: "14px 14px" }}>
               <div className="eyebrow" style={{ marginBottom: 8 }}>
-                time series <span className="muted" style={{ textTransform: "none", letterSpacing: 0 }}>· per-year overrides; empty = latest value</span>
+                time series <span className="eyebrow-soft">· per-year overrides; empty = latest value</span>
               </div>
               {rail}
             </aside>
@@ -1075,11 +1071,3 @@ export function ComponentTabView({
     </div>
   );
 }
-
-const inp: React.CSSProperties = {
-  padding: "4px 6px",
-  border: "1px solid var(--border-strong)",
-  borderRadius: "var(--radius-button)",
-  background: "var(--surface)",
-  font: "inherit",
-};

@@ -52,7 +52,6 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   const [selId, setSelId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [libExpanded, setLibExpanded] = useState<Set<string>>(new Set());
-  const [leftW] = useState(300);
   const [libH, setLibH] = useState(260); // adjustable height of the bottom library tree
   const [error, setError] = useState<string | null>(null);
 
@@ -273,20 +272,13 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   }
 
   const sel = selId ? nodeById.get(selId) : null;
-  const inp: React.CSSProperties = {
-    padding: "4px 6px",
-    border: "1px solid var(--border-strong)",
-    borderRadius: "var(--radius-button)",
-    background: "var(--surface)",
-    font: "inherit",
-  };
 
   function renderDetail() {
     if (!sel) {
       return (
         <section>
-          <h2 style={{ margin: "0 0 8px" }}>Facility</h2>
-          <p className="muted" style={{ fontSize: "0.82rem", maxWidth: 560 }}>
+          <h2 className="view-title">Facility</h2>
+          <p className="view-lead">
             Build the real-world structure here. Add groups at any level you like
             (sector, company, facility — your own names, any depth) from the tree
             on the left, then drag technologies from the <b>Library</b> at the
@@ -302,10 +294,10 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
       if (!r) {
         // A non-technology real-world entry (stream / measure / MACC leaf).
         return (
-          <section style={{ maxWidth: 460 }}>
-            <div className="eyebrow">{sel.level || "component"}</div>
-            <h2 style={{ margin: "2px 0 12px" }}>{sel.label}</h2>
-            <p className="muted" style={{ fontSize: "0.78rem" }}>
+          <section className="detail-col">
+            <h2 className="view-title">{sel.label}</h2>
+            <p className="detail-sub muted">{sel.level || "component"}</p>
+            <p className="detail-note">
               A real-world {sel.level || "component"} in this facility. Its definition lives in the
               component — edit it in the Library tab.
             </p>
@@ -314,20 +306,20 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
       }
       const tech = s(r.baseline_technology);
       return (
-        <section style={{ maxWidth: 460 }}>
-          <div className="eyebrow">machine · {tech || "—"}</div>
-          <h2 style={{ margin: "2px 0 12px" }}>{sel.label}</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: "8px 10px", alignItems: "center", fontSize: "0.84rem" }}>
+        <section className="detail-col">
+          <h2 className="view-title">{sel.label}</h2>
+          <p className="detail-sub muted">machine · {tech || "—"}</p>
+          <div className="field-grid">
             <span className="muted">capacity</span>
-            <input style={inp} type="number" value={s(r?.capacity)} onChange={(e) => editMachine(sel.id, { capacity: e.target.value === "" ? 0 : Number(e.target.value) })} />
+            <input className="field-input" type="number" value={s(r?.capacity)} onChange={(e) => editMachine(sel.id, { capacity: e.target.value === "" ? 0 : Number(e.target.value) })} />
             <span className="muted">owner (company)</span>
-            <input style={inp} value={s(r?.owner)} placeholder="e.g. POSCO" onChange={(e) => editMachine(sel.id, { owner: e.target.value })} />
+            <input className="field-input" value={s(r?.owner)} placeholder="e.g. POSCO" onChange={(e) => editMachine(sel.id, { owner: e.target.value })} />
             <span className="muted">build year</span>
-            <input style={inp} type="number" value={s(r?.build_year)} onChange={(e) => editMachine(sel.id, { build_year: e.target.value === "" ? 0 : Number(e.target.value) })} />
+            <input className="field-input" type="number" value={s(r?.build_year)} onChange={(e) => editMachine(sel.id, { build_year: e.target.value === "" ? 0 : Number(e.target.value) })} />
             <span className="muted">close year</span>
-            <input style={inp} type="number" value={s(r?.close_year)} onChange={(e) => editMachine(sel.id, { close_year: e.target.value === "" ? 0 : Number(e.target.value) })} />
+            <input className="field-input" type="number" value={s(r?.close_year)} onChange={(e) => editMachine(sel.id, { close_year: e.target.value === "" ? 0 : Number(e.target.value) })} />
           </div>
-          <p className="muted" style={{ fontSize: "0.74rem", marginTop: 12 }}>
+          <p className="detail-note" style={{ marginTop: 12 }}>
             The recipe (inputs/outputs, per-unit costs &amp; efficiency) lives in the
             component — edit it in the Library tab. Here you set this machine's
             real-world numbers only.
@@ -363,21 +355,21 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     };
     return (
       <section>
-        <div className="eyebrow">{prefixed ? `${sel.level} · modelling group` : `group${sel.level ? ` · ${sel.level}` : ""}`}</div>
-        <h2 style={{ margin: "2px 0 8px" }}>{sel.label}</h2>
+        <h2 className="view-title">{sel.label}</h2>
+        <p className="detail-sub muted">{prefixed ? `${sel.level} · modelling group` : `group${sel.level ? ` · ${sel.level}` : ""}`}</p>
         {!prefixed && (
-          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.8rem", marginBottom: 10 }}>
+          <label className="field-row" style={{ marginBottom: 10 }}>
             <span className="muted">level</span>
-            <input style={{ ...inp, maxWidth: 240 }} value={sel.level ?? ""} placeholder="sector / company / facility / …" onChange={(e) => setLevel(sel.id, e.target.value)} />
+            <input className="field-input" value={sel.level ?? ""} placeholder="sector / company / facility / …" onChange={(e) => setLevel(sel.id, e.target.value)} />
           </label>
         )}
-        <p className="muted" style={{ fontSize: "0.78rem", marginBottom: 8 }}>
+        <p className="detail-note" style={{ marginBottom: 8 }}>
           {prefixed
             ? `Drag a ${sel.level === "Technology" ? "technology" : sel.level === "Stream" ? "stream" : "measure / MACC"} from the Library below to add one here.`
             : "Right-click in the tree to add a group inside (like a folder), or drag a component from the Library below — it files under a Technology / Stream / Measures & MACC group."}
         </p>
         {kids.length === 0 ? (
-          <p className="muted" style={{ fontSize: "0.78rem" }}>Empty — drag a component from the Library at the bottom-left.</p>
+          <p className="detail-note">Empty — drag a component from the Library at the bottom-left.</p>
         ) : (
           <div className="lib-grid">{kids.map(childCard)}</div>
         )}
@@ -424,17 +416,17 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   );
 
   return (
-    <div className="view-full builder" style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
-      {error && <div className="error" style={{ padding: "4px 12px" }} onClick={() => setError(null)}>{error} <span className="muted">(dismiss)</span></div>}
-      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-        <aside style={{ width: leftW, borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", flexShrink: 0, minHeight: 0 }}>
+    <div className="view-full builder">
+      {error && <div className="error error-bar" onClick={() => setError(null)}>{error} <span className="muted">(dismiss)</span></div>}
+      <div className="builder-body">
+        <aside className="builder-rail">
           {/* TOP: the facility structure (shared node tree). */}
-          <div className="rail-head-row" style={{ padding: "6px 10px" }}>
-            <span className="rail-head">Facility</span>
+          <div className="rail-head-row">
+            <span className="rail-head">Structure</span>
             <button className="rail-add" title="add a top-level group" onClick={() => void addSubgroup(null)}>＋</button>
           </div>
           {onPickLibrary && (
-            <div style={{ padding: "0 10px 6px" }}>
+            <div className="rail-import">
               <SearchSelect
                 value=""
                 onChange={(v) => v && onPickLibrary(v)}
@@ -445,23 +437,26 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
               />
             </div>
           )}
-          <div style={{ flex: 1, minHeight: 60, overflow: "auto" }}>
+          <div className="rail-scroll">
             {tree(facilityNodes, "Empty — ＋ to add a group, then drag technologies from the Library below.", { exp: expanded, setExp: setExpanded, drop: true })}
           </div>
           {/* Drag the divider to grow / shrink the library tree below. */}
           <Resizer side="top" width={libH} setWidth={setLibH} min={80} max={600} />
           {/* BOTTOM: the base Library — READ-ONLY drag source. */}
-          <div className="rail-head-row" style={{ padding: "6px 10px", borderTop: "1px solid var(--border)" }}>
+          <div className="rail-head-row is-divided">
             <span className="rail-head">Library</span>
-            <span className="muted" style={{ fontSize: "0.68rem" }}>drag onto a group ↑</span>
+            <span className="rail-hint">drag onto a group ↑</span>
           </div>
-          <div style={{ height: libH, minHeight: 60, overflow: "auto" }}>
+          <div className="rail-scroll" style={{ flex: "none", height: libH }}>
             {tree(libraryNodes, "No base libraries.", { exp: libExpanded, setExp: setLibExpanded, drag: true })}
           </div>
-          <div className="muted" style={{ fontSize: "0.7rem", padding: "8px 10px", borderTop: "1px solid var(--border)" }}>Right-click a group for actions</div>
+          <div className="rail-foot">Right-click a group for actions</div>
         </aside>
-        <main style={{ flex: 1, overflow: "auto", padding: "16px 20px", minWidth: 0 }}>
-          <div className="eyebrow" style={{ marginBottom: 12 }}>facility builder</div>
+        <main className="builder-main">
+          <div className="view-head">
+            <div className="eyebrow">facility</div>
+            <span className="view-status">real-world facilities &amp; machines</span>
+          </div>
           {renderDetail()}
         </main>
       </div>

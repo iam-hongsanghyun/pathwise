@@ -154,13 +154,6 @@ export function App() {
     }
   }
 
-
-  /** A standard (joint) run result from the Value-Chain builder → Analytics. */
-  function onJointResult(res: RunResult) {
-    setResult(res);
-    setView("analytics");
-  }
-
   /** Run the optimisation from the Optimisation tab: sync the model, solve with the
    *  given scenario, then show the result (or surface validation errors). */
   async function runOptimisation(scenario: Record<string, unknown>) {
@@ -267,10 +260,6 @@ export function App() {
             setWorkbook={updateWorkbook}
             sessionId={sessionId}
             adoptServerModel={adoptServerModel}
-            onJointResult={onJointResult}
-            backend={backend}
-            running={running}
-            setRunning={setRunning}
             libraries={libraries}
             onPickLibrary={onPickLibrary}
           />
