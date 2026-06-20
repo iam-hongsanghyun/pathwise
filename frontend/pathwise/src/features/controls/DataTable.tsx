@@ -13,14 +13,14 @@ export interface Column<T> {
   label: string;
   /** Data key to source the (i) tooltip + unit from (see fieldMeta). */
   metaKey?: string;
-  type?: "text" | "number" | "enum" | "readonly";
+  type?: "text" | "number" | "enum" | "readonly" | "boolean";
   options?: string[]; // for enum
   width?: number | string;
   /** number only: empty input → null instead of 0. */
   nullable?: boolean;
   /** number only: round to an integer. */
   integer?: boolean;
-  get: (row: T) => string | number | null | undefined;
+  get: (row: T) => string | number | boolean | null | undefined;
   /** Omitted for readonly columns. */
   set?: (row: T, value: string) => T;
   /** readonly only: click the cell (e.g. drill into the row's leaf). */
@@ -92,12 +92,22 @@ export function DataTable<T>({
                     <SearchSelect value={String(v ?? "")} onChange={(nv) => setCell(i, c, nv)} options={(c.options ?? []).map((o) => ({ value: o }))} />
                   </td>
                 );
+              if (c.type === "boolean")
+                return (
+                  <td key={c.key} style={{ textAlign: "center" }}>
+                    <input
+                      type="checkbox"
+                      checked={v === true || v === "true" || v === 1}
+                      onChange={(e) => setCell(i, c, e.target.checked ? "true" : "")}
+                    />
+                  </td>
+                );
               return (
                 <td key={c.key}>
                   <input
                     style={{ ...cellStyle, width: c.type === "number" ? 88 : 120 }}
                     type={c.type === "number" ? "number" : "text"}
-                    value={v ?? ""}
+                    value={v == null || typeof v === "boolean" ? "" : v}
                     onChange={(e) => setCell(i, c, e.target.value)}
                   />
                 </td>

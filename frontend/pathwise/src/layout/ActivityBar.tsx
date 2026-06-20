@@ -1,8 +1,9 @@
-export type View = "component" | "valuechain" | "analytics" | "settings";
+export type View = "component" | "valuechain" | "targets" | "analytics" | "settings";
 
 const ENTRIES: { id: View; glyph: string; label: string }[] = [
   { id: "component", glyph: "C", label: "Component — build reusable components in libraries" },
   { id: "valuechain", glyph: "V", label: "Value chain — assemble the model (subgroups → companies → facilities)" },
+  { id: "targets", glyph: "T", label: "Targets & constraints — production targets, caps and budgets by scope" },
   { id: "analytics", glyph: "A", label: "Analytics — results & charts" },
   { id: "settings", glyph: "S", label: "Settings — snapshots & scenario" },
 ];

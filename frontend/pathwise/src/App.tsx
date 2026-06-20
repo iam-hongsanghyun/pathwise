@@ -16,6 +16,7 @@ import { ActivityBar, type View } from "./layout/ActivityBar";
 import { AnalyticsView } from "./views/AnalyticsView";
 import { ComponentTabView } from "./views/ComponentTabView";
 import { SettingsView } from "./views/SettingsView";
+import { TargetsTabView } from "./views/TargetsTabView";
 import { ValueChainTabView } from "./views/ValueChainTabView";
 import type { ConfigBundle, PortfolioConfig, RunResult, Workbook } from "./types";
 
@@ -289,6 +290,7 @@ export function App() {
             onPickLibrary={onPickLibrary}
           />
         )}
+        {view === "targets" && <TargetsTabView workbook={workbook} setWorkbook={updateWorkbook} />}
         {view === "analytics" && (
           <AnalyticsView workbook={workbook} result={result} leftW={leftW} setLeftW={setLeftW} />
         )}
