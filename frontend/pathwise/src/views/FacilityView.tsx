@@ -34,6 +34,15 @@ interface Props {
   onPickLibrary?: (key: string) => void;
 }
 
+/** Which kind a dragged Library leaf carries (encoded as the leaf id's prefix). */
+type DragKind = "t" | "s" | "m" | "g";
+
+// The PREFIXED modelling groups — Technology / Stream / Measures & MACC — are
+// auto-created when a component is dropped, and are distinct from the user's own
+// (free-text) groups like sector / company.
+const PREFIXED_LEVELS = new Set(["Technology", "Stream", "Measures & MACC"]);
+const isPrefixedLevel = (lvl?: string | null): boolean => !!lvl && PREFIXED_LEVELS.has(lvl);
+
 const s = (v: unknown): string => (v == null ? "" : String(v));
 let _ctr = 0;
 const genId = (p: string): string => `${p}_${Date.now().toString(36)}${(_ctr++).toString(36)}`;
@@ -127,16 +136,64 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   // Drag a technology from the base Library tree onto a facility node → place a
   // machine (real-world instance) under it. The recipe stays in the component;
   // the machine carries the physical capacity + real-world data.
-  async function dropTechnology(libId: string, technology: string, parentId: string) {
+
+  // The group a dropped component is filed under, by its kind.
+  const KIND_GROUP: Record<DragKind, string> = {
+    t: "Technology",
+    s: "Stream",
+    m: "Measures & MACC",
+    g: "Measures & MACC",
+  };
+
+  /** Find (or create) the kind-group under `parentId`, returning [groupId, wb]. */
+  function ensureKindGroup(wb: Workbook, parentId: string, kind: DragKind): [string, Workbook] {
+    const label = KIND_GROUP[kind];
+    const existing = (wb.nodes ?? []).find(
+      (r) => s(r.parent_id) === parentId && s(r.kind) === "group" && s(r.level) === label,
+    );
+    if (existing) return [s(existing.node_id), wb];
+    const id = genId("kg");
+    return [id, setSheet(wb, "nodes", [...(wb.nodes ?? []), { node_id: id, parent_id: parentId, kind: "group", level: label, label }])];
+  }
+
+  // Drop a component from the Library onto a facility node: prompt for a name,
+  // ensure its KIND group (Technology / Stream / Measures & MACC) under the
+  // target, then place it there. A technology becomes a real machine (recipe
+  // hard-copied via placeTechnology) carrying physical data; other kinds become
+  // a named real-world entry under their group.
+  async function dropComponent(libId: string, kind: DragKind, compId: string, parentId: string) {
     if (!sessionId) return;
+    const kindWord = { t: "technology", s: "stream", m: "measure", g: "MACC" }[kind];
+    const name = (await prompt({ title: `Name this ${kindWord}`, label: "name", defaultValue: compId, placeholder: "e.g. Pohang BF#3" }))?.trim();
+    if (!name) return;
     setError(null);
     try {
-      await putModel(sessionId, workbook); // the endpoint operates on the stored model
-      const res = await placeTechnology(sessionId, { library: libId, technology, parent_id: parentId, capacity: 0 });
-      adoptServerModel(await getFullModel(sessionId));
-      setExpanded((p) => new Set(p).add(parentId));
-      const newId = res.root ?? res.created[0];
-      if (newId) setSelId(newId);
+      const [kgId, wb] = ensureKindGroup(workbook, parentId, kind);
+      if (kind === "t") {
+        setWorkbook(wb);
+        await putModel(sessionId, wb); // the endpoint operates on the stored model
+        const res = await placeTechnology(sessionId, { library: libId, technology: compId, parent_id: kgId, capacity: 0 });
+        let fresh = await getFullModel(sessionId);
+        const newId = res.root ?? res.created[0];
+        if (newId) {
+          fresh = setSheet(fresh, "nodes", (fresh.nodes ?? []).map((r) => (s(r.node_id) === newId ? { ...r, label: name } : r)));
+        }
+        adoptServerModel(fresh);
+        await putModel(sessionId, fresh);
+        setExpanded((p) => new Set(p).add(parentId).add(kgId));
+        if (newId) setSelId(newId);
+      } else {
+        // Stream / Measure / MACC → a named real-world entry under its group.
+        const leafId = genId("c");
+        const next = setSheet(wb, "nodes", [
+          ...(wb.nodes ?? []),
+          { node_id: leafId, parent_id: kgId, kind: "machine", label: name, level: kindWord },
+        ]);
+        setWorkbook(next);
+        await putModel(sessionId, next);
+        setExpanded((p) => new Set(p).add(parentId).add(kgId));
+        setSelId(leafId);
+      }
     } catch (e) {
       setError(String(e));
     }
@@ -170,15 +227,33 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     return out;
   }, [nodes]);
 
-  // The base Library catalogue (bottom): READ-ONLY drag source. lib → technologies.
+  // The base Library catalogue (bottom): READ-ONLY drag source. Each library
+  // shows its components by kind (Technology / Stream / Measures & MACC); every
+  // component leaf is draggable, its id encoding the kind (t/s/m/g).
   const libraryNodes = useMemo<TreeNode[]>(() => {
     const out: TreeNode[] = [];
     for (const l of baseLibs) {
-      out.push({ id: `lib:${l.id}`, parentId: null, kind: "library", label: l.label || l.id, hasChildren: l.technologies > 0, draggable: false });
+      const total = l.technologies + l.commodities + l.measures + l.maccs;
+      out.push({ id: `lib:${l.id}`, parentId: null, kind: "library", label: l.label || l.id, hasChildren: total > 0, draggable: false });
       const body = libBodies.get(l.id);
       if (!body) continue;
+      const lib = `lib:${l.id}`;
+      const grp = (sub: string, label: string, has: boolean) => {
+        const id = `${lib}:${sub}`;
+        out.push({ id, parentId: lib, kind: "group", label, hasChildren: has, draggable: false });
+        return id;
+      };
+      const tg = grp("tech", "Technology", body.technologies.length > 0);
       for (const t of body.technologies)
-        out.push({ id: `t:${l.id}:${t.technology_id}`, parentId: `lib:${l.id}`, kind: "leaf", label: t.technology_id, hasChildren: false, draggable: true });
+        out.push({ id: `t:${l.id}:${t.technology_id}`, parentId: tg, kind: "leaf", label: t.technology_id, hasChildren: false, draggable: true });
+      const sg = grp("stream", "Stream", body.commodities.length > 0);
+      for (const c of body.commodities)
+        out.push({ id: `s:${l.id}:${c.commodity_id}`, parentId: sg, kind: "leaf", label: c.commodity_id, hasChildren: false, draggable: true });
+      const mg = grp("meas", "Measures & MACC", body.measures.length + body.maccs.length > 0);
+      for (const g of body.maccs)
+        out.push({ id: `g:${l.id}:${g.macc_id}`, parentId: mg, kind: "leaf", label: g.label || g.macc_id, hasChildren: false, draggable: true });
+      for (const m of body.measures)
+        out.push({ id: `m:${l.id}:${m.measure_id}`, parentId: mg, kind: "leaf", label: m.label || m.measure_id, hasChildren: false, draggable: true });
     }
     return out;
   }, [baseLibs, libBodies]);
@@ -224,7 +299,20 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     }
     if (sel.kind === "machine") {
       const r = machineRow(sel.id);
-      const tech = s(r?.baseline_technology);
+      if (!r) {
+        // A non-technology real-world entry (stream / measure / MACC leaf).
+        return (
+          <section style={{ maxWidth: 460 }}>
+            <div className="eyebrow">{sel.level || "component"}</div>
+            <h2 style={{ margin: "2px 0 12px" }}>{sel.label}</h2>
+            <p className="muted" style={{ fontSize: "0.78rem" }}>
+              A real-world {sel.level || "component"} in this facility. Its definition lives in the
+              component — edit it in the Library tab.
+            </p>
+          </section>
+        );
+      }
+      const tech = s(r.baseline_technology);
       return (
         <section style={{ maxWidth: 460 }}>
           <div className="eyebrow">machine · {tech || "—"}</div>
@@ -247,21 +335,55 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         </section>
       );
     }
-    // group node
+    // group node — show its children as CARDS (like the component view). The
+    // Technology / Stream / Measures & MACC groups are PREFIXED (modelling)
+    // groups, distinct from normal user groups (sector/company/…).
+    const prefixed = isPrefixedLevel(sel.level);
+    const kids = childrenOf(nodes, sel.id);
+    const childCard = (k: (typeof kids)[number]) => {
+      const grandkids = childrenOf(nodes, k.id);
+      const isMachine = k.kind === "machine";
+      const r = isMachine ? machineRow(k.id) : undefined;
+      const sub = isMachine
+        ? r
+          ? `${s(r.baseline_technology)}${r.capacity ? ` · ${r.capacity}` : ""}`
+          : k.level || "component"
+        : isPrefixedLevel(k.level)
+          ? `${k.level} · ${grandkids.length}`
+          : `${k.level || "group"} · ${grandkids.length}`;
+      return (
+        <button className="lib-card-v2" key={k.id} onClick={() => setSelId(k.id)}>
+          <div className="lib-card-top">
+            <span className="lib-card-name"><span className="lib-dot" /> {k.label}</span>
+            {isPrefixedLevel(k.level) && <span className="lib-tier">{k.level}</span>}
+          </div>
+          <div className="lib-card-sub muted">{sub}</div>
+        </button>
+      );
+    };
     return (
-      <section style={{ maxWidth: 460 }}>
-        <div className="eyebrow">group{sel.level ? ` · ${sel.level}` : ""}</div>
-        <h2 style={{ margin: "2px 0 12px" }}>{sel.label}</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: "8px 10px", alignItems: "center", fontSize: "0.84rem" }}>
-          <span className="muted">level</span>
-          <input style={inp} value={sel.level ?? ""} placeholder="sector / company / facility / …" onChange={(e) => setLevel(sel.id, e.target.value)} />
+      <section>
+        <div className="eyebrow">{prefixed ? `${sel.level} · modelling group` : `group${sel.level ? ` · ${sel.level}` : ""}`}</div>
+        <h2 style={{ margin: "2px 0 8px" }}>{sel.label}</h2>
+        {!prefixed && (
+          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.8rem", marginBottom: 10 }}>
+            <span className="muted">level</span>
+            <input style={{ ...inp, maxWidth: 240 }} value={sel.level ?? ""} placeholder="sector / company / facility / …" onChange={(e) => setLevel(sel.id, e.target.value)} />
+          </label>
+        )}
+        <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+          {!prefixed && <button className="ghost" onClick={() => void addSubgroup(sel.id)}>＋ group inside</button>}
         </div>
-        <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
-          <button className="ghost" onClick={() => void addSubgroup(sel.id)}>＋ group inside</button>
-        </div>
-        <p className="muted" style={{ fontSize: "0.74rem", marginTop: 12 }}>
-          Drag a technology from the Library (bottom-left) onto this group to add a machine, or add another group inside.
+        <p className="muted" style={{ fontSize: "0.78rem", marginBottom: 8 }}>
+          {prefixed
+            ? `Drag a ${sel.level === "Technology" ? "technology" : sel.level === "Stream" ? "stream" : "measure / MACC"} from the Library below to add one here.`
+            : "Drag a component from the Library below onto this group, or add a group inside. Components file under a Technology / Stream / Measures & MACC group."}
         </p>
+        {kids.length === 0 ? (
+          <p className="muted" style={{ fontSize: "0.78rem" }}>Empty — drag a component from the Library at the bottom-left.</p>
+        ) : (
+          <div className="lib-grid">{kids.map(childCard)}</div>
+        )}
       </section>
     );
   }
@@ -278,10 +400,12 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
           else m.delete(id);
           return m;
         })());
-        if (opts.drag && e && id.startsWith("lib:")) void loadLibBody(id.slice(4));
+        // Only the top-level library node loads a body (kind-groups have a colon).
+        if (opts.drag && e && id.startsWith("lib:") && !id.slice(4).includes(":")) void loadLibBody(id.slice(4));
       }}
       onSelect={(id) => {
-        if (id.startsWith("lib:") || id.startsWith("t:")) return; // library tree is read-only
+        // The library tree (bottom) is a read-only drag source — never selectable.
+        if (opts.drag) return;
         setSelId(id);
       }}
       actionsFor={opts.drop ? actionsFor : () => []}
@@ -292,8 +416,9 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         opts.drop
           ? (payload, target) => {
               const parts = payload.split(":");
-              if (parts[0] !== "t") return;
-              dropTechnology(parts[1], parts.slice(2).join(":"), target.id);
+              const kind = parts[0];
+              if (kind !== "t" && kind !== "s" && kind !== "m" && kind !== "g") return;
+              void dropComponent(parts[1], kind, parts.slice(2).join(":"), target.id);
             }
           : undefined
       }

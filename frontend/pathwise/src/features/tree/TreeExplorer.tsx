@@ -103,7 +103,10 @@ export function TreeExplorer({
           onDragStart={(e) => {
             dragId.current = nd.id;
             e.dataTransfer.setData("text/plain", nd.id);
-            e.dataTransfer.effectAllowed = "move";
+            // "all" (not "move") so a cross-tree COPY drop (dropEffect="copy",
+            // e.g. Library → Facility) is allowed — a "move"/"copy" mismatch makes
+            // the browser silently refuse the drop, so nothing happens.
+            e.dataTransfer.effectAllowed = "all";
           }}
           onDragEnd={() => {
             dragId.current = null;

@@ -3,12 +3,9 @@ import { getConfig, runToCompletion } from "./lib/api/run";
 import {
   clearCache,
   clearModel,
-  downloadResultSqlite,
   ensureSession,
-  exportModelUrl,
   putModel,
   replaceSheet,
-  uploadWorkbook,
 } from "./lib/api/session";
 import { type LibraryEntry, type LibraryTier, importLibrary, listLibraries } from "./lib/api/libraries";
 import { ActivityBar, type View } from "./layout/ActivityBar";
@@ -157,15 +154,6 @@ export function App() {
     }
   }
 
-  async function onUpload(file: File) {
-    if (!sessionId) return;
-    setError(null);
-    try {
-      adoptServerModel(await uploadWorkbook(sessionId, file));
-    } catch (e) {
-      setError(String(e));
-    }
-  }
 
   /** A standard (joint) run result from the Value-Chain builder → Analytics. */
   function onJointResult(res: RunResult) {
@@ -256,34 +244,6 @@ export function App() {
               Clear
             </button>
           </div>
-
-          <label>
-            Upload
-            <input
-              type="file"
-              accept=".xlsx"
-              onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])}
-            />
-          </label>
-
-          <button
-            className="ghost"
-            disabled={!sessionId}
-            onClick={async () => {
-              await syncNow().catch((e) => setError(String(e)));
-              if (sessionId) window.location.assign(exportModelUrl(sessionId));
-            }}
-          >
-            Export model
-          </button>
-          <button
-            className="ghost"
-            onClick={() => result && downloadResultSqlite(result).catch((e) => setError(String(e)))}
-            disabled={!result}
-            title="Download the full result as SQLite — one table per output, by year"
-          >
-            Export result
-          </button>
         </header>
 
         {error && <div className="error" style={{ padding: "4px 16px" }}>{error}</div>}
