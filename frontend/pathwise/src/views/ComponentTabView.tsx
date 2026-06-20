@@ -314,10 +314,14 @@ export function ComponentTabView({
       const { order, buckets } = libraryBuckets(body);
       // Sector → Group → Components, but the sector level is only worth showing
       // when the library spans more than one sector; otherwise the groups
-      // (Technology / Stream / Measures) hang straight off the library.
-      const multiSector = order.length > 1;
-      for (const s of order) {
-        const b = buckets.get(s)!;
+      // (Technology / Stream / Measures) hang straight off the library. An empty
+      // library still shows the three groups (under "Other") so the user can open
+      // a group and add the first component there — never via a top-level button.
+      const order2 = order.length ? order : [OTHER];
+      const empty: Bucket = { techs: [], streams: [], maccs: [], measures: [] };
+      const multiSector = order2.length > 1;
+      for (const s of order2) {
+        const b = buckets.get(s) ?? empty;
         const secId = `cat:${lk}:${s}`;
         const groupParent = multiSector ? secId : `lib:${lk}`;
         if (multiSector) node(secId, `lib:${lk}`, s, "group", true);
@@ -487,13 +491,11 @@ export function ComponentTabView({
   function actionsFor(node: TreeNode): TreeAction[] {
     const s = parseId(node.id);
     if (s.kind === "library")
+      // No "add" here — components are added inside a group (open Technology /
+      // Stream / Measures & MACC), never at the library level.
       return [
-        { id: "add-tech", label: "Add technology" },
-        { id: "add-stream", label: "Add stream" },
-        { id: "add-measure", label: "Add measure" },
-        { id: "add-macc", label: "Add MACC" },
-        { id: "rename-lib", label: "Rename library", separatorBefore: true },
-        { id: "delete-lib", label: "Delete library", danger: true },
+        { id: "rename-lib", label: mode === "project" ? "Rename project" : "Rename library" },
+        { id: "delete-lib", label: mode === "project" ? "Delete project" : "Delete library", danger: true },
       ];
     if (s.kind === "cat") {
       // cat id is `${sector}` (the sector group) or `${sector}/<sub>`
@@ -553,8 +555,8 @@ export function ComponentTabView({
     const libId = sel.libId;
     const sector = raw.split("/")[0] || OTHER;
     const sub = raw.includes("/") ? raw.split("/")[1] : "";
-    const b = buckets.buckets.get(sector);
-    if (!b) return <p className="muted">This sector is empty.</p>;
+    // An empty (e.g. newly-reachable) group still renders, so its "+ add" shows.
+    const b = buckets.buckets.get(sector) ?? { techs: [], streams: [], maccs: [], measures: [] };
     const drill = (kind: Kind, id: string) => setSel({ libId, kind, id });
 
     // Each component is its own card showing its relationships — inputs on the
@@ -675,11 +677,15 @@ export function ComponentTabView({
     return (
       <section>
         <h2 style={{ margin: "0 0 4px" }}>{sector} · Measures &amp; MACC</h2>
-        <p className="muted" style={{ fontSize: "0.78rem", margin: "0 0 12px" }}>
+        <p className="muted" style={{ fontSize: "0.78rem", margin: "0 0 8px" }}>
           {b.maccs.length} MACC bundle{b.maccs.length === 1 ? "" : "s"} · {b.measures.length} individual
           measure{b.measures.length === 1 ? "" : "s"}.
         </p>
-        {grid([...b.maccs.map(maccCard), ...b.measures.map(measureCard)], "No measures in this sector.")}
+        <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+          <button className="ghost" onClick={() => addMeasure(libId)}>＋ measure</button>
+          <button className="ghost" onClick={() => addMacc(libId)}>＋ MACC</button>
+        </div>
+        {grid([...b.maccs.map(maccCard), ...b.measures.map(measureCard)], "No measures in this sector yet.")}
       </section>
     );
   }
@@ -774,11 +780,13 @@ export function ComponentTabView({
   // the middle level of Sector → Group → Components. Clicking opens the group's
   // editable table.
   function groupCards(libId: string, sector: string, b: Bucket) {
+    // All three groups always show (even at 0) so a user can open one and add the
+    // first component there — adding never happens at the library level.
     const groups = [
       { sub: "tech", label: "Technologies", desc: "Process recipes — inputs, outputs, costs & impacts", n: b.techs.length },
       { sub: "stream", label: "Streams", desc: "Commodities produced here, and how they connect", n: b.streams.length },
       { sub: "measures", label: "Measures & MACC", desc: "Abatement levers and their cost curves", n: b.maccs.length + b.measures.length },
-    ].filter((g) => g.n > 0);
+    ];
     return groups.map((g) =>
       infoCard({
         key: g.sub,
@@ -817,12 +825,6 @@ export function ComponentTabView({
             <span className="muted">label</span>
             <input style={{ ...inp, flex: 1, maxWidth: 280 }} value={body.label} onChange={(e) => editLib(sel.libId, (lib) => ({ ...lib, label: e.target.value }))} />
           </label>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-            <button className="ghost" onClick={() => addTech(sel.libId)}>＋ Technology</button>
-            <button className="ghost" onClick={() => addStream(sel.libId)}>＋ Stream</button>
-            <button className="ghost" onClick={() => addMeasure(sel.libId)}>＋ Measure</button>
-            <button className="ghost" onClick={() => addMacc(sel.libId)}>＋ MACC</button>
-          </div>
           {mode === "project" && (
             <div style={{ marginBottom: 12, padding: "8px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-button)" }}>
               <div className="muted" style={{ fontSize: "0.74rem", marginBottom: 6 }}>
@@ -857,31 +859,38 @@ export function ComponentTabView({
           )}
           <p className="muted" style={{ fontSize: "0.78rem" }}>
             {l?.technologies ?? 0} technologies · {l?.commodities ?? 0} streams · {l?.measures ?? 0} measures · {l?.maccs ?? 0} MACCs.
-            {" "}A technology gets its own input/output streams; measures are reusable and bundled into MACCs; a technology links the MACCs that apply to it.
+            {" "}Open a group to add or edit components — a technology gets its own input/output streams; measures are reusable and bundled into MACCs.
           </p>
-          {buckets && buckets.order.length > 0 && (
-            <div className="lib-grid" style={{ marginTop: 8 }}>
-              {buckets.order.length > 1
-                ? buckets.order.map((sec) => {
-                    const b = buckets.buckets.get(sec)!;
-                    return infoCard({
-                      key: sec,
-                      title: sec,
-                      sub: "sector",
-                      stats: [
-                        { n: b.techs.length, label: "tech" },
-                        { n: b.streams.length, label: "streams" },
-                        { n: b.measures.length + b.maccs.length, label: "measures" },
-                      ],
-                      onClick: () => {
-                        setExpanded((p) => new Set(p).add(`cat:${sel.libId}:${sec}`));
-                        setSel({ libId: sel.libId, kind: "cat", id: sec });
-                      },
-                    });
-                  })
-                : groupCards(sel.libId, buckets.order[0], buckets.buckets.get(buckets.order[0])!)}
-            </div>
-          )}
+          {(() => {
+            // Always offer a way in: sector cards when multi-sector, otherwise the
+            // three group cards (even for an empty library) so the user can open a
+            // group and add the first component there.
+            const order = buckets && buckets.order.length ? buckets.order : [OTHER];
+            const emptyB: Bucket = { techs: [], streams: [], maccs: [], measures: [] };
+            return (
+              <div className="lib-grid" style={{ marginTop: 8 }}>
+                {order.length > 1
+                  ? order.map((sec) => {
+                      const b = buckets!.buckets.get(sec)!;
+                      return infoCard({
+                        key: sec,
+                        title: sec,
+                        sub: "sector",
+                        stats: [
+                          { n: b.techs.length, label: "tech" },
+                          { n: b.streams.length, label: "streams" },
+                          { n: b.measures.length + b.maccs.length, label: "measures" },
+                        ],
+                        onClick: () => {
+                          setExpanded((p) => new Set(p).add(`cat:${sel.libId}:${sec}`));
+                          setSel({ libId: sel.libId, kind: "cat", id: sec });
+                        },
+                      });
+                    })
+                  : groupCards(sel.libId, order[0], buckets?.buckets.get(order[0]) ?? emptyB)}
+              </div>
+            );
+          })()}
         </section>
       );
     }
