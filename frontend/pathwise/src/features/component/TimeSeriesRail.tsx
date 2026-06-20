@@ -1,12 +1,11 @@
-// Per-year time-series editor for the selected component. One combined table
-// (year rows × attribute columns); empty cell = the scalar applies that year.
-// The user CHOOSES which attributes vary over time — for a technology that
-// includes each recipe coefficient / emission, not just capex/opex.
+// Per-year time-series editor for the selected component. The user CHOOSES which
+// attributes vary over time (for a technology, each recipe coefficient / emission,
+// not just capex/opex); each chosen attribute is an editable line chart (x = year)
+// where clicking a point edits its value inline.
 
 import { useState } from "react";
-import { InfoTooltip } from "../controls/InfoTooltip";
 import { SearchSelect } from "../controls/SearchSelect";
-import { fieldMeta } from "./fieldMeta";
+import { YearSeriesChart } from "./YearSeriesChart";
 import type {
   ByYear,
   CommodityTemplate,
@@ -23,15 +22,8 @@ interface Series {
   fallback: number;
 }
 
-function yearsOf(series: Series[]): number[] {
-  const ys = new Set<number>();
-  for (const s of series) for (const y of Object.keys(s.values)) if (Number.isFinite(Number(y))) ys.add(Number(y));
-  return [...ys].sort((a, b) => a - b);
-}
-
-// onChange carries the new ByYear for EVERY series it touches, applied in one
-// update — so adding/removing a year (which changes all columns at once) can't
-// clobber a sibling column via stale state.
+// Renders each chosen series as its own editable line chart (x = year); click a
+// point to edit its value inline. `toolbar` carries the attribute picker (tech).
 function TimeSeriesTable({
   title,
   hint,
@@ -46,35 +38,10 @@ function TimeSeriesTable({
   /** Optional controls (e.g. the attribute picker) rendered beside the title. */
   toolbar?: React.ReactNode;
 }) {
-  const years = yearsOf(series);
-  const setCell = (s: Series, y: number, raw: string) => {
-    const next: ByYear = { ...s.values };
-    if (raw.trim() === "") delete next[String(y)];
-    else next[String(y)] = Number(raw) || 0;
-    onChange({ [s.key]: next });
-  };
-  const removeYear = (y: number) => {
-    const updates: Record<string, ByYear> = {};
-    for (const s of series) {
-      const n: ByYear = { ...s.values };
-      delete n[String(y)];
-      updates[s.key] = n;
-    }
-    onChange(updates);
-  };
-  const addYear = () => {
-    const last = years[years.length - 1];
-    const y = last ? last + 5 : 2030;
-    const updates: Record<string, ByYear> = {};
-    for (const s of series) updates[s.key] = { ...s.values, [String(y)]: s.fallback };
-    onChange(updates);
-  };
-
   return (
     <div style={{ marginBottom: 12 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
         <strong style={{ fontSize: "0.8rem" }}>{title}</strong>
-        <button className="ghost" onClick={addYear} disabled={series.length === 0}>＋ year</button>
         {toolbar}
         {hint && <span className="muted" style={{ fontSize: "0.72rem" }}>{hint}</span>}
       </div>
@@ -82,51 +49,16 @@ function TimeSeriesTable({
         <p className="muted" style={{ fontSize: "0.74rem", margin: "2px 0" }}>
           Pick an attribute above to vary it over time.
         </p>
-      ) : years.length === 0 ? (
-        <p className="muted" style={{ fontSize: "0.74rem", margin: "2px 0" }}>
-          No per-year overrides — the scalar value applies every year. Add a year to vary it over time.
-        </p>
       ) : (
-        <table className="grid" style={{ fontSize: "0.76rem" }}>
-          <thead>
-            <tr style={{ textAlign: "left", color: "var(--muted)" }}>
-              <th style={{ width: 70 }}>year</th>
-              {series.map((s) => {
-                const m = s.metaKey ? fieldMeta(s.metaKey) : undefined;
-                return (
-                  <th key={s.key}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-                      {s.label}
-                      {m?.info && <InfoTooltip text={m.info} unit={m.unit} />}
-                    </span>
-                  </th>
-                );
-              })}
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {years.map((y) => (
-              <tr key={y}>
-                <td className="muted">{y}</td>
-                {series.map((s) => (
-                  <td key={s.key}>
-                    <input
-                      className="ts-cell"
-                      type="number"
-                      placeholder={String(s.fallback)}
-                      value={s.values[String(y)] ?? ""}
-                      onChange={(e) => setCell(s, y, e.target.value)}
-                    />
-                  </td>
-                ))}
-                <td>
-                  <button className="ghost" title="remove this year" onClick={() => removeYear(y)}>✕</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        series.map((s) => (
+          <YearSeriesChart
+            key={s.key}
+            label={s.label}
+            values={s.values}
+            fallback={s.fallback}
+            onChange={(by) => onChange({ [s.key]: by })}
+          />
+        ))
       )}
     </div>
   );
