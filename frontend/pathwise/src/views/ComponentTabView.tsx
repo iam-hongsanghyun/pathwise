@@ -15,11 +15,15 @@ import {
 import { TimeSeriesRail } from "../features/component/TimeSeriesRail";
 import { Resizer } from "../layout/Resizer";
 import { useDialogs } from "../features/controls/Dialog";
+import { SearchSelect } from "../features/controls/SearchSelect";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
 import type { TreeAction, TreeNode } from "../features/tree/types";
 import {
+  type CatalogEntry,
   type CommodityTemplate,
+  type ComponentCatalogKind,
   type ComponentLibrary,
+  copyComponentIntoProject,
   deleteComponentLibrary,
   deleteSessionComponentLibrary,
   emptyLibrary,
@@ -28,6 +32,7 @@ import {
   type LibrarySummary,
   type LibScope,
   listAllComponentLibraries,
+  listComponentCatalog,
   type MaccGroup,
   type MeasureTemplate,
   saveComponentLibrary,
@@ -156,7 +161,21 @@ function BucketShell({ title, add, children }: { title: string; add?: () => void
   );
 }
 
-export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
+/** Two surfaces share this one editor:
+ *  - "library": author the shared base catalogue (base libraries only).
+ *  - "project": one ACTIVE project's working set; base is a read-only copy source
+ *    reached through the "+ add → copy from a library" picker. */
+export function ComponentTabView({
+  sessionId,
+  mode = "library",
+  activeProjectId = null,
+  setActiveProjectId,
+}: {
+  sessionId: string | null;
+  mode?: "library" | "project";
+  activeProjectId?: string | null;
+  setActiveProjectId?: (id: string | null) => void;
+}) {
   const { prompt, confirm, node: dialogNode } = useDialogs();
   const [libs, setLibs] = useState<LibrarySummary[]>([]);
   const [openLibs, setOpenLibs] = useState<Map<string, ComponentLibrary>>(new Map());
@@ -167,13 +186,47 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
   const [error, setError] = useState<string | null>(null);
   const [rightW, setRightW] = useState(340); // resizable right-rail (time series) width
   const [unitOptions, setUnitOptions] = useState<string[]>([]); // allowed units for the IO unit picker
-  const [projectH, setProjectH] = useState(240); // adjustable height of the Project-libraries panel
+  const [catalog, setCatalog] = useState<CatalogEntry[]>([]); // copy-source pool (project mode)
+  const [copyKind, setCopyKind] = useState<ComponentCatalogKind>("technology");
   const saved = useRef<Map<string, string>>(new Map());
+
+  // The session's projects, and the active one addressed as a session library id.
+  const sessionProjects = libs.filter((l) => l.scope === "session");
+  const activeLibId = activeProjectId ? `session/${activeProjectId}` : null;
 
   // Base (shared) + this session's own libraries (an imported project's set).
   useEffect(() => {
     listAllComponentLibraries(sessionId).then(setLibs).catch((e) => setError(String(e)));
   }, [sessionId]);
+
+  // Copy-source catalogue (every component across base + session libs), project mode.
+  async function loadCatalog() {
+    if (!sessionId) return;
+    try {
+      setCatalog(await listComponentCatalog(sessionId));
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+  useEffect(() => {
+    if (mode === "project" && sessionId) void loadCatalog();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, sessionId]);
+
+  // Project mode: default the active project to the first one when unset/stale,
+  // and keep the selection + loaded body pointed at it.
+  useEffect(() => {
+    if (mode !== "project") return;
+    if (setActiveProjectId && (!activeProjectId || !sessionProjects.some((l) => l.id === activeProjectId))) {
+      setActiveProjectId(sessionProjects[0]?.id ?? null);
+      return;
+    }
+    if (activeLibId) {
+      void loadLib(activeLibId);
+      setSel((cur) => (cur && cur.libId === activeLibId ? cur : { libId: activeLibId, kind: "library" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, activeProjectId, libs]);
 
   // Allowed units for the recipe unit picker (the backend is the source of truth).
   useEffect(() => {
@@ -345,7 +398,52 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
       setLibs(await listAllComponentLibraries(sessionId));
       setExpanded((p) => new Set(p).add(`lib:${libId}`));
       await loadLib(libId);
+      setActiveProjectId?.(id); // make the new project the active one (project mode)
       setSel({ libId, kind: "library" });
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  /** Switch the active project (project mode): point the rail + detail at it. */
+  function switchProject(id: string) {
+    if (!id) return;
+    setActiveProjectId?.(id);
+    const libId = `session/${id}`;
+    void loadLib(libId);
+    setSel({ libId, kind: "library" });
+  }
+
+  // Hard-copy a catalogue entry (+ its closure) into the active project.
+  async function copyEntryIntoActive(entry: CatalogEntry) {
+    if (!sessionId || !activeProjectId || !activeLibId) return;
+    try {
+      // The copy runs server-side on the STORED project, and the refresh below
+      // overwrites the local body — so first flush any pending edits to this
+      // project, or they'd be lost in the autosave window (600ms debounce).
+      const pending = openLibs.get(activeLibId);
+      if (dirty.has(activeLibId) && pending) {
+        await saveLib(activeLibId, pending, sessionId);
+        saved.current.set(activeLibId, JSON.stringify(pending));
+        setDirty((d) => {
+          const n = new Set(d);
+          n.delete(activeLibId);
+          return n;
+        });
+      }
+      await copyComponentIntoProject(sessionId, activeProjectId, {
+        src_scope: entry.scope,
+        src_id: entry.library_id,
+        kind: entry.kind,
+        component_id: entry.component_id,
+      });
+      // Force-refresh the active project body (loadLib skips already-open libs).
+      const fresh = await getLib(activeLibId, sessionId);
+      saved.current.set(activeLibId, JSON.stringify(fresh));
+      setOpenLibs((p) => new Map(p).set(activeLibId, fresh));
+      setLibs(await listAllComponentLibraries(sessionId));
+      void loadCatalog();
+      setStatus(`copied ${entry.component_id} → ${activeProjectId}`);
     } catch (e) {
       setError(String(e));
     }
@@ -570,25 +668,37 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
       const key = keyOf(l);
       setExpanded((p) => new Set(p).add(`lib:${key}`));
       void loadLib(key);
+      if (mode === "project") setActiveProjectId?.(l.id);
       setSel({ libId: key, kind: "library" });
     };
+    // Library mode lands on the base catalogue; project mode on this session's projects.
+    const shown = mode === "project" ? sessionProjects : libs.filter((l) => l.scope === "base");
     return (
       <section className="lib-landing">
         <div className="lib-landing-head">
           <div>
-            <h2 className="lib-landing-title">All libraries</h2>
+            <h2 className="lib-landing-title">{mode === "project" ? "Your projects" : "All libraries"}</h2>
             <p className="muted lib-landing-sub">
-              A library is a catalogue of reusable building blocks — technologies, streams &amp;
-              abatement measures — organised by sector. Open one to author its contents.
+              {mode === "project"
+                ? "A project is your own working set — start one, then design components from scratch or copy them in from a library."
+                : "A library is a catalogue of reusable building blocks — technologies, streams & abatement measures — organised by sector. Open one to author its contents."}
             </p>
           </div>
-          <button className="lib-new" onClick={newLibrary}>+ New library</button>
+          <button className="lib-new" onClick={mode === "project" ? newProject : newLibrary}>
+            {mode === "project" ? "+ New project" : "+ New library"}
+          </button>
         </div>
-        {libs.length === 0 ? (
-          <p className="muted">No libraries yet — click <b>New library</b> to start.</p>
+        {shown.length === 0 ? (
+          <p className="muted">
+            {mode === "project" ? (
+              <>No projects yet — click <b>New project</b> to start.</>
+            ) : (
+              <>No libraries yet — click <b>New library</b> to start.</>
+            )}
+          </p>
         ) : (
           <div className="lib-grid">
-            {libs.map((l) => (
+            {shown.map((l) => (
               <button className="lib-card-v2" key={keyOf(l)} onClick={() => open(l)}>
                 <div className="lib-card-top">
                   <span className="lib-card-name"><span className="lib-dot" /> {l.label || l.id}</span>
@@ -666,6 +776,18 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
     if (!body) return <p className="muted">Loading…</p>;
     if (sel.kind === "library") {
       const l = libs.find((x) => keyOf(x) === sel.libId);
+      // Project mode: the catalogue of components (from any OTHER library) the
+      // user can hard-copy into this project, narrowed to the chosen kind.
+      const copyEntries =
+        mode === "project"
+          ? catalog.filter(
+              (e) => e.kind === copyKind && !(e.scope === "session" && e.library_id === activeProjectId),
+            )
+          : [];
+      const copyOptions = copyEntries.map((e, i) => ({
+        value: String(i),
+        label: `${e.label} · ${e.library_id}${e.scope === "session" ? " · project" : ""}`,
+      }));
       return (
         <section>
           <h2 style={{ margin: "0 0 8px" }}>{body.label || sel.libId}</h2>
@@ -679,6 +801,38 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
             <button className="ghost" onClick={() => addMeasure(sel.libId)}>＋ Measure</button>
             <button className="ghost" onClick={() => addMacc(sel.libId)}>＋ MACC</button>
           </div>
+          {mode === "project" && (
+            <div style={{ marginBottom: 12, padding: "8px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-button)" }}>
+              <div className="muted" style={{ fontSize: "0.74rem", marginBottom: 6 }}>
+                …or copy an existing one in — a hard copy, so its values become project-local.
+              </div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                <span style={{ minWidth: 120 }}>
+                  <SearchSelect
+                    value={copyKind}
+                    onChange={(v) => v && setCopyKind(v as ComponentCatalogKind)}
+                    options={[
+                      { value: "technology", label: "Technology" },
+                      { value: "stream", label: "Stream" },
+                      { value: "measure", label: "Measure" },
+                      { value: "macc", label: "MACC" },
+                    ]}
+                  />
+                </span>
+                <span style={{ minWidth: 240, flex: 1 }}>
+                  <SearchSelect
+                    value=""
+                    onChange={(v) => {
+                      const e = copyEntries[Number(v)];
+                      if (e) void copyEntryIntoActive(e);
+                    }}
+                    options={copyOptions}
+                    placeholder={copyOptions.length ? `copy a ${copyKind}…` : `no ${copyKind}s to copy`}
+                  />
+                </span>
+              </div>
+            </div>
+          )}
           <p className="muted" style={{ fontSize: "0.78rem" }}>
             {l?.technologies ?? 0} technologies · {l?.commodities ?? 0} streams · {l?.measures ?? 0} measures · {l?.maccs ?? 0} MACCs.
             {" "}A technology gets its own input/output streams; measures are reusable and bundled into MACCs; a technology links the MACCs that apply to it.
@@ -855,9 +1009,12 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
   const notes = notesFor();
   const rail = tsRail();
 
-  // Split the rail: shared "base" libraries on top, this session's own projects below.
-  const baseNodes = treeNodes.filter((nd) => parseId(nd.id).libId.startsWith("base/"));
-  const projectNodes = treeNodes.filter((nd) => parseId(nd.id).libId.startsWith("session/"));
+  // Library mode shows the shared base catalogue; project mode shows ONLY the
+  // active project's own components (base is reached via the copy picker).
+  const railNodes =
+    mode === "project"
+      ? treeNodes.filter((nd) => activeLibId != null && parseId(nd.id).libId === activeLibId)
+      : treeNodes.filter((nd) => parseId(nd.id).libId.startsWith("base/"));
   const libTree = (nodes: TreeNode[], emptyHint: string) => (
     <TreeExplorer
       nodes={nodes}
@@ -889,36 +1046,49 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
       {error && <div className="error" style={{ padding: "4px 12px" }} onClick={() => setError(null)}>{error} <span className="muted">(dismiss)</span></div>}
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
         <aside style={{ width: 280, borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", flexShrink: 0, minHeight: 0 }}>
-          {/* Base (shared) libraries — fills the remaining height. */}
-          <div className="rail-head-row" style={{ padding: "6px 10px" }}>
-            <button
-              className="rail-head"
-              style={{ background: "none", border: "none", padding: 0, font: "inherit", cursor: "pointer", textAlign: "left" }}
-              title="Show all libraries"
-              onClick={() => setSel(null)}
-            >
-              Libraries (Base)
-            </button>
-            <button className="rail-add" title="new base library" onClick={newLibrary}>＋</button>
-          </div>
-          <div style={{ flex: 1, minHeight: 60, overflow: "auto" }}>
-            {libTree(baseNodes, "No base libraries — ＋ to add one.")}
-          </div>
-          {/* Drag the divider to grow / shrink the Project-libraries panel below. */}
-          <Resizer side="top" width={projectH} setWidth={setProjectH} min={80} max={600} />
-          {/* This session's own projects — fixed (adjustable) height. */}
-          <div className="rail-head-row" style={{ padding: "6px 10px", borderTop: "1px solid var(--border)" }}>
-            <span className="rail-head">Project libraries</span>
-            <button className="rail-add" title="new project" onClick={newProject}>＋</button>
-          </div>
-          <div style={{ height: projectH, minHeight: 60, overflow: "auto" }}>
-            {libTree(projectNodes, "No projects yet — ＋ to start one (drag base components in).")}
-          </div>
+          {mode === "project" ? (
+            <>
+              <div className="rail-head-row" style={{ padding: "6px 10px" }}>
+                <span className="rail-head">Project</span>
+                <button className="rail-add" title="new project" onClick={newProject}>＋</button>
+              </div>
+              <div style={{ padding: "0 10px 6px" }}>
+                <SearchSelect
+                  value={activeProjectId ?? ""}
+                  onChange={(v) => switchProject(v)}
+                  options={sessionProjects.map((l) => ({ value: l.id, label: l.label || l.id }))}
+                  placeholder={sessionProjects.length ? "select a project…" : "no projects yet"}
+                />
+              </div>
+              <div style={{ flex: 1, minHeight: 60, overflow: "auto" }}>
+                {activeLibId
+                  ? libTree(railNodes, "Empty project — add or copy components from the main panel.")
+                  : <div className="rail-empty" style={{ padding: 10 }}>Create a project with ＋, then add components.</div>}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="rail-head-row" style={{ padding: "6px 10px" }}>
+                <button
+                  className="rail-head"
+                  style={{ background: "none", border: "none", padding: 0, font: "inherit", cursor: "pointer", textAlign: "left" }}
+                  title="Show all libraries"
+                  onClick={() => setSel(null)}
+                >
+                  Libraries
+                </button>
+                <button className="rail-add" title="new library" onClick={newLibrary}>＋</button>
+              </div>
+              <div style={{ flex: 1, minHeight: 60, overflow: "auto" }}>
+                {libTree(railNodes, "No base libraries — ＋ to add one.")}
+              </div>
+            </>
+          )}
           <div className="muted" style={{ fontSize: "0.7rem", padding: "8px 10px", borderTop: "1px solid var(--border)" }}>Right-click for actions</div>
         </aside>
         <main style={{ flex: 1, overflow: "auto", padding: "16px 20px", minWidth: 0, display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-            <div className="eyebrow">component builder</div>
+            <div className="eyebrow">{mode === "project" ? "project workbench" : "component library"}</div>
             <span className="muted" style={{ fontSize: "0.78rem" }}>{status}</span>
           </div>
           <div style={{ flex: 1, minHeight: 0 }}>{renderDetail()}</div>

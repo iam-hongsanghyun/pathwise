@@ -50,6 +50,15 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [leftW, setLeftW] = useState(232);
   const [libraries, setLibraries] = useState<LibraryEntry[]>([]);
+  // The project (session component library) the Project tab is focused on; the
+  // value chain + run can later follow it. Persisted so it survives a reload.
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(
+    () => localStorage.getItem("pw-active-project-id"),
+  );
+  useEffect(() => {
+    if (activeProjectId) localStorage.setItem("pw-active-project-id", activeProjectId);
+    else localStorage.removeItem("pw-active-project-id");
+  }, [activeProjectId]);
   // v2: visual theme + density (persisted; reflected on <html data-theme/density>).
   const { theme, setTheme, density, setDensity } = useTheme();
 
@@ -215,6 +224,7 @@ export function App() {
       synced.current = model;
       setWorkbook(model);
       setResult(null);
+      setActiveProjectId(null); // session libraries were wiped — no active project
       setBackend("linopy");
     } catch (e) {
       setError(String(e));
@@ -306,7 +316,15 @@ export function App() {
 
         {error && <div className="error" style={{ padding: "4px 16px" }}>{error}</div>}
 
-        {view === "component" && <ComponentTabView sessionId={sessionId} />}
+        {view === "component" && <ComponentTabView sessionId={sessionId} mode="library" />}
+        {view === "project" && (
+          <ComponentTabView
+            sessionId={sessionId}
+            mode="project"
+            activeProjectId={activeProjectId}
+            setActiveProjectId={setActiveProjectId}
+          />
+        )}
         {view === "valuechain" && (
           <ValueChainTabView
             workbook={workbook}
