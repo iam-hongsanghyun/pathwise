@@ -107,3 +107,80 @@ def test_place_unknown_technology_is_422() -> None:
         json={"library": "steel", "technology": "nope", "parent_id": "chain"},
     )
     assert resp.status_code == 422
+
+
+# ── Component catalog (the project "+ add → copy existing" picker source) ───────
+
+_SESSION_LIB = {
+    "label": "proj",
+    "commodities": [
+        {"commodity_id": "steel", "kind": "product", "unit": "t"},
+        {"commodity_id": "elec", "kind": "energy", "unit": "MWh"},
+    ],
+    "measures": [
+        {
+            "measure_id": "eff1",
+            "label": "Eff one",
+            "type": "energy_efficiency",
+            "target": "elec",
+            "blocks": [{"reduction": 0.1, "capex_per_capacity": 5}],
+        }
+    ],
+    "maccs": [{"macc_id": "M", "label": "Macc one", "measures": ["eff1"]}],
+    "technologies": [
+        {
+            "technology_id": "EAFx",
+            "io": [
+                {"target": "steel", "role": "output", "coefficient": 1, "is_product": True},
+                {"target": "elec", "role": "input", "coefficient": 2},
+            ],
+            "maccs": ["M"],
+        }
+    ],
+}
+
+
+def test_catalog_lists_base_technologies() -> None:
+    rows = client.get("/api/session/cat1/component-catalog?kind=technology").json()
+    assert rows and all(r["kind"] == "technology" and r["scope"] == "base" for r in rows)
+    assert ("steel", "BF_BOF") in {(r["library_id"], r["component_id"]) for r in rows}
+
+
+def test_catalog_includes_session_components_of_every_kind() -> None:
+    sid = "cat2"
+    client.put(f"/api/session/{sid}/component-library/proj", json=_SESSION_LIB)
+    rows = client.get(f"/api/session/{sid}/component-catalog").json()
+    sess = {(r["kind"], r["component_id"], r["label"]) for r in rows if r["scope"] == "session"}
+    assert ("technology", "EAFx", "EAFx") in sess  # tech label falls back to id
+    assert ("stream", "steel", "steel") in sess
+    assert ("measure", "eff1", "Eff one") in sess  # measure/macc carry a label
+    assert ("macc", "M", "Macc one") in sess
+
+
+def test_catalog_kind_filter_is_exclusive() -> None:
+    sid = "cat3"
+    client.put(f"/api/session/{sid}/component-library/proj", json=_SESSION_LIB)
+    for kind in ("technology", "stream", "measure", "macc"):
+        rows = client.get(f"/api/session/{sid}/component-catalog?kind={kind}").json()
+        assert rows and all(r["kind"] == kind for r in rows)
+
+
+def test_catalog_rows_are_copy_ready() -> None:
+    # Each catalog row feeds copy_component_into directly via the copy endpoint.
+    sid = "cat4"
+    src = client.get(f"/api/session/{sid}/component-catalog?kind=technology").json()
+    eaf = next(r for r in src if r["component_id"] == "EAF" and r["library_id"] == "steel")
+    summary = client.post(
+        f"/api/session/{sid}/component-library/myproj/copy",
+        json={
+            "src_scope": eaf["scope"],
+            "src_id": eaf["library_id"],
+            "kind": eaf["kind"],
+            "component_id": eaf["component_id"],
+        },
+    ).json()
+    assert summary["technologies"] == 1  # copied in with its closure
+
+
+def test_catalog_invalid_kind_is_422() -> None:
+    assert client.get("/api/session/cat5/component-catalog?kind=widget").status_code == 422
