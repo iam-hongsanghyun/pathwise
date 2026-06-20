@@ -34,6 +34,7 @@ import {
 } from "../lib/api/components";
 import type { LibraryEntry } from "../lib/api/libraries";
 import { getFullModel, putModel } from "../lib/api/session";
+import { machineProduct, maxOutputCap, setMaxOutputCap } from "../lib/caps";
 import { parseNodes } from "../lib/groupGraph";
 import type { Cell, Row, Workbook } from "../types";
 
@@ -435,7 +436,20 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
               const src = sourceStreams(workbook).find((x) => x.id === cid);
               const labels = (src?.consumers ?? []).map((id) => nodeById.get(id)?.label ?? id);
               return (
-                <SourceStreamInspector wb={workbook} commodityId={cid} consumerLabels={labels} />
+                <SourceStreamInspector
+                  wb={workbook}
+                  commodityId={cid}
+                  consumerLabels={labels}
+                  onMaxPurchase={(v) =>
+                    setWorkbook(
+                      setSheet(
+                        workbook,
+                        "commodities",
+                        (workbook.commodities ?? []).map((r) => (s(r.commodity_id) === cid ? { ...r, max_purchase: v ?? "" } : r)),
+                      ),
+                    )
+                  }
+                />
               );
             })()
           ) : !selNode ? (
@@ -447,9 +461,17 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
             (() => {
               const baseline = s((workbook.machines ?? []).find((m) => s(m.machine_id) === selId)?.baseline_technology);
               const alts = (workbook.transitions ?? []).filter((r) => s(r.from_technology) === baseline).map((r) => s(r.to_technology));
+              const product = machineProduct(workbook, selId!);
               return (
                 <>
-                  <MachineInspector wb={workbook} machineId={selId!} onCapacity={(v) => setWorkbook(setSheet(workbook, "machines", (workbook.machines ?? []).map((r) => (s(r.machine_id) === selId ? { ...r, capacity: v } : r))))} />
+                  <MachineInspector
+                    wb={workbook}
+                    machineId={selId!}
+                    onCapacity={(v) => setWorkbook(setSheet(workbook, "machines", (workbook.machines ?? []).map((r) => (s(r.machine_id) === selId ? { ...r, capacity: v } : r))))}
+                    productLabel={product ?? undefined}
+                    maxOutput={product ? maxOutputCap(workbook, selId!, product) : null}
+                    onMaxOutput={product ? (v) => setWorkbook(setMaxOutputCap(workbook, selId!, product, v)) : undefined}
+                  />
                   <div style={{ padding: "0 20px 16px" }}>
                     <Alternatives
                       baseline={baseline}

@@ -23,6 +23,7 @@ import {
 } from "../lib/api/components";
 import type { LibraryEntry } from "../lib/api/libraries";
 import { getFullModel, putModel } from "../lib/api/session";
+import { machineProduct, maxOutputCap, setMaxOutputCap } from "../lib/caps";
 import { childrenOf, parseNodes } from "../lib/groupGraph";
 import type { Row, Workbook } from "../types";
 
@@ -361,6 +362,8 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         );
       }
       const tech = s(r.baseline_technology);
+      const product = machineProduct(workbook, sel.id);
+      const cap = product ? maxOutputCap(workbook, sel.id, product) : null;
       return (
         <section className="detail-col">
           <h2 className="view-title">{sel.label}</h2>
@@ -374,11 +377,25 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
             <input className="field-input" type="number" value={s(r?.build_year)} onChange={(e) => editMachine(sel.id, { build_year: e.target.value === "" ? 0 : Number(e.target.value) })} />
             <span className="muted">close year</span>
             <input className="field-input" type="number" value={s(r?.close_year)} onChange={(e) => editMachine(sel.id, { close_year: e.target.value === "" ? 0 : Number(e.target.value) })} />
+            {product && (
+              <>
+                <span className="muted">max {product}/yr</span>
+                <input
+                  className="field-input"
+                  type="number"
+                  min={0}
+                  placeholder="no cap"
+                  value={cap ?? ""}
+                  onChange={(e) => setWorkbook(setMaxOutputCap(workbook, sel.id, product, e.target.value === "" ? null : Number(e.target.value)))}
+                />
+              </>
+            )}
           </div>
           <p className="detail-note" style={{ marginTop: 12 }}>
             The recipe (inputs/outputs, per-unit costs &amp; efficiency) lives in the
             component — edit it in the Library tab. Here you set this machine's
-            real-world numbers only.
+            real-world numbers — capacity, owner, build/close year, and an optional
+            annual output cap (a hard ceiling the optimiser can't exceed).
           </p>
         </section>
       );

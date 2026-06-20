@@ -41,10 +41,19 @@ export function MachineInspector({
   wb,
   machineId,
   onCapacity,
+  maxOutput,
+  onMaxOutput,
+  productLabel,
 }: {
   wb: Workbook;
   machineId: string;
   onCapacity: (v: number) => void;
+  /** Current annual output cap (year-less max_production), or null = no cap. */
+  maxOutput?: number | null;
+  /** Set / clear (null) this machine's annual output cap. */
+  onMaxOutput?: (v: number | null) => void;
+  /** The capped product's id (shown as the cap's unit). */
+  productLabel?: string;
 }) {
   const machine = (wb.machines ?? []).find((m) => s(m.machine_id) === machineId);
   const tech = s(machine?.baseline_technology);
@@ -191,6 +200,22 @@ export function MachineInspector({
             <span className="mi-unit">{thru}/yr</span>
           </div>
         </div>
+        {onMaxOutput && productLabel && (
+          <div className="mi-card">
+            <div className="mi-card-label">max output</div>
+            <div className="mi-card-val">
+              <input
+                type="number"
+                min={0}
+                placeholder="no cap"
+                value={maxOutput ?? ""}
+                className="mi-cap-input"
+                onChange={(e) => onMaxOutput(e.target.value === "" ? null : Number(e.target.value) || 0)}
+              />
+              <span className="mi-unit">{productLabel}/yr</span>
+            </div>
+          </div>
+        )}
         {co2Intensity != null && (
           <div className="mi-card">
             <div className="mi-card-label">CO₂ intensity</div>
@@ -513,10 +538,13 @@ export function SourceStreamInspector({
   wb,
   commodityId,
   consumerLabels,
+  onMaxPurchase,
 }: {
   wb: Workbook;
   commodityId: string;
   consumerLabels: string[];
+  /** Set / clear (null) this stream's annual supply cap (commodities.max_purchase). */
+  onMaxPurchase?: (v: number | null) => void;
 }) {
   const row = (wb.commodities ?? []).find((r) => String(r.commodity_id) === commodityId) ?? {};
   const g = (k: string): string | null => {
@@ -540,10 +568,31 @@ export function SourceStreamInspector({
       </p>
       <div className="mi-section-head"><span>purchasing</span></div>
       {kv("purchase price", g("price") ?? "—", unit ? `/${unit}` : undefined)}
-      {kv("max purchase / yr", g("max_purchase") ?? "∞", unit || undefined)}
+      {onMaxPurchase ? (
+        <div className="mi-kv">
+          <span>max supply / yr</span>
+          <span className="mi-val">
+            <input
+              type="number"
+              min={0}
+              placeholder="no cap"
+              value={g("max_purchase") ?? ""}
+              className="field-input"
+              style={{ width: 90 }}
+              onChange={(e) => onMaxPurchase(e.target.value === "" ? null : Number(e.target.value) || 0)}
+            />
+            {unit ? <span className="mi-unit"> {unit}</span> : null}
+          </span>
+        </div>
+      ) : (
+        kv("max supply / yr", g("max_purchase") ?? "∞", unit || undefined)
+      )}
       {kv("available from", g("available_from") ?? "any")}
       {kv("available until", g("available_to") ?? "any")}
-      <p className="muted mi-note">Edit price, cap and availability in the <b>Component</b> view (its Streams sheet).</p>
+      <p className="muted mi-note">
+        The supply cap is a hard ceiling on this stream's annual supply. Price &amp;
+        availability are edited in the <b>Component</b> view (its Streams sheet).
+      </p>
       <div className="mi-section-head">
         <span>feeds {consumerLabels.length} facilit{consumerLabels.length === 1 ? "y" : "ies"}</span>
       </div>

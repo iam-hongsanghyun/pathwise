@@ -190,6 +190,7 @@ def _temporal_dict(
     id_col: str,
     key_cols: list[str],
     value_col: str,
+    base_years: list[int] | None = None,
 ) -> dict[tuple[Any, ...], float]:
     """Aggregate a relational sheet into ``{(*key, year): value}``.
 
@@ -197,9 +198,16 @@ def _temporal_dict(
     and the PyPSA-style named-component form (a static row identified by
     ``id_col`` whose values live in the wide ``temporal_sheet``, columns = names).
     Multiple rows mapping to the same key/year are summed.
+
+    When ``base_years`` is given, a row carrying a value but NO ``year`` (and no
+    named-component id) is a **base** that applies to every one of those years; a
+    year-specific row for the same key overrides the base for that year. This lets
+    a single annual cap (e.g. a per-machine max output) hold across the whole run
+    without authoring one row per period.
     """
     wide = _wide_temporal(wb, temporal_sheet)
     out: dict[tuple[Any, ...], float] = {}
+    base: dict[tuple[Any, ...], float] = {}
     for r in _rows(wb, sheet):
         key = tuple(_str(r.get(c)) or "all" for c in key_cols)
         yr, val = _num(r.get("year")), _num(r.get(value_col))
@@ -208,6 +216,11 @@ def _temporal_dict(
         elif (name := _str(r.get(id_col))) is not None:  # named component
             for y, v in wide.get(name, {}).items():
                 out[(*key, y)] = out.get((*key, y), 0.0) + v
+        elif val is not None and base_years is not None:  # year-less base → all years
+            base[key] = base.get(key, 0.0) + val
+    for key, v in base.items():
+        for y in base_years or ():
+            out.setdefault((*key, y), v)  # a year-specific value already set wins
     return out
 
 
@@ -1046,6 +1059,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         "max_id",
         ["company", "commodity_id"],
         "amount",
+        base_years=years,  # a year-less cap (per-machine / per-stream) holds every year
     )
     demand = _temporal_dict(
         workbook, DEMAND, DEMAND_T_AMOUNT, "demand_id", ["company", "commodity_id"], "amount"
