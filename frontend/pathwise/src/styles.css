@@ -715,6 +715,75 @@
   min-height: 60px;
   overflow: auto;
 }
+/* The slim strip shown when a builder rail is collapsed — just the expand + add. */
+.rail-collapsed {
+  flex: none;
+  width: 34px;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 0;
+}
+.rail-collapse {
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+.rail-collapse:hover {
+  color: var(--brand);
+  background: var(--bg-hover);
+}
+
+/* ── Floating, draggable inspector panel (Value-Chain map) ───────────────── */
+.float-panel {
+  position: fixed;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  max-height: 72vh;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+.float-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-hover);
+  border-radius: var(--radius) var(--radius) 0 0;
+  cursor: move;
+  user-select: none;
+}
+.float-panel-title {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.float-panel-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 0.85rem;
+}
+.float-panel-close:hover {
+  color: var(--text);
+}
+.float-panel-body {
+  overflow: auto;
+}
 /* The importer dropdown that sits under a rail head. */
 .rail-import {
   padding: 0 10px 6px;

@@ -18,6 +18,7 @@ import { useDialogs } from "../features/controls/Dialog";
 import { SearchableSelect } from "../features/controls/SearchableSelect";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
+import { FloatingPanel } from "../layout/FloatingPanel";
 import { Resizer } from "../layout/Resizer";
 import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types";
 import {
@@ -74,7 +75,8 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [leftW, setLeftW] = useState(240); // structure rail width (draggable)
-  const [rightW, setRightW] = useState(300); // detail rail width (draggable)
+  const [railOpen, setRailOpen] = useState(false); // left structure rail — collapsed by default
+  const [showHealth, setShowHealth] = useState(false); // model-health popup toggle
   const { prompt, confirm, node: dialogNode } = useDialogs();
 
   useEffect(() => {
@@ -361,34 +363,52 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
       {error && <div className="error error-bar" onClick={() => setError(null)}>{error} <span className="muted">(dismiss)</span></div>}
 
       <div className="builder-body">
-        {/* LEFT: structure only */}
-        <aside className="builder-rail" style={{ width: leftW }}>
-          <div className="rail-head-row">
-            <span className="rail-head">Structure</span>
+        {/* LEFT: structure rail — collapsed by default; expand to browse/edit the tree */}
+        {railOpen ? (
+          <>
+            <aside className="builder-rail" style={{ width: leftW }}>
+              <div className="rail-head-row">
+                <button className="rail-collapse" title="hide structure" onClick={() => setRailOpen(false)}>‹</button>
+                <span className="rail-head">Structure</span>
+                <button className="rail-add" title="add top-level subgroup" onClick={() => addSubgroup(null)}>＋</button>
+              </div>
+              <div className="rail-scroll">
+                <TreeExplorer
+                  nodes={treeNodes}
+                  selectedId={selId}
+                  expandedIds={expanded}
+                  onToggle={(id, exp) => setExpanded((p) => { const m = new Set(p); if (exp) m.add(id); else m.delete(id); return m; })}
+                  onSelect={(id) => { setShowHealth(false); selectNode(id); }}
+                  actionsFor={actionsFor}
+                  onContextAction={onContextAction}
+                  onMove={onMove}
+                  emptyHint="Empty — click ＋ (or right-click) to add a value chain / sector."
+                />
+              </div>
+              <div className="rail-foot">Right-click an item for actions · drag to move</div>
+            </aside>
+            <Resizer width={leftW} setWidth={setLeftW} side="left" />
+          </>
+        ) : (
+          <div className="rail-collapsed">
+            <button className="rail-collapse" title="show structure" onClick={() => setRailOpen(true)}>›</button>
             <button className="rail-add" title="add top-level subgroup" onClick={() => addSubgroup(null)}>＋</button>
           </div>
-          <div className="rail-scroll">
-            <TreeExplorer
-              nodes={treeNodes}
-              selectedId={selId}
-              expandedIds={expanded}
-              onToggle={(id, exp) => setExpanded((p) => { const m = new Set(p); if (exp) m.add(id); else m.delete(id); return m; })}
-              onSelect={selectNode}
-              actionsFor={actionsFor}
-              onContextAction={onContextAction}
-              onMove={onMove}
-              emptyHint="Empty — click ＋ (or right-click) to add a value chain / sector."
-            />
-          </div>
-          <div className="rail-foot">Right-click an item for actions · drag to move</div>
-        </aside>
-        <Resizer width={leftW} setWidth={setLeftW} side="left" />
+        )}
 
         {/* CENTER: relationship canvas */}
         <main className="builder-canvas">
           <div className="view-head" style={{ padding: "12px 16px 0" }}>
             <div className="eyebrow">value chain</div>
             <span className="view-status">connections &amp; flows between facilities</span>
+            <span style={{ flex: 1 }} />
+            {issues.length > 0 && (
+              <button className="ghost health-chip" title="model health" onClick={() => { setSelId(null); setShowHealth(true); }}>
+                {issueIdx.errorCount > 0 && <span className="health-dot error" />}
+                {issueIdx.warnCount > 0 && <span className="health-dot warning" />}
+                {issueIdx.errorCount + issueIdx.warnCount}
+              </button>
+            )}
           </div>
           {!hasHierarchy ? (
             <div className="vc-empty">
@@ -417,7 +437,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 workbook={workbook}
                 editable
                 selectedId={selId}
-                onSelect={setSelId}
+                onSelect={(id) => { setShowHealth(false); setSelId(id); }}
                 onAddConnection={addConnection}
                 onEditConnection={editConnection}
                 onDeleteConnection={deleteConnection}
@@ -427,100 +447,102 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
           )}
         </main>
 
-        <Resizer width={rightW} setWidth={setRightW} side="right" />
-        {/* RIGHT: detail of the selected item */}
-        <aside className="builder-rail is-right" style={{ width: rightW }}>
-          {selId?.startsWith("stream:") ? (
-            (() => {
-              const cid = selId.slice("stream:".length);
-              const src = sourceStreams(workbook).find((x) => x.id === cid);
-              const labels = (src?.consumers ?? []).map((id) => nodeById.get(id)?.label ?? id);
-              return (
-                <SourceStreamInspector
-                  wb={workbook}
-                  commodityId={cid}
-                  consumerLabels={labels}
-                  onMaxPurchase={(v) =>
-                    setWorkbook(
-                      setSheet(
-                        workbook,
-                        "commodities",
-                        (workbook.commodities ?? []).map((r) => (s(r.commodity_id) === cid ? { ...r, max_purchase: v ?? "" } : r)),
-                      ),
-                    )
-                  }
-                />
-              );
-            })()
-          ) : !selNode ? (
-            <div style={{ padding: "8px 0" }}>
-              <ModelHealth issues={issues} onJump={(id) => setSelId(id)} onFix={applyFix} />
-              <div className="muted" style={{ padding: "8px 16px", fontSize: "0.82rem" }}>Select an item on the left to see its details. Right-click for actions.</div>
-            </div>
-          ) : selNode.kind === "machine" ? (
-            (() => {
-              const baseline = s((workbook.machines ?? []).find((m) => s(m.machine_id) === selId)?.baseline_technology);
-              const alts = (workbook.transitions ?? []).filter((r) => s(r.from_technology) === baseline).map((r) => s(r.to_technology));
-              const product = machineProduct(workbook, selId!);
-              return (
-                <>
-                  <MachineInspector
-                    wb={workbook}
-                    machineId={selId!}
-                    onCapacity={(v) => setWorkbook(setSheet(workbook, "machines", (workbook.machines ?? []).map((r) => (s(r.machine_id) === selId ? { ...r, capacity: v } : r))))}
-                    unitLabel={product ? commodityUnit(workbook, product) : undefined}
-                    minOutput={product ? minOutputCap(workbook, selId!, product) : null}
-                    onMinOutput={product ? (v) => setWorkbook(setMinOutputCap(workbook, selId!, product, v)) : undefined}
-                    maxOutput={product ? maxOutputCap(workbook, selId!, product) : null}
-                    onMaxOutput={product ? (v) => setWorkbook(setMaxOutputCap(workbook, selId!, product, v)) : undefined}
-                  />
-                  <div style={{ padding: "0 20px 16px" }}>
-                    <Alternatives
-                      baseline={baseline}
-                      alternatives={alts}
-                      available={availableTechs}
-                      onAdd={(tech, library, scope) => void addAlt(selId!, tech, library, scope)}
-                      onRemove={(tech) => removeAlt(baseline, tech)}
-                    />
-                    <FlowContext wb={workbook} nodeId={selId!} />
-                  </div>
-                </>
-              );
-            })()
-          ) : (
-            <div style={{ padding: "14px 16px" }}>
-              <div className="eyebrow">group</div>
-              <input className="title-input" value={selNode.label} onChange={(e) => renameNode(selId!, e.target.value)} />
-              <label className="field-row" style={{ marginBottom: 14 }}>
-                <span className="muted">level</span>
-                <input className="field-input" style={{ flex: 1 }} value={selNode.level} onChange={(e) => setLevel(selId!, e.target.value)} placeholder="value_chain / company / facility" />
-              </label>
-
-              <FlowContext wb={workbook} nodeId={selId!} />
-
-              <PortsPanel wb={workbook} nodeId={selId!} commodities={commodities} onAdd={(c, k) => addMarket(selId!, c, k)} onPrice={setMarketPrice} onRemove={removeMarket} />
-
-              <div className="rail-section">
-                <div className="rail-head-row">
-                  <span className="rail-head">Targets (this node)</span>
-                  <button className="rail-add" onClick={() => addTarget(selId!)}>＋</button>
-                </div>
-                {demandFor(selId!).map(({ idx, r }) => (
-                  <div key={idx} style={{ display: "flex", gap: 4, padding: "2px 8px", alignItems: "center" }}>
-                    <span style={{ flex: 1 }}>
-                      <SearchSelect value={s(r.commodity_id)} onChange={(v) => setDemandRow(idx, { commodity_id: v })}
-                        options={products.map((p) => ({ value: p }))} placeholder="stream…" />
-                    </span>
-                    <input className="field-input" style={{ width: 70 }} type="number" min={0} value={Number(r.amount) || 0} onChange={(e) => setDemandRow(idx, { amount: Number(e.target.value) || 0 })} />
-                    <button className="ghost" onClick={() => delDemandRow(idx)}>✕</button>
-                  </div>
-                ))}
-                {demandFor(selId!).length === 0 && <div className="rail-empty">no targets here — what must this node deliver?</div>}
-              </div>
-            </div>
-          )}
-        </aside>
       </div>
+
+      {/* Floating, draggable inspector — drag its header to move it; ✕ to close. */}
+      {selId?.startsWith("stream:") ? (
+        (() => {
+          const cid = selId.slice("stream:".length);
+          const src = sourceStreams(workbook).find((x) => x.id === cid);
+          const labels = (src?.consumers ?? []).map((id) => nodeById.get(id)?.label ?? id);
+          return (
+            <FloatingPanel title="source stream" width={300} onClose={() => setSelId(null)}>
+              <SourceStreamInspector
+                wb={workbook}
+                commodityId={cid}
+                consumerLabels={labels}
+                onMaxPurchase={(v) =>
+                  setWorkbook(
+                    setSheet(
+                      workbook,
+                      "commodities",
+                      (workbook.commodities ?? []).map((r) => (s(r.commodity_id) === cid ? { ...r, max_purchase: v ?? "" } : r)),
+                    ),
+                  )
+                }
+              />
+            </FloatingPanel>
+          );
+        })()
+      ) : selNode?.kind === "machine" ? (
+        (() => {
+          const baseline = s((workbook.machines ?? []).find((m) => s(m.machine_id) === selId)?.baseline_technology);
+          const alts = (workbook.transitions ?? []).filter((r) => s(r.from_technology) === baseline).map((r) => s(r.to_technology));
+          const product = machineProduct(workbook, selId!);
+          return (
+            <FloatingPanel title="machine" width={340} onClose={() => setSelId(null)}>
+              <MachineInspector
+                wb={workbook}
+                machineId={selId!}
+                onCapacity={(v) => setWorkbook(setSheet(workbook, "machines", (workbook.machines ?? []).map((r) => (s(r.machine_id) === selId ? { ...r, capacity: v } : r))))}
+                unitLabel={product ? commodityUnit(workbook, product) : undefined}
+                minOutput={product ? minOutputCap(workbook, selId!, product) : null}
+                onMinOutput={product ? (v) => setWorkbook(setMinOutputCap(workbook, selId!, product, v)) : undefined}
+                maxOutput={product ? maxOutputCap(workbook, selId!, product) : null}
+                onMaxOutput={product ? (v) => setWorkbook(setMaxOutputCap(workbook, selId!, product, v)) : undefined}
+              />
+              <div style={{ padding: "0 16px 14px" }}>
+                <Alternatives
+                  baseline={baseline}
+                  alternatives={alts}
+                  available={availableTechs}
+                  onAdd={(tech, library, scope) => void addAlt(selId!, tech, library, scope)}
+                  onRemove={(tech) => removeAlt(baseline, tech)}
+                />
+                <FlowContext wb={workbook} nodeId={selId!} />
+              </div>
+            </FloatingPanel>
+          );
+        })()
+      ) : selNode ? (
+        <FloatingPanel title="group" width={320} onClose={() => setSelId(null)}>
+          <div style={{ padding: "12px 14px" }}>
+            <input className="title-input" value={selNode.label} onChange={(e) => renameNode(selId!, e.target.value)} />
+            <label className="field-row" style={{ marginBottom: 14 }}>
+              <span className="muted">level</span>
+              <input className="field-input" style={{ flex: 1 }} value={selNode.level} onChange={(e) => setLevel(selId!, e.target.value)} placeholder="value_chain / company / facility" />
+            </label>
+
+            <FlowContext wb={workbook} nodeId={selId!} />
+
+            <PortsPanel wb={workbook} nodeId={selId!} commodities={commodities} onAdd={(c, k) => addMarket(selId!, c, k)} onPrice={setMarketPrice} onRemove={removeMarket} />
+
+            <div className="rail-section">
+              <div className="rail-head-row">
+                <span className="rail-head">Targets (this node)</span>
+                <button className="rail-add" onClick={() => addTarget(selId!)}>＋</button>
+              </div>
+              {demandFor(selId!).map(({ idx, r }) => (
+                <div key={idx} style={{ display: "flex", gap: 4, padding: "2px 8px", alignItems: "center" }}>
+                  <span style={{ flex: 1 }}>
+                    <SearchSelect value={s(r.commodity_id)} onChange={(v) => setDemandRow(idx, { commodity_id: v })}
+                      options={products.map((p) => ({ value: p }))} placeholder="stream…" />
+                  </span>
+                  <input className="field-input" style={{ width: 70 }} type="number" min={0} value={Number(r.amount) || 0} onChange={(e) => setDemandRow(idx, { amount: Number(e.target.value) || 0 })} />
+                  <button className="ghost" onClick={() => delDemandRow(idx)}>✕</button>
+                </div>
+              ))}
+              {demandFor(selId!).length === 0 && <div className="rail-empty">no targets here — what must this node deliver?</div>}
+            </div>
+          </div>
+        </FloatingPanel>
+      ) : showHealth ? (
+        <FloatingPanel title="model health" width={320} onClose={() => setShowHealth(false)}>
+          <div style={{ padding: "8px 0" }}>
+            <ModelHealth issues={issues} onJump={(id) => { setShowHealth(false); setSelId(id); }} onFix={applyFix} />
+          </div>
+        </FloatingPanel>
+      ) : null}
 
       {picker && <ComponentPicker sessionId={sessionId} libs={libs} onPick={(lib, name, kind, scope) => { void dropPick(lib, name, kind, picker.parentId, scope); setPicker(null); }} onClose={() => setPicker(null)} />}
       {altPicker && (() => {
