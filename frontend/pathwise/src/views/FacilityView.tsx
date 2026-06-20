@@ -158,11 +158,24 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     g: "Measures & MACC",
   };
 
+  // Technology / Stream / Measures & MACC are the LAST group level — under them
+  // live only components, never another group. So a drop onto a kind-group (or a
+  // machine inside one) files under its nearest NORMAL ancestor group, so the
+  // kind-group is a SIBLING, never nested inside another kind-group.
+  function normalParentOf(targetId: string): string | null {
+    let cur = nodeById.get(targetId);
+    while (cur) {
+      if (cur.kind !== "machine" && !isPrefixedLevel(cur.level)) return cur.id;
+      cur = cur.parentId ? nodeById.get(cur.parentId) : undefined;
+    }
+    return null;
+  }
+
   /** Find (or create) the kind-group under `parentId`, returning [groupId, wb]. */
-  function ensureKindGroup(wb: Workbook, parentId: string, kind: DragKind): [string, Workbook] {
+  function ensureKindGroup(wb: Workbook, parentId: string | null, kind: DragKind): [string, Workbook] {
     const label = KIND_GROUP[kind];
     const existing = (wb.nodes ?? []).find(
-      (r) => s(r.parent_id) === parentId && s(r.kind) === "group" && s(r.level) === label,
+      (r) => s(r.parent_id) === s(parentId) && s(r.kind) === "group" && s(r.level) === label,
     );
     if (existing) return [s(existing.node_id), wb];
     const id = genId("kg");
@@ -181,7 +194,15 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     if (!name) return;
     setError(null);
     try {
-      const [kgId, wb] = ensureKindGroup(workbook, parentId, kind);
+      // File under the target's nearest normal group, so the Technology / Stream /
+      // Measures & MACC group is a sibling — never nested inside another kind-group.
+      const np = normalParentOf(parentId);
+      const [kgId, wb] = ensureKindGroup(workbook, np, kind);
+      const expand = (p: Set<string>) => {
+        const m = new Set(p).add(kgId);
+        if (np) m.add(np);
+        return m;
+      };
       if (kind === "t") {
         setWorkbook(wb);
         await putModel(sessionId, wb); // the endpoint operates on the stored model
@@ -193,7 +214,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         }
         adoptServerModel(fresh);
         await putModel(sessionId, fresh);
-        setExpanded((p) => new Set(p).add(parentId).add(kgId));
+        setExpanded(expand);
         if (newId) setSelId(newId);
       } else {
         // Stream / Measure / MACC → a named real-world entry under its group.
@@ -204,7 +225,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         ]);
         setWorkbook(next);
         await putModel(sessionId, next);
-        setExpanded((p) => new Set(p).add(parentId).add(kgId));
+        setExpanded(expand);
         setSelId(leafId);
       }
     } catch (e) {
@@ -283,12 +304,23 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
 
   function actionsFor(node: TreeNode): TreeAction[] {
     if (node.kind === "machine") return [{ id: "delete", label: "Delete", danger: true }];
+    // A kind-group (Technology / Stream / Measures & MACC) is leaf-level — you
+    // can't add a sub-group inside it, only drop components.
+    const prefixed = isPrefixedLevel(node.level);
     return [
-      { id: "add-group", label: "Add group inside" },
-      { id: "rename", label: "Rename", separatorBefore: true },
+      ...(prefixed ? [] : [{ id: "add-group", label: "Add group inside" }]),
+      { id: "rename", label: "Rename", separatorBefore: !prefixed },
       { id: "delete", label: "Delete", danger: true },
     ];
   }
+
+  // A kind-group holds ONLY components — forbid reparenting any group into one.
+  const canDrop = (dragId: string, newParentId: string | null): boolean => {
+    if (!newParentId) return true;
+    const np = nodeById.get(newParentId);
+    if (np && isPrefixedLevel(np.level)) return nodeById.get(dragId)?.kind === "machine";
+    return true;
+  };
   function onContextAction(actionId: string, node: TreeNode) {
     if (actionId === "add-group") void addSubgroup(node.id);
     else if (actionId === "rename") void renameNode(node.id);
@@ -424,7 +456,8 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
       actionsFor={opts.drop ? actionsFor : () => []}
       onContextAction={onContextAction}
       onMove={opts.drop ? onMove : () => undefined}
-      acceptsExternal={opts.drop ? (t) => t.kind !== "machine" : undefined}
+      canDrop={opts.drop ? canDrop : undefined}
+      acceptsExternal={opts.drop ? () => true : undefined}
       onExternalDrop={
         opts.drop
           ? (payload, target) => {

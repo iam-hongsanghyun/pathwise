@@ -256,9 +256,11 @@ textarea:focus {
 }
 
 /* ── Rails (left/right structure + analytics) ─────────────────────────── */
+/* Transparent (the workspace --bg shows through) so the RailList rails match the
+   builder rails (.builder-rail) — they were the white odd-one-out in Analytics. */
 .left-rail,
 .right-rail {
-  background: var(--surface);
+  background: transparent;
 }
 .rail-head {
   font-size: 0.66rem;
