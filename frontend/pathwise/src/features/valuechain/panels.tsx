@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { SearchableSelect } from "../controls/SearchableSelect";
 import { SearchSelect } from "../controls/SearchSelect";
 import { TemporalValue, type TemporalVal } from "../controls/TemporalValue";
+import { supplyCap } from "../../lib/caps";
 import type { AvailableTechnology } from "../../lib/api/components";
 import type { Cell, RunResult, Workbook } from "../../types";
 
@@ -557,13 +558,17 @@ export function SourceStreamInspector({
   wb,
   commodityId,
   consumerLabels,
-  onMaxPurchase,
+  onSupplyCap,
+  baseYear = 2025,
+  periods,
 }: {
   wb: Workbook;
   commodityId: string;
   consumerLabels: string[];
-  /** Set / clear (null) this stream's annual supply cap (commodities.max_purchase). */
-  onMaxPurchase?: (v: number | null) => void;
+  /** Set / clear (null) this stream's annual supply cap — static or by-year. */
+  onSupplyCap?: (v: TemporalVal | null) => void;
+  baseYear?: number;
+  periods?: number[];
 }) {
   const row = (wb.commodities ?? []).find((r) => String(r.commodity_id) === commodityId) ?? {};
   const g = (k: string): string | null => {
@@ -587,20 +592,19 @@ export function SourceStreamInspector({
       </p>
       <div className="mi-section-head"><span>purchasing</span></div>
       {kv("purchase price", g("price") ?? "—", unit ? `/${unit}` : undefined)}
-      {onMaxPurchase ? (
+      {onSupplyCap ? (
         <div className="mi-kv">
           <span>max supply / yr</span>
           <span className="mi-val">
-            <input
-              type="number"
-              min={0}
+            <TemporalValue
+              value={supplyCap(wb, commodityId)}
+              onChange={onSupplyCap}
+              unit={unit || undefined}
+              baseYear={baseYear}
+              periods={periods}
               placeholder="no cap"
-              value={g("max_purchase") ?? ""}
-              className="field-input"
-              style={{ width: 90 }}
-              onChange={(e) => onMaxPurchase(e.target.value === "" ? null : Number(e.target.value) || 0)}
+              label={`${commodityId} · max supply`}
             />
-            {unit ? <span className="mi-unit"> {unit}</span> : null}
           </span>
         </div>
       ) : (

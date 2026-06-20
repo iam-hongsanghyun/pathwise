@@ -73,3 +73,63 @@ export const minOutputCap = (wb: Workbook, scope: string, commodity: string): Bo
   cap(wb, "min_production", scope, commodity);
 export const setMinOutputCap = (wb: Workbook, scope: string, commodity: string, value: Bound | null): Workbook =>
   setCap(wb, "min_production", scope, commodity, value);
+
+// ── Source-stream supply cap (max_purchase) ──────────────────────────────────
+// A static cap is the `max_purchase` column on the commodities row; a temporal
+// cap lives in the WIDE `commodities_t__max_purchase` sheet (one row per year, a
+// column named by each commodity). The engine interpolates the temporal series,
+// else falls back to the static value.
+
+const SUPPLY_T = "commodities_t__max_purchase";
+
+/** The supply cap for `commodity`: a {year: value} map if the wide temporal sheet
+ *  carries it, a number if a static `max_purchase`, else null. */
+export function supplyCap(wb: Workbook, commodity: string): Bound | null {
+  const by: ByYear = {};
+  for (const r of wb[SUPPLY_T] ?? []) {
+    const yr = r.year;
+    const v = (r as Record<string, Cell>)[commodity];
+    if (yr != null && String(yr).trim() !== "" && v != null && String(v).trim() !== "")
+      by[String(Math.round(Number(yr)))] = Number(v) || 0;
+  }
+  if (Object.keys(by).length) return by;
+  const row = (wb.commodities ?? []).find((r) => s(r.commodity_id) === commodity);
+  const mp = row?.max_purchase;
+  return mp == null || String(mp).trim() === "" ? null : Number(mp) || 0;
+}
+
+/** Upsert (or clear, when `value` is null) the supply cap. A static value sets the
+ *  `max_purchase` column; a temporal value writes the wide sheet. The two stores
+ *  are kept mutually exclusive so the engine reads one source of truth. */
+export function setSupplyCap(wb: Workbook, commodity: string, value: Bound | null): Workbook {
+  // Drop this commodity's column from every wide row, then drop emptied rows.
+  const tRows = (wb[SUPPLY_T] ?? [])
+    .map((r) => {
+      const { [commodity]: _drop, ...rest } = r as Record<string, Cell>;
+      return rest as Row;
+    })
+    .filter((r) => Object.keys(r).some((k) => k !== "year" && String(r[k] ?? "").trim() !== ""));
+  const commodities = (wb.commodities ?? []).map((r) =>
+    s(r.commodity_id) === commodity ? { ...r, max_purchase: "" } : r,
+  );
+
+  if (value == null) return { ...wb, commodities, [SUPPLY_T]: tRows };
+
+  if (typeof value === "number") {
+    return {
+      ...wb,
+      [SUPPLY_T]: tRows,
+      commodities: commodities.map((r) => (s(r.commodity_id) === commodity ? { ...r, max_purchase: value } : r)),
+    };
+  }
+
+  // Temporal: merge the commodity's column into the per-year wide rows.
+  const byYearRow = new Map<string, Row>();
+  for (const r of tRows) byYearRow.set(String(Math.round(Number(r.year))), r);
+  for (const [yr, v] of Object.entries(value)) {
+    const key = String(Math.round(Number(yr)));
+    const existing = byYearRow.get(key) ?? { year: Number(key) };
+    byYearRow.set(key, { ...existing, [commodity]: v });
+  }
+  return { ...wb, commodities, [SUPPLY_T]: Array.from(byYearRow.values()) };
+}

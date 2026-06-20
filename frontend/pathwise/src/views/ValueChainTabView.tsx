@@ -35,7 +35,7 @@ import {
 } from "../lib/api/components";
 import type { LibraryEntry } from "../lib/api/libraries";
 import { getFullModel, putModel } from "../lib/api/session";
-import { commodityUnit, machineProduct, maxOutputCap, minOutputCap, setMaxOutputCap, setMinOutputCap } from "../lib/caps";
+import { commodityUnit, machineProduct, maxOutputCap, minOutputCap, setMaxOutputCap, setMinOutputCap, setSupplyCap } from "../lib/caps";
 import { parseNodes } from "../lib/groupGraph";
 import type { Cell, Row, Workbook } from "../types";
 
@@ -466,15 +466,9 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 wb={workbook}
                 commodityId={cid}
                 consumerLabels={labels}
-                onMaxPurchase={(v) =>
-                  setWorkbook(
-                    setSheet(
-                      workbook,
-                      "commodities",
-                      (workbook.commodities ?? []).map((r) => (s(r.commodity_id) === cid ? { ...r, max_purchase: v ?? "" } : r)),
-                    ),
-                  )
-                }
+                baseYear={baseYear}
+                periods={periods}
+                onSupplyCap={(v) => setWorkbook(setSupplyCap(workbook, cid, v))}
               />
             </FloatingPanel>
           );
