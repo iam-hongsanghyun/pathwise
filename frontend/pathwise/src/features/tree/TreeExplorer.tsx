@@ -19,6 +19,12 @@ interface Props {
   onMove: (e: TreeMoveEvent) => void;
   /** Extra drop validation on top of the built-in self/descendant guard. */
   canDrop?: (dragId: string, targetId: string | null) => boolean;
+  /** Does `target` accept a drag from OUTSIDE this tree (another tree instance)?
+   *  Enables cross-tree drag-copy (e.g. the Facility view's library → structure). */
+  acceptsExternal?: (target: TreeNode) => boolean;
+  /** A foreign drag (its `payload` = the source tree's dragId, carried via the
+   *  dataTransfer string) dropped on `target`. The host performs the action. */
+  onExternalDrop?: (payload: string, target: TreeNode) => void;
   emptyHint?: React.ReactNode;
 }
 
@@ -34,6 +40,8 @@ export function TreeExplorer({
   onContextAction,
   onMove,
   canDrop,
+  acceptsExternal,
+  onExternalDrop,
   emptyHint,
 }: Props) {
   const dragId = useRef<string | null>(null);
@@ -102,7 +110,18 @@ export function TreeExplorer({
             setDropHint(null);
           }}
           onDragOver={(e) => {
-            if (!dragId.current) return;
+            if (!dragId.current) {
+              // A drag from another tree instance — accept onto external targets.
+              if (onExternalDrop && acceptsExternal?.(nd) && e.dataTransfer.types.includes("text/plain")) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "copy";
+                if (dropHint?.id !== nd.id || dropHint.position !== "inside")
+                  setDropHint({ id: nd.id, position: "inside" });
+              } else if (dropHint?.id === nd.id) {
+                setDropHint(null);
+              }
+              return;
+            }
             const rect = e.currentTarget.getBoundingClientRect();
             const rel = (e.clientY - rect.top) / rect.height;
             const position: DropPosition =
@@ -122,7 +141,16 @@ export function TreeExplorer({
             const h = dropHint;
             dragId.current = null;
             setDropHint(null);
-            if (!drag || !h || h.id !== nd.id || !allowDrop(nd, h.position)) return;
+            if (!drag) {
+              // External (cross-tree) drop: read the foreign dragId from the payload.
+              const payload = e.dataTransfer.getData("text/plain");
+              if (onExternalDrop && payload && acceptsExternal?.(nd)) {
+                e.preventDefault();
+                onExternalDrop(payload, nd);
+              }
+              return;
+            }
+            if (!h || h.id !== nd.id || !allowDrop(nd, h.position)) return;
             e.preventDefault();
             onMove({
               dragId: drag,

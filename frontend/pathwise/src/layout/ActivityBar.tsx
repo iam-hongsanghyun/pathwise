@@ -1,4 +1,4 @@
-export type View = "component" | "project" | "valuechain" | "targets" | "analytics" | "settings";
+export type View = "component" | "facility" | "valuechain" | "targets" | "analytics" | "settings";
 
 interface Entry {
   id: View;
@@ -15,10 +15,12 @@ const I = {
       <path d="M12 12v10" />
     </svg>
   ),
-  project: (
+  facility: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-      <path d="M12 11v5M9.5 13.5h5" />
+      <path d="M3 21h18" />
+      <path d="M5 21V8l5-3v16" />
+      <path d="M10 21V11l9 4v6" />
+      <path d="M13.5 17h2M13.5 19.5h2" />
     </svg>
   ),
   valuechain: (
@@ -54,7 +56,7 @@ const I = {
 // pinned to the bottom of the strip (separated by a flex spacer).
 const TOP: Entry[] = [
   { id: "component", label: "Library — shared, reusable building blocks (base catalogue)", icon: I.component },
-  { id: "project", label: "Project — your working set: design or copy components in", icon: I.project },
+  { id: "facility", label: "Facility — real-world facilities: capacity, owners & build years", icon: I.facility },
   { id: "valuechain", label: "Value chain — assemble the model (subgroups → companies → facilities)", icon: I.valuechain },
   { id: "targets", label: "Targets & constraints — production targets, caps and budgets by scope", icon: I.targets },
   { id: "analytics", label: "Analytics — results & charts", icon: I.analytics },
