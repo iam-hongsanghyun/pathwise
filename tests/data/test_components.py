@@ -17,6 +17,8 @@ from pathwise.data.components import (
     ComponentLibrary,
     instantiate,
     instantiate_into,
+    library_from_workbook,
+    library_to_workbook,
     place_technology,
 )
 from pathwise.data.templates import MeasureBlockTemplate, MeasureTemplate
@@ -311,3 +313,37 @@ def test_instantiate_into_drops_a_fresh_copy_under_a_parent() -> None:
     assert len(roots) == 2 and roots[0]["node_id"] != roots[1]["node_id"]
     # technologies are merged by id (shared recipe), not duplicated
     assert len({r["technology_id"] for r in model["technologies"]}) == len(model["technologies"])
+
+
+def test_machine_real_world_fields_round_trip() -> None:
+    # A Project machine carries real-world facts (owner / capacity / build &
+    # close year) on top of its technology — these must survive the SQLite
+    # round-trip the component-library store uses.
+    lib = ComponentLibrary.model_validate(
+        {
+            "label": "proj",
+            "commodities": [{"commodity_id": "steel", "kind": "product"}],
+            "technologies": [
+                {
+                    "technology_id": "BF",
+                    "io": [{"target": "steel", "role": "output", "coefficient": 1}],
+                }
+            ],
+            "machines": [
+                {
+                    "name": "BF #1",
+                    "technology": "BF",
+                    "capacity": 2.0,
+                    "owner": "Company A",
+                    "build_year": 2020,
+                    "close_year": 2050,
+                }
+            ],
+        }
+    )
+    back = library_from_workbook(library_to_workbook(lib))
+    m = back.machine("BF #1")
+    assert m is not None
+    assert m.owner == "Company A"
+    assert m.capacity == 2.0
+    assert m.build_year == 2020 and m.close_year == 2050

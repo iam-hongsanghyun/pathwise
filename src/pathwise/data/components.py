@@ -67,24 +67,29 @@ from pathwise.data.workbook import Workbook
 
 
 class MachineComponent(BaseModel):
-    """A leaf component: a unit running one technology, with its own capacity.
+    """A real-world machine: one physical unit running one technology.
 
-    Carries its own **measures** — small retrofits of the SAME technology (the
-    "MACC subgroup" authored next to the machine in the Component builder).
-    Instantiating the machine stamps each measure onto the resulting node, with
-    block capex/opex scaled to the instance capacity.
+    This is the **Project** layer's core primitive. A component (technology) is
+    the per-unit technical spec; a machine is a named instance of it with its
+    real-world facts: an owning **company**, a physical **capacity** (size), a
+    **build_year** / **close_year**, and its own **measures** (a per-machine MACC
+    — the same technology's retrofits, which may differ machine-to-machine). The
+    same technology appears as many differently-named machines across companies.
 
-    .. deprecated:: legacy / backward-compat
-        The builder no longer authors :class:`MachineComponent` objects; the
-        Value Chain places a technology directly as a machine node via
-        :func:`place_technology`.  This class is retained only to round-trip
-        legacy ``machines`` sheet rows from older SQLite component libraries.
+    Each machine is independent (a hard copy): editing one machine's measures
+    never affects another. Instantiating a machine stamps each measure onto the
+    resulting node, with block capex/opex scaled to the instance capacity.
     """
 
     name: str
     label: str = ""
     technology: str  # a technology_id defined in the library's technologies
     capacity: float = Field(default=0.0, ge=0.0)
+    #: The company that owns this machine (free-text; a project groups by it).
+    owner: str = ""
+    #: Real-world lifecycle: the year the machine is built / retired (0 = unset).
+    build_year: int = Field(default=0, ge=0)
+    close_year: int = Field(default=0, ge=0)
     measures: list[MeasureTemplate] = Field(default_factory=list)
 
 
@@ -389,6 +394,9 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
                 "label": mc.label,
                 "technology": mc.technology,
                 "capacity": mc.capacity,
+                "owner": mc.owner,
+                "build_year": mc.build_year,
+                "close_year": mc.close_year,
                 "measures_json": js([m.model_dump() for m in mc.measures]),
             }
             for mc in lib.machines
@@ -654,6 +662,9 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
             label=_es(r.get("label")),
             technology=_es(r.get("technology")),
             capacity=_enum(r.get("capacity")),
+            owner=_es(r.get("owner")),
+            build_year=int(_enum(r.get("build_year"))),
+            close_year=int(_enum(r.get("close_year"))),
             measures=[
                 MeasureTemplate.model_validate(m)
                 for m in json.loads(_es(r.get("measures_json")) or "[]")
