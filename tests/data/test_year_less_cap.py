@@ -60,3 +60,11 @@ def test_year_keyed_only_does_not_spread() -> None:
     )
     assert prob.max_production.get(("all", "steel", 2025)) == 5
     assert ("all", "steel", 2030) not in prob.max_production  # no base → no spread
+
+
+def test_min_production_year_less_floor_applies_to_every_year() -> None:
+    wb = _wb([])
+    wb["min_production"] = [{"company": "co/bf", "commodity_id": "iron", "amount": 30}]
+    prob = assemble_problem(wb, SC)
+    assert prob.min_production[("co/bf", "iron", 2025)] == 30
+    assert prob.min_production[("co/bf", "iron", 2030)] == 30

@@ -41,19 +41,25 @@ export function MachineInspector({
   wb,
   machineId,
   onCapacity,
+  minOutput,
+  onMinOutput,
   maxOutput,
   onMaxOutput,
-  productLabel,
+  unitLabel,
 }: {
   wb: Workbook;
   machineId: string;
   onCapacity: (v: number) => void;
-  /** Current annual output cap (year-less max_production), or null = no cap. */
+  /** Current annual output floor (year-less min_production), or null = none. */
+  minOutput?: number | null;
+  /** Set / clear (null) this machine's annual output floor. */
+  onMinOutput?: (v: number | null) => void;
+  /** Current annual output ceiling (year-less max_production), or null = none. */
   maxOutput?: number | null;
-  /** Set / clear (null) this machine's annual output cap. */
+  /** Set / clear (null) this machine's annual output ceiling. */
   onMaxOutput?: (v: number | null) => void;
-  /** The capped product's id (shown as the cap's unit). */
-  productLabel?: string;
+  /** The product's UNIT (t, MWh, …) shown as the bound's unit. */
+  unitLabel?: string;
 }) {
   const machine = (wb.machines ?? []).find((m) => s(m.machine_id) === machineId);
   const tech = s(machine?.baseline_technology);
@@ -200,7 +206,23 @@ export function MachineInspector({
             <span className="mi-unit">{thru}/yr</span>
           </div>
         </div>
-        {onMaxOutput && productLabel && (
+        {onMinOutput && (
+          <div className="mi-card">
+            <div className="mi-card-label">min output</div>
+            <div className="mi-card-val">
+              <input
+                type="number"
+                min={0}
+                placeholder="no floor"
+                value={minOutput ?? ""}
+                className="mi-cap-input"
+                onChange={(e) => onMinOutput(e.target.value === "" ? null : Number(e.target.value) || 0)}
+              />
+              <span className="mi-unit">{unitLabel}/yr</span>
+            </div>
+          </div>
+        )}
+        {onMaxOutput && (
           <div className="mi-card">
             <div className="mi-card-label">max output</div>
             <div className="mi-card-val">
@@ -212,7 +234,7 @@ export function MachineInspector({
                 className="mi-cap-input"
                 onChange={(e) => onMaxOutput(e.target.value === "" ? null : Number(e.target.value) || 0)}
               />
-              <span className="mi-unit">{productLabel}/yr</span>
+              <span className="mi-unit">{unitLabel}/yr</span>
             </div>
           </div>
         )}

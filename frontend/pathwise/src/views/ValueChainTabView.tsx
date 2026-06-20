@@ -34,7 +34,7 @@ import {
 } from "../lib/api/components";
 import type { LibraryEntry } from "../lib/api/libraries";
 import { getFullModel, putModel } from "../lib/api/session";
-import { machineProduct, maxOutputCap, setMaxOutputCap } from "../lib/caps";
+import { commodityUnit, machineProduct, maxOutputCap, minOutputCap, setMaxOutputCap, setMinOutputCap } from "../lib/caps";
 import { parseNodes } from "../lib/groupGraph";
 import type { Cell, Row, Workbook } from "../types";
 
@@ -468,7 +468,9 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                     wb={workbook}
                     machineId={selId!}
                     onCapacity={(v) => setWorkbook(setSheet(workbook, "machines", (workbook.machines ?? []).map((r) => (s(r.machine_id) === selId ? { ...r, capacity: v } : r))))}
-                    productLabel={product ?? undefined}
+                    unitLabel={product ? commodityUnit(workbook, product) : undefined}
+                    minOutput={product ? minOutputCap(workbook, selId!, product) : null}
+                    onMinOutput={product ? (v) => setWorkbook(setMinOutputCap(workbook, selId!, product, v)) : undefined}
                     maxOutput={product ? maxOutputCap(workbook, selId!, product) : null}
                     onMaxOutput={product ? (v) => setWorkbook(setMaxOutputCap(workbook, selId!, product, v)) : undefined}
                   />

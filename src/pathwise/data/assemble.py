@@ -1051,6 +1051,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         "min_id",
         ["company", "commodity_id"],
         "amount",
+        base_years=years,  # a year-less floor (per-machine min output) holds every year
     )
     max_production = _temporal_dict(
         workbook,
