@@ -89,6 +89,14 @@ class TechnologyTemplate(BaseModel):
     introduction_year: int | None = None
     phase_out_year: int | None = None
     io: list[IoRow] = Field(min_length=1)
+    #: Per-year overrides of an io coefficient, keyed ``target -> {year: value}`` —
+    #: a recipe whose intensity / yield / emission factor improves over the horizon.
+    #: Empty = use the scalar ``io`` coefficient every year (sparse points are
+    #: interpolated by the assembler). Values share the static row's authored unit.
+    #: Round-trips through the ``io_t`` sheet (mirrors ``capex_by_year`` ↔ prices).
+    input_intensity_by_year: dict[str, dict[int, float]] = Field(default_factory=dict)
+    output_yield_by_year: dict[str, dict[int, float]] = Field(default_factory=dict)
+    direct_impact_by_year: dict[str, dict[int, float]] = Field(default_factory=dict)
     maccs: list[str] = Field(default_factory=list)
     #: Free-text notes / references for the authoring UI (optimiser ignores it).
     notes: str = ""
@@ -172,6 +180,32 @@ def _io_rows(tech: TechnologyTemplate) -> list[dict[str, Any]]:
             row["share_min"] = r.share_min if r.share_min is not None else 0.0
             row["share_max"] = r.share_max if r.share_max is not None else 1.0
         rows.append(row)
+    return rows
+
+
+def _io_t_rows(tech: TechnologyTemplate) -> list[dict[str, Any]]:
+    """A technology's per-year io coefficients (technology_id, target, role, year, coefficient).
+
+    Mirrors :func:`_io_rows` for the time-varying ``io_t`` sheet; empty trajectories
+    emit nothing, so a technology with only scalar coefficients adds no rows.
+    """
+    rows: list[dict[str, Any]] = []
+    for role, traj_by_target in (
+        ("input", tech.input_intensity_by_year),
+        ("output", tech.output_yield_by_year),
+        ("impact", tech.direct_impact_by_year),
+    ):
+        for target, traj in traj_by_target.items():
+            for y in sorted(traj):
+                rows.append(
+                    {
+                        "technology_id": tech.technology_id,
+                        "target": target,
+                        "role": role,
+                        "year": y,
+                        "coefficient": traj[y],
+                    }
+                )
     return rows
 
 

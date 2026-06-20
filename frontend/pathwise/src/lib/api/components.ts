@@ -37,6 +37,12 @@ export interface TechnologyTemplate {
   /** Per-year overrides of the scalar capex/opex (empty = scalar every year). */
   capex_by_year?: ByYear;
   opex_by_year?: ByYear;
+  /** Per-year overrides of an io coefficient, keyed `target -> {year: value}`
+   *  (a recipe whose intensity / yield / emission factor varies over the horizon).
+   *  Empty = use the scalar io coefficient. Round-trips through the `io_t` sheet. */
+  input_intensity_by_year?: Record<string, ByYear>;
+  output_yield_by_year?: Record<string, ByYear>;
+  direct_impact_by_year?: Record<string, ByYear>;
   /** Years the technology is available to adopt (null = always). */
   introduction_year?: number | null;
   phase_out_year?: number | null;

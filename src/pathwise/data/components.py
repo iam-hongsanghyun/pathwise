@@ -40,6 +40,7 @@ from pathwise.data.sheets import (
     GROUPS,
     IMPACTS,
     IO,
+    IO_T,
     MACCS,
     MACHINES,
     MEASURE_BLOCKS,
@@ -58,6 +59,7 @@ from pathwise.data.templates import (
     MeasureTemplate,
     TechnologyTemplate,
     _io_rows,
+    _io_t_rows,
     _measure_block_t_rows,
     _tech_row,
 )
@@ -340,6 +342,8 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
         wb[COMMODITY_PRICES] = cp
     if tp := _technology_price_rows(lib):
         wb[TECHNOLOGIES_PRICES] = tp
+    if iot := [row for t in lib.technologies for row in _io_t_rows(t)]:
+        wb[IO_T] = iot
     if mb := _measure_block_traj_rows(lib):
         wb[MEASURE_BLOCKS_T] = mb
     if props := [
@@ -492,6 +496,8 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
             )
         )
 
+    io_t_by = _read_io_t(wb.get(IO_T, []))
+
     def split(v: object) -> list[str]:
         sv = _es(v)
         return sv.split("|") if sv else []
@@ -507,6 +513,7 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
             introduction_year=_year(r.get("introduction_year")),
             phase_out_year=_year(r.get("phase_out_year")),
             io=io_by.get(_es(r.get("technology_id")), []),
+            **_io_t_fields(io_t_by, _es(r.get("technology_id"))),
             maccs=split(r.get("maccs")),
             notes=_es(r.get("notes")),
         )
@@ -714,9 +721,11 @@ def instantiate(
 
     technologies = [_tech_row(t) for t in library.technologies]
     io: list[dict[str, Any]] = []
+    io_t: list[dict[str, Any]] = []
     impact_ids: set[str] = set()
     for t in library.technologies:
         io.extend(_io_rows(t))
+        io_t.extend(_io_t_rows(t))
         impact_ids |= {r.target for r in t.io if r.role == "impact"}
     commodities: list[dict[str, Any]] = []
     properties: list[dict[str, Any]] = []
@@ -743,6 +752,8 @@ def instantiate(
         COMMODITIES: commodities,
         IMPACTS: [{"impact_id": i, "unit": "t"} for i in sorted(impact_ids)],
     }
+    if io_t:
+        out[IO_T] = io_t
     if properties:
         out[COMMODITY_PROPERTIES] = properties
     if measures:
@@ -828,6 +839,10 @@ def instantiate_into(
     for row in fresh.get(IO, []):
         if str(row.get("technology_id")) not in have_tech:
             wb[IO].append(row)
+    wb.setdefault(IO_T, [])
+    for row in fresh.get(IO_T, []):
+        if str(row.get("technology_id")) not in have_tech:
+            wb[IO_T].append(row)
     # Trajectory rows are multi-row-per-entity, so merge by entity (skip an
     # entity entirely when the model already carried it — the recipe is shared).
     have_comm = {str(r.get("commodity_id")) for r in model.get(COMMODITIES, [])}
@@ -903,6 +918,51 @@ def _merge_commodity_traj(wb: Workbook, c: CommodityTemplate) -> None:
     rows.extend(traj)
 
 
+def _merge_io_t(wb: Workbook, tech: TechnologyTemplate) -> None:
+    """Carry a technology's per-year io coefficients into the model's ``io_t`` sheet.
+
+    So a coefficient time-series authored on the library template reaches the
+    assembler when the technology is placed. No-op when there is no trajectory or
+    the model already carries the technology's rows (idempotent, recipe shared).
+    """
+    rows_new = _io_t_rows(tech)
+    if not rows_new:
+        return
+    rows = wb.setdefault(IO_T, [])
+    if any(str(r.get("technology_id")) == tech.technology_id for r in rows):
+        return
+    rows.extend(rows_new)
+
+
+def _read_io_t(rows: list[dict[str, Any]]) -> dict[str, dict[str, dict[str, dict[int, float]]]]:
+    """Group ``io_t`` rows into ``{technology_id: {role: {target: {year: coefficient}}}}``."""
+    out: dict[str, dict[str, dict[str, dict[int, float]]]] = {}
+    for r in rows:
+        tid, target = _es(r.get("technology_id")), _es(r.get("target"))
+        role = _es(r.get("role")) or "input"
+        y, cv = _year(r.get("year")), r.get("coefficient")
+        if not tid or not target or y is None:
+            continue
+        if isinstance(cv, (int, float)) and not isinstance(cv, bool):
+            out.setdefault(tid, {}).setdefault(role, {}).setdefault(target, {})[y] = float(cv)
+    return out
+
+
+_ROLE_TRAJ = (
+    ("input_intensity_by_year", "input"),
+    ("output_yield_by_year", "output"),
+    ("direct_impact_by_year", "impact"),
+)
+
+
+def _io_t_fields(
+    io_t_by: dict[str, dict[str, dict[str, dict[int, float]]]], tid: str
+) -> dict[str, Any]:
+    """The three ``*_by_year`` kwargs for a ``TechnologyTemplate`` from grouped io_t."""
+    by_role = io_t_by.get(tid, {})
+    return {field: by_role.get(role, {}) for field, role in _ROLE_TRAJ}
+
+
 def place_technology(
     model: Workbook,
     library: ComponentLibrary,
@@ -952,6 +1012,7 @@ def place_technology(
     _merge_tech_traj(wb, tech)
     if all(str(r.get("technology_id")) != technology_id for r in model.get(IO, [])):
         wb.setdefault(IO, []).extend(_io_rows(tech))
+    _merge_io_t(wb, tech)
     inputs_outputs = {r.target for r in tech.io if r.role != "impact"}
     for c in library.commodities:
         if c.commodity_id in inputs_outputs:
@@ -1017,6 +1078,7 @@ def add_alternative(
     _merge_tech_traj(wb, tech)
     if all(str(r.get("technology_id")) != technology_id for r in model.get(IO, [])):
         wb.setdefault(IO, []).extend(_io_rows(tech))
+    _merge_io_t(wb, tech)
     inputs_outputs = {r.target for r in tech.io if r.role != "impact"}
     for c in library.commodities:
         if c.commodity_id in inputs_outputs:
@@ -1125,6 +1187,7 @@ def extract_library_from_workbook(workbook: Workbook, *, label: str = "") -> Com
             )
         )
 
+    io_t_by = _read_io_t(workbook.get(IO_T, []))
     technologies: list[TechnologyTemplate] = []
     seen_t: set[str] = set()
     for r in workbook.get(TECHNOLOGIES, []):
@@ -1141,6 +1204,7 @@ def extract_library_from_workbook(workbook: Workbook, *, label: str = "") -> Com
                 introduction_year=_year(r.get("introduction_year")),
                 phase_out_year=_year(r.get("phase_out_year")),
                 io=io_by_tech[tid],
+                **_io_t_fields(io_t_by, tid),
                 maccs=[],
             )
         )
