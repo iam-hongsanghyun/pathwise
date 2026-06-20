@@ -371,13 +371,10 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
             <input style={{ ...inp, maxWidth: 240 }} value={sel.level ?? ""} placeholder="sector / company / facility / …" onChange={(e) => setLevel(sel.id, e.target.value)} />
           </label>
         )}
-        <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-          {!prefixed && <button className="ghost" onClick={() => void addSubgroup(sel.id)}>＋ group inside</button>}
-        </div>
         <p className="muted" style={{ fontSize: "0.78rem", marginBottom: 8 }}>
           {prefixed
             ? `Drag a ${sel.level === "Technology" ? "technology" : sel.level === "Stream" ? "stream" : "measure / MACC"} from the Library below to add one here.`
-            : "Drag a component from the Library below onto this group, or add a group inside. Components file under a Technology / Stream / Measures & MACC group."}
+            : "Right-click in the tree to add a group inside (like a folder), or drag a component from the Library below — it files under a Technology / Stream / Measures & MACC group."}
         </p>
         {kids.length === 0 ? (
           <p className="muted" style={{ fontSize: "0.78rem" }}>Empty — drag a component from the Library at the bottom-left.</p>
