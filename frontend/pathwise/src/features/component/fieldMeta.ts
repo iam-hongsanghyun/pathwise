@@ -30,6 +30,7 @@ export const FIELD_META: Record<string, FieldMeta> = {
   target: { info: "The stream consumed/produced (or the impact emitted) by this row." },
   role: { info: "input (consumed) · output (produced) · impact (emitted), per unit of throughput." },
   coefficient: { info: "Amount of the stream per unit of the technology's throughput.", unit: "stream unit / throughput" },
+  coefficient_unit: { info: "Unit the coefficient is authored in. Blank = the target stream's own unit; a differing unit is converted to the stream's unit when the model is assembled." },
   is_product: { info: "Marks the primary product output (what demand is placed on)." },
   group: { info: "Blend group (inputs) or output slate (outputs) — members share min/max shares." },
   share_min: { info: "Minimum share of the blend/slate group this stream must take.", unit: "fraction 0–1" },

@@ -10,9 +10,12 @@ const fmt = (x: number): string => (Number.isInteger(x) ? String(x) : x.toFixed(
 export function RecipePreview({
   ioRows,
   defaultN = 100,
+  unitOf,
 }: {
   ioRows: ReadonlyArray<IoLike>;
   defaultN?: number;
+  /** Resolves a stream's canonical unit — shown when a row declares no unit. */
+  unitOf?: (stream: string) => string | undefined;
 }) {
   const [n, setN] = useState(defaultN);
   const r = summarizeRecipe(ioRows, n);
@@ -22,7 +25,12 @@ export function RecipePreview({
     arr.length > 0 && (
       <div style={{ fontSize: "0.74rem", padding: "1px 0", textTransform: "none", letterSpacing: 0 }}>
         <span className="muted">{label}:</span>{" "}
-        {arr.map((l) => `${sign}${fmt(l.total)} ${l.stream}${l.isProduct ? " ★" : ""}`).join(", ")}
+        {arr
+          .map((l) => {
+            const u = l.unit ?? unitOf?.(l.stream);
+            return `${sign}${fmt(l.total)} ${u ? `${u}-` : ""}${l.stream}${l.isProduct ? " ★" : ""}`;
+          })
+          .join(", ")}
       </div>
     );
 

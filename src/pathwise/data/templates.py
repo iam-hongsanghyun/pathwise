@@ -54,6 +54,11 @@ class IoRow(BaseModel):
     target: str
     role: str = Field(pattern="^(input|output|impact)$")
     coefficient: float
+    #: Authored unit of ``coefficient`` (e.g. ``"MWh"``, ``"t"``). None/absent means
+    #: the coefficient is already in the target stream's canonical unit. The assembler
+    #: converts a differing unit → the stream's unit (see :mod:`pathwise.units`); the
+    #: value is stored AS AUTHORED so the editor/preview show the original number.
+    unit: str | None = None
     is_product: bool = False
     group: str | None = None  # blend group (inputs) or slate group (outputs)
     share_min: float | None = Field(default=None, ge=0.0, le=1.0)
@@ -158,6 +163,8 @@ def _io_rows(tech: TechnologyTemplate) -> list[dict[str, Any]]:
             "role": r.role,
             "coefficient": r.coefficient,
         }
+        if r.unit is not None:
+            row["unit"] = r.unit
         if r.is_product:
             row["is_product"] = True
         if r.group is not None:

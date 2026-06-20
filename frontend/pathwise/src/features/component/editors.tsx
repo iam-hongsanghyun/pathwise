@@ -142,12 +142,18 @@ export function TechnologyEditor({
   onAddCommodity,
   onChange,
   onRename,
+  unitOptions = [],
+  streamUnitOf,
 }: {
   value: TechnologyTemplate;
   commodityIds: string[];
   onAddCommodity: (id: string) => void;
   onChange: (v: TechnologyTemplate) => void;
   onRename: (id: string) => void;
+  /** Allowed units (from GET /api/units) offered in each row's unit picker. */
+  unitOptions?: string[];
+  /** Resolves a stream's canonical unit — the default shown when a row is blank. */
+  streamUnitOf?: (id: string) => string | undefined;
 }) {
   const setIo = (i: number, patch: Partial<IoRow>) =>
     onChange({ ...value, io: value.io.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
@@ -199,6 +205,7 @@ export function TechnologyEditor({
             <Th label="target" meta="target" width="26%" />
             <Th label="role" meta="role" />
             <Th label="coef" meta="coefficient" />
+            <Th label="unit" meta="coefficient_unit" />
             <Th label="product?" meta="is_product" />
             <Th label="blend group" meta="group" />
             <Th label="min" meta="share_min" />
@@ -232,6 +239,15 @@ export function TechnologyEditor({
               <td>
                 <input style={{ ...inputStyle, width: 70 }} type="number" min={0} value={r.coefficient} onChange={(e) => setIo(i, { coefficient: num(e.target.value) })} />
               </td>
+              <td style={{ minWidth: 84 }}>
+                <SearchableSelect
+                  value={r.unit ?? ""}
+                  options={unitOptions}
+                  onChange={(v) => setIo(i, { unit: v.trim() || null })}
+                  onCreate={(name) => setIo(i, { unit: name.trim() || null })}
+                  placeholder={streamUnitOf?.(r.target) || "stream unit"}
+                />
+              </td>
               <td style={{ textAlign: "center" }}>
                 {r.role === "output" && (
                   <input type="checkbox" checked={!!r.is_product} onChange={(e) => setIo(i, { is_product: e.target.checked })} />
@@ -256,7 +272,7 @@ export function TechnologyEditor({
         </tbody>
       </table>
       {value.io.length === 0 && <p className="muted" style={{ fontSize: "0.78rem" }}>No streams yet — a technology needs at least one product output.</p>}
-      <RecipePreview ioRows={value.io} />
+      <RecipePreview ioRows={value.io} unitOf={streamUnitOf} />
     </section>
   );
 }

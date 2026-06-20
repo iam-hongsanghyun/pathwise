@@ -480,6 +480,7 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
                 target=_es(r.get("target")),
                 role=_es(r.get("role")) or "input",
                 coefficient=_enum(r.get("coefficient")),
+                unit=_es(r.get("unit")) or None,
                 is_product=bool(r.get("is_product")),
                 group=_es(r.get("group")) or None,
                 share_min=r.get("share_min")
@@ -1112,6 +1113,7 @@ def extract_library_from_workbook(workbook: Workbook, *, label: str = "") -> Com
                 target=_es(r.get("target")),
                 role=role,
                 coefficient=_enum(r.get("coefficient")),
+                unit=_es(r.get("unit")) or None,
                 is_product=bool(r.get("is_product")),
                 group=_es(r.get("group")) or None,
                 share_min=r.get("share_min")

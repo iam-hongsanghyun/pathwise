@@ -34,6 +34,7 @@ import {
   saveSessionComponentLibrary,
   type TechnologyTemplate,
 } from "../lib/api/components";
+import { allowedUnits, getUnits } from "../lib/api/units";
 
 // A library is addressed as `${scope}/${id}` ("base/power", "session/steel") so
 // base and session libraries with the same id never collide in the tree.
@@ -170,12 +171,18 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
   const [status, setStatus] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [railMember, setRailMember] = useState<string>(""); // active member in a bucket's time-series rail
+  const [unitOptions, setUnitOptions] = useState<string[]>([]); // allowed units for the IO unit picker
   const saved = useRef<Map<string, string>>(new Map());
 
   // Base (shared) + this session's own libraries (an imported scenario's set).
   useEffect(() => {
     listAllComponentLibraries(sessionId).then(setLibs).catch((e) => setError(String(e)));
   }, [sessionId]);
+
+  // Allowed units for the recipe unit picker (the backend is the source of truth).
+  useEffect(() => {
+    getUnits().then((u) => setUnitOptions(allowedUnits(u.config))).catch(() => setUnitOptions([]));
+  }, []);
 
   async function loadLib(libId: string) {
     if (openLibs.has(libId)) return;
@@ -398,6 +405,11 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
   // ── Detail ─────────────────────────────────────────────────────────────────────
   const body = sel ? openLibs.get(sel.libId) : undefined;
   const commodityIds = useMemo(() => (body?.commodities ?? []).map((c) => c.commodity_id), [body]);
+  const streamUnit = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of body?.commodities ?? []) if (c.unit) m.set(c.commodity_id, c.unit);
+    return (id: string) => m.get(id);
+  }, [body]);
   const buckets = useMemo(() => (body ? libraryBuckets(body) : null), [body]);
 
   // ── Sector (aggregated roll-up) and Bucket (editable table) views ────────────
@@ -553,6 +565,8 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
           <TechnologyEditor
             value={t}
             commodityIds={commodityIds}
+            unitOptions={unitOptions}
+            streamUnitOf={streamUnit}
             onAddCommodity={(id) => editLib(sel.libId, (l) => ({ ...l, commodities: [...l.commodities, { commodity_id: id, kind: "material", unit: "unit" } as CommodityTemplate] }))}
             onChange={setTech}
             onRename={(id) => setSel({ libId: sel.libId, kind: "tech", id })}

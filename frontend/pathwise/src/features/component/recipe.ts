@@ -11,6 +11,8 @@ export interface RecipeLine {
   perUnit: number;
   total: number;
   isProduct?: boolean;
+  /** Authored unit of the coefficient, if the row declares one. */
+  unit?: string;
 }
 export interface RecipeSummary {
   inputs: RecipeLine[];
@@ -25,6 +27,7 @@ export interface IoLike {
   target?: unknown;
   coefficient?: unknown;
   is_product?: unknown;
+  unit?: unknown;
 }
 
 /** Summarise a technology's IO (already filtered to one technology's rows),
@@ -32,7 +35,7 @@ export interface IoLike {
 export function summarizeRecipe(ioRows: ReadonlyArray<IoLike>, n = 1): RecipeSummary {
   const line = (r: IoLike): RecipeLine => {
     const perUnit = num(r.coefficient);
-    return { stream: s(r.target), perUnit, total: perUnit * n, isProduct: !!r.is_product };
+    return { stream: s(r.target), perUnit, total: perUnit * n, isProduct: !!r.is_product, unit: s(r.unit) || undefined };
   };
   return {
     inputs: ioRows.filter((r) => s(r.role) === "input").map(line),

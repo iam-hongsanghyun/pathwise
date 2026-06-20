@@ -17,6 +17,9 @@ export interface IoRow {
   target: string;
   role: IoRole;
   coefficient: number;
+  /** Authored unit of `coefficient` (e.g. "MWh"). Blank/absent = the target
+   *  stream's unit; a differing unit is converted to the stream's unit at assembly. */
+  unit?: string | null;
   is_product?: boolean;
   group?: string | null;
   share_min?: number | null;

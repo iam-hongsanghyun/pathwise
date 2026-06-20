@@ -343,6 +343,11 @@
           "type": "number",
           "required": true
         },
+        "unit": {
+          "label": "Coefficient unit",
+          "type": "string",
+          "desc": "Authored unit of the coefficient (e.g. MWh, t). Blank = the target stream's unit. A differing unit is converted to the stream's unit when the model is assembled."
+        },
         "is_product": {
           "label": "Is product",
           "type": "boolean"
