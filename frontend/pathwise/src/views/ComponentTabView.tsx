@@ -169,7 +169,7 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
   const [unitOptions, setUnitOptions] = useState<string[]>([]); // allowed units for the IO unit picker
   const saved = useRef<Map<string, string>>(new Map());
 
-  // Base (shared) + this session's own libraries (an imported scenario's set).
+  // Base (shared) + this session's own libraries (an imported project's set).
   useEffect(() => {
     listAllComponentLibraries(sessionId).then(setLibs).catch((e) => setError(String(e)));
   }, [sessionId]);
@@ -230,7 +230,7 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
 
     for (const l of libs) {
       const lk = keyOf(l); // compound `${scope}/${id}`
-      const tag = l.scope === "session" ? " · scenario" : " · base";
+      const tag = l.scope === "session" ? " · project" : " · base";
       out.push({ id: `lib:${lk}`, parentId: null, kind: "library", label: `${l.label || l.id}${tag}`, hasChildren: true, draggable: false, droppable: false });
       const body = openLibs.get(lk);
       if (!body) continue;
@@ -547,7 +547,7 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
   }
 
   function renderLanding() {
-    const tier = (sc: LibScope): string => (sc === "session" ? "scenario" : sc);
+    const tier = (sc: LibScope): string => (sc === "session" ? "project" : sc);
     const open = (l: LibrarySummary) => {
       const key = keyOf(l);
       setExpanded((p) => new Set(p).add(`lib:${key}`));
@@ -577,7 +577,7 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
                   <span className="lib-tier">{tier(l.scope)}</span>
                 </div>
                 <div className="lib-card-sub muted">
-                  {l.scope === "session" ? "this scenario's set" : "shared building blocks"}
+                  {l.scope === "session" ? "this project's set" : "shared building blocks"}
                 </div>
                 <div className="lib-card-stats">
                   <div><b>{l.technologies}</b><span className="muted">tech</span></div>

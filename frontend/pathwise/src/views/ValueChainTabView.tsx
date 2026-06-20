@@ -106,7 +106,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   }, []);
 
   // The technology pool an alternative can be drawn from (base + session libs);
-  // refetch when the model changes so an imported scenario's techs appear.
+  // refetch when the model changes so an imported project's techs appear.
   useEffect(() => {
     if (sessionId) listAvailableTechnologies(sessionId).then(setAvailableTechs).catch(() => setAvailableTechs([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps

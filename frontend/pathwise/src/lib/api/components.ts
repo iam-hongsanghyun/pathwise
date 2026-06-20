@@ -143,7 +143,7 @@ export interface ComponentLibrary {
   notes_by_sector?: Record<string, string>;
 }
 
-/** Which catalogue a library lives in: the shared "base" set, or a scenario's
+/** Which catalogue a library lives in: the shared "base" set, or a project's
  *  own per-"session" set. */
 export type LibScope = "base" | "session";
 
@@ -193,7 +193,7 @@ export async function deleteComponentLibrary(id: string): Promise<void> {
   );
 }
 
-// ── Per-session libraries (a scenario's own set) ───────────────────────────────
+// ── Per-session libraries (a project's own set) ───────────────────────────────
 
 export async function listSessionComponentLibraries(sessionId: string): Promise<LibrarySummary[]> {
   return json<LibrarySummary[]>(await fetch(`/api/session/${sessionId}/component-libraries`));
