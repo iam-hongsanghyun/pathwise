@@ -320,6 +320,8 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
                 }
                 if c.max_flow is not None:
                     edge["max_flow"] = c.max_flow
+                if c.min_flow is not None:
+                    edge["min_flow"] = c.min_flow
                 edges.append(edge)
 
     return {**workbook, PROCESSES: procs, EDGES: edges}
@@ -755,6 +757,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 max_flow_by_year=(
                     interpolate(edge_maxflow_t[ek], years) if ek in edge_maxflow_t else {}
                 ),
+                min_flow=_num(r.get("min_flow")),
             )
         )
 

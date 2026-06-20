@@ -203,13 +203,13 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   }
 
   // ── Connections ─────────────────────────────────────────────────────────────
-  function addConnection(from: string, to: string, commodity: string, lag: number) {
+  function addConnection(from: string, to: string, commodity: string, lag: number, minFlow: number | null, maxFlow: number | null) {
     if (!from || !to || from === to || !commodity) return;
-    setWorkbook(setSheet(workbook, "connections", [...(workbook.connections ?? []), { from_node: from, to_node: to, commodity_id: commodity, lag_years: lag }]));
+    setWorkbook(setSheet(workbook, "connections", [...(workbook.connections ?? []), { from_node: from, to_node: to, commodity_id: commodity, lag_years: lag, min_flow: minFlow ?? "", max_flow: maxFlow ?? "" }]));
   }
-  function editConnection(rowIndex: number, commodity: string, lag: number) {
+  function editConnection(rowIndex: number, commodity: string, lag: number, minFlow: number | null, maxFlow: number | null) {
     if (!commodity) return;
-    setWorkbook(setSheet(workbook, "connections", (workbook.connections ?? []).map((r, i) => (i === rowIndex ? { ...r, commodity_id: commodity, lag_years: lag } : r))));
+    setWorkbook(setSheet(workbook, "connections", (workbook.connections ?? []).map((r, i) => (i === rowIndex ? { ...r, commodity_id: commodity, lag_years: lag, min_flow: minFlow ?? "", max_flow: maxFlow ?? "" } : r))));
   }
   function deleteConnection(rowIndex: number) {
     setWorkbook(setSheet(workbook, "connections", (workbook.connections ?? []).filter((_, i) => i !== rowIndex)));
@@ -542,7 +542,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
           fromLabel={nodeById.get(connectFrom)?.label ?? connectFrom}
           targets={nodes.filter((n) => n.id !== connectFrom).map((n) => ({ id: n.id, label: `${n.label}${n.level ? ` · ${n.level}` : ""}` }))}
           commodities={commodities}
-          onConfirm={(to, commodity, lag) => { addConnection(connectFrom, to, commodity, lag); setConnectFrom(null); }}
+          onConfirm={(to, commodity, lag) => { addConnection(connectFrom, to, commodity, lag, null, null); setConnectFrom(null); }}
           onClose={() => setConnectFrom(null)}
         />
       )}

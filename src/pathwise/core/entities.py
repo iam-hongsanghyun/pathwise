@@ -506,6 +506,9 @@ class Edge:
         commodity_id: The commodity routed along this edge.
         max_flow: Optional per-period capacity [commodity unit / yr] (``None`` ⇒ ∞).
         max_flow_by_year: Optional year-varying cap; falls back to ``max_flow``.
+        min_flow: Optional per-period floor [commodity unit / yr] (``None`` ⇒ 0) —
+            a take-or-pay off-take on this provider→consumer link.
+        min_flow_by_year: Optional year-varying floor; falls back to ``min_flow``.
     """
 
     from_process: str
@@ -513,10 +516,16 @@ class Edge:
     commodity_id: str
     max_flow: float | None = None
     max_flow_by_year: dict[int, float] = field(default_factory=dict)
+    min_flow: float | None = None
+    min_flow_by_year: dict[int, float] = field(default_factory=dict)
 
     def max_flow_at(self, year: int) -> float | None:
         """Edge capacity in ``year`` [commodity unit / yr] (override, else scalar; ``None`` ⇒ ∞)."""
         return self.max_flow_by_year.get(year, self.max_flow)
+
+    def min_flow_at(self, year: int) -> float | None:
+        """Edge floor in ``year`` [commodity unit / yr] (override, else scalar; ``None`` ⇒ 0)."""
+        return self.min_flow_by_year.get(year, self.min_flow)
 
 
 @dataclass(slots=True, frozen=True)

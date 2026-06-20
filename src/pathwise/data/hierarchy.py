@@ -86,6 +86,7 @@ class Connection:
     commodity_id: str
     lag_years: int = 0
     max_flow: float | None = None
+    min_flow: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -314,6 +315,7 @@ def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
                     commodity_id=c,
                     lag_years=_int(r.get("lag_years")) or 0,
                     max_flow=_num(r.get("max_flow")),
+                    min_flow=_num(r.get("min_flow")),
                 )
             )
 

@@ -340,6 +340,9 @@ export interface EditEdge {
   to: string;
   commodity: string;
   lag: number;
+  /** Per-provider annual flow bounds (null = unset). */
+  maxFlow: number | null;
+  minFlow: number | null;
 }
 
 /** A source stream: a commodity consumed by a facility but produced by none
@@ -418,11 +421,21 @@ export function editEdges(wb: Workbook, laid: LaidNode[]): EditEdge[] {
   const visible = new Set(laid.map((n) => n.id));
   const toVisible = visibleAncestor(nodes, visible);
   const out: EditEdge[] = [];
+  const flow = (v: unknown): number | null =>
+    v == null || String(v).trim() === "" ? null : Number(v);
   (wb.connections ?? []).forEach((row, rowIndex) => {
     const from = toVisible(s(row.from_node));
     const to = toVisible(s(row.to_node));
     if (!from || !to || from === to) return;
-    out.push({ rowIndex, from, to, commodity: s(row.commodity_id, "—"), lag: num(row.lag_years) });
+    out.push({
+      rowIndex,
+      from,
+      to,
+      commodity: s(row.commodity_id, "—"),
+      lag: num(row.lag_years),
+      maxFlow: flow(row.max_flow),
+      minFlow: flow(row.min_flow),
+    });
   });
   return out;
 }
