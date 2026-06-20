@@ -32,6 +32,7 @@ from pathwise.config import get_settings
 from pathwise.data.components import (
     ComponentLibrary,
     add_alternative,
+    copy_component_into,
     instantiate_into,
     library_to_workbook,
     load_component_library,
@@ -249,6 +250,47 @@ def delete_session_component_library(session_id: str, lib_id: str) -> dict[str, 
     if not _session_libs().delete(session_id, lib_id):
         raise HTTPException(status_code=404, detail=f"unknown session library '{lib_id}'")
     return {"id": lib_id, "deleted": True}
+
+
+class CopyComponentInsert(BaseModel):
+    """Body for ``POST /api/session/{sid}/component-library/{dst}/copy``.
+
+    Hard-copy ``component_id`` (a ``kind`` of technology/stream/measure/macc) from
+    the ``src_id`` library — ``src_scope`` ``base`` (shared) or ``session`` — into
+    the destination session project ``dst`` (created empty if it doesn't exist).
+    """
+
+    src_scope: str
+    src_id: str
+    kind: str
+    component_id: str
+
+
+@router.post("/session/{session_id}/component-library/{lib_id}/copy")
+def copy_into_project(session_id: str, lib_id: str, body: CopyComponentInsert) -> dict[str, Any]:
+    """Drag-copy a component (+ its dependency closure) into a session project."""
+    if not _LIB_ID.match(lib_id):
+        raise HTTPException(status_code=422, detail=f"invalid library id '{lib_id}'")
+    store = _session_libs()
+    if body.src_scope == "session":
+        src = store.get(session_id, body.src_id)
+    else:
+        src_path = _lib_path(body.src_id)
+        src = load_component_library(src_path) if src_path.exists() else None
+    if src is None:
+        raise HTTPException(status_code=404, detail=f"unknown source library '{body.src_id}'")
+    dst = store.get(session_id, lib_id) or ComponentLibrary()
+    out = copy_component_into(dst, src, body.kind, body.component_id)
+    store.put(session_id, lib_id, out)
+    logger.info(
+        "copied %s '%s' from %s/%s into project %s",
+        body.kind,
+        body.component_id,
+        body.src_scope,
+        body.src_id,
+        lib_id,
+    )
+    return _summary(lib_id, out, scope="session")
 
 
 class InstantiateInsert(BaseModel):

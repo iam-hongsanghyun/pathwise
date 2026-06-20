@@ -215,6 +215,77 @@ class ComponentLibrary(BaseModel):
         return list(seen.values())
 
 
+def copy_component_into(
+    dst: ComponentLibrary, src: ComponentLibrary, kind: str, component_id: str
+) -> ComponentLibrary:
+    """Deep-copy a component + its dependency closure from ``src`` into ``dst``.
+
+    A *project* (a session library) is built by dragging components in from base /
+    other libraries; the copy is a HARD copy so the project owns its own values.
+    The closure follows references so a placed component actually works:
+    technology → its io-target commodities + its MACCs (+ those MACCs' measures);
+    MACC → its measures; measure → its target commodity; stream → itself. A
+    dependency the destination already has (by id) is REUSED, never overwritten —
+    the project keeps its own edits. Returns a NEW library (pure).
+    """
+    out = dst.model_copy(deep=True)
+    have_c = {c.commodity_id for c in out.commodities}
+    have_m = {m.measure_id for m in out.measures}
+    have_g = {g.macc_id for g in out.maccs}
+    have_t = {t.technology_id for t in out.technologies}
+
+    def add_commodity(cid: str) -> None:
+        if not cid or cid in have_c:
+            return
+        c = next((x for x in src.commodities if x.commodity_id == cid), None)
+        if c is not None:
+            out.commodities.append(c.model_copy(deep=True))
+            have_c.add(cid)
+
+    def add_measure(mid: str) -> None:
+        if not mid or mid in have_m:
+            return
+        m = src.measure(mid)
+        if m is not None:
+            out.measures.append(m.model_copy(deep=True))
+            have_m.add(mid)
+            add_commodity(m.target)  # energy_efficiency targets a commodity (impacts: no-op)
+
+    def add_macc(gid: str) -> None:
+        if not gid or gid in have_g:
+            return
+        g = src.macc(gid)
+        if g is not None:
+            out.maccs.append(g.model_copy(deep=True))
+            have_g.add(gid)
+            for mid in g.measures:
+                add_measure(mid)
+
+    def add_tech(tid: str) -> None:
+        if not tid or tid in have_t:
+            return
+        t = src.technology(tid)
+        if t is None:
+            return
+        out.technologies.append(t.model_copy(deep=True))
+        have_t.add(tid)
+        for r in t.io:
+            if r.role != "impact":
+                add_commodity(r.target)
+        for gid in t.maccs:
+            add_macc(gid)
+
+    if kind == "technology":
+        add_tech(component_id)
+    elif kind == "stream":
+        add_commodity(component_id)
+    elif kind == "measure":
+        add_measure(component_id)
+    elif kind == "macc":
+        add_macc(component_id)
+    return out
+
+
 def load_component_library(path: str | Path) -> ComponentLibrary:
     """Load and validate a component library from a ``.sqlite`` (preferred) or
     ``.json`` file (the format is chosen by suffix)."""

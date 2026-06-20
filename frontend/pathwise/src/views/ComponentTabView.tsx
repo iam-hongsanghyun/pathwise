@@ -167,6 +167,7 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
   const [error, setError] = useState<string | null>(null);
   const [rightW, setRightW] = useState(340); // resizable right-rail (time series) width
   const [unitOptions, setUnitOptions] = useState<string[]>([]); // allowed units for the IO unit picker
+  const [projectH, setProjectH] = useState(240); // adjustable height of the Project-libraries panel
   const saved = useRef<Map<string, string>>(new Map());
 
   // Base (shared) + this session's own libraries (an imported project's set).
@@ -324,6 +325,23 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
     const libId = `base/${id}`; // new libraries go in the shared base catalogue
     try {
       await saveComponentLibrary(id, emptyLibrary(id));
+      setLibs(await listAllComponentLibraries(sessionId));
+      setExpanded((p) => new Set(p).add(`lib:${libId}`));
+      await loadLib(libId);
+      setSel({ libId, kind: "library" });
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  async function newProject() {
+    if (!sessionId) return setError("no backend session yet");
+    const id = (await prompt({ title: "New project", label: "id", placeholder: "letters, digits, -_." }))?.trim();
+    if (!id) return;
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id)) return setError(`invalid project id '${id}'`);
+    const libId = `session/${id}`; // a project is a session-scoped library
+    try {
+      await saveSessionComponentLibrary(sessionId, id, emptyLibrary(id));
       setLibs(await listAllComponentLibraries(sessionId));
       setExpanded((p) => new Set(p).add(`lib:${libId}`));
       await loadLib(libId);
@@ -837,11 +855,41 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
   const notes = notesFor();
   const rail = tsRail();
 
+  // Split the rail: shared "base" libraries on top, this session's own projects below.
+  const baseNodes = treeNodes.filter((nd) => parseId(nd.id).libId.startsWith("base/"));
+  const projectNodes = treeNodes.filter((nd) => parseId(nd.id).libId.startsWith("session/"));
+  const libTree = (nodes: TreeNode[], emptyHint: string) => (
+    <TreeExplorer
+      nodes={nodes}
+      selectedId={sel ? treeIdOf(sel) : null}
+      expandedIds={expanded}
+      onToggle={(id, exp) => {
+        setExpanded((p) => {
+          const m = new Set(p);
+          if (exp) m.add(id);
+          else m.delete(id);
+          return m;
+        });
+        if (exp && id.startsWith("lib:")) void loadLib(id.slice(4));
+      }}
+      onSelect={(id) => {
+        const next = parseId(id);
+        if (!openLibs.has(next.libId)) void loadLib(next.libId);
+        setSel(next);
+      }}
+      actionsFor={actionsFor}
+      onContextAction={onContextAction}
+      onMove={() => undefined}
+      emptyHint={emptyHint}
+    />
+  );
+
   return (
     <div className="view-full builder" style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       {error && <div className="error" style={{ padding: "4px 12px" }} onClick={() => setError(null)}>{error} <span className="muted">(dismiss)</span></div>}
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-        <aside style={{ width: 280, overflow: "auto", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", flexShrink: 0 }}>
+        <aside style={{ width: 280, borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", flexShrink: 0, minHeight: 0 }}>
+          {/* Base (shared) libraries — fills the remaining height. */}
           <div className="rail-head-row" style={{ padding: "6px 10px" }}>
             <button
               className="rail-head"
@@ -849,28 +897,23 @@ export function ComponentTabView({ sessionId }: { sessionId: string | null }) {
               title="Show all libraries"
               onClick={() => setSel(null)}
             >
-              Libraries
+              Libraries (Base)
             </button>
-            <button className="rail-add" title="new library" onClick={newLibrary}>＋</button>
+            <button className="rail-add" title="new base library" onClick={newLibrary}>＋</button>
           </div>
-          <TreeExplorer
-            nodes={treeNodes}
-            selectedId={sel ? treeIdOf(sel) : null}
-            expandedIds={expanded}
-            onToggle={(id, exp) => {
-              setExpanded((p) => { const m = new Set(p); if (exp) m.add(id); else m.delete(id); return m; });
-              if (exp && id.startsWith("lib:")) void loadLib(id.slice(4));
-            }}
-            onSelect={(id) => {
-              const next = parseId(id);
-              if (!openLibs.has(next.libId)) void loadLib(next.libId);
-              setSel(next);
-            }}
-            actionsFor={actionsFor}
-            onContextAction={onContextAction}
-            onMove={() => undefined}
-            emptyHint="No libraries — click ＋ to add one."
-          />
+          <div style={{ flex: 1, minHeight: 60, overflow: "auto" }}>
+            {libTree(baseNodes, "No base libraries — ＋ to add one.")}
+          </div>
+          {/* Drag the divider to grow / shrink the Project-libraries panel below. */}
+          <Resizer side="top" width={projectH} setWidth={setProjectH} min={80} max={600} />
+          {/* This session's own projects — fixed (adjustable) height. */}
+          <div className="rail-head-row" style={{ padding: "6px 10px", borderTop: "1px solid var(--border)" }}>
+            <span className="rail-head">Project libraries</span>
+            <button className="rail-add" title="new project" onClick={newProject}>＋</button>
+          </div>
+          <div style={{ height: projectH, minHeight: 60, overflow: "auto" }}>
+            {libTree(projectNodes, "No projects yet — ＋ to start one (drag base components in).")}
+          </div>
           <div className="muted" style={{ fontSize: "0.7rem", padding: "8px 10px", borderTop: "1px solid var(--border)" }}>Right-click for actions</div>
         </aside>
         <main style={{ flex: 1, overflow: "auto", padding: "16px 20px", minWidth: 0, display: "flex", flexDirection: "column" }}>
