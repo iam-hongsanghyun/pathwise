@@ -61,6 +61,18 @@ const removeLib = (libId: string, sid: string | null): Promise<void> => {
   return scope === "session" && sid ? deleteSessionComponentLibrary(sid, id) : deleteComponentLibrary(id);
 };
 
+/** Why the backend would reject this library as an incomplete draft, or null if
+ *  it is saveable. Mirrors the `min_length` constraints in `data/templates.py`
+ *  (a technology needs ≥1 io row; a measure needs ≥1 cost block) so a freshly
+ *  added, not-yet-filled component is held back from autosave instead of 422ing. */
+function draftBlocker(body: ComponentLibrary): string | null {
+  const t = body.technologies.find((x) => x.io.length === 0);
+  if (t) return `add an input or output to “${t.technology_id}”`;
+  const m = body.measures.find((x) => x.blocks.length === 0);
+  if (m) return `add a cost block to “${m.measure_id}”`;
+  return null;
+}
+
 type Kind = "library" | "cat" | "tech" | "stream" | "measure" | "macc";
 interface Sel {
   libId: string;
@@ -248,16 +260,26 @@ export function ComponentTabView({
     if (dirty.size === 0) return;
     setStatus("saving…");
     const t = setTimeout(async () => {
+      const remaining = new Set<string>(); // incomplete drafts held back from save
+      let blocked: string | null = null;
       try {
         for (const libId of dirty) {
           const body = openLibs.get(libId);
           if (!body) continue;
+          const why = draftBlocker(body);
+          if (why) {
+            remaining.add(libId); // hold off — the backend would 422 this draft
+            blocked = why;
+            continue;
+          }
           const summary = await saveLib(libId, body, sessionId);
           saved.current.set(libId, JSON.stringify(body));
           setLibs((prev) => prev.map((x) => (keyOf(x) === libId ? summary : x)));
         }
-        setDirty(new Set());
-        setStatus("saved");
+        // Only shrink `dirty` when something saved — re-setting it to the same
+        // skipped set would re-trigger this effect in a loop.
+        if (remaining.size !== dirty.size) setDirty(remaining);
+        setStatus(blocked ? `draft — ${blocked}` : "saved");
       } catch (e) {
         setStatus("save failed");
         setError(String(e));
