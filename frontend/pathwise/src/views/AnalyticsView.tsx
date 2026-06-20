@@ -11,6 +11,27 @@ import type { RunResult, Workbook } from "../types";
 
 type Cat = "overview" | "map" | "consumption" | "cost" | "impacts" | "transitions" | "measures" | "macc";
 
+const CAT_LABEL: Record<Cat, string> = {
+  overview: "Overview",
+  map: "Process map",
+  consumption: "Commodity consumption",
+  cost: "Cost over time",
+  impacts: "Impacts",
+  transitions: "Transitions",
+  measures: "Measures",
+  macc: "MACC",
+};
+
+/** The consistent view header every view shows at the top of its main panel. */
+function AnalyticsHead({ title }: { title: string }) {
+  return (
+    <div className="view-head" style={{ padding: "16px 16px 0" }}>
+      <div className="eyebrow">analytics</div>
+      <span className="view-status">{title}</span>
+    </div>
+  );
+}
+
 interface Props {
   workbook: Workbook;
   result: RunResult | null;
@@ -41,6 +62,7 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
         />
         <Resizer width={leftW} setWidth={setLeftW} side="left" />
         <main className="main-area">
+          <AnalyticsHead title="Portfolio" />
           <PortfolioResult portfolio={pf} />
         </main>
       </div>
@@ -61,6 +83,7 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
         />
         <Resizer width={leftW} setWidth={setLeftW} side="left" />
         <main className="main-area">
+          <AnalyticsHead title="MACC" />
           <MaccResult macc={macc} />
         </main>
       </div>
@@ -83,6 +106,7 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
       <RailList title="Analytics" items={items} activeId={cat} onSelect={(id) => setCat(id as Cat)} width={leftW} />
       <Resizer width={leftW} setWidth={setLeftW} side="left" />
       <main className="main-area">
+        <AnalyticsHead title={result ? CAT_LABEL[cat] : "run the model to populate"} />
         {cat === "macc" ? (
           <div className="view">
             <MaccDesigner workbook={workbook} />
