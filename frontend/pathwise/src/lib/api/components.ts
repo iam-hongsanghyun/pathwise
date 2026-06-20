@@ -255,31 +255,11 @@ export async function instantiateComponent(
   );
 }
 
-// ── Project workbench: catalog + copy-in ──────────────────────────────────────
+// ── Project workbench: copy-in (drag a component/group from a library) ─────────
 
 /** The component kinds a project can copy in — the dispatch keys of the backend
  *  `copy_component_into` (a "stream" is a commodity). */
 export type ComponentCatalogKind = "technology" | "stream" | "measure" | "macc";
-
-/** One copy-ready component from the base + session catalogue. `kind` +
- *  `component_id` feed `copyComponentIntoProject` directly. */
-export interface CatalogEntry {
-  scope: LibScope;
-  library_id: string;
-  component_id: string;
-  label: string;
-  kind: ComponentCatalogKind;
-}
-
-/** Every component (optionally of one `kind`) across base + this session's
- *  libraries — the pool the project "+ add → copy existing" picker draws from. */
-export async function listComponentCatalog(
-  sessionId: string,
-  kind?: ComponentCatalogKind,
-): Promise<CatalogEntry[]> {
-  const q = kind ? `?kind=${encodeURIComponent(kind)}` : "";
-  return json<CatalogEntry[]>(await fetch(`/api/session/${sessionId}/component-catalog${q}`));
-}
 
 /** Hard-copy a component (+ its dependency closure) into the session project
  *  `dstId`. Returns the project's new summary. */

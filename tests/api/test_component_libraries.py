@@ -109,7 +109,7 @@ def test_place_unknown_technology_is_422() -> None:
     assert resp.status_code == 422
 
 
-# ── Component catalog (the project "+ add → copy existing" picker source) ───────
+# ── Copy a component (+ its closure) into a project (the drag-to-copy engine) ──
 
 _SESSION_LIB = {
     "label": "proj",
@@ -140,47 +140,54 @@ _SESSION_LIB = {
 }
 
 
-def test_catalog_lists_base_technologies() -> None:
-    rows = client.get("/api/session/cat1/component-catalog?kind=technology").json()
-    assert rows and all(r["kind"] == "technology" and r["scope"] == "base" for r in rows)
-    assert ("steel", "BF_BOF") in {(r["library_id"], r["component_id"]) for r in rows}
-
-
-def test_catalog_includes_session_components_of_every_kind() -> None:
-    sid = "cat2"
-    client.put(f"/api/session/{sid}/component-library/proj", json=_SESSION_LIB)
-    rows = client.get(f"/api/session/{sid}/component-catalog").json()
-    sess = {(r["kind"], r["component_id"], r["label"]) for r in rows if r["scope"] == "session"}
-    assert ("technology", "EAFx", "EAFx") in sess  # tech label falls back to id
-    assert ("stream", "steel", "steel") in sess
-    assert ("measure", "eff1", "Eff one") in sess  # measure/macc carry a label
-    assert ("macc", "M", "Macc one") in sess
-
-
-def test_catalog_kind_filter_is_exclusive() -> None:
-    sid = "cat3"
-    client.put(f"/api/session/{sid}/component-library/proj", json=_SESSION_LIB)
-    for kind in ("technology", "stream", "measure", "macc"):
-        rows = client.get(f"/api/session/{sid}/component-catalog?kind={kind}").json()
-        assert rows and all(r["kind"] == kind for r in rows)
-
-
-def test_catalog_rows_are_copy_ready() -> None:
-    # Each catalog row feeds copy_component_into directly via the copy endpoint.
-    sid = "cat4"
-    src = client.get(f"/api/session/{sid}/component-catalog?kind=technology").json()
-    eaf = next(r for r in src if r["component_id"] == "EAF" and r["library_id"] == "steel")
+def test_copy_technology_from_base_brings_closure() -> None:
+    # Drag a base-library technology onto a project → copy it in with its streams.
+    sid = "copy1"
     summary = client.post(
-        f"/api/session/{sid}/component-library/myproj/copy",
-        json={
-            "src_scope": eaf["scope"],
-            "src_id": eaf["library_id"],
-            "kind": eaf["kind"],
-            "component_id": eaf["component_id"],
-        },
+        f"/api/session/{sid}/component-library/proj/copy",
+        json={"src_scope": "base", "src_id": "steel", "kind": "technology", "component_id": "EAF"},
     ).json()
-    assert summary["technologies"] == 1  # copied in with its closure
+    assert summary["technologies"] == 1  # the technology copied in
+    body = client.get(f"/api/session/{sid}/component-library/proj").json()
+    assert "EAF" in {t["technology_id"] for t in body["technologies"]}
+    assert body["commodities"], "its input/output streams came along (closure)"
 
 
-def test_catalog_invalid_kind_is_422() -> None:
-    assert client.get("/api/session/cat5/component-catalog?kind=widget").status_code == 422
+def test_copy_from_session_source_brings_full_closure() -> None:
+    sid = "copy2"
+    client.put(f"/api/session/{sid}/component-library/src", json=_SESSION_LIB)
+    client.post(
+        f"/api/session/{sid}/component-library/dst/copy",
+        json={
+            "src_scope": "session",
+            "src_id": "src",
+            "kind": "technology",
+            "component_id": "EAFx",
+        },
+    )
+    body = client.get(f"/api/session/{sid}/component-library/dst").json()
+    assert {t["technology_id"] for t in body["technologies"]} == {"EAFx"}
+    assert {c["commodity_id"] for c in body["commodities"]} == {"steel", "elec"}
+    assert {m["measure_id"] for m in body["measures"]} == {"eff1"}  # via the MACC
+    assert {g["macc_id"] for g in body["maccs"]} == {"M"}
+
+
+def test_copy_stream_only() -> None:
+    # Dragging a single stream copies just that commodity, no technologies.
+    sid = "copy3"
+    client.put(f"/api/session/{sid}/component-library/src", json=_SESSION_LIB)
+    client.post(
+        f"/api/session/{sid}/component-library/dst/copy",
+        json={"src_scope": "session", "src_id": "src", "kind": "stream", "component_id": "steel"},
+    )
+    body = client.get(f"/api/session/{sid}/component-library/dst").json()
+    assert {c["commodity_id"] for c in body["commodities"]} == {"steel"}
+    assert body["technologies"] == []
+
+
+def test_copy_unknown_source_is_404() -> None:
+    resp = client.post(
+        "/api/session/copy4/component-library/dst/copy",
+        json={"src_scope": "base", "src_id": "nope", "kind": "technology", "component_id": "x"},
+    )
+    assert resp.status_code == 404

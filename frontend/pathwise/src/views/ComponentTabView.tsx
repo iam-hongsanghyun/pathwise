@@ -19,11 +19,8 @@ import { SearchSelect } from "../features/controls/SearchSelect";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
 import type { TreeAction, TreeNode } from "../features/tree/types";
 import {
-  type CatalogEntry,
   type CommodityTemplate,
-  type ComponentCatalogKind,
   type ComponentLibrary,
-  copyComponentIntoProject,
   deleteComponentLibrary,
   deleteSessionComponentLibrary,
   emptyLibrary,
@@ -32,7 +29,6 @@ import {
   type LibrarySummary,
   type LibScope,
   listAllComponentLibraries,
-  listComponentCatalog,
   type MaccGroup,
   type MeasureTemplate,
   saveComponentLibrary,
@@ -198,8 +194,6 @@ export function ComponentTabView({
   const [error, setError] = useState<string | null>(null);
   const [rightW, setRightW] = useState(340); // resizable right-rail (time series) width
   const [unitOptions, setUnitOptions] = useState<string[]>([]); // allowed units for the IO unit picker
-  const [catalog, setCatalog] = useState<CatalogEntry[]>([]); // copy-source pool (project mode)
-  const [copyKind, setCopyKind] = useState<ComponentCatalogKind>("technology");
   const saved = useRef<Map<string, string>>(new Map());
 
   // The session's projects, and the active one addressed as a session library id.
@@ -210,20 +204,6 @@ export function ComponentTabView({
   useEffect(() => {
     listAllComponentLibraries(sessionId).then(setLibs).catch((e) => setError(String(e)));
   }, [sessionId]);
-
-  // Copy-source catalogue (every component across base + session libs), project mode.
-  async function loadCatalog() {
-    if (!sessionId) return;
-    try {
-      setCatalog(await listComponentCatalog(sessionId));
-    } catch (e) {
-      setError(String(e));
-    }
-  }
-  useEffect(() => {
-    if (mode === "project" && sessionId) void loadCatalog();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, sessionId]);
 
   // Project mode: default the active project to the first one when unset/stale,
   // and keep the selection + loaded body pointed at it.
@@ -440,40 +420,6 @@ export function ComponentTabView({
     setSel({ libId, kind: "library" });
   }
 
-  // Hard-copy a catalogue entry (+ its closure) into the active project.
-  async function copyEntryIntoActive(entry: CatalogEntry) {
-    if (!sessionId || !activeProjectId || !activeLibId) return;
-    try {
-      // The copy runs server-side on the STORED project, and the refresh below
-      // overwrites the local body — so first flush any pending edits to this
-      // project, or they'd be lost in the autosave window (600ms debounce).
-      const pending = openLibs.get(activeLibId);
-      if (dirty.has(activeLibId) && pending) {
-        await saveLib(activeLibId, pending, sessionId);
-        saved.current.set(activeLibId, JSON.stringify(pending));
-        setDirty((d) => {
-          const n = new Set(d);
-          n.delete(activeLibId);
-          return n;
-        });
-      }
-      await copyComponentIntoProject(sessionId, activeProjectId, {
-        src_scope: entry.scope,
-        src_id: entry.library_id,
-        kind: entry.kind,
-        component_id: entry.component_id,
-      });
-      // Force-refresh the active project body (loadLib skips already-open libs).
-      const fresh = await getLib(activeLibId, sessionId);
-      saved.current.set(activeLibId, JSON.stringify(fresh));
-      setOpenLibs((p) => new Map(p).set(activeLibId, fresh));
-      setLibs(await listAllComponentLibraries(sessionId));
-      void loadCatalog();
-      setStatus(`copied ${entry.component_id} → ${activeProjectId}`);
-    } catch (e) {
-      setError(String(e));
-    }
-  }
   async function removeLibrary(libId: string) {
     const [, plain] = splitLib(libId);
     if (!(await confirm({ title: "Delete library", message: `Delete library '${plain}'?`, danger: true, confirmLabel: "Delete" }))) return;
@@ -806,18 +752,6 @@ export function ComponentTabView({
     if (!body) return <p className="muted">Loading…</p>;
     if (sel.kind === "library") {
       const l = libs.find((x) => keyOf(x) === sel.libId);
-      // Project mode: the catalogue of components (from any OTHER library) the
-      // user can hard-copy into this project, narrowed to the chosen kind.
-      const copyEntries =
-        mode === "project"
-          ? catalog.filter(
-              (e) => e.kind === copyKind && !(e.scope === "session" && e.library_id === activeProjectId),
-            )
-          : [];
-      const copyOptions = copyEntries.map((e, i) => ({
-        value: String(i),
-        label: `${e.label} · ${e.library_id}${e.scope === "session" ? " · project" : ""}`,
-      }));
       return (
         <section>
           <h2 style={{ margin: "0 0 8px" }}>{body.label || sel.libId}</h2>
@@ -825,38 +759,6 @@ export function ComponentTabView({
             <span className="muted">label</span>
             <input style={{ ...inp, flex: 1, maxWidth: 280 }} value={body.label} onChange={(e) => editLib(sel.libId, (lib) => ({ ...lib, label: e.target.value }))} />
           </label>
-          {mode === "project" && (
-            <div style={{ marginBottom: 12, padding: "8px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-button)" }}>
-              <div className="muted" style={{ fontSize: "0.74rem", marginBottom: 6 }}>
-                …or copy an existing one in — a hard copy, so its values become project-local.
-              </div>
-              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                <span style={{ minWidth: 120 }}>
-                  <SearchSelect
-                    value={copyKind}
-                    onChange={(v) => v && setCopyKind(v as ComponentCatalogKind)}
-                    options={[
-                      { value: "technology", label: "Technology" },
-                      { value: "stream", label: "Stream" },
-                      { value: "measure", label: "Measure" },
-                      { value: "macc", label: "MACC" },
-                    ]}
-                  />
-                </span>
-                <span style={{ minWidth: 240, flex: 1 }}>
-                  <SearchSelect
-                    value=""
-                    onChange={(v) => {
-                      const e = copyEntries[Number(v)];
-                      if (e) void copyEntryIntoActive(e);
-                    }}
-                    options={copyOptions}
-                    placeholder={copyOptions.length ? `copy a ${copyKind}…` : `no ${copyKind}s to copy`}
-                  />
-                </span>
-              </div>
-            </div>
-          )}
           <p className="muted" style={{ fontSize: "0.78rem" }}>
             {l?.technologies ?? 0} technologies · {l?.commodities ?? 0} streams · {l?.measures ?? 0} measures · {l?.maccs ?? 0} MACCs.
             {" "}Open a group to add or edit components — a technology gets its own input/output streams; measures are reusable and bundled into MACCs.
