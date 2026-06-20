@@ -284,6 +284,10 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   }
 
   const hasHierarchy = (workbook.nodes ?? []).length > 0;
+  const baseYear = useMemo(() => {
+    const ys = (workbook.periods ?? []).map((r) => Number(r.year)).filter(Number.isFinite);
+    return ys.length ? Math.min(...ys) : 2025;
+  }, [workbook]);
 
   // ── Context menu ──────────────────────────────────────────────────────────────
   function actionsFor(node: TreeNode): TreeAction[] {
@@ -484,6 +488,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
               <MachineInspector
                 wb={workbook}
                 machineId={selId!}
+                baseYear={baseYear}
                 onCapacity={(v) => setWorkbook(setSheet(workbook, "machines", (workbook.machines ?? []).map((r) => (s(r.machine_id) === selId ? { ...r, capacity: v } : r))))}
                 unitLabel={product ? commodityUnit(workbook, product) : undefined}
                 minOutput={product ? minOutputCap(workbook, selId!, product) : null}

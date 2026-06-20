@@ -5,6 +5,7 @@
 import { useMemo, useState } from "react";
 import { SearchableSelect } from "../controls/SearchableSelect";
 import { SearchSelect } from "../controls/SearchSelect";
+import { TemporalValue, type TemporalVal } from "../controls/TemporalValue";
 import type { AvailableTechnology } from "../../lib/api/components";
 import type { Cell, RunResult, Workbook } from "../../types";
 
@@ -46,20 +47,23 @@ export function MachineInspector({
   maxOutput,
   onMaxOutput,
   unitLabel,
+  baseYear = 2025,
 }: {
   wb: Workbook;
   machineId: string;
   onCapacity: (v: number) => void;
-  /** Current annual output floor (year-less min_production), or null = none. */
-  minOutput?: number | null;
+  /** Current annual output floor (min_production) — static or by-year, or null. */
+  minOutput?: TemporalVal | null;
   /** Set / clear (null) this machine's annual output floor. */
-  onMinOutput?: (v: number | null) => void;
-  /** Current annual output ceiling (year-less max_production), or null = none. */
-  maxOutput?: number | null;
+  onMinOutput?: (v: TemporalVal | null) => void;
+  /** Current annual output ceiling (max_production) — static or by-year, or null. */
+  maxOutput?: TemporalVal | null;
   /** Set / clear (null) this machine's annual output ceiling. */
-  onMaxOutput?: (v: number | null) => void;
+  onMaxOutput?: (v: TemporalVal | null) => void;
   /** The product's UNIT (t, MWh, …) shown as the bound's unit. */
   unitLabel?: string;
+  /** Horizon start — seeds the temporal editor. */
+  baseYear?: number;
 }) {
   const machine = (wb.machines ?? []).find((m) => s(m.machine_id) === machineId);
   const tech = s(machine?.baseline_technology);
@@ -221,15 +225,7 @@ export function MachineInspector({
             <div className="mi-card">
               <div className="mi-card-label">min output</div>
               <div className="mi-card-val">
-                <input
-                  type="number"
-                  min={0}
-                  placeholder="no floor"
-                  value={minOutput ?? ""}
-                  className="mi-cap-input"
-                  onChange={(e) => onMinOutput(e.target.value === "" ? null : Number(e.target.value) || 0)}
-                />
-                <span className="mi-unit">{unitLabel}/yr</span>
+                <TemporalValue value={minOutput ?? null} onChange={onMinOutput} unit={unitLabel} baseYear={baseYear} placeholder="no floor" label="min output" />
               </div>
             </div>
           )}
@@ -237,15 +233,7 @@ export function MachineInspector({
             <div className="mi-card">
               <div className="mi-card-label">max output</div>
               <div className="mi-card-val">
-                <input
-                  type="number"
-                  min={0}
-                  placeholder="no cap"
-                  value={maxOutput ?? ""}
-                  className="mi-cap-input"
-                  onChange={(e) => onMaxOutput(e.target.value === "" ? null : Number(e.target.value) || 0)}
-                />
-                <span className="mi-unit">{unitLabel}/yr</span>
+                <TemporalValue value={maxOutput ?? null} onChange={onMaxOutput} unit={unitLabel} baseYear={baseYear} placeholder="no cap" label="max output" />
               </div>
             </div>
           )}

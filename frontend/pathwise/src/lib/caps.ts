@@ -4,7 +4,11 @@
 // floor across the whole horizon. Scope is a node id (a machine, a group) or
 // "all" (system / national).
 
+import type { ByYear } from "./api/components";
 import type { Cell, Row, Workbook } from "../types";
+
+/** A bound: a scalar (every year) or a {year: value} map. Mirrors TemporalVal. */
+export type Bound = number | ByYear;
 
 const s = (v: Cell | undefined): string => (v == null ? "" : String(v));
 const isYearless = (r: Row): boolean => r.year == null || String(r.year).trim() === "";
@@ -28,43 +32,44 @@ export function commodityUnit(wb: Workbook, commodity: string): string {
   return s(row?.unit) || "unit";
 }
 
-/** The year-less bound on `commodity` at `scope` in `sheet`, or null if unset. */
-function cap(wb: Workbook, sheet: string, scope: string, commodity: string): number | null {
-  const row = (wb[sheet] ?? []).find(
-    (r) => s(r.company) === scope && s(r.commodity_id) === commodity && isYearless(r),
+/** The bound on `commodity` at `scope` in `sheet`: a {year: value} map if there are
+ *  per-year rows, a number if a single year-less (static) row, else null. */
+function cap(wb: Workbook, sheet: string, scope: string, commodity: string): Bound | null {
+  const rows = (wb[sheet] ?? []).filter(
+    (r) => s(r.company) === scope && s(r.commodity_id) === commodity,
   );
-  return row ? Number(row.amount) || 0 : null;
+  if (!rows.length) return null;
+  const yearRows = rows.filter((r) => !isYearless(r));
+  if (yearRows.length) {
+    const by: ByYear = {};
+    for (const r of yearRows) by[String(Math.round(Number(r.year)))] = Number(r.amount) || 0;
+    return by;
+  }
+  return Number(rows[0].amount) || 0;
 }
 
-/** Upsert (or clear, when `amount` is null/≤0) the year-less bound. New workbook. */
-function setCap(
-  wb: Workbook,
-  sheet: string,
-  scope: string,
-  commodity: string,
-  amount: number | null,
-): Workbook {
+/** Upsert (or clear, when `value` is null) the bound: a static value writes ONE
+ *  year-less row; a temporal value writes one row per year. New workbook. */
+function setCap(wb: Workbook, sheet: string, scope: string, commodity: string, value: Bound | null): Workbook {
   const rows = (wb[sheet] ?? []).filter(
-    (r) => !(s(r.company) === scope && s(r.commodity_id) === commodity && isYearless(r)),
+    (r) => !(s(r.company) === scope && s(r.commodity_id) === commodity),
   );
-  if (amount != null && amount > 0) rows.push({ company: scope, commodity_id: commodity, amount });
+  if (value != null) {
+    if (typeof value === "number") {
+      if (value > 0) rows.push({ company: scope, commodity_id: commodity, amount: value });
+    } else {
+      for (const [yr, v] of Object.entries(value)) rows.push({ company: scope, commodity_id: commodity, year: Number(yr), amount: v });
+    }
+  }
   return { ...wb, [sheet]: rows };
 }
 
-export const maxOutputCap = (wb: Workbook, scope: string, commodity: string): number | null =>
+export const maxOutputCap = (wb: Workbook, scope: string, commodity: string): Bound | null =>
   cap(wb, "max_production", scope, commodity);
-export const setMaxOutputCap = (
-  wb: Workbook,
-  scope: string,
-  commodity: string,
-  amount: number | null,
-): Workbook => setCap(wb, "max_production", scope, commodity, amount);
+export const setMaxOutputCap = (wb: Workbook, scope: string, commodity: string, value: Bound | null): Workbook =>
+  setCap(wb, "max_production", scope, commodity, value);
 
-export const minOutputCap = (wb: Workbook, scope: string, commodity: string): number | null =>
+export const minOutputCap = (wb: Workbook, scope: string, commodity: string): Bound | null =>
   cap(wb, "min_production", scope, commodity);
-export const setMinOutputCap = (
-  wb: Workbook,
-  scope: string,
-  commodity: string,
-  amount: number | null,
-): Workbook => setCap(wb, "min_production", scope, commodity, amount);
+export const setMinOutputCap = (wb: Workbook, scope: string, commodity: string, value: Bound | null): Workbook =>
+  setCap(wb, "min_production", scope, commodity, value);

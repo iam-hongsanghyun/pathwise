@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useDialogs } from "../features/controls/Dialog";
 import { Resizer } from "../layout/Resizer";
 import { SearchSelect } from "../features/controls/SearchSelect";
+import { TemporalValue } from "../features/controls/TemporalValue";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
 import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types";
 import {
@@ -60,6 +61,10 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
 
   // The shared node tree (same workbook the Value Chain edits).
   const nodes = useMemo(() => parseNodes(workbook), [workbook]);
+  const baseYear = useMemo(() => {
+    const ys = (workbook.periods ?? []).map((r) => Number(r.year)).filter(Number.isFinite);
+    return ys.length ? Math.min(...ys) : 2025;
+  }, [workbook]);
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const machineRow = (id: string): Row | undefined =>
     (workbook.machines ?? []).find((r) => s(r.machine_id) === id);
@@ -381,24 +386,12 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
             <input className="field-input" type="number" value={s(r?.close_year)} onChange={(e) => editMachine(sel.id, { close_year: e.target.value === "" ? 0 : Number(e.target.value) })} />
             {product && (
               <>
-                <span className="muted">min output ({unit}/yr)</span>
-                <input
-                  className="field-input"
-                  type="number"
-                  min={0}
-                  placeholder="no floor"
-                  value={minOut ?? ""}
-                  onChange={(e) => setWorkbook(setMinOutputCap(workbook, sel.id, product, e.target.value === "" ? null : Number(e.target.value)))}
-                />
-                <span className="muted">max output ({unit}/yr)</span>
-                <input
-                  className="field-input"
-                  type="number"
-                  min={0}
-                  placeholder="no cap"
-                  value={maxOut ?? ""}
-                  onChange={(e) => setWorkbook(setMaxOutputCap(workbook, sel.id, product, e.target.value === "" ? null : Number(e.target.value)))}
-                />
+                <span className="muted">min output</span>
+                <TemporalValue value={minOut} unit={unit} baseYear={baseYear} placeholder="no floor" label={`${sel.label} · min output`}
+                  onChange={(v) => setWorkbook(setMinOutputCap(workbook, sel.id, product, v))} />
+                <span className="muted">max output</span>
+                <TemporalValue value={maxOut} unit={unit} baseYear={baseYear} placeholder="no cap" label={`${sel.label} · max output`}
+                  onChange={(v) => setWorkbook(setMaxOutputCap(workbook, sel.id, product, v))} />
               </>
             )}
           </div>
