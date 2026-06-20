@@ -271,6 +271,7 @@ export function TargetsTabView({
                         onChange={(v) => patch(i, { value: v ?? 0 })}
                         label={`${r.kind}${r.target ? ` · ${r.target}` : ""} · ${r.scope}`}
                         baseYear={baseYear}
+                        periods={years}
                       />
                     </td>
                     <td>

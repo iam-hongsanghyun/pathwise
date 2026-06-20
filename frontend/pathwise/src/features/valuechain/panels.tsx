@@ -48,6 +48,7 @@ export function MachineInspector({
   onMaxOutput,
   unitLabel,
   baseYear = 2025,
+  periods,
 }: {
   wb: Workbook;
   machineId: string;
@@ -64,6 +65,8 @@ export function MachineInspector({
   unitLabel?: string;
   /** Horizon start — seeds the temporal editor. */
   baseYear?: number;
+  /** The model's run periods (years) — the temporal fill materialises onto these. */
+  periods?: number[];
 }) {
   const machine = (wb.machines ?? []).find((m) => s(m.machine_id) === machineId);
   const tech = s(machine?.baseline_technology);
@@ -225,7 +228,7 @@ export function MachineInspector({
             <div className="mi-card">
               <div className="mi-card-label">min output</div>
               <div className="mi-card-val">
-                <TemporalValue value={minOutput ?? null} onChange={onMinOutput} unit={unitLabel} baseYear={baseYear} placeholder="no floor" label="min output" />
+                <TemporalValue value={minOutput ?? null} onChange={onMinOutput} unit={unitLabel} baseYear={baseYear} periods={periods} placeholder="no floor" label="min output" />
               </div>
             </div>
           )}
@@ -233,7 +236,7 @@ export function MachineInspector({
             <div className="mi-card">
               <div className="mi-card-label">max output</div>
               <div className="mi-card-val">
-                <TemporalValue value={maxOutput ?? null} onChange={onMaxOutput} unit={unitLabel} baseYear={baseYear} placeholder="no cap" label="max output" />
+                <TemporalValue value={maxOutput ?? null} onChange={onMaxOutput} unit={unitLabel} baseYear={baseYear} periods={periods} placeholder="no cap" label="max output" />
               </div>
             </div>
           )}

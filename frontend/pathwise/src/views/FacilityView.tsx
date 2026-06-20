@@ -61,10 +61,11 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
 
   // The shared node tree (same workbook the Value Chain edits).
   const nodes = useMemo(() => parseNodes(workbook), [workbook]);
-  const baseYear = useMemo(() => {
-    const ys = (workbook.periods ?? []).map((r) => Number(r.year)).filter(Number.isFinite);
-    return ys.length ? Math.min(...ys) : 2025;
-  }, [workbook]);
+  const periods = useMemo(
+    () => (workbook.periods ?? []).map((r) => Number(r.year)).filter(Number.isFinite),
+    [workbook],
+  );
+  const baseYear = periods.length ? Math.min(...periods) : 2025;
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const machineRow = (id: string): Row | undefined =>
     (workbook.machines ?? []).find((r) => s(r.machine_id) === id);
@@ -387,10 +388,10 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
             {product && (
               <>
                 <span className="muted">min output</span>
-                <TemporalValue value={minOut} unit={unit} baseYear={baseYear} placeholder="no floor" label={`${sel.label} · min output`}
+                <TemporalValue value={minOut} unit={unit} baseYear={baseYear} periods={periods} placeholder="no floor" label={`${sel.label} · min output`}
                   onChange={(v) => setWorkbook(setMinOutputCap(workbook, sel.id, product, v))} />
                 <span className="muted">max output</span>
-                <TemporalValue value={maxOut} unit={unit} baseYear={baseYear} placeholder="no cap" label={`${sel.label} · max output`}
+                <TemporalValue value={maxOut} unit={unit} baseYear={baseYear} periods={periods} placeholder="no cap" label={`${sel.label} · max output`}
                   onChange={(v) => setWorkbook(setMaxOutputCap(workbook, sel.id, product, v))} />
               </>
             )}
