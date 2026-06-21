@@ -783,6 +783,23 @@
 }
 .float-panel-body {
   overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* Bottom-right grip — drag to resize the panel. */
+.float-panel-resize {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  border-right: 2px solid var(--border-strong);
+  border-bottom: 2px solid var(--border-strong);
+  border-bottom-right-radius: var(--radius);
+}
+.float-panel-resize:hover {
+  border-color: var(--brand);
 }
 /* The importer dropdown that sits under a rail head. */
 .rail-import {
