@@ -338,6 +338,8 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
                     edge["max_flow"] = c.max_flow
                 if c.min_flow is not None:
                     edge["min_flow"] = c.min_flow
+                if c.lag_years:
+                    edge["lag_years"] = c.lag_years  # delivery lag (recycling / use-phase return)
                 edges.append(edge)
                 # Carry per-year bounds (node-space → process-space): one edges_t
                 # row per year, the connection's series applied to every fanned edge.
@@ -806,6 +808,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 ),
                 available_from=_int(r.get("available_from")),
                 available_to=_int(r.get("available_to")),
+                lag_years=_int(r.get("lag_years")) or 0,
             )
         )
 

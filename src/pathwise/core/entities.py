@@ -531,6 +531,9 @@ class Edge:
     #: carries zero flow. Different windows on competing links ⇒ alternative supply.
     available_from: int | None = None
     available_to: int | None = None
+    #: Delivery lag [yr]: flow leaving the producer in year ``t`` arrives at the
+    #: consumer in ``t + lag_years`` (a recycling / use-phase return). 0 ⇒ same year.
+    lag_years: int = 0
 
     def available(self, year: int) -> bool:
         """Whether this link may carry flow in ``year`` (within its window)."""

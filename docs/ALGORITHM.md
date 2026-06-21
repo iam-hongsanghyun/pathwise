@@ -85,6 +85,11 @@ to transition capex, renewal capex, and technology capex.
   `max_capacity_factor`, default 1 ⇒ inert). Both year-aware.
 - **Baseline lock**: `u_{p,k₀(p),t₀}=1`.
 - **Transition event**: `w_{p,k,t} ≥ u_{p,k,t}−u_{p,k,prev}` (replacement capex on `w`).
+- **Lagged edges**: an edge with `lag_years = L` delivers across time — flow leaving
+  the producer in year `t` arrives at the consumer in `t+L` (the consumer's inflow
+  at `t` draws `flow[edge, t−L]`; arrivals predating the horizon are not received).
+  Models a use-phase / recycling return; a quality change is the producer emitting
+  a different commodity.
 - **Node balance** (per `p,r,t`): `produced+buy+Σ_{in}flow = consumed+Σ_{out}flow+sell+deliver`,
   where `produced=Σ_k yield_{k,r}x`, `consumed=Σ_k int_{k,r}x − savings`. Only raw
   inputs (kind∈{energy,material,indirect}, produced by no technology) may be bought;

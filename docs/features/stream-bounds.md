@@ -194,10 +194,17 @@ H₂ instead. See `tests/core/test_consumption_bounds.py` and
 
 ---
 
-## 6. Not yet (roadmap)
+## 6. Recycling / use-phase returns (lag + quality change)
+
+A link carries an optional **`lag_years`** (set on the connection): flow leaving
+the producer in year `t` arrives at the consumer in `t + lag`. A **quality change**
+is just the producer emitting a different (e.g. lower-grade) commodity. Together
+they model a use-phase return — steel → cars (used ~10 yr) → scrap back to the
+steelmaker as a distinct commodity. Flow whose arrival predates the horizon is not
+received. See `tests/core/test_edge_lag.py`.
+
+## 7. Not yet (roadmap)
 
 - **Group-level visual aggregation.** Per-provider limits are machine-specific
   now; the remaining piece is rolling those machine numbers up into a read-only
   aggregate when a facility / company / country is selected.
-- **Lag + quality change between flows** — e.g. a car returning as lower-grade
-  scrap years later (a recycling loop with a time lag and a commodity transform).

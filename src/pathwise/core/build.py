@@ -989,6 +989,7 @@ def _flow_balance(ctx: BuildContext) -> None:
         # Fallback: scalar loop for (process, commodity, period) cells that
         # have edges or MACC savings (or both).  In practice, models with edges
         # are small (shipping etc.), so this loop is fast.
+        year_set = set(ctx.years)
         for p in ctx.procs:
             for r in ctx.comms:
                 comm = prob.commodities[r]
@@ -1001,7 +1002,18 @@ def _flow_balance(ctx: BuildContext) -> None:
                         consumed = (gross - savings) if gross is not None else (-1.0) * savings
                     in_edges = _edges_in(ctx, p, r)
                     out_edges = _edges_out(ctx, p, r)
-                    inflow = _lin_sum([ctx.flow.sel(edge=i, period=t) for i in in_edges])
+                    # A lagged edge delivers what left the producer `lag` years ago:
+                    # the consumer's inflow at t draws flow[edge, t-lag]. Flow whose
+                    # arrival year predates the horizon is simply not received.
+                    in_terms = []
+                    for i in in_edges:
+                        lag = prob.edges[i].lag_years
+                        src_t = t - lag
+                        if lag == 0:
+                            in_terms.append(ctx.flow.sel(edge=i, period=t))
+                        elif src_t in year_set:
+                            in_terms.append(ctx.flow.sel(edge=i, period=src_t))
+                    inflow = _lin_sum(in_terms)
                     outflow = _lin_sum([ctx.flow.sel(edge=i, period=t) for i in out_edges])
 
                     lhs_terms = [ctx.buy.sel(process=p, commodity=r, period=t)]
