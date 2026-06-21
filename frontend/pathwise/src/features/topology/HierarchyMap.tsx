@@ -794,69 +794,48 @@ export function HierarchyMap({
           );
         })}
 
-        {/* EDGE LABELS — NO backing chip (it would block the flow). Each end's text
-            is placed INLINE beside a clear segment: the stub right at the port if
-            there is room, otherwise the segment just after the first bend. */}
+        {/* EDGE LABELS — no backing box (it would block the flow). Placed as CLOSE
+            as possible to each connector, on the stub right at the port. Beside a
+            HORIZONTAL stub the text is horizontal (out above / in below); beside a
+            VERTICAL stub the text is rotated VERTICAL (out left / in right). */}
         {(() => {
           const LH = 10;
-          const segLen = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
-          const isH = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.abs(b.x - a.x) >= Math.abs(b.y - a.y);
-          // Anchor a label near one end of the polyline: pick the first segment
-          // (from that end) wide enough for the text, else the longest one.
-          const anchor = (poly: { x: number; y: number }[], fromStart: boolean, textW: number) => {
-            if (poly.length === 2) {
-              const a = poly[0];
-              const b = poly[1];
-              const t = fromStart ? 0.32 : 0.68;
-              return { mx: a.x + (b.x - a.x) * t, my: a.y + (b.y - a.y) * t, vert: !isH(a, b) };
+          const labelFor = (key: string, poly: { x: number; y: number }[], out: boolean, lines: string[], active: boolean) => {
+            const port = out ? poly[0] : poly[poly.length - 1];
+            const nxt = out ? poly[1] : poly[poly.length - 2];
+            const fill = active ? "var(--text)" : "var(--muted)";
+            const horizStub = Math.abs(nxt.x - port.x) >= Math.abs(nxt.y - port.y);
+            if (horizStub) {
+              const dir = Math.sign(nxt.x - port.x) || 1; // +1 line goes right, -1 left
+              const tx = port.x + dir * 6;
+              const ta = dir > 0 ? "start" : "end";
+              const topY = out ? port.y - 6 - (lines.length - 1) * LH : port.y + 6 + LH;
+              return (
+                <text key={key} x={tx} y={topY} fontSize={9} fill={fill} textAnchor={ta} style={{ pointerEvents: "none" }}>
+                  {lines.map((l, i) => (<tspan key={i} x={tx} dy={i ? LH : 0}>{l}</tspan>))}
+                </text>
+              );
             }
-            const segs: [{ x: number; y: number }, { x: number; y: number }][] = [];
-            for (let i = 0; i < poly.length - 1; i++) segs.push([poly[i], poly[i + 1]]);
-            const ord = fromStart ? segs : segs.slice().reverse();
-            let pick: [{ x: number; y: number }, { x: number; y: number }] | null = null;
-            let longest = ord[0];
-            let longestL = -1;
-            for (const s of ord) {
-              const L = segLen(s[0], s[1]);
-              if (L > longestL) { longestL = L; longest = s; }
-              const need = (isH(s[0], s[1]) ? textW : LH * 2) + 10;
-              if (!pick && L >= need) pick = s;
-            }
-            const s = pick ?? longest;
-            return { mx: (s[0].x + s[1].x) / 2, my: (s[0].y + s[1].y) / 2, vert: !isH(s[0], s[1]) };
-          };
-          // `out` = the source (product / out-connector) label, placed on one side;
-          // the target (in-connector) label goes on the OPPOSITE side so the two
-          // never collide: vertical segment → out left / in right; horizontal
-          // segment → out above / in below.
-          const labelAt = (key: string, poly: { x: number; y: number }[], out: boolean, lines: string[], active: boolean) => {
-            const textW = Math.max(...lines.map((l) => l.length)) * 5.4;
-            const { mx, my, vert } = anchor(poly, out, textW);
-            let tx: number;
-            let topY: number;
-            let ta: "start" | "middle" | "end";
-            if (vert) {
-              tx = out ? mx - 7 : mx + 7;
-              ta = out ? "end" : "start";
-              topY = my - ((lines.length - 1) * LH) / 2 + 1;
-            } else {
-              tx = mx;
-              ta = "middle";
-              topY = out ? my - 6 - (lines.length - 1) * LH : my + 6 + LH;
-            }
+            // vertical (rotated) text, hugging the port; out → left, in → right.
+            const baseX = out ? port.x - 6 : port.x + 6;
+            const sy = out ? port.y + 6 : port.y - 6;
+            const ta = out ? "start" : "end"; // start extends down from sy, end extends up to sy
             return (
-              <text key={key} x={tx} y={topY} fontSize={9} fill={active ? "var(--text)" : "var(--muted)"} textAnchor={ta} style={{ pointerEvents: "none" }}>
-                {lines.map((l, i) => (
-                  <tspan key={i} x={tx} dy={i ? LH : 0}>{l}</tspan>
-                ))}
-              </text>
+              <g key={key} style={{ pointerEvents: "none" }}>
+                {lines.map((l, i) => {
+                  const cx = out ? baseX - i * LH : baseX + i * LH;
+                  return (
+                    <text key={i} x={cx} y={sy} fontSize={9} fill={fill} textAnchor={ta} transform={`rotate(90 ${cx} ${sy})`}>{l}</text>
+                  );
+                })}
+              </g>
             );
           };
           return edgeViews.flatMap(({ e, poly, active }) => {
             const lines = e.commodities.map((c) => clip(c, 16) + (e.lag ? ` ·${e.lag}y` : ""));
             return [
-              labelAt(`ls-${edgeKey(e)}`, poly, true, lines, active),
-              labelAt(`ld-${edgeKey(e)}`, poly, false, lines, active),
+              labelFor(`ls-${edgeKey(e)}`, poly, true, lines, active),
+              labelFor(`ld-${edgeKey(e)}`, poly, false, lines, active),
             ];
           });
         })()}

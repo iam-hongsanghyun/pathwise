@@ -56,14 +56,13 @@ of which nodes are expanded, choose how the *flows* are aggregated:
   links that would otherwise cut across many boxes collapse to one box-to-box arrow.
 
 Whatever the level, **all commodities between the same two boxes share one arrow**.
-Its label is written at **both ends** — where the flow leaves the source and where
-it enters the target — never across some other box in the middle; each commodity
-sits on **its own line**, drawn inline beside the line (no backing box, so it never
-blocks the flow). The out-connector label sits on one side of the line and the
-in-connector label on the other (above/left vs below/right) so the two never
-collide. When there isn't room right at a port, the text shifts to just after the
-first bend. **Hover** an arrow for a popup of exactly what flows along it. **Click a
-box again** (or empty canvas) to close the inspector.
+Its label is written at **both ends** — right at each connector, as close to the
+port as possible — never across some other box; each commodity on **its own line**,
+no backing box (so it never blocks the flow). Beside a horizontal line the text is
+horizontal (out above / in below); beside a vertical line it is rotated **vertical**
+(out left / in right) so it runs along the line. **Hover** an arrow for a popup of
+exactly what flows along it. **Click a box again** (or empty canvas) to close the
+inspector.
 
 Boxes are always drawn **in front** of the flow lines (white, lightly translucent),
 so a line passing behind a box reads as dimmed and the boxes stay legible.
