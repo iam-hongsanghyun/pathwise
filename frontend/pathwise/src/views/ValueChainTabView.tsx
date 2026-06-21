@@ -388,6 +388,18 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 <span className="rail-head">Structure</span>
                 <button className="rail-add" title="add top-level subgroup" onClick={() => addSubgroup(null)}>＋</button>
               </div>
+              {onPickLibrary && (
+                <div className="rail-import">
+                  <SearchSelect
+                    value=""
+                    onChange={(v) => v && onPickLibrary(v)}
+                    options={libraries
+                      .filter((l) => l.has_value_chain)
+                      .map((l) => ({ value: `${l.tier}/${l.id}`, label: l.label }))}
+                    placeholder="import a value chain…"
+                  />
+                </div>
+              )}
               <div className="rail-scroll">
                 <TreeExplorer
                   nodes={treeNodes}

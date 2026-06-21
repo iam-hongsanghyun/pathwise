@@ -5,8 +5,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useDialogs } from "../features/controls/Dialog";
+import { SearchSelect } from "../features/controls/SearchSelect";
 import { type LibrarySummary, listSessionComponentLibraries } from "../lib/api/components";
 import { PROJECT_BUNDLE_FORMAT, type ProjectBundle, downloadProject, importProject } from "../lib/api/project";
+import { type ExampleModel, listExamples, loadExample } from "../lib/api/session";
 import type { Workbook } from "../types";
 
 interface Props {
@@ -26,6 +28,7 @@ export function ProjectView({ sessionId, workbook, setWorkbook, adoptServerModel
   const { confirm, node: dialogNode } = useDialogs();
   const fileRef = useRef<HTMLInputElement>(null);
   const [projLibs, setProjLibs] = useState<LibrarySummary[]>([]);
+  const [examples, setExamples] = useState<ExampleModel[]>([]);
   const [busy, setBusy] = useState(false);
 
   const name = projectName(workbook);
@@ -38,6 +41,13 @@ export function ProjectView({ sessionId, workbook, setWorkbook, adoptServerModel
       .then(setProjLibs)
       .catch(() => setProjLibs([]));
   }, [sessionId, workbook]);
+
+  // Bundled examples — each can be opened as the starting point for a project.
+  useEffect(() => {
+    listExamples()
+      .then(setExamples)
+      .catch(() => setExamples([]));
+  }, []);
 
   const nodes = workbook.nodes?.length ?? 0;
   const machines = workbook.machines?.length ?? 0;
@@ -88,6 +98,28 @@ export function ProjectView({ sessionId, workbook, setWorkbook, adoptServerModel
     }
   }
 
+  async function onLoadExample(exampleId: string) {
+    if (!sessionId) return;
+    const ex = examples.find((e) => e.id === exampleId);
+    const okToReplace = await confirm({
+      title: "Open example",
+      message: `Start a project from “${ex?.label ?? exampleId}”? This replaces your current working model.`,
+      danger: true,
+      confirmLabel: "Open",
+    });
+    if (!okToReplace) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const model = await loadExample(sessionId, exampleId);
+      adoptServerModel(model);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="body-row">
       <main className="main-area" style={{ overflow: "auto", padding: "16px 22px", maxWidth: 720 }}>
@@ -107,6 +139,22 @@ export function ProjectView({ sessionId, workbook, setWorkbook, adoptServerModel
             placeholder="Untitled project"
             onChange={(e) => setName(e.target.value)}
           />
+        </section>
+
+        <section style={{ marginBottom: 22 }}>
+          <h3 className="section-title">Start from an example</h3>
+          <p className="detail-note" style={{ marginBottom: 8 }}>
+            Open a bundled example as a project — its full value chain, facilities and components.
+            You can then rename it, edit it, and export it as your own bundle.
+          </p>
+          <div style={{ maxWidth: 360 }}>
+            <SearchSelect
+              value=""
+              onChange={(v) => v && void onLoadExample(v)}
+              options={examples.map((e) => ({ value: e.id, label: e.label }))}
+              placeholder="open an example…"
+            />
+          </div>
         </section>
 
         <section style={{ marginBottom: 22 }}>
