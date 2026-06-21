@@ -137,8 +137,10 @@ def _technology(ctx: BuildContext) -> None:
             intro = prob.technologies[k].introduction_year
             if intro is not None and t < intro:
                 return 0.0
+        # phase_out_year is the EXCLUSIVE end of availability (usable until it,
+        # gone from it) — e.g. phase_out 2040 ⇒ unusable from 2040.
         out = prob.technologies[k].phase_out_year
-        if out is not None and t > out:
+        if out is not None and t >= out:
             return 0.0
         return 1.0
 
@@ -210,21 +212,25 @@ def _technology(ctx: BuildContext) -> None:
             name="maxcf",
         )
 
-    # ── decommission: on[p,t] == 0 for t > decommission_year ────────────────
-    decomm_mask = np.zeros((len(ctx.procs), len(ctx.years)), dtype=bool)
+    # ── Active window: on[p,t] == 0 outside [build_year, close_year) ─────────
+    # A machine exists only within its build/close window: off before its build
+    # year (introduced_year) and off from its close year (decommission_year,
+    # EXCLUSIVE — close 2038 ⇒ runs through 2037). This window overrides the
+    # technical lifespan. Either bound is optional (None ⇒ unbounded that side).
+    window_mask = np.zeros((len(ctx.procs), len(ctx.years)), dtype=bool)
     for i, p in enumerate(ctx.procs):
-        dec = avail[p].decommission_year
-        if dec is not None:
-            for j, t in enumerate(ctx.years):
-                if t > dec:
-                    decomm_mask[i, j] = True
-    if decomm_mask.any():
-        decomm_da = xr.DataArray(
-            decomm_mask,
+        build = avail[p].introduced_year
+        close = avail[p].decommission_year
+        for j, t in enumerate(ctx.years):
+            if (build is not None and t < build) or (close is not None and t >= close):
+                window_mask[i, j] = True
+    if window_mask.any():
+        window_da = xr.DataArray(
+            window_mask,
             coords={"process": ctx.procs, "period": ctx.years},
             dims=["process", "period"],
         )
-        m.add_constraints(ctx.on == 0, mask=decomm_da, name="decomm")
+        m.add_constraints(ctx.on == 0, mask=window_da, name="active_window")
 
     # ── baseline[p]: u[p,baseline,t0] == on[p,t0] ───────────────────────────
     t0 = ctx.years[0]
@@ -363,7 +369,7 @@ def _lifecycle(ctx: BuildContext) -> None:
             if intro is not None and t < intro:
                 return 0.0
         out = prob.technologies[k].phase_out_year
-        if out is not None and t > out:
+        if out is not None and t >= out:  # exclusive end (see _feas)
             return 0.0
         return 1.0
 

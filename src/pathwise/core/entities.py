@@ -173,9 +173,12 @@ class Technology:
     Attributes:
         technology_id: Unique id.
         lifespan: Economic lifetime [yr].
-        introduction_year: First year the technology may be adopted [yr].
-        phase_out_year: Last year the technology may operate [yr] — after it,
-            every facility running it must transition or switch off.
+        introduction_year: Available-from year [yr] — first year the technology
+            may be adopted (market availability; inclusive).
+        phase_out_year: Available-to year [yr], **EXCLUSIVE** — the technology is
+            unusable *from* this year (usable through ``phase_out_year − 1``), so a
+            facility running it must transition or switch off by then. Per-machine
+            once the technology is instanced.
         actions: Allowed transition actions for this technology.
         capex_by_year: Replacement capital cost [currency / unit capacity] by year.
         renewal_by_year: Renewal cost [currency / unit capacity] by year.
@@ -363,15 +366,18 @@ class Process:
             company, a group, or ``"all"`` — see :meth:`in_scope`.
         baseline_technology: Technology active at the horizon start.
         capacity: Nameplate throughput per year [throughput / yr].
-        introduced_year: Year the baseline was installed [yr].
+        introduced_year: Build year [yr] — the machine is **off before it** (it
+            does not exist yet). Also the install date used for lifecycle ageing.
         capex: Overnight build cost [currency] (recorded; used for new builds).
         fixed_opex: Fixed annual cost while the facility operates [currency / yr].
         failure_rate: Unexpected-failure / forced-outage fraction [—], 0–1; the
             available throughput is ``capacity · (1 − failure_rate)``.
         replaceable: If ``False`` the facility may not transition technologies
             (feasible set = baseline only) — the user marks it fixed.
-        decommission_year: Last year the facility may operate [yr]; after it the
-            facility is forced off (its output must be sourced elsewhere).
+        decommission_year: Close year [yr], **EXCLUSIVE** — the facility is off
+            *from* this year (it runs through ``decommission_year − 1``). Together
+            with ``introduced_year`` it defines the active window
+            ``[introduced_year, decommission_year)``, which overrides the lifespan.
         max_renewals: Per-machine cap on the **total number of renewals**
             (same-technology rebuilds) over the whole horizon [count]. ``None`` ⇒
             unlimited (the asset may rebuild every lifespan indefinitely). ``0`` ⇒

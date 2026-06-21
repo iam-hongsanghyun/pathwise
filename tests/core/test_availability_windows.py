@@ -60,13 +60,13 @@ def _active(res: dict) -> dict[int, str]:
 
 
 def test_technology_phase_out_forces_transition() -> None:
-    # Coal tech is cheaper, but OLD is banned after 2030 → must switch to NEW
-    # in 2035 even though it costs 3x.
+    # phase_out_year is EXCLUSIVE: OLD is unusable FROM 2030, so the switch to
+    # NEW must already be in place in 2030 even though NEW costs 3x.
     wb = _base()
     wb["technologies"][0]["phase_out_year"] = 2030
     active = _active(_solve(wb))
-    assert active[2025] == "OLD" and active[2030] == "OLD"
-    assert active[2035] == "NEW"
+    assert active[2025] == "OLD"
+    assert active[2030] == "NEW" and active[2035] == "NEW"
 
 
 def test_stream_window_blocks_purchase() -> None:
@@ -101,11 +101,24 @@ def test_facility_decommission_switches_off() -> None:
     wb["processes"][0]["decommission_year"] = 2030
     res = _solve(wb)
     active = _active(res)
-    assert 2025 in active and 2030 in active
-    assert 2035 not in active, "facility forced off after decommission"
-    assert any("2035" in s["key"] for s in res["outputs"]["demand_slack"]), (
-        "2035 demand can only go unmet (slack) once the only facility is gone"
+    # decommission_year (close year) is EXCLUSIVE: runs up to 2029, off FROM 2030.
+    assert 2025 in active
+    assert 2030 not in active and 2035 not in active, "off from the close year"
+    assert any("2030" in s["key"] for s in res["outputs"]["demand_slack"]), (
+        "demand from the close year goes unmet (slack) once the facility is gone"
     )
+
+
+def test_facility_build_year_delays_online() -> None:
+    # build_year (introduced_year) is the online-from year: the machine is OFF
+    # before it, so early demand can only be met by slack.
+    wb = _base()
+    wb["processes"][0]["introduced_year"] = 2030
+    res = _solve(wb)
+    active = _active(res)
+    assert 2025 not in active, "machine not built yet in 2025"
+    assert 2030 in active and 2035 in active
+    assert any("2025" in s["key"] for s in res["outputs"]["demand_slack"])
 
 
 def test_market_window() -> None:

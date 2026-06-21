@@ -135,7 +135,7 @@ def _transition_wb(with_temporal: bool) -> dict:
         "commodities": [{"commodity_id": "widget", "kind": "product", "unit": "t"}],
         "impacts": [],
         "technologies": [
-            {"technology_id": "B", "actions": "continue,replace", "phase_out_year": 2025},
+            {"technology_id": "B", "actions": "continue,replace", "phase_out_year": 2030},
             {"technology_id": "G", "actions": "continue"},
         ],
         "processes": [
@@ -178,8 +178,9 @@ def _transition_wb(with_temporal: bool) -> dict:
 
 
 def test_transition_capex_can_be_year_varying() -> None:
-    # B is phased out after 2025, so P must switch to G in 2030 → exactly one
-    # replacement, charged at the 2030 capex. The temporal table (5/cap) overrides
+    # B is unusable from 2030 (phase_out_year is exclusive), so P must switch to G
+    # in 2030 → exactly one replacement, charged at the 2030 capex. The temporal
+    # table (5/cap) overrides
     # the scalar (50/cap): 5·100 = 500 vs 50·100 = 5000.
     temporal = _solve(_transition_wb(with_temporal=True))
     scalar = _solve(_transition_wb(with_temporal=False))
