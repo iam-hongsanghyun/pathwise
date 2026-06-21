@@ -154,6 +154,38 @@ to transition capex, renewal capex, and technology capex.
   - **Purchase caps**: `Σ_p buy_{p,r,t} ≤ max_purchase_{r,t}` (per-commodity
     external-supply ceiling).
 
+  The action semantics that fall out of this single covering inequality:
+
+  - **Continue** — free (no event), available **anytime a live vintage covers `t`**.
+    It is *not* available once the vintage expires: at `t ≥ introduced_year + L`
+    the strict window `t-L < t' ≤ t` excludes the original install, so `live0 = 0`
+    and `u` can only stay 1 via a `refresh` event. Reaching end of life therefore
+    forces a **replace or renew** — continue is impossible there.
+  - **Replace** — a switch-in `w` may fire in **any** year, so a technology can be
+    replaced mid-lifespan, not only at end of life. Replacing early carries its
+    cost *implicitly*: the abandoned asset's capex was already a sunk lump in its
+    build year (NPV convention; or its remaining annuity stream under `annuity`),
+    and the new technology's capex is paid again — so early replacement is never
+    free. The pre-existing baseline carries no capex term (a paid-off historical
+    asset), so abandoning it early strands nothing further.
+  - **Renew** — a same-technology rebuild `ren`. Allowed in any year the active
+    technology permits it, but never economically chosen mid-life (continue is
+    free), so in practice it only fires at end of life. Bounded per machine by
+    the renewal-count cap below.
+
+  **Per-machine renewal-count cap** (`Process.max_renewals`, constraint `rencap`):
+
+  $$\sum_{k,\,t} \text{ren}[p,k,t] \;\leq\; \text{max\_renewals}_p$$
+
+  ASCII: `Σ_{k,t} ren[p,k,t] <= max_renewals[p]`
+
+  A machine may rebuild at most `max_renewals` times over the whole horizon
+  (summed across every technology it runs). `None` ⇒ unlimited (no row added);
+  `0` ⇒ renewal forbidden, so an expiring vintage must replace or switch off;
+  `N` ⇒ at most `N` rebuilds, after which the window constraint forces a
+  replacement — the "reline a BF-BOF `N` times, then build new" rule. Binds only
+  on lifecycle-tracked machines (those declaring `introduced_year`).
+
 ## 5b. Storage, facility costs & decision controls
 
 - **Capacity derate**: available throughput `= CAP_p·(1 − failure_rate_p)`; a

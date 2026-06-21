@@ -386,6 +386,26 @@ def _lifecycle(ctx: BuildContext) -> None:
     if bool(renfeas_mask.any()):
         m.add_constraints(ctx.ren == 0, mask=renfeas_mask, name="renfeas")
 
+    # ── Per-machine renewal-count cap ─────────────────────────────────────────
+    # A machine that declares ``max_renewals`` may rebuild (renew) at most that
+    # many times over the whole horizon, summed across every technology it runs:
+    #     Σ_{k, t} ren[p, k, t] <= max_renewals[p]
+    # ``0`` forbids renewal (it must replace at end of life); ``None`` (the
+    # default) adds no row, leaving renewals unlimited. The window constraint then
+    # forces a *replacement* once the budget is spent and a vintage expires.
+    proc_by_id = {p.process_id: p for p in prob.processes}
+    cap_vals = np.zeros(len(ctx.procs), dtype=float)
+    capped = np.zeros(len(ctx.procs), dtype=bool)
+    for i, pid in enumerate(ctx.procs):
+        n = proc_by_id[pid].max_renewals
+        if n is not None:
+            cap_vals[i] = float(n)
+            capped[i] = True
+    if capped.any():
+        cap_da = xr.DataArray(cap_vals, coords={"process": ctx.procs}, dims=["process"])
+        cap_mask = xr.DataArray(capped, coords={"process": ctx.procs}, dims=["process"])
+        m.add_constraints(ctx.ren.sum(["tech", "period"]) <= cap_da, mask=cap_mask, name="rencap")
+
     # ── Live-vintage window constraint ────────────────────────────────────────
     # Group techs by lifespan so each group shares one window matrix.
     # Build window_da[k, t, tp]: 1 iff years[t] - L_k < years[tp] <= years[t].
@@ -445,33 +465,32 @@ def _lifecycle(ctx: BuildContext) -> None:
     )
     life_mask = tracked_feas > 0.0
 
-    # refresh variable:  for baseline techs: ren only
-    #                    for non-baseline techs: w + ren
-    # We need to split into two groups because the formula differs.
-    # is_base_arr[p,k] = 1 iff k == baseline[p]
-    is_base_mask = np.zeros((len(ctx.procs), len(ctx.techs)), dtype=bool)
+    # refresh variable:  for the baseline tech:     refresh = ren  (rebuild only)
+    #                    for a replacement target:  refresh = w + ren
+    #
+    # The baseline must be refreshed by `ren` ONLY — not the switch-in `w`. `w` is
+    # uncharged for the baseline (the objective skips capex on the baseline tech)
+    # and only lower-bounded by the switch event, so allowing it into the covering
+    # sum would let an expired baseline vintage rebuild itself FOR FREE in any year
+    # past t0 (w == 1 costs nothing and satisfies the window), bypassing both the
+    # renewal cost and the per-machine renewal cap. Zeroing w's coefficient on the
+    # baseline (p, k) forces those rebuilds through the priced, capped `ren`.
+    # w_coeff[p,k] = 0 iff k == baseline[p], else 1.
+    w_coeff_arr = np.ones((len(ctx.procs), len(ctx.techs)), dtype=float)
     for i, pid in enumerate(ctx.procs):
-        j_base = ctx.techs.index(baseline[pid])
-        is_base_mask[i, j_base] = True
+        w_coeff_arr[i, ctx.techs.index(baseline[pid])] = 0.0
+    w_coeff_da = xr.DataArray(
+        w_coeff_arr,
+        coords={"process": ctx.procs, "tech": ctx.techs},
+        dims=["process", "tech"],
+    )
 
     # Rename period → tp for ren and w to enable the window contraction.
     ren_tp = ctx.ren.rename({"period": "tp"})  # (process, tech, tp)
     w_tp = ctx.w.rename({"period": "tp"})  # (process, tech, tp)
 
-    # Combined refresh variable:
-    # For a non-baseline tech k at process p: refresh = w + ren
-    # For the baseline tech: refresh = ren (w=0 forced by wfeas at infeasible)
-    # We build BOTH as a single expression: refresh = w_tp + ren_tp
-    # For baseline techs, w is zero because wfeas forces it (baseline has feas=1
-    # at t0 and ufeas forces ren and w within feasibility, but w for baseline
-    # is: the w event fires only when u switches TO baseline — i.e. never since
-    # it starts at baseline).  However, the lifecycle model allows w on ANY tech
-    # including baseline (since w captures any switch-in event, and a process
-    # could theoretically switch AWAY and switch BACK to baseline in a lifecycle
-    # context).  So refresh = w + ren for ALL techs is mathematically correct:
-    # for baseline, w fires when the process re-adopts baseline after a switch,
-    # and ren fires when it renews baseline.
-    refresh_tp = w_tp + ren_tp  # (process, tech, tp)
+    # refresh = w·w_coeff + ren  →  baseline: ren only; target: w + ren.
+    refresh_tp = w_coeff_da * w_tp + ren_tp  # (process, tech, tp)
 
     # window_sum[p,k,t] = Σ_tp W[k,t,tp] * refresh[p,k,tp]
     # window_da has dims (tech, period, tp); refresh_tp has (process, tech, tp).

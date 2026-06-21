@@ -67,6 +67,8 @@ class Machine:
     capacity: float = 0.0
     introduced_year: int | None = None
     max_capacity_factor: float = 1.0
+    #: Per-machine total renewal-count cap over the horizon; ``None`` ⇒ unlimited.
+    max_renewals: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -310,6 +312,7 @@ def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
             capacity=_num(r.get("capacity")) or 0.0,
             introduced_year=_int(r.get("introduced_year")),
             max_capacity_factor=1.0 if mc is None else mc,
+            max_renewals=_int(r.get("max_renewals")),
         )
 
     # Per-year flow bounds (long format), keyed by the connection's node triple.

@@ -288,6 +288,8 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
         }
         if m.introduced_year is not None:
             row["introduced_year"] = m.introduced_year
+        if m.max_renewals is not None:
+            row["max_renewals"] = m.max_renewals
         procs.append(row)
 
     # Connections (machine↔machine or group↔group) become machine edges: the
@@ -754,6 +756,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 baseline_technology=str(r["baseline_technology"]),
                 capacity=_num(r.get("capacity"), 0.0) or 0.0,
                 introduced_year=_int(r.get("introduced_year")),
+                max_renewals=_int(r.get("max_renewals")),
                 capex=_num(r.get("capex"), 0.0) or 0.0,
                 fixed_opex=_num(r.get("fixed_opex"), 0.0) or 0.0,
                 failure_rate=min(max(_num(r.get("failure_rate"), 0.0) or 0.0, 0.0), 1.0),
