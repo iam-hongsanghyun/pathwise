@@ -9,7 +9,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDialogs } from "../features/controls/Dialog";
 import { Resizer } from "../layout/Resizer";
-import { SearchSelect } from "../features/controls/SearchSelect";
 import { TemporalValue } from "../features/controls/TemporalValue";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
 import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types";
@@ -22,7 +21,6 @@ import {
   listAllComponentLibraries,
   placeTechnology,
 } from "../lib/api/components";
-import type { LibraryEntry } from "../lib/api/libraries";
 import { getFullModel, putModel } from "../lib/api/session";
 import { commodityUnit, machineProduct, maxOutputCap, minOutputCap, setMaxOutputCap, setMinOutputCap } from "../lib/caps";
 import { childrenOf, parseNodes } from "../lib/groupGraph";
@@ -33,9 +31,6 @@ interface Props {
   setWorkbook: (wb: Workbook) => void;
   sessionId: string | null;
   adoptServerModel: (wb: Workbook) => void;
-  /** Importable libraries — Facility imports the node-bearing ones (a structure). */
-  libraries?: LibraryEntry[];
-  onPickLibrary?: (key: string) => void;
 }
 
 /** Which kind a dragged Library leaf carries (encoded as the leaf id's prefix). */
@@ -51,7 +46,7 @@ const s = (v: unknown): string => (v == null ? "" : String(v));
 let _ctr = 0;
 const genId = (p: string): string => `${p}_${Date.now().toString(36)}${(_ctr++).toString(36)}`;
 
-export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerModel, libraries = [], onPickLibrary }: Props) {
+export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerModel }: Props) {
   const { prompt, confirm, node: dialogNode } = useDialogs();
   const [selId, setSelId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -506,18 +501,6 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
             <span className="rail-head">Structure</span>
             <button className="rail-add" title="add a top-level group" onClick={() => void addSubgroup(null)}>＋</button>
           </div>
-          {onPickLibrary && (
-            <div className="rail-import">
-              <SearchSelect
-                value=""
-                onChange={(v) => v && onPickLibrary(v)}
-                options={libraries
-                  .filter((l) => l.has_value_chain)
-                  .map((l) => ({ value: `${l.tier}/${l.id}`, label: `${l.label}` }))}
-                placeholder="import a facility…"
-              />
-            </div>
-          )}
           <div className="rail-scroll">
             {tree(facilityNodes, "Empty — ＋ to add a group, then drag technologies from the Library below.", { exp: expanded, setExp: setExpanded, drop: true })}
           </div>

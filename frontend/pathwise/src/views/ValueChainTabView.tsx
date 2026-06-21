@@ -33,7 +33,6 @@ import {
   listAvailableTechnologies,
   placeTechnology,
 } from "../lib/api/components";
-import type { LibraryEntry } from "../lib/api/libraries";
 import { getFullModel, putModel } from "../lib/api/session";
 import { setSupplyCap } from "../lib/caps";
 import { parseNodes } from "../lib/groupGraph";
@@ -44,9 +43,6 @@ interface Props {
   setWorkbook: (wb: Workbook) => void;
   sessionId: string | null;
   adoptServerModel: (wb: Workbook) => void;
-  /** Importable libraries (for the blank-model "start from an example" affordance). */
-  libraries?: LibraryEntry[];
-  onPickLibrary?: (key: string) => void;
 }
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
@@ -65,7 +61,7 @@ function parseAltId(id: string): { machineId: string; technology: string } | nul
   return sep < 0 ? null : { machineId: rest.slice(0, sep), technology: rest.slice(sep + 2) };
 }
 
-export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServerModel, libraries = [], onPickLibrary }: Props) {
+export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServerModel }: Props) {
   const [selId, setSelId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [libs, setLibs] = useState<LibrarySummary[]>([]);
@@ -392,18 +388,6 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 <span className="rail-head">Structure</span>
                 <button className="rail-add" title="add top-level subgroup" onClick={() => addSubgroup(null)}>＋</button>
               </div>
-              {onPickLibrary && (
-                <div className="rail-import">
-                  <SearchSelect
-                    value=""
-                    onChange={(v) => v && onPickLibrary(v)}
-                    options={libraries
-                      .filter((l) => l.has_value_chain)
-                      .map((l) => ({ value: `${l.tier}/${l.id}`, label: l.label }))}
-                    placeholder="import a value chain…"
-                  />
-                </div>
-              )}
               <div className="rail-scroll">
                 <TreeExplorer
                   nodes={treeNodes}
@@ -446,18 +430,8 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
             <div className="vc-empty">
               <h2 className="view-title" style={{ margin: 0 }}>Start a value chain</h2>
               <p className="detail-note" style={{ maxWidth: 420, textAlign: "center", margin: 0 }}>
-                A value chain is a tree of <b>nodes</b> (sector → company → facility) holding <b>machines</b> that run a <b>technology</b>; you wire them with <b>connections</b> (in-chain) and <b>markets</b> (buy/sell outside).
+                A value chain is a tree of <b>nodes</b> (sector → company → facility) holding <b>machines</b> that run a <b>technology</b>; you wire them with <b>connections</b> (in-chain) and <b>markets</b> (buy/sell outside). Import a whole model from the <b>Project</b> tab.
               </p>
-              {(() => {
-                const vc = libraries.filter((l) => l.has_value_chain);
-                return vc.length > 0 && onPickLibrary ? (
-                  <div style={{ width: 320, textAlign: "center" }}>
-                    <div className="detail-note" style={{ marginBottom: 4 }}>start from an example</div>
-                    <SearchSelect value="" onChange={(key) => key && onPickLibrary(key)} placeholder="open an example model…"
-                      options={vc.map((l) => ({ value: `${l.tier}/${l.id}`, label: l.label }))} />
-                  </div>
-                ) : null;
-              })()}
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <button className="run-button" onClick={() => addSubgroup(null)}>＋ Add value chain</button>
                 <span className="detail-note">…then right-click it to add subgroups or components</span>

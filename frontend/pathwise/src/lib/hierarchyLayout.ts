@@ -634,6 +634,42 @@ export interface Box {
   h: number;
 }
 
+const ROUTE_EPS = 0.5;
+
+/** Does the axis-aligned segment (ax,ay)->(bx,by) cross any obstacle interior? */
+function segHitsAny(ax: number, ay: number, bx: number, by: number, obstacles: Box[]): boolean {
+  for (const o of obstacles) {
+    if (Math.abs(ax - bx) < ROUTE_EPS) {
+      if (ax > o.x + ROUTE_EPS && ax < o.x + o.w - ROUTE_EPS) {
+        const lo = Math.min(ay, by);
+        const hi = Math.max(ay, by);
+        if (hi > o.y + ROUTE_EPS && lo < o.y + o.h - ROUTE_EPS) return true;
+      }
+    } else if (ay > o.y + ROUTE_EPS && ay < o.y + o.h - ROUTE_EPS) {
+      const lo = Math.min(ax, bx);
+      const hi = Math.max(ax, bx);
+      if (hi > o.x + ROUTE_EPS && lo < o.x + o.w - ROUTE_EPS) return true;
+    }
+  }
+  return false;
+}
+
+/** Drop collinear midpoints + duplicate points from a polyline. */
+function simplifyCollinear(pts: Pt[]): Pt[] {
+  const out: Pt[] = [];
+  for (let n = 0; n < pts.length; n++) {
+    const a = out[out.length - 1];
+    const b = pts[n];
+    if (n > 0 && n < pts.length - 1) {
+      const c = pts[n + 1];
+      const collinear = (a.x === b.x && b.x === c.x) || (a.y === b.y && b.y === c.y);
+      if (collinear) continue;
+    }
+    if (!a || Math.abs(a.x - b.x) > ROUTE_EPS || Math.abs(a.y - b.y) > ROUTE_EPS) out.push(b);
+  }
+  return out;
+}
+
 /** Shortest orthogonal (right-angle) path from `p1` to `p2` that does not cross any
  *  obstacle rectangle, kept within `bounds`. Returns the polyline (incl. endpoints)
  *  or null if no route exists.
@@ -652,11 +688,11 @@ export function routeOrthogonal(
   p2: Pt,
   obstacles: Box[],
   bounds: Box,
-  opts: { margin?: number; turnPenalty?: number } = {},
+  opts: { margin?: number; turnPenalty?: number; extraXs?: number[]; extraYs?: number[] } = {},
 ): Pt[] | null {
   const M = opts.margin ?? 8;
   const TP = opts.turnPenalty ?? 18;
-  const EPS = 0.5;
+  const EPS = ROUTE_EPS;
   const bx0 = bounds.x + 2;
   const bx1 = bounds.x + bounds.w - 2;
   const by0 = bounds.y + 2;
@@ -671,29 +707,17 @@ export function routeOrthogonal(
     ysSet.add(clamp(o.y - M, by0, by1));
     ysSet.add(clamp(o.y + o.h + M, by0, by1));
   }
+  // Injected candidate lines (stub ends + the near inter-box gutter midline) so
+  // the cross-over bend lands in the near gap, not the far container wall.
+  for (const v of opts.extraXs ?? []) xsSet.add(clamp(v, bx0, bx1));
+  for (const v of opts.extraYs ?? []) ysSet.add(clamp(v, by0, by1));
   const xs = [...xsSet].sort((a, b) => a - b);
   const ys = [...ysSet].sort((a, b) => a - b);
   const nx = xs.length;
   const ny = ys.length;
   const inObstacle = (x: number, y: number) =>
     obstacles.some((o) => x > o.x + EPS && x < o.x + o.w - EPS && y > o.y + EPS && y < o.y + o.h - EPS);
-  // Does an axis-aligned segment cross any obstacle's interior?
-  const segHits = (ax: number, ay: number, bx: number, by: number) => {
-    for (const o of obstacles) {
-      if (Math.abs(ax - bx) < EPS) {
-        if (ax > o.x + EPS && ax < o.x + o.w - EPS) {
-          const lo = Math.min(ay, by);
-          const hi = Math.max(ay, by);
-          if (hi > o.y + EPS && lo < o.y + o.h - EPS) return true;
-        }
-      } else if (ay > o.y + EPS && ay < o.y + o.h - EPS) {
-        const lo = Math.min(ax, bx);
-        const hi = Math.max(ax, bx);
-        if (hi > o.x + EPS && lo < o.x + o.w - EPS) return true;
-      }
-    }
-    return false;
-  };
+  const segHits = (ax: number, ay: number, bx: number, by: number) => segHitsAny(ax, ay, bx, by, obstacles);
   const ix = new Map(xs.map((v, i) => [v, i]));
   const iy = new Map(ys.map((v, i) => [v, i]));
   const si = ix.get(p1.x);
@@ -759,16 +783,91 @@ export function routeOrthogonal(
     k = came.get(k);
   }
   pts.reverse();
-  const simplified: Pt[] = [];
-  for (let n = 0; n < pts.length; n++) {
-    const a = simplified[simplified.length - 1];
-    const b = pts[n];
-    if (n > 0 && n < pts.length - 1) {
-      const c = pts[n + 1];
-      const collinear = (a.x === b.x && b.x === c.x) || (a.y === b.y && b.y === c.y);
-      if (collinear) continue;
+  return simplifyCollinear(pts);
+}
+
+/** Orthogonal route with guaranteed perpendicular exit/entry stubs. Wraps
+ *  {@link routeOrthogonal}: the A* runs only between the two stub ends (e1, e2),
+ *  pushed STUB px off each port along its outward normal, so the line leaves /
+ *  enters perpendicular (never hugs the outline) and there is clear straight
+ *  space at each port for a label. The near inter-box gutter midline is injected
+ *  so the bend lands in the nearest gap, not the far container wall. */
+export function routeWithStubs(
+  p1: Pt,
+  p2: Pt,
+  obstacles: Box[],
+  bounds: Box,
+  orientation: Orientation,
+  srcBox: Box,
+  dstBox: Box,
+  opts: { margin?: number; turnPenalty?: number; stub?: number; labelClearance?: number } = {},
+): Pt[] | null {
+  const horiz = orientation === "h";
+  const M = opts.margin ?? 8;
+  if (Math.abs(p1.x - p2.x) < ROUTE_EPS && Math.abs(p1.y - p2.y) < ROUTE_EPS) return [p1, p2];
+
+  const labelClear = opts.labelClearance ?? 20;
+  const floor = horiz ? Math.max(PAD, GAP_X / 2) : Math.max(12, GAP_Y / 2 + 2);
+  const Sreq = Math.max(opts.stub ?? floor, M + labelClear);
+
+  const nx = horiz ? 1 : 0;
+  const ny = horiz ? 0 : 1;
+  const bLoX = bounds.x + 2;
+  const bHiX = bounds.x + bounds.w - 2;
+  const bLoY = bounds.y + 2;
+  const bHiY = bounds.y + bounds.h - 2;
+  const roomAlong = (px: number, py: number, sign: number) =>
+    horiz ? (sign > 0 ? bHiX - px : px - bLoX) : sign > 0 ? bHiY - py : py - bLoY;
+  // Largest clear stub length in [M, want] that stays in bounds + clears obstacles.
+  const clampStub = (px: number, py: number, sign: number, want: number): number => {
+    let s = Math.min(want, Math.max(M, roomAlong(px, py, sign)));
+    if (segHitsAny(px, py, px + nx * sign * s, py + ny * sign * s, obstacles)) {
+      let found = M;
+      for (let t = s; t >= M; t -= 2) {
+        if (!segHitsAny(px, py, px + nx * sign * t, py + ny * sign * t, obstacles)) { found = t; break; }
+      }
+      s = found;
     }
-    if (!a || a.x !== b.x || a.y !== b.y) simplified.push(b);
+    return s;
+  };
+  const s1 = clampStub(p1.x, p1.y, +1, Sreq);
+  const s2 = clampStub(p2.x, p2.y, -1, Sreq);
+  const e1: Pt = { x: p1.x + nx * s1, y: p1.y + ny * s1 };
+  const e2: Pt = { x: p2.x - nx * s2, y: p2.y - ny * s2 };
+
+  const extraXs: number[] = [];
+  const extraYs: number[] = [];
+  if (horiz) {
+    const gx =
+      srcBox.x + srcBox.w <= dstBox.x
+        ? (srcBox.x + srcBox.w + dstBox.x) / 2
+        : (dstBox.x + dstBox.w + srcBox.x) / 2;
+    extraXs.push(gx, e1.x, e2.x);
+    extraYs.push(e1.y, e2.y);
+  } else {
+    const gy =
+      srcBox.y + srcBox.h <= dstBox.y
+        ? (srcBox.y + srcBox.h + dstBox.y) / 2
+        : (dstBox.y + dstBox.h + srcBox.y) / 2;
+    extraYs.push(gy, e1.y, e2.y);
+    extraXs.push(e1.x, e2.x);
   }
-  return simplified;
+
+  const mid = routeOrthogonal(e1, e2, obstacles, bounds, {
+    margin: M,
+    turnPenalty: opts.turnPenalty ?? 18,
+    extraXs,
+    extraYs,
+  });
+  let poly: Pt[];
+  if (mid && mid.length >= 2) {
+    poly = [p1, e1, ...mid.slice(1, mid.length - 1), e2, p2];
+  } else if (horiz) {
+    const gx = extraXs[0];
+    poly = [p1, e1, { x: gx, y: e1.y }, { x: gx, y: e2.y }, e2, p2];
+  } else {
+    const gy = extraYs[0];
+    poly = [p1, e1, { x: e1.x, y: gy }, { x: e2.x, y: gy }, e2, p2];
+  }
+  return simplifyCollinear(poly);
 }

@@ -260,8 +260,6 @@ export function App() {
             setWorkbook={updateWorkbook}
             sessionId={sessionId}
             adoptServerModel={adoptServerModel}
-            libraries={libraries}
-            onPickLibrary={onPickLibrary}
           />
         )}
         {view === "valuechain" && (
@@ -270,8 +268,6 @@ export function App() {
             setWorkbook={updateWorkbook}
             sessionId={sessionId}
             adoptServerModel={adoptServerModel}
-            libraries={libraries}
-            onPickLibrary={onPickLibrary}
           />
         )}
         {view === "targets" && (

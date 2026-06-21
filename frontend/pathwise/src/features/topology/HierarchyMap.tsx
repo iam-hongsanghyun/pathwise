@@ -17,7 +17,7 @@ import {
   defaultExpanded,
   editEdges,
   layoutFor,
-  routeOrthogonal,
+  routeWithStubs,
   sourceStreams,
   type LaidNode,
   type MapMode,
@@ -282,11 +282,19 @@ export function HierarchyMap({
       const obstacles = (childrenByParent.get(L.id) ?? [])
         .filter((n) => n.id !== sa && n.id !== sb)
         .map((n) => ({ x: n.x, y: n.y, w: n.w, h: n.h }));
-      const path = routeOrthogonal(outPt(a), inPt(b), obstacles, { x: L.x, y: L.y, w: L.w, h: L.h });
+      const path = routeWithStubs(
+        outPt(a),
+        inPt(b),
+        obstacles,
+        { x: L.x, y: L.y, w: L.w, h: L.h },
+        orientation,
+        { x: a.x, y: a.y, w: a.w, h: a.h },
+        { x: b.x, y: b.y, w: b.w, h: b.h },
+      );
       if (path && path.length >= 2) map.set(edgeKey(e), path);
     }
     return map;
-  }, [ortho, edges, placed, boxById, horiz]);
+  }, [ortho, edges, placed, boxById, horiz, orientation]);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const { vb, setVb, onWheel, onPanStart, onPanMove, onPanEnd, toWorld } = useViewBox();
@@ -463,7 +471,7 @@ export function HierarchyMap({
           cx={horiz ? 0 : n.w / 2}
           cy={horiz ? n.h / 2 : 0}
           r={6}
-          style={{ cursor: "crosshair" }}
+          style={{ cursor: "pointer" }}
           onPointerUp={(e) => {
             e.stopPropagation();
             if (connect && connect.from !== n.id) setForm({ from: connect.from, to: n.id, sx: e.clientX, sy: e.clientY });
@@ -476,7 +484,7 @@ export function HierarchyMap({
           cx={horiz ? n.w : n.w / 2}
           cy={horiz ? n.h / 2 : n.h}
           r={6}
-          style={{ cursor: "crosshair" }}
+          style={{ cursor: "pointer" }}
           onPointerDown={(e) => {
             e.stopPropagation();
             e.preventDefault(); // don't let the drag start a text/area selection
@@ -487,43 +495,62 @@ export function HierarchyMap({
       </>
     ) : null;
 
+  // Uniform fixed size for every toolbar button — icon on top, label below — so
+  // they align and the orientation toggle never resizes when its label flips.
+  const toolBtn: React.CSSProperties = {
+    width: 82,
+    height: 46,
+    padding: "4px 4px",
+    fontSize: "0.72rem",
+    lineHeight: 1.15,
+    display: "inline-flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+    textAlign: "center",
+    cursor: "pointer",
+  };
   return (
     <div className="canvas topo-canvas" style={{ display: "flex", flexDirection: "column", position: "relative" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", background: "var(--surface)" }}>
-        <button className="ghost" style={{ padding: "3px 10px", fontSize: "0.76rem" }} onClick={expandAll} title="Expand every group">
-          ⊞ Expand all
+        <button className="ghost" style={toolBtn} onClick={expandAll} title="Expand every group">
+          <span style={{ fontSize: "0.95rem" }}>⊞</span>
+          <span>Expand all</span>
         </button>
-        <button className="ghost" style={{ padding: "3px 10px", fontSize: "0.76rem" }} onClick={collapseAll} title="Collapse every group">
-          ⊟ Collapse all
+        <button className="ghost" style={toolBtn} onClick={collapseAll} title="Collapse every group">
+          <span style={{ fontSize: "0.95rem" }}>⊟</span>
+          <span>Collapse all</span>
         </button>
         {editable && (
           <>
             <button
               className="ghost"
-              style={{ padding: "3px 10px", fontSize: "0.76rem" }}
+              style={toolBtn}
               onClick={() => setOrientation((o) => (o === "h" ? "v" : "h"))}
               title="Switch flow direction — left→right ↔ top→bottom"
             >
-              {horiz ? "⇄ Horizontal" : "⇳ Vertical"}
+              <span style={{ fontSize: "0.95rem" }}>{horiz ? "⇄" : "⇳"}</span>
+              <span>{horiz ? "Horizontal" : "Vertical"}</span>
             </button>
             <button
               className="ghost"
               style={{
-                padding: "3px 10px",
-                fontSize: "0.76rem",
+                ...toolBtn,
                 background: ortho ? "var(--brand-fill)" : undefined,
                 borderColor: ortho ? "var(--brand)" : undefined,
                 color: ortho ? "var(--brand)" : undefined,
               }}
               onClick={() => setOrtho((v) => !v)}
-              title="Straight flow lines — horizontal/vertical segments only, to reduce overlap"
+              title="Straight flow lines — shortest right-angle path around the boxes"
             >
-              ⌐ Straight lines
+              <span style={{ fontSize: "0.95rem" }}>⌐</span>
+              <span>Straight lines</span>
             </button>
             {onResetLayout && (
               <button
                 className="ghost"
-                style={{ padding: "3px 10px", fontSize: "0.76rem" }}
+                style={toolBtn}
                 onClick={() => {
                   onResetLayout();
                   const pad = 50;
@@ -531,7 +558,8 @@ export function HierarchyMap({
                 }}
                 title="Reset all moved nodes back to the automatic layout"
               >
-                ↺ Reset layout
+                <span style={{ fontSize: "0.95rem" }}>↺</span>
+                <span>Reset layout</span>
               </button>
             )}
           </>
@@ -651,7 +679,7 @@ export function HierarchyMap({
                 stroke={sel ? "var(--brand)" : "var(--border-strong)"}
                 strokeWidth={sel ? 3 : 1}
                 opacity={0.5 + 0.12 * Math.min(3, g.depth)}
-                style={{ cursor: editable ? "grab" : "pointer" }}
+                style={{ cursor: "pointer" }}
               />
               {/* header strip — the NAME / select target (data-group): click shows
                   details, leaving the chart level as is. */}
@@ -740,7 +768,7 @@ export function HierarchyMap({
                 fill="none"
                 stroke="transparent"
                 strokeWidth={14}
-                style={{ cursor: editable && e.rowIndex >= 0 ? "pointer" : "default" }}
+                style={{ cursor: "pointer" }}
                 onMouseEnter={onHover}
                 onMouseMove={onHover}
                 onMouseLeave={() => setHover(null)}
@@ -794,7 +822,7 @@ export function HierarchyMap({
               className={`topo-node ${isMachine ? "topo-commodity" : "topo-process"}`}
               transform={`translate(${n.x},${n.y})`}
               opacity={idle ? 0.45 : 1}
-              style={{ cursor: editable ? "grab" : "pointer" }}
+              style={{ cursor: "pointer" }}
               onPointerDown={(e) => startNodeDrag([n.id], () => nodeClick(n), e)}
             >
               <rect width={n.w} height={n.h} rx={3} fill={fill} stroke={stroke} strokeWidth={isSel || toTech ? 2.5 : undefined} />
