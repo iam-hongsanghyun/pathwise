@@ -87,6 +87,34 @@ export function HierarchyMap({
   const expandAll = () => setExpanded(new Set(allGroupIds));
   const collapseAll = () => setExpanded(new Set());
 
+  // Flow-aggregation level (independent of expand/collapse): null = Component (every
+  // machine→machine link). The selectable group levels come from the TREE itself
+  // (never hardcoded), ordered deepest→shallowest (least→most aggregation).
+  const [flowLevel, setFlowLevel] = useState<string | null>(null);
+  const flowLevels = useMemo(() => {
+    const ns = parseNodes(workbook);
+    const parent = new Map(ns.map((n) => [n.id, n.parentId]));
+    const depth = (id: string): number => {
+      let d = 0;
+      let cur = parent.get(id) ?? null;
+      const seen = new Set<string>();
+      while (cur && !seen.has(cur)) { d++; seen.add(cur); cur = parent.get(cur) ?? null; }
+      return d;
+    };
+    const minDepth = new Map<string, number>();
+    for (const n of ns) {
+      if (n.kind === "machine" || !n.level) continue;
+      const d = depth(n.id);
+      if (!minDepth.has(n.level) || d < (minDepth.get(n.level) as number)) minDepth.set(n.level, d);
+    }
+    return [...minDepth.entries()].sort((a, b) => b[1] - a[1]).map(([lvl]) => lvl);
+  }, [workbook]);
+  useEffect(() => {
+    // Drop the selection if the model no longer has that level.
+    if (flowLevel && !flowLevels.includes(flowLevel)) setFlowLevel(null);
+  }, [flowLevels, flowLevel]);
+  const titleCase = (s: string) => s.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
   const laid = useMemo(() => layoutFor(workbook, mode, expanded), [workbook, mode, expanded]);
 
   // Source streams (consumed but produced by none — raw materials) sit in a band
@@ -128,9 +156,9 @@ export function HierarchyMap({
   const edges = useMemo(
     () =>
       editable
-        ? editEdges(workbook, laid.nodes).map((e) => ({ ...e, origFrom: e.from, origTo: e.to }))
+        ? editEdges(workbook, laid.nodes, flowLevel).map((e) => ({ ...e, origFrom: e.from, origTo: e.to }))
         : laid.edges.map((e) => ({ ...e, rowIndex: -1, lag: 0, count: 1 })),
-    [editable, workbook, laid],
+    [editable, workbook, laid, flowLevel],
   );
   const edgeKey = (e: { from: string; to: string; commodity: string; rowIndex: number }) =>
     `${e.from}-${e.to}-${e.commodity}-${e.rowIndex}`;
@@ -286,6 +314,21 @@ export function HierarchyMap({
         <button className="ghost" style={{ padding: "3px 10px", fontSize: "0.76rem" }} onClick={collapseAll} title="Collapse every group">
           ⊟ Collapse all
         </button>
+        {editable && flowLevels.length > 0 && (
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "0.74rem" }} title="Aggregate the flows to this level (independent of expand/collapse)">
+            <span className="muted">flows by</span>
+            <select
+              value={flowLevel ?? ""}
+              onChange={(e) => setFlowLevel(e.target.value || null)}
+              style={{ fontSize: "0.74rem", padding: "2px 4px", border: "1px solid var(--border-strong)", borderRadius: 4, background: "var(--surface)", font: "inherit" }}
+            >
+              <option value="">Component</option>
+              {flowLevels.map((lvl) => (
+                <option key={lvl} value={lvl}>{titleCase(lvl)}</option>
+              ))}
+            </select>
+          </label>
+        )}
         <span className="muted" style={{ fontSize: "0.74rem" }}>
           click a group's name for details · its ▾ grip to collapse / expand{editable ? " · drag a node's right dot → another's left dot to link" : ""}
         </span>

@@ -37,11 +37,19 @@ technologies in parallel.
 The map renders the model at whatever depth is expanded. Click a group's **name**
 to see its details (the inspector) *without* changing the level; click its
 **top-right ▾ grip** to collapse / expand it (a collapsed group shows a ▸ grip to
-re-open). When a group is collapsed, the machine→machine links inside it fold
-away and its external links **aggregate onto the group box** — several links
-between the same two boxes collapse to one arrow (shown `×N`). So you drill to the
-machine level to see every connection, or collapse up to read the flows by
-company / country.
+re-open).
+
+**Flows by level (the `flows by` dropdown, right of *Collapse all*).** Independently
+of which nodes are expanded, choose the level the *flows* are aggregated to —
+**Component** (default: every machine→machine link) or any group level present in
+the tree (e.g. Facility, Company, Country — derived from the model, never
+hardcoded). Picking *Company* rolls every link up to its company endpoints even
+with all machines visible; links between the same two boxes fold into one arrow
+(shown `×N`) and within-box links disappear. So you can keep the machines on
+screen but read the trade as a company- or country-level flow diagram.
+
+Collapsing a group also aggregates: its internal links fold away and its external
+links route onto the group box.
 
 ## Connections (commodity flows)
 

@@ -420,20 +420,36 @@ export function sourceStreams(wb: Workbook): SourceStream[] {
   });
 }
 
-export function editEdges(wb: Workbook, laid: LaidNode[]): EditEdge[] {
+export function editEdges(wb: Workbook, laid: LaidNode[], flowLevel: string | null = null): EditEdge[] {
   const nodes = parseNodes(wb);
   const visible = new Set(laid.map((n) => n.id));
   const toVisible = visibleAncestor(nodes, visible);
   const flow = (v: unknown): number | null =>
     v == null || String(v).trim() === "" ? null : Number(v);
-  // Map every connection onto the nearest VISIBLE endpoints, then aggregate by
-  // (from, to, commodity): at the machine level each arrow is one editable link;
-  // once groups collapse, the machine→machine links between two boxes fold into a
+  // Flow-aggregation level (independent of expand/collapse): roll an endpoint up to
+  // its ancestor whose `level` === flowLevel, else leave it (it's already at/above
+  // that level). null ⇒ "Component" (the machine itself).
+  const levelOf = new Map(nodes.map((n) => [n.id, n.level]));
+  const parentOf = new Map(nodes.map((n) => [n.id, n.parentId]));
+  const atLevel = (id: string): string => {
+    if (!flowLevel) return id;
+    let cur: string | null = id;
+    const seen = new Set<string>();
+    while (cur && !seen.has(cur)) {
+      if (levelOf.get(cur) === flowLevel) return cur;
+      seen.add(cur);
+      cur = parentOf.get(cur) ?? null;
+    }
+    return id;
+  };
+  // Map every connection onto the chosen flow level, then the nearest VISIBLE
+  // endpoints, then aggregate by (from, to, commodity): at Component level each
+  // arrow is one editable link; rolled up, the links between two boxes fold into a
   // single level→level arrow (display-only, with a count).
   const groups = new Map<string, EditEdge[]>();
   (wb.connections ?? []).forEach((row, rowIndex) => {
-    const from = toVisible(s(row.from_node));
-    const to = toVisible(s(row.to_node));
+    const from = toVisible(atLevel(s(row.from_node)));
+    const to = toVisible(atLevel(s(row.to_node)));
     if (!from || !to || from === to) return;
     const commodity = s(row.commodity_id, "—");
     const e: EditEdge = {
