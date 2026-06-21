@@ -468,49 +468,6 @@ export function sourceStreams(wb: Workbook): SourceStream[] {
   });
 }
 
-/** Overlay manual positions on an auto-layout: move each leaf (machine or collapsed
- *  group) to its stored (x, y), then re-fit every expanded group box to the bounding
- *  box of its children (bottom-up). So moving a child redraws its ancestors' boxes. */
-export function applyManualLayout(laid: Laid, positions: Map<string, { x: number; y: number }>): Laid {
-  if (!positions.size) return laid;
-  const nodes = laid.nodes.map((n) => ({ ...n }));
-  for (const n of nodes) {
-    const p = positions.get(n.id);
-    if (p && (n.kind === "machine" || n.collapsed)) {
-      n.x = p.x;
-      n.y = p.y;
-    }
-  }
-  const kidsByParent = new Map<string, LaidNode[]>();
-  for (const n of nodes) {
-    if (!n.parentId) continue;
-    const b = kidsByParent.get(n.parentId);
-    if (b) b.push(n);
-    else kidsByParent.set(n.parentId, [n]);
-  }
-  // Deepest groups first, so a parent re-fits around children already re-fitted.
-  for (const g of nodes.filter((n) => n.kind === "group" && !n.collapsed).sort((a, b) => b.depth - a.depth)) {
-    const kids = kidsByParent.get(g.id);
-    if (!kids || !kids.length) continue;
-    const minX = Math.min(...kids.map((k) => k.x));
-    const minY = Math.min(...kids.map((k) => k.y));
-    const maxX = Math.max(...kids.map((k) => k.x + k.w));
-    const maxY = Math.max(...kids.map((k) => k.y + k.h));
-    g.x = minX - PAD;
-    g.y = minY - HEADER - PAD;
-    g.w = maxX - minX + 2 * PAD;
-    g.h = maxY - minY + HEADER + 2 * PAD;
-  }
-  const minX = Math.min(0, ...nodes.map((n) => n.x));
-  const minY = Math.min(0, ...nodes.map((n) => n.y));
-  return {
-    ...laid,
-    nodes,
-    width: Math.max(...nodes.map((n) => n.x + n.w)) - minX + PAD,
-    height: Math.max(...nodes.map((n) => n.y + n.h)) - minY + PAD,
-  };
-}
-
 export function editEdges(wb: Workbook, laid: LaidNode[], flowLevel: string | null = null): EditEdge[] {
   const nodes = parseNodes(wb);
   const visible = new Set(laid.map((n) => n.id));

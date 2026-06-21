@@ -132,7 +132,6 @@ export function HierarchyMap({
     () => layoutFor(workbook, mode, expanded, orientation),
     [workbook, mode, expanded, orientation],
   );
-  const structural = laid;
 
   // Source streams (consumed but produced by none — raw materials) sit in a band
   // across the top; the hierarchy is shifted down by `bandH` to make room.
@@ -291,7 +290,7 @@ export function HierarchyMap({
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const { vb, setVb, onWheel, onPanStart, onPanMove, onPanEnd, toWorld } = useViewBox();
-  const fitKey = `${mode}|${orientation}|${structural.width}x${structural.height}|${structural.nodes.length}|${sources.length}`;
+  const fitKey = `${mode}|${orientation}|${laid.width}x${laid.height}|${laid.nodes.length}|${sources.length}`;
   // The "fit everything" viewBox — the 100% baseline and the reset target.
   const fitBox = useMemo(() => {
     const pad = 50;
@@ -317,8 +316,6 @@ export function HierarchyMap({
     });
   const zoomPct = vb.w > 0 ? Math.round((fitBox.w / vb.w) * 100) : 100;
 
-  // Editing gestures: a press (select), an output→input port drag (connect).
-  const press = useRef<{ id: string; x: number; y: number; moved: boolean } | null>(null);
   // Background/container press: the SVG captures the pointer for panning, so a
   // click on a container rect can't use onClick (the click retargets to the SVG).
   // We record the pointer-down target's group id here and act on a no-move up.
@@ -340,7 +337,6 @@ export function HierarchyMap({
   // (so you can drag the canvas from anywhere). On pointer-up, a no-move tap is
   // resolved to a select / toggle; a real drag was a pan. Nodes aren't repositioned.
   function bgDown(e: React.PointerEvent) {
-    press.current = null;
     setSelEdge(null);
     const el = e.target as Element;
     const toggleId = el?.closest?.("[data-toggle]")?.getAttribute("data-toggle") ?? null;
@@ -412,7 +408,6 @@ export function HierarchyMap({
             e.stopPropagation();
             if (connect && connect.from !== n.id) setForm({ from: connect.from, to: n.id, sx: e.clientX, sy: e.clientY });
             setConnect(null);
-            press.current = null;
           }}
         />
         <circle
@@ -672,7 +667,7 @@ export function HierarchyMap({
               {editable && n.kind === "group" && n.collapsed && (
                 <g
                   onPointerDown={(e) => e.stopPropagation()}
-                  onPointerUp={(e) => { e.stopPropagation(); press.current = null; toggle(n.id); }}
+                  onPointerUp={(e) => { e.stopPropagation(); toggle(n.id); }}
                   style={{ cursor: "pointer" }}
                 >
                   <rect x={n.w - 22} y={0} width={22} height={22} rx={3} fill="transparent" />
