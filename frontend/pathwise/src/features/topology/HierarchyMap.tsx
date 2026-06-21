@@ -15,6 +15,7 @@ import { parseNodes } from "../../lib/groupGraph";
 import {
   applyManualLayout,
   defaultExpanded,
+  DYNAMIC_FLOW,
   editEdges,
   layoutFor,
   sourceStreams,
@@ -118,8 +119,8 @@ export function HierarchyMap({
     return [...minDepth.entries()].sort((a, b) => b[1] - a[1]).map(([lvl]) => lvl);
   }, [workbook]);
   useEffect(() => {
-    // Drop the selection if the model no longer has that level.
-    if (flowLevel && !flowLevels.includes(flowLevel)) setFlowLevel(null);
+    // Drop the selection if the model no longer has that level (Dynamic is always valid).
+    if (flowLevel && flowLevel !== DYNAMIC_FLOW && !flowLevels.includes(flowLevel)) setFlowLevel(null);
   }, [flowLevels, flowLevel]);
   const titleCase = (s: string) => s.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
@@ -473,8 +474,8 @@ export function HierarchyMap({
             )}
           </>
         )}
-        {editable && flowLevels.length > 0 && (
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "0.74rem" }} title="Aggregate the flows to this level (independent of expand/collapse)">
+        {editable && (
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "0.74rem" }} title="Aggregate the flows to this level (independent of expand/collapse). Dynamic draws each flow where its two sides first diverge.">
             <span className="muted">flows by</span>
             <select
               value={flowLevel ?? ""}
@@ -482,6 +483,7 @@ export function HierarchyMap({
               style={{ fontSize: "0.74rem", padding: "2px 4px", border: "1px solid var(--border-strong)", borderRadius: 4, background: "var(--surface)", font: "inherit" }}
             >
               <option value="">Component</option>
+              <option value={DYNAMIC_FLOW}>Dynamic</option>
               {flowLevels.map((lvl) => (
                 <option key={lvl} value={lvl}>{titleCase(lvl)}</option>
               ))}

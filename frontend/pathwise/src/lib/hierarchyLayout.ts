@@ -507,6 +507,10 @@ export function applyManualLayout(laid: Laid, positions: Map<string, { x: number
   };
 }
 
+/** Sentinel flow level: aggregate each link to the level where its two endpoints
+ *  first diverge (the children of their lowest common ancestor). */
+export const DYNAMIC_FLOW = "__dynamic__";
+
 export function editEdges(wb: Workbook, laid: LaidNode[], flowLevel: string | null = null): EditEdge[] {
   const nodes = parseNodes(wb);
   const visible = new Set(laid.map((n) => n.id));
@@ -518,8 +522,9 @@ export function editEdges(wb: Workbook, laid: LaidNode[], flowLevel: string | nu
   // that level). null ⇒ "Component" (the machine itself).
   const levelOf = new Map(nodes.map((n) => [n.id, n.level]));
   const parentOf = new Map(nodes.map((n) => [n.id, n.parentId]));
+  const dynamic = flowLevel === DYNAMIC_FLOW;
   const atLevel = (id: string): string => {
-    if (!flowLevel) return id;
+    if (!flowLevel || dynamic) return id;
     let cur: string | null = id;
     const seen = new Set<string>();
     while (cur && !seen.has(cur)) {
@@ -529,14 +534,66 @@ export function editEdges(wb: Workbook, laid: LaidNode[], flowLevel: string | nu
     }
     return id;
   };
-  // Map every connection onto the chosen flow level, then the nearest VISIBLE
-  // endpoints, then aggregate by (from, to, commodity): at Component level each
-  // arrow is one editable link; rolled up, the links between two boxes fold into a
-  // single level→level arrow (display-only, with a count).
+  // Ancestor chain [id, parent, …, root].
+  const chainUp = (id: string): string[] => {
+    const out: string[] = [];
+    let cur: string | null = id;
+    const seen = new Set<string>();
+    while (cur && !seen.has(cur)) {
+      out.push(cur);
+      seen.add(cur);
+      cur = parentOf.get(cur) ?? null;
+    }
+    return out;
+  };
+  // The two endpoints rolled up to the level where they first DIVERGE: the
+  // children of their lowest common ancestor that contain each side. So a flow
+  // between two machines in different companies is drawn company→company; between
+  // two companies in different countries, country→country. Returns null when one
+  // is an ancestor of the other or the trees are disjoint.
+  const divergingEndpoints = (from: string, to: string): [string, string] | null => {
+    if (from === to) return null;
+    const af = chainUp(from);
+    const at = chainUp(to);
+    const setT = new Set(at);
+    let lca: string | null = null;
+    for (const a of af) if (setT.has(a)) { lca = a; break; }
+    if (!lca || lca === from || lca === to) return null;
+    const childOnSide = (chain: string[]): string | null => {
+      let prev: string | null = null;
+      for (const a of chain) { if (a === lca) return prev; prev = a; }
+      return null;
+    };
+    const cf = childOnSide(af);
+    const ct = childOnSide(at);
+    return cf && ct ? [cf, ct] : null;
+  };
+  // Resolve one connection's drawn endpoints for the current flow level:
+  //   • dynamic  → always the diverging level;
+  //   • a level  → that level if the two sides sit in DIFFERENT level-groups;
+  //                otherwise (an intra-group link) fall back to the diverging
+  //                level so it is still shown rather than dropped;
+  //   • null     → the machines themselves (Component).
+  const endpointsFor = (rawFrom: string, rawTo: string): [string | null, string | null] => {
+    if (dynamic) {
+      const dv = divergingEndpoints(rawFrom, rawTo);
+      return dv ? [toVisible(dv[0]), toVisible(dv[1])] : [null, null];
+    }
+    if (flowLevel) {
+      const fx = atLevel(rawFrom);
+      const tx = atLevel(rawTo);
+      if (fx !== tx) return [toVisible(fx), toVisible(tx)];
+      const dv = divergingEndpoints(rawFrom, rawTo);
+      return dv ? [toVisible(dv[0]), toVisible(dv[1])] : [null, null];
+    }
+    return [toVisible(rawFrom), toVisible(rawTo)];
+  };
+  // Map every connection onto its drawn endpoints, then aggregate by
+  // (from, to, commodity): a single underlying link stays editable; several
+  // folded onto one arrow become a display-only arrow with a count.
   const groups = new Map<string, EditEdge[]>();
   (wb.connections ?? []).forEach((row, rowIndex) => {
-    const from = toVisible(atLevel(s(row.from_node)));
-    const to = toVisible(atLevel(s(row.to_node)));
+    const [from, to] = endpointsFor(s(row.from_node), s(row.to_node));
     if (!from || !to || from === to) return;
     const commodity = s(row.commodity_id, "—");
     const e: EditEdge = {
