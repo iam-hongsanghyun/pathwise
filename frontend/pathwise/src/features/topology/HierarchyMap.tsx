@@ -630,13 +630,34 @@ export function HierarchyMap({
           // Bézier. Both follow the flow axis (horizontal vs vertical).
           let d: string;
           if (ortho) {
-            const lane = (edgeLabelRank.get(edgeKey(e)) ?? 0) * 12;
+            const lane = (edgeLabelRank.get(edgeKey(e)) ?? 0) * 14;
+            const EM = 16; // exit margin past a box edge
+            // Enclosing (1-step-higher) group boxes of each endpoint. A non-adjacent
+            // link routes in the gutter OUTSIDE these so the perpendicular leg never
+            // cuts through a sub-box between the two ("go round the side, not through").
+            const apar = boxById.get(parentOf.get(e.from) ?? "") ?? a;
+            const bpar = boxById.get(parentOf.get(e.to) ?? "") ?? b;
             if (horiz) {
-              const cx = mx + lane;
-              d = `M${x1},${y1} L${cx},${y1} L${cx},${y2} L${x2},${y2}`;
+              const gap = x2 - x1; // x1 = a's right edge, x2 = b's left edge
+              if (gap > 0 && gap < 96 && Math.abs(y2 - y1) < a.h + b.h) {
+                // adjacent columns: a short elbow in the gutter between the boxes
+                const cx = x1 + gap / 2 + lane;
+                d = `M${x1},${y1} L${cx},${y1} L${cx},${y2} L${x2},${y2}`;
+              } else {
+                // route along a horizontal lane below both parent boxes
+                const gy = Math.max(apar.y + apar.h, bpar.y + bpar.h) + EM + lane;
+                d = `M${x1},${y1} L${x1 + EM},${y1} L${x1 + EM},${gy} L${x2 - EM},${gy} L${x2 - EM},${y2} L${x2},${y2}`;
+              }
             } else {
-              const cy = my + lane;
-              d = `M${x1},${y1} L${x1},${cy} L${x2},${cy} L${x2},${y2}`;
+              const gap = y2 - y1; // y1 = a's bottom edge, y2 = b's top edge
+              if (gap > 0 && gap < 96 && Math.abs(x2 - x1) < a.w + b.w) {
+                const cy = y1 + gap / 2 + lane;
+                d = `M${x1},${y1} L${x1},${cy} L${x2},${cy} L${x2},${y2}`;
+              } else {
+                // route up/down a vertical lane to the right of both parent boxes
+                const gx = Math.max(apar.x + apar.w, bpar.x + bpar.w) + EM + lane;
+                d = `M${x1},${y1} L${x1},${y1 + EM} L${gx},${y1 + EM} L${gx},${y2 - EM} L${x2},${y2 - EM} L${x2},${y2}`;
+              }
             }
           } else if (horiz) {
             const c = Math.max(40, (x2 - x1) / 2);

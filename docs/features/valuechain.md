@@ -40,13 +40,21 @@ to see its details (the inspector) *without* changing the level; click its
 re-open).
 
 **Flows by level (the `flows by` dropdown, right of *Collapse all*).** Independently
-of which nodes are expanded, choose the level the *flows* are aggregated to —
-**Component** (default: every machine→machine link) or any group level present in
-the tree (e.g. Facility, Company, Country — derived from the model, never
-hardcoded). Picking *Company* rolls every link up to its company endpoints even
-with all machines visible; links between the same two boxes fold into one arrow
-(shown `×N`) and within-box links disappear. So you can keep the machines on
-screen but read the trade as a company- or country-level flow diagram.
+of which nodes are expanded, choose how the *flows* are aggregated:
+
+- **Component** (default) — every machine→machine link, as authored.
+- **Dynamic** — each link is drawn at the level where its two ends first *diverge*:
+  the children of their lowest common ancestor. A flow between machines in two
+  different countries reads **country→country**; between two companies in one
+  country, **company→company**; between two machines in one technology group it
+  stays **machine→machine**. This is usually the clearest view — long links that
+  would otherwise cut across many boxes collapse to a single box-to-box arrow at
+  the natural separation level.
+- **A group level** (Facility, Company, Country … — derived from the model, never
+  hardcoded) — links *crossing* that level roll up to it (folding into one `×N`
+  arrow), while links *inside* one such group are **kept** and shown at their own
+  diverging level rather than dropped. So *Country* aggregates the international
+  trade to country boxes yet still shows the within-country company links.
 
 Collapsing a group also aggregates: its internal links fold away and its external
 links route onto the group box.
@@ -64,8 +72,10 @@ all*:
 - **⇄ Horizontal / ⇳ Vertical** — flip the whole chain between left→right and
   top→bottom flow.
 - **⌐ Straight lines** — route the flows as right-angle (horizontal/vertical-only)
-  segments down the gutters between boxes instead of curves, to cut overlap; toggle
-  off for smooth curves.
+  segments instead of curves. Adjacent boxes get a short elbow in the gutter
+  between them; a link that would otherwise cross *intermediate* boxes is routed
+  out into the margin **outside** the boxes and back in, minimising line-over-box
+  overlap. Pairs best with **Dynamic** flows. Toggle off for smooth curves.
 - **↺ Reset layout** — drop every manual position and snap back to the automatic
   arrangement (and re-fit the view).
 
