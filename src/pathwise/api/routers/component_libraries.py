@@ -25,8 +25,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 
-from pathwise.api.session_library_store import SessionLibraryStore
-from pathwise.api.session_store import SessionNotFound, SessionStore
+from pathwise.api.routers._deps import session_libs, session_store
+from pathwise.api.session_store import SessionNotFound
 from pathwise.api.workbook_io import write_sqlite
 from pathwise.config import get_settings
 from pathwise.data.components import (
@@ -154,12 +154,8 @@ def _summary(lib_id: str, lib: ComponentLibrary, scope: str = "base") -> dict[st
     }
 
 
-def _store() -> SessionStore:
-    return SessionStore(Path(get_settings().data_dir) / "sessions")
-
-
-def _session_libs() -> SessionLibraryStore:
-    return SessionLibraryStore(Path(get_settings().data_dir) / "session_libraries")
+_store = session_store
+_session_libs = session_libs
 
 
 def _resolve_library(session_id: str, library: str, scope: str) -> ComponentLibrary:

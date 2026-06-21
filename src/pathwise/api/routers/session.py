@@ -13,8 +13,9 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 
-from pathwise.api.session_library_store import SessionLibraryStore
+from pathwise.api.routers._deps import session_libs, session_store
 from pathwise.api.session_store import SessionNotFound, SessionStore
 from pathwise.api.workbook_io import (
     parse_sqlite,
@@ -57,12 +58,8 @@ CORE_SHEETS = [
 ]
 
 
-def _store() -> SessionStore:
-    return SessionStore(Path(get_settings().data_dir) / "sessions")
-
-
-def _session_libs() -> SessionLibraryStore:
-    return SessionLibraryStore(Path(get_settings().data_dir) / "session_libraries")
+_store = session_store
+_session_libs = session_libs
 
 
 def _model_or_404(store: SessionStore, session_id: str) -> dict[str, list[dict[str, Any]]]:
@@ -183,8 +180,8 @@ def patch_sheet(session_id: str, name: str, body: PatchOps) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=f"unknown session '{session_id}'")
     try:
         total = store.patch_sheet(session_id, name, body.ops)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except (ValueError, KeyError) as exc:
+        raise HTTPException(status_code=422, detail=f"malformed patch op: {exc}") from exc
     return {"name": name, "total": total}
 
 
@@ -194,8 +191,10 @@ async def upload_workbook(session_id: str, file: UploadFile) -> dict[str, Any]:
     store = _store()
     if not store.exists(session_id):
         raise HTTPException(status_code=404, detail=f"unknown session '{session_id}'")
+    data = await file.read()
     try:
-        model = parse_xlsx(await file.read())
+        # parse_xlsx is synchronous/CPU-bound (pandas); keep it off the event loop.
+        model = await run_in_threadpool(parse_xlsx, data)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"could not parse workbook: {exc}") from exc
     counts = store.put_model(session_id, model)
@@ -252,12 +251,16 @@ def load_example(session_id: str, example_id: str) -> dict[str, Any]:
     store = _store()
     if not store.exists(session_id):
         raise HTTPException(status_code=404, detail=f"unknown session '{session_id}'")
-    examples_dir = Path(get_settings().examples_dir)
+    examples_dir = Path(get_settings().examples_dir).resolve()
     index = json.loads((examples_dir / "index.json").read_text(encoding="utf-8"))
     entry = next((e for e in index if e.get("id") == example_id), None)
     if entry is None:
         raise HTTPException(status_code=404, detail=f"unknown example '{example_id}'")
-    fpath = examples_dir / str(entry["file"])
+    fpath = (examples_dir / str(entry["file"])).resolve()
+    # Keep the resolved path inside the examples dir (defends against a stray
+    # ``..`` / absolute path in index.json).
+    if not fpath.is_relative_to(examples_dir) or not fpath.exists():
+        raise HTTPException(status_code=404, detail=f"example file missing for '{example_id}'")
     # Examples ship as a SQLite workbook (a built node hierarchy); JSON / .xlsx
     # are also accepted by the generic loader.
     if fpath.suffix in (".sqlite", ".db"):

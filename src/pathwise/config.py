@@ -79,8 +79,7 @@ class Settings(BaseSettings):
     # Paging cap for session sheet reads.
     max_sheet_page: int = 1000
 
-    # ── Jobs / logging ───────────────────────────────────────────────────────
-    max_jobs: int = 4
+    # ── Logging ──────────────────────────────────────────────────────────────
     log_level: str = "INFO"
 
     # ── Backend identity ─────────────────────────────────────────────────────

@@ -17,19 +17,37 @@ logger = get_logger(__name__)
 
 Job = Callable[[dict[str, Any]], dict[str, Any]]
 
+#: Cap on retained jobs. Terminal (done/error/cancelled) jobs beyond this are
+#: evicted oldest-first on submit so a long-running server doesn't grow without
+#: bound (each finished job may hold a full result payload).
+_MAX_JOBS = 256
+
+_TERMINAL = frozenset({"done", "error", "cancelled"})
+
 
 class JobStore:
-    """Tracks background run jobs by id."""
+    """Tracks background run jobs by id (bounded, oldest terminal jobs evicted)."""
 
     def __init__(self) -> None:
         self._jobs: dict[str, dict[str, Any]] = {}
         self._lock = threading.Lock()
+
+    def _evict_locked(self) -> None:
+        """Drop oldest terminal jobs while over capacity (caller holds the lock)."""
+        while len(self._jobs) > _MAX_JOBS:
+            for jid, job in self._jobs.items():
+                if job.get("status") in _TERMINAL:
+                    del self._jobs[jid]
+                    break
+            else:
+                break  # nothing terminal to evict (all still running)
 
     def submit(self, fn: Job, payload: dict[str, Any]) -> str:
         """Start ``fn(payload)`` on a background thread; return the job id."""
         job_id = uuid.uuid4().hex[:12]
         with self._lock:
             self._jobs[job_id] = {"jobId": job_id, "status": "running", "result": None}
+            self._evict_locked()
 
         def _work() -> None:
             try:
@@ -44,8 +62,11 @@ class JobStore:
 
     def _set(self, job_id: str, **fields: Any) -> None:
         with self._lock:
-            if job_id in self._jobs:
-                self._jobs[job_id].update(fields)
+            job = self._jobs.get(job_id)
+            # Don't resurrect a cancelled job: a worker finishing just after a
+            # DELETE must not overwrite "cancelled" with "done"/"error".
+            if job is not None and job.get("status") != "cancelled":
+                job.update(fields)
 
     def get(self, job_id: str) -> dict[str, Any] | None:
         """Return the current job state, or ``None`` if unknown."""

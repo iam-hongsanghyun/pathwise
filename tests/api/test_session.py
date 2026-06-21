@@ -30,6 +30,17 @@ def _new_session() -> str:
     return str(client.post("/api/session").json()["sessionId"])
 
 
+def test_patch_sheet_malformed_op_returns_422() -> None:
+    sid = _new_session()
+    # A "set" op missing its required "row" key must be a clean 422, not a 500
+    # leaking a KeyError traceback.
+    r = client.patch(
+        f"/api/session/{sid}/sheet/commodities",
+        json={"ops": [{"op": "set", "column": "x", "value": 1}]},
+    )
+    assert r.status_code == 422
+
+
 def test_value_chain_list_and_run() -> None:
     chains = client.get("/api/value-chains").json()
     assert any(c["id"] == "elec_steel" for c in chains), "shipped value chain missing from index"
