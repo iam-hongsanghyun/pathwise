@@ -79,6 +79,10 @@ to transition capex, renewal capex, and technology capex.
 ## 4. Constraints (implemented in `core/build.py`)
 
 - **One technology / capacity**: `Σ_{k∈feas(p)} u_{p,k,t}=1`; `x_{p,k,t} ≤ CAP_p·u_{p,k,t}`.
+- **Capacity factor** (utilisation band, per process): a must-run floor
+  `x_{p,k,t} ≥ min_cf_{k,t}·CAP_p·u` (technology `min_capacity_factor`) and a
+  per-machine ceiling `x_{p,k,t} ≤ max_cf_{p,t}·CAP_p·u` (process
+  `max_capacity_factor`, default 1 ⇒ inert). Both year-aware.
 - **Baseline lock**: `u_{p,k₀(p),t₀}=1`.
 - **Transition event**: `w_{p,k,t} ≥ u_{p,k,t}−u_{p,k,prev}` (replacement capex on `w`).
 - **Node balance** (per `p,r,t`): `produced+buy+Σ_{in}flow = consumed+Σ_{out}flow+sell+deliver`,

@@ -193,6 +193,23 @@ def _technology(ctx: BuildContext) -> None:
             name="mincf",
         )
 
+    # Utilisation ceiling (per-machine max capacity factor): x ≤ max_cf · cap · u.
+    # Per process (broadcasts over tech); only where max_cf < 1 (1.0 ⇒ the plain
+    # `cap` constraint already binds, so skip to avoid a redundant row).
+    max_cf_arr = np.array([[avail[p].max_cf_at(t) for t in ctx.years] for p in ctx.procs])
+    max_cf_da = xr.DataArray(
+        max_cf_arr,
+        coords={"process": ctx.procs, "period": ctx.years},
+        dims=["process", "period"],
+    )
+    maxcf_mask = (max_cf_da < 1.0) & (feas > 0.0)
+    if bool(maxcf_mask.any()):
+        m.add_constraints(
+            ctx.x <= max_cf_da * cap_da * ctx.u,
+            mask=maxcf_mask,
+            name="maxcf",
+        )
+
     # ── decommission: on[p,t] == 0 for t > decommission_year ────────────────
     decomm_mask = np.zeros((len(ctx.procs), len(ctx.years)), dtype=bool)
     for i, p in enumerate(ctx.procs):

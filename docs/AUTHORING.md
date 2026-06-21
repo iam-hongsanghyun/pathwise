@@ -47,7 +47,7 @@ periods, commodities, technologies, processes, demand
 | `impacts` | Environmental impact definitions (`impact_id`, `unit`). |
 | `technologies` | Technology recipes (`technology_id`, `lifespan`, `capex`, `opex`, optional `introduction_year`/`phase_out_year`). |
 | `io` | Unified input/output/impact table (`technology_id`, `target`, `role`, `coefficient`). `role` is `input`, `output`, or `impact`. |
-| `processes` | Facility instances (`process_id`, `company`, `baseline_technology`, `capacity`). |
+| `processes` | Facility instances (`process_id`, `company`, `baseline_technology`, `capacity`, optional `max_capacity_factor` 0–1 utilisation ceiling). |
 | `transitions` | Technology switch options (`from_technology`, `to_technology`, `action`, `capex_per_capacity`). `action` is `replace` or `renew`. |
 | `markets` | Commodity supply or ETS markets (`market_id`, `target`, `price`, `sell_price`, etc.). |
 | `storage` | Inter-year commodity stores (`storage_id`, `commodity_id`, etc.). |
@@ -58,7 +58,7 @@ periods, commodities, technologies, processes, demand
 | `maccs` | MACC bundle membership (`macc`, `measure_id`). |
 | `macc_links` | MACC deployment targets (`macc`, `facility`\|`technology`\|`commodity`\|`storage`). |
 | `nodes` | Recursive hierarchy nodes (`node_id`, `parent_id`, `kind`, `level`, `label`). |
-| `machines` | Leaf-machine details (`machine_id`, `baseline_technology`, `capacity`). |
+| `machines` | Leaf-machine details (`machine_id`, `baseline_technology`, `capacity`, optional `max_capacity_factor`). |
 | `connections` | Commodity flows between sibling nodes (`from_node`, `to_node`, `commodity_id`, `lag_years`, optional static `min_flow`/`max_flow`). |
 | `connections_t` | Per-year connection flow bounds (`from_node`, `to_node`, `commodity_id`, `year`, `min_flow`, `max_flow`) — node-space counterpart of `edges_t`, fanned onto edges at solve time. |
 | `edges` | Commodity flows between flat processes (`from_process`, `to_process`, `commodity_id`, optional static `min_flow`/`max_flow`). |
@@ -90,6 +90,7 @@ Sheet name convention: `<entity_base>_t__<attribute>` (double underscore). Each 
 | `processes_t__capacity` | `process_id` | Capacity (nameplate throughput) |
 | `processes_t__fixed_opex` | `process_id` | Fixed O&M override |
 | `processes_t__failure_rate` | `process_id` | Forced-outage fraction |
+| `processes_t__max_capacity_factor` | `process_id` | Per-machine utilisation ceiling (throughput ≤ max_cf × capacity) |
 | `markets_t__price` | `market_id` | Market buy price |
 | `markets_t__sell_price` | `market_id` | Market sell price |
 | `markets_t__allocation` | `market_id` | ETS free allocation |

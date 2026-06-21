@@ -255,6 +255,9 @@ PROCESSES_T_FIXED_OPEX = "processes_t__fixed_opex"
 #: Wide temporal facility forced-outage (failure-rate) overrides.
 PROCESSES_T_FAILURE_RATE = "processes_t__failure_rate"
 
+#: Wide temporal per-machine utilisation-ceiling (max capacity factor) overrides.
+PROCESSES_T_MAX_CF = "processes_t__max_capacity_factor"
+
 #: Wide temporal market buy-volume caps.
 MARKETS_T_MAX_BUY = "markets_t__max_buy"
 

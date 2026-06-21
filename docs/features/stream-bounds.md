@@ -47,6 +47,12 @@ Plus the **availability window** (`available_from` / `available_to` on
 `commodities`): the years a source stream may be bought at all (outside the
 window, external `buy = 0`).
 
+And the machine's own **capacity factor band**: a technology must-run floor
+(`min_capacity_factor`) and a per-machine **utilisation ceiling**
+(`max_capacity_factor`, 0–1, set in the popup's *capacity* section) — throughput
+≤ `max_capacity_factor × capacity`. This is the machine's own limit, distinct
+from the per-stream flow bounds above.
+
 ### Consumption: required offtake vs max purchase
 
 For an **input** the two consumption bounds read as:
@@ -179,8 +185,6 @@ H₂ instead. See `tests/core/test_consumption_bounds.py` and
   lives on the connection at whatever level it is wired; a company-level link is
   shared by every machine under it. Machine-specific limits need machine-to-machine
   connections.
-- **Per-machine max capacity factor** (an output ≤ `maxcf · capacity` ceiling).
-  The engine has a must-run *floor* (`mincf`) but no max-CF cap yet.
 - **Lag + quality change between flows** — e.g. a car returning as lower-grade
   scrap years later (a recycling loop with a time lag and a commodity transform).
 - **Availability windows as alternatives** — multiple sources of one commodity

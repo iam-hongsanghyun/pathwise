@@ -291,6 +291,28 @@ export function MachineInspector({
             <span className="mi-unit">{thru}/yr</span>
           </div>
         </div>
+        <div className="mi-card">
+          <div className="mi-card-label">max cap. factor</div>
+          <div className="mi-card-val">
+            {onWorkbookChange ? (
+              <input
+                type="number"
+                min={0}
+                max={1}
+                step={0.05}
+                defaultValue={Number(machine.max_capacity_factor ?? 1) || 1}
+                className="mi-cap-input"
+                onBlur={(e) => {
+                  const v = e.target.value.trim() === "" ? 1 : Math.min(Math.max(Number(e.target.value) || 0, 0), 1);
+                  onWorkbookChange({ ...wb, machines: (wb.machines ?? []).map((r) => (s(r.machine_id) === machineId ? { ...r, max_capacity_factor: v } : r)) });
+                }}
+              />
+            ) : (
+              <b>{fmt(machine.max_capacity_factor ?? 1)}</b>
+            )}
+            <span className="mi-unit">× cap</span>
+          </div>
+        </div>
         {co2Intensity != null && (
           <div className="mi-card">
             <div className="mi-card-label">CO₂ intensity</div>

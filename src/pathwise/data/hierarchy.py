@@ -66,6 +66,7 @@ class Machine:
     baseline_technology: str
     capacity: float = 0.0
     introduced_year: int | None = None
+    max_capacity_factor: float = 1.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -302,11 +303,13 @@ def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
         mid = _str(r.get("machine_id"))
         if mid is None:
             continue
+        mc = _num(r.get("max_capacity_factor"))
         machines[mid] = Machine(
             machine_id=mid,
             baseline_technology=_str(r.get("baseline_technology")) or "",
             capacity=_num(r.get("capacity")) or 0.0,
             introduced_year=_int(r.get("introduced_year")),
+            max_capacity_factor=1.0 if mc is None else mc,
         )
 
     # Per-year flow bounds (long format), keyed by the connection's node triple.

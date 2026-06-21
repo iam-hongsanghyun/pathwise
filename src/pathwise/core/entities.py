@@ -388,6 +388,11 @@ class Process:
     fixed_opex_by_year: dict[int, float] = field(default_factory=dict)
     #: Optional year-varying forced-outage fraction; falls back to ``failure_rate``.
     failure_rate_by_year: dict[int, float] = field(default_factory=dict)
+    #: Per-machine utilisation ceiling [0–1]: throughput ≤ ``max_capacity_factor ×
+    #: available capacity``. 1.0 ⇒ no extra ceiling (nameplate capacity is the cap).
+    max_capacity_factor: float = 1.0
+    #: Optional year-varying utilisation ceiling; falls back to ``max_capacity_factor``.
+    max_capacity_factor_by_year: dict[int, float] = field(default_factory=dict)
     group: str = ""
     decommission_year: int | None = None
     scopes: frozenset[str] = frozenset()
@@ -407,6 +412,10 @@ class Process:
     def capacity_at(self, year: int) -> float:
         """Nameplate throughput in ``year`` (year override, else scalar)."""
         return self.capacity_by_year.get(year, self.capacity)
+
+    def max_cf_at(self, year: int) -> float:
+        """Utilisation-ceiling capacity factor in ``year`` (override, else scalar)."""
+        return self.max_capacity_factor_by_year.get(year, self.max_capacity_factor)
 
     def direct_impact_at(self, impact: str, year: int) -> float:
         """Facility-level direct emission of ``impact`` per throughput in ``year``."""

@@ -86,6 +86,7 @@ from pathwise.data.sheets import (
     PROCESSES_T_CAPACITY,
     PROCESSES_T_FAILURE_RATE,
     PROCESSES_T_FIXED_OPEX,
+    PROCESSES_T_MAX_CF,
     STORAGE,
     STORAGE_T_CAPEX,
     STORAGE_T_CHARGE_EFFICIENCY,
@@ -274,6 +275,7 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
             "scopes": [mid, *h.ancestors(mid), "all"],
             "baseline_technology": m.baseline_technology,
             "capacity": m.capacity,
+            "max_capacity_factor": m.max_capacity_factor,
         }
         if m.introduced_year is not None:
             row["introduced_year"] = m.introduced_year
@@ -685,6 +687,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     cap_t = _wide_temporal(workbook, PROCESSES_T_CAPACITY)
     fopex_t = _wide_temporal(workbook, PROCESSES_T_FIXED_OPEX)
     frate_t = _wide_temporal(workbook, PROCESSES_T_FAILURE_RATE)
+    maxcf_t = _wide_temporal(workbook, PROCESSES_T_MAX_CF)
 
     # Per-facility direct emissions (static + year-varying) — added on top of the
     # baseline technology's own direct impact.
@@ -726,6 +729,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 capex=_num(r.get("capex"), 0.0) or 0.0,
                 fixed_opex=_num(r.get("fixed_opex"), 0.0) or 0.0,
                 failure_rate=min(max(_num(r.get("failure_rate"), 0.0) or 0.0, 0.0), 1.0),
+                max_capacity_factor=min(
+                    max(_num(r.get("max_capacity_factor"), 1.0) or 1.0, 0.0), 1.0
+                ),
                 replaceable=False if fixed else _bool(r.get("replaceable"), True),
                 decommission_year=_int(r.get("decommission_year")),
                 group=_str(r.get("group")) or "",
@@ -733,6 +739,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 capacity_by_year=interpolate(cap_t[pid], years) if pid in cap_t else {},
                 fixed_opex_by_year=interpolate(fopex_t[pid], years) if pid in fopex_t else {},
                 failure_rate_by_year=interpolate(frate_t[pid], years) if pid in frate_t else {},
+                max_capacity_factor_by_year=interpolate(maxcf_t[pid], years)
+                if pid in maxcf_t
+                else {},
                 direct_impact=proc_direct.get(pid, {}),
                 direct_impact_by_year=proc_direct_t.get(pid, {}),
             )
