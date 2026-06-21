@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Header, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -107,14 +107,20 @@ def clear_session(session_id: str) -> dict[str, Any]:
 
 
 @router.post("/cache/clear")
-def clear_cache() -> dict[str, Any]:
+def clear_cache(x_admin_token: str | None = Header(default=None)) -> dict[str, Any]:
     """Wipe ALL working session data and hand back a fresh empty session.
+
+    Guarded by ``settings.admin_token`` when set: callers must send a matching
+    ``X-Admin-Token`` header (else 403). Unset (the local-first default) ⇒ open.
 
     Removes every session model and every session-scoped component library (the
     gitignored working state under ``<data_dir>/sessions`` and
     ``<data_dir>/session_libraries``). The shared base component libraries and
     bundled examples are left untouched.
     """
+    admin_token = get_settings().admin_token
+    if admin_token and x_admin_token != admin_token:
+        raise HTTPException(status_code=403, detail="admin token required")
     cleared_sessions = _store().clear_all()
     cleared_libraries = _session_libs().clear_all()
     session_id = _store().create({name: [] for name in CORE_SHEETS})
