@@ -66,6 +66,25 @@ def test_storage_arbitrages_rising_prices() -> None:
     assert store and store[0]["capacity"] > 0
 
 
+def test_zero_discharge_efficiency_does_not_crash_the_build() -> None:
+    # A 0 in the per-year discharge-efficiency sheet used to reach 1/0 in the
+    # storage balance and crash the build; it must be clamped, not divided by.
+    wb = _base_wb()
+    wb["storage"] = [
+        {
+            "storage_id": "S",
+            "commodity_id": "gas",
+            "company": "all",
+            "max_capacity": 100,
+            "charge_efficiency": 1.0,
+            "discharge_efficiency": 1.0,
+        }
+    ]
+    wb["storage_t__discharge_efficiency"] = [{"year": 2025, "S": 0.0}, {"year": 2030, "S": 0.0}]
+    res = _solve(wb)  # must not raise ZeroDivisionError
+    assert res["status"] == "optimal"
+
+
 def test_failure_rate_derates_capacity() -> None:
     wb = _base_wb()
     del wb["commodity_prices"]  # flat price

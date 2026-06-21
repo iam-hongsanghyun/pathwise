@@ -131,7 +131,9 @@ def partition(
     for mid in hierarchy.machines:
         cuts = _cuts_for(mid, cut_set, hierarchy)
         if cuts:
-            machine_cut[mid] = next(iter(cuts))
+            # Deterministic pick: iterating a set is hash-seed dependent, which made
+            # the partition (and thus per-cut results) vary between runs.
+            machine_cut[mid] = min(cuts)
 
     workbooks: dict[str, Workbook] = {}
     for cut in cut_ids:

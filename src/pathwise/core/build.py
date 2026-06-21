@@ -1329,9 +1329,10 @@ def _storage(ctx: BuildContext) -> None:
             lvl_t = ctx.level.sel(store=sid, period=t)
             pt = prev[t]
             decay = 1.0 - s.standing_loss_at(t)
-            gain = (
-                s.charge_efficiency_at(t) * charge_t - (1.0 / s.discharge_efficiency_at(t)) * dis_t
-            )
+            # Discharge efficiency divides the draw, so a zero (e.g. an authored
+            # year-trajectory cell) would blow up the build; clamp to a tiny floor.
+            dis_eff = max(s.discharge_efficiency_at(t), 1.0e-6)
+            gain = s.charge_efficiency_at(t) * charge_t - (1.0 / dis_eff) * dis_t
             prior = decay * ctx.level.sel(store=sid, period=pt) if pt is not None else None
             rhs = (gain + prior) if prior is not None else (gain + decay * s.initial_level)
             m.add_constraints(lvl_t == rhs, name=f"slevel[{sid},{t}]")
