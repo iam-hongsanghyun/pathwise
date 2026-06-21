@@ -85,3 +85,43 @@ def test_check_flags_dangling_parent_and_missing_machine_row() -> None:
     errors = h.check()
     assert any("unknown parent" in e for e in errors)
     assert any("ghost" in e and "machines sheet" in e for e in errors)
+
+
+def test_machine_max_renewals_parses_and_reaches_the_process() -> None:
+    # The per-machine renewal cap is authored on the machine row and must survive
+    # the hierarchy → flat-process expansion (``_expand_hierarchy``) — the path
+    # the value-chain/project UI uses, distinct from the flat ``processes`` sheet.
+    from pathwise.data import ScenarioConfig, assemble_problem
+
+    wb = {
+        "periods": [{"year": 2025, "duration_years": 1}],
+        "commodities": [{"commodity_id": "w", "kind": "product", "unit": "t"}],
+        "impacts": [],
+        "technologies": [{"technology_id": "T", "lifespan": 5}],
+        "nodes": [
+            {"node_id": "co", "kind": "group", "level": "company"},
+            {"node_id": "P", "parent_id": "co", "kind": "machine", "level": "machine"},
+        ],
+        "machines": [
+            {
+                "machine_id": "P",
+                "baseline_technology": "T",
+                "capacity": 100,
+                "introduced_year": 2020,
+                "max_renewals": 2,
+            }
+        ],
+        "io": [
+            {
+                "technology_id": "T",
+                "target": "w",
+                "role": "output",
+                "coefficient": 1,
+                "is_product": True,
+            }
+        ],
+    }
+    h = load_hierarchy(wb)
+    assert h is not None and h.machines["P"].max_renewals == 2
+    prob = assemble_problem(wb, ScenarioConfig.from_dict({}))
+    assert {p.process_id: p.max_renewals for p in prob.processes} == {"P": 2}

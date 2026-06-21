@@ -372,6 +372,16 @@ class Process:
             (feasible set = baseline only) — the user marks it fixed.
         decommission_year: Last year the facility may operate [yr]; after it the
             facility is forced off (its output must be sourced elsewhere).
+        max_renewals: Per-machine cap on the **total number of renewals**
+            (same-technology rebuilds) over the whole horizon [count]. ``None`` ⇒
+            unlimited (the asset may rebuild every lifespan indefinitely). ``0`` ⇒
+            no renewal allowed at this machine, so once a vintage expires it must
+            *replace* (switch technology) or switch off. ``N`` ⇒ at most ``N``
+            rebuilds, after which it must replace — the "reline a BF-BOF N times,
+            then build new" rule. Only binds when the machine is lifecycle-tracked
+            (i.e. it declares :attr:`introduced_year`); a renewal also still
+            requires the active technology to permit
+            :attr:`TransitionAction.RENEW`.
     """
 
     process_id: str
@@ -383,6 +393,9 @@ class Process:
     fixed_opex: float = 0.0
     failure_rate: float = 0.0
     replaceable: bool = True
+    #: Per-machine total renewal-count cap over the horizon; ``None`` ⇒ unlimited,
+    #: ``0`` ⇒ renewal forbidden (must replace at end of life). See class docstring.
+    max_renewals: int | None = None
     capacity_by_year: dict[int, float] = field(default_factory=dict)
     #: Optional year-varying fixed O&M [currency / yr]; falls back to ``fixed_opex``.
     fixed_opex_by_year: dict[int, float] = field(default_factory=dict)

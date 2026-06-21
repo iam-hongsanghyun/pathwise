@@ -106,6 +106,95 @@ def test_annuity_charges_less_than_npv_when_horizon_truncates_life() -> None:
     assert annuity["objective"] < npv["objective"]
 
 
+def test_baseline_rebuild_after_t0_is_priced_not_free() -> None:
+    # A baseline vintage that expires AFTER the first horizon year must rebuild via
+    # the priced renewal (``ren``), not the uncharged switch-in (``w``). Installed
+    # 2023, life 5 → expires 2028; the {2025, 2030, 2035} horizon needs a rebuild
+    # at 2030 and 2035. Objective = opex (3·100·1) + 2 renewals (2·200) = 700.
+    # (Regression: ``w`` is free for the baseline tech and only lower-bounded, so
+    # before the baseline→ren-only fix it refreshed the vintage for free → 300.)
+    wb = _workbook(5)
+    wb["periods"] = [{"year": y, "duration_years": 1} for y in [2025, 2030, 2035]]
+    wb["processes"][0]["introduced_year"] = 2023
+    wb["demand"] = [
+        {"company": "C", "commodity_id": "widget", "year": y, "amount": 100}
+        for y in [2025, 2030, 2035]
+    ]
+    sc = ScenarioConfig.from_dict({"economics": {"base_year": 2020, "discount_rate": 0.0}})
+    res = extract_results(solve(build(assemble_problem(wb, sc))))
+    assert res["status"] == "optimal"
+    assert res["objective"] == pytest.approx(700.0, rel=1e-6)
+    assert {r["period"] for r in res["outputs"]["renewals"]} == {2030, 2035}
+
+
+# ── Per-machine renewal-count cap ─────────────────────────────────────────────
+# 5-yr steps with a 5-yr lifespan installed 2020: every horizon year needs its
+# own rebuild, so an uncapped machine renews once per period (three rebuilds).
+_CAP_YEARS = [2025, 2030, 2035]
+
+
+def _cap_workbook(max_renewals: int | None) -> dict:
+    return {
+        "periods": [{"year": y, "duration_years": 1} for y in _CAP_YEARS],
+        "commodities": [{"commodity_id": "widget", "kind": "product", "unit": "t"}],
+        "impacts": [],
+        "technologies": [
+            {
+                "technology_id": "T",
+                "lifespan": 5,
+                "actions": "continue,renew",
+                "opex": 1.0,
+                "renewal": 2.0,
+            }
+        ],
+        "processes": [
+            {
+                "process_id": "P",
+                "company": "C",
+                "baseline_technology": "T",
+                "capacity": 100,
+                "introduced_year": 2020,
+                "max_renewals": max_renewals,
+            }
+        ],
+        "io": [
+            {
+                "technology_id": "T",
+                "target": "widget",
+                "role": "output",
+                "coefficient": 1,
+                "is_product": True,
+            }
+        ],
+        "demand": [
+            {"company": "C", "commodity_id": "widget", "year": y, "amount": 100} for y in _CAP_YEARS
+        ],
+    }
+
+
+def _run_cap(max_renewals: int | None) -> dict:
+    sc = ScenarioConfig.from_dict({"economics": {"base_year": 2020, "discount_rate": 0.0}})
+    return extract_results(solve(build(assemble_problem(_cap_workbook(max_renewals), sc))))
+
+
+@pytest.mark.parametrize("cap,expected", [(None, 3), (2, 2), (1, 1), (0, 0)])
+def test_max_renewals_caps_the_rebuild_count(cap: int | None, expected: int) -> None:
+    # Uncapped the machine rebuilds once per period (3). ``max_renewals`` caps the
+    # total over the horizon; the remaining expiries go unserved (demand slack),
+    # so the realised renewal count equals the cap. ``0`` forbids renewal outright.
+    res = _run_cap(cap)
+    assert res["status"] == "optimal"
+    renewals = res["outputs"]["renewals"]
+    assert len(renewals) == expected
+    assert all(r["process"] == "P" and r["technology"] == "T" for r in renewals)
+
+
+def test_uncapped_machine_renews_every_period() -> None:
+    # Sanity on the uncapped baseline: opex (3·100·1) + 3 renewals (3·200) = 900.
+    res = _run_cap(None)
+    assert res["objective"] == pytest.approx(900.0, rel=1e-6)
+
+
 def _bare_problem(years: list[int], rate: float, convention: CapexConvention) -> Problem:
     from pathwise.core.entities import Period
 
