@@ -57,15 +57,13 @@ function chain(wb: Workbook, nodeId: string): string[] {
 export function MachineInspector({
   wb,
   machineId,
-  onCapacity,
   onWorkbookChange,
   baseYear = 2025,
   periods,
 }: {
   wb: Workbook;
   machineId: string;
-  onCapacity: (v: number) => void;
-  /** Persist a new workbook (per-stream min/max edits flow through this). */
+  /** Persist a new workbook (per-stream market min/max edits flow through this). */
   onWorkbookChange?: (wb: Workbook) => void;
   /** Horizon start — seeds the temporal editor. */
   baseYear?: number;
@@ -300,79 +298,19 @@ export function MachineInspector({
         {io.length === 0 && <div className="muted" style={{ padding: "8px 0", fontSize: "0.8rem" }}>no recipe</div>}
       </div>
 
-      {/* Machine-level: capacity + CO₂ intensity. Per-stream min/max live on the
-          recipe rows above (output → production bounds, input → intake bounds). */}
-      <div className="mi-section-head"><span>capacity</span><span className="muted">the machine's own limit</span></div>
-      <div className="mi-cards">
-        <div className="mi-card">
-          <div className="mi-card-label">capacity</div>
-          <div className="mi-card-val">
-            <input type="number" min={0} defaultValue={Number(machine.capacity) || 0} className="mi-cap-input" onBlur={(e) => onCapacity(Number(e.target.value) || 0)} />
-            <span className="mi-unit">{thru}/yr</span>
-          </div>
-        </div>
-        <div className="mi-card">
-          <div className="mi-card-label">max cap. factor</div>
-          <div className="mi-card-val">
-            {onWorkbookChange ? (
-              <input
-                type="number"
-                min={0}
-                max={1}
-                step={0.05}
-                defaultValue={Number(machine.max_capacity_factor ?? 1) || 1}
-                className="mi-cap-input"
-                onBlur={(e) => {
-                  const v = e.target.value.trim() === "" ? 1 : Math.min(Math.max(Number(e.target.value) || 0, 0), 1);
-                  onWorkbookChange({ ...wb, machines: (wb.machines ?? []).map((r) => (s(r.machine_id) === machineId ? { ...r, max_capacity_factor: v } : r)) });
-                }}
-              />
-            ) : (
-              <b>{fmt(machine.max_capacity_factor ?? 1)}</b>
-            )}
-            <span className="mi-unit">× cap</span>
-          </div>
-        </div>
-        <div className="mi-card">
-          <div className="mi-card-label" title="Max same-technology rebuilds over the horizon. Blank = unlimited; 0 = no renewal (must replace at end of life). Only binds when the machine has an install year.">max renewals</div>
-          <div className="mi-card-val">
-            {onWorkbookChange ? (
-              <input
-                type="number"
-                min={0}
-                step={1}
-                placeholder="∞"
-                defaultValue={machine.max_renewals == null ? "" : Number(machine.max_renewals)}
-                className="mi-cap-input"
-                onBlur={(e) => {
-                  const raw = e.target.value.trim();
-                  onWorkbookChange({
-                    ...wb,
-                    machines: (wb.machines ?? []).map((r) => {
-                      if (s(r.machine_id) !== machineId) return r;
-                      const next = { ...r };
-                      if (raw === "") delete next.max_renewals;
-                      else next.max_renewals = Math.max(Math.round(Number(raw) || 0), 0);
-                      return next;
-                    }),
-                  });
-                }}
-              />
-            ) : (
-              <b>{machine.max_renewals == null ? "∞" : Number(machine.max_renewals)}</b>
-            )}
-            <span className="mi-unit">rebuilds</span>
-          </div>
-        </div>
-        {co2Intensity != null && (
-          <div className="mi-card">
-            <div className="mi-card-label">CO₂ intensity</div>
-            <div className="mi-card-val"><b>{fmt(co2Intensity)}</b> <span className="mi-unit">{s(co2?.unit)}/{thru}</span></div>
-          </div>
-        )}
+      {/* Machine-level facts are FIXED properties of the machine, shown read-only
+          here (dense). They are edited in the Facility view; the value-chain map is
+          the market — connections, prices and per-stream limits (above). */}
+      <div className="mi-section-head"><span>machine</span><span className="muted">fixed — edit in Facility</span></div>
+      <div className="mi-note" style={{ display: "flex", flexWrap: "wrap", gap: "2px 14px", marginTop: 4 }}>
+        <span>capacity <b>{fmt(Number(machine.capacity) || 0)}</b> {thru}/yr</span>
+        <span>max&nbsp;cf <b>{fmt(machine.max_capacity_factor ?? 1)}</b></span>
+        <span>renewals <b>{machine.max_renewals == null ? "∞" : Number(machine.max_renewals)}</b></span>
+        {machine.introduced_year != null && <span>built <b>{Number(machine.introduced_year)}</b></span>}
+        {co2Intensity != null && <span>CO₂ <b>{fmt(co2Intensity)}</b> {s(co2?.unit)}/{thru}</span>}
       </div>
 
-      <p className="muted mi-note">Recipe coefficients are edited in the Component tab. Per-stream min/max are limits on this machine's flows (min offtake = required purchase). ★ = a final product (can meet demand).</p>
+      <p className="muted mi-note">Recipe coefficients are edited in the Component tab; capacity &amp; lifecycle in the Facility tab. Per-stream min/max here are market limits on this machine's flows (min offtake = required purchase). ★ = a final product (can meet demand).</p>
 
       {otherImpacts.length > 0 && (
         <div className="mi-block">
