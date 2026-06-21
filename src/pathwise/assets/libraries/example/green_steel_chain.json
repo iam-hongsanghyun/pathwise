@@ -229,6 +229,27 @@
 "kind": "group",
 "level": "Technology",
 "label": "Technology"
+},
+{
+"node_id": "vc/korea/kr_steel/_technology",
+"parent_id": "vc/korea/kr_steel",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "vc/korea/kr_steel/elec_pool",
+"parent_id": "vc/korea/kr_steel/_technology",
+"kind": "machine",
+"level": "machine",
+"label": "Electricity pool"
+},
+{
+"node_id": "vc/korea/kr_steel/h2_pool",
+"parent_id": "vc/korea/kr_steel/_technology",
+"kind": "machine",
+"level": "machine",
+"label": "Hydrogen pool"
 }
 ],
 "machines": [
@@ -291,6 +312,16 @@
 "machine_id": "vc/korea/kr_ship/shipyard",
 "baseline_technology": "Shipbuilder",
 "capacity": 100.0
+},
+{
+"machine_id": "vc/korea/kr_steel/elec_pool",
+"baseline_technology": "ElecPool",
+"capacity": 1000000000
+},
+{
+"machine_id": "vc/korea/kr_steel/h2_pool",
+"baseline_technology": "H2Pool",
+"capacity": 1000000000
 }
 ],
 "connections": [
@@ -314,12 +345,6 @@
 },
 {
 "from_node": "vc/korea/kr_power",
-"to_node": "vc/korea/kr_steel",
-"commodity_id": "electricity",
-"lag_years": 0
-},
-{
-"from_node": "vc/korea/kr_power",
 "to_node": "vc/korea/kr_auto",
 "commodity_id": "electricity",
 "lag_years": 0
@@ -328,12 +353,6 @@
 "from_node": "vc/korea/kr_power",
 "to_node": "vc/korea/kr_ship",
 "commodity_id": "electricity",
-"lag_years": 0
-},
-{
-"from_node": "vc/korea/kr_greenh2",
-"to_node": "vc/korea/kr_steel",
-"commodity_id": "hydrogen",
 "lag_years": 0
 },
 {
@@ -355,16 +374,39 @@
 "lag_years": 0
 },
 {
+"from_node": "vc/korea/kr_power",
+"to_node": "vc/korea/kr_steel/elec_pool",
+"commodity_id": "electricity"
+},
+{
+"from_node": "vc/korea/kr_steel/elec_pool",
+"to_node": "vc/korea/kr_steel/mill/bf",
+"commodity_id": "electricity"
+},
+{
+"from_node": "vc/korea/kr_steel/elec_pool",
+"to_node": "vc/korea/kr_steel/mill/bof",
+"commodity_id": "electricity"
+},
+{
+"from_node": "vc/korea/kr_greenh2",
+"to_node": "vc/korea/kr_steel/h2_pool",
+"commodity_id": "hydrogen"
+},
+{
 "from_node": "vc/australia",
-"to_node": "vc/korea",
-"commodity_id": "hydrogen",
-"lag_years": 0
+"to_node": "vc/korea/kr_steel/h2_pool",
+"commodity_id": "hydrogen"
 },
 {
 "from_node": "vc/qatar",
-"to_node": "vc/korea",
-"commodity_id": "hydrogen",
-"lag_years": 0
+"to_node": "vc/korea/kr_steel/h2_pool",
+"commodity_id": "hydrogen"
+},
+{
+"from_node": "vc/korea/kr_steel/h2_pool",
+"to_node": "vc/korea/kr_steel/mill/bf",
+"commodity_id": "hydrogen"
 }
 ],
 "technologies": [
@@ -444,6 +486,12 @@
 "actions": "continue,replace,renew",
 "capex": 400.0,
 "opex": 80.0
+},
+{
+"technology_id": "ElecPool"
+},
+{
+"technology_id": "H2Pool"
 }
 ],
 "io": [
@@ -705,6 +753,30 @@
 "target": "CO2",
 "role": "impact",
 "coefficient": 200.0
+},
+{
+"technology_id": "ElecPool",
+"target": "electricity",
+"role": "input",
+"coefficient": 1
+},
+{
+"technology_id": "ElecPool",
+"target": "electricity",
+"role": "output",
+"coefficient": 1
+},
+{
+"technology_id": "H2Pool",
+"target": "hydrogen",
+"role": "input",
+"coefficient": 1
+},
+{
+"technology_id": "H2Pool",
+"target": "hydrogen",
+"role": "output",
+"coefficient": 1
 }
 ],
 "commodities": [
