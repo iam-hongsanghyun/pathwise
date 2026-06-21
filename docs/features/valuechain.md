@@ -51,10 +51,23 @@ screen but read the trade as a company- or country-level flow diagram.
 Collapsing a group also aggregates: its internal links fold away and its external
 links route onto the group box.
 
-**Arrange the canvas (drag).** Drag a machine to reposition it; drag a group's
-header to move the whole group (all its machines move together). Group boxes
-**re-fit** automatically around their children as you move them. Positions persist
-in the `node_layout` sheet (a no-move tap still selects / collapses as above).
+**Arrange the canvas (drag).** Drag a machine to reposition it; drag **anywhere on
+a group's box** (its body or header — not on a child) to move the whole group, all
+its machines together. The grabbed point stays under the cursor and the camera
+holds still while you drag. Group boxes **re-fit** automatically around their
+children as you move them. Positions persist in the `node_layout` sheet, scoped per
+orientation (a no-move tap still selects / collapses as above).
+
+**Direction, routing, reset (toolbar).** Three more controls sit after *Collapse
+all*:
+
+- **⇄ Horizontal / ⇳ Vertical** — flip the whole chain between left→right and
+  top→bottom flow.
+- **⌐ Straight lines** — route the flows as right-angle (horizontal/vertical-only)
+  segments down the gutters between boxes instead of curves, to cut overlap; toggle
+  off for smooth curves.
+- **↺ Reset layout** — drop every manual position and snap back to the automatic
+  arrangement (and re-fit the view).
 
 ## Connections (commodity flows)
 

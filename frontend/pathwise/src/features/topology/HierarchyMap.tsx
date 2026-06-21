@@ -20,6 +20,7 @@ import {
   sourceStreams,
   type LaidNode,
   type MapMode,
+  type Orientation,
 } from "../../lib/hierarchyLayout";
 import { useViewBox } from "./useViewBox";
 import type { RunResult, Workbook } from "../../types";
@@ -49,6 +50,8 @@ interface Props {
   onDeleteConnection?: (rowIndex: number) => void;
   /** Persist manual node positions (upserted into the `node_layout` sheet). */
   onMoveNodes?: (positions: { id: string; x: number; y: number }[]) => void;
+  /** Clear all manual positions — "reset layout" back to the auto arrangement. */
+  onResetLayout?: () => void;
   commodities?: string[];
 }
 
@@ -62,6 +65,7 @@ export function HierarchyMap({
   onEditConnection,
   onDeleteConnection,
   onMoveNodes,
+  onResetLayout,
   commodities = [],
 }: Props) {
   const mode: MapMode = "expandable"; // the only layout: an expandable drill-down
@@ -119,23 +123,42 @@ export function HierarchyMap({
   }, [flowLevels, flowLevel]);
   const titleCase = (s: string) => s.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
+  // Flow direction of the auto-layout ("h" = left→right, "v" = top→bottom) and
+  // orthogonal (right-angle) edge routing. Both are view toggles in the toolbar.
+  const [orientation, setOrientation] = useState<Orientation>("h");
+  const [ortho, setOrtho] = useState(false);
+  const horiz = orientation === "h";
+
   // Manual node positions (node_layout) overlaid on the auto-layout. A live drag
   // updates `dragDraft`; on drop it's committed to node_layout via onMoveNodes.
+  // Manual positions are scoped per orientation: vertical-layout positions are
+  // stored under a `v::` id prefix so the two arrangements never collide (and so
+  // the backend, which keys placement off bare ids, ignores the vertical rows).
   const positions = useMemo(() => {
     const m = new Map<string, { x: number; y: number }>();
     for (const r of workbook.node_layout ?? []) {
-      const id = r.id == null ? "" : String(r.id);
+      let id = r.id == null ? "" : String(r.id);
+      const isV = id.startsWith("v::");
+      if (isV !== !horiz) continue; // only this orientation's rows
+      if (isV) id = id.slice(3);
       const x = Number(r.x);
       const y = Number(r.y);
       if (id && Number.isFinite(x) && Number.isFinite(y)) m.set(id, { x, y });
     }
     return m;
-  }, [workbook]);
+  }, [workbook, horiz]);
   const [dragDraft, setDragDraft] = useState<Map<string, { x: number; y: number }> | null>(null);
   const dragDraftRef = useRef<Map<string, { x: number; y: number }> | null>(null);
+  // The auto-layout WITHOUT manual positions — its size only changes on a real
+  // structural edit (expand/collapse, orientation, model change), never on a drag.
+  // The viewBox auto-fit keys off this so dragging never yanks the camera.
+  const structural = useMemo(
+    () => layoutFor(workbook, mode, expanded, orientation),
+    [workbook, mode, expanded, orientation],
+  );
   const laid = useMemo(
-    () => applyManualLayout(layoutFor(workbook, mode, expanded), dragDraft ?? positions),
-    [workbook, mode, expanded, positions, dragDraft],
+    () => applyManualLayout(structural, dragDraft ?? positions),
+    [structural, positions, dragDraft],
   );
 
   // Source streams (consumed but produced by none — raw materials) sit in a band
@@ -158,6 +181,10 @@ export function HierarchyMap({
     [laid, bandH],
   );
   const boxById = useMemo(() => new Map(placed.map((n) => [n.id, n])), [placed]);
+  // Connection ports follow the flow direction: horizontal links exit the right
+  // edge → enter the left edge; vertical links exit the bottom → enter the top.
+  const outPt = (b: LaidNode) => (horiz ? { x: b.x + b.w, y: b.y + b.h / 2 } : { x: b.x + b.w / 2, y: b.y + b.h });
+  const inPt = (b: LaidNode) => (horiz ? { x: b.x, y: b.y + b.h / 2 } : { x: b.x + b.w / 2, y: b.y });
   // Nearest VISIBLE ancestor — routes a source→consumer arrow to a collapsed
   // group when the consuming machine is hidden (expandable mode).
   const parentOf = useMemo(
@@ -192,8 +219,10 @@ export function HierarchyMap({
       const a = boxById.get(e.from);
       const b = boxById.get(e.to);
       if (!a || !b) continue;
-      const mx = (a.x + a.w + b.x) / 2;
-      const my = (a.y + a.h / 2 + b.y + b.h / 2) / 2;
+      const p1 = outPt(a);
+      const p2 = inPt(b);
+      const mx = (p1.x + p2.x) / 2;
+      const my = (p1.y + p2.y) / 2;
       const key = `${Math.round(mx / 30)}|${Math.round(my / 18)}`;
       const r = bucket.get(key) ?? 0;
       bucket.set(key, r + 1);
@@ -204,7 +233,7 @@ export function HierarchyMap({
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const { vb, setVb, onWheel, onPanStart, onPanMove, onPanEnd, toWorld } = useViewBox();
-  const fitKey = `${mode}|${laid.width}x${laid.height}|${laid.nodes.length}|${sources.length}`;
+  const fitKey = `${mode}|${orientation}|${structural.width}x${structural.height}|${structural.nodes.length}|${sources.length}`;
   // The "fit everything" viewBox — the 100% baseline and the reset target.
   const fitBox = useMemo(() => {
     const pad = 50;
@@ -280,7 +309,9 @@ export function HierarchyMap({
     const starts = new Map<string, { x: number; y: number }>();
     for (const id of leafIds) {
       const b = boxById.get(id);
-      if (b) starts.set(id, { x: b.x, y: b.y });
+      // boxById is in PLACED space (y shifted by bandH); positions / dragDraft
+      // live in pre-band laid space, so capture the origin without the band.
+      if (b) starts.set(id, { x: b.x, y: b.y - bandH });
     }
     let moved = false;
     const move = (ev: PointerEvent) => {
@@ -298,7 +329,9 @@ export function HierarchyMap({
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       if (moved && dragDraftRef.current) {
-        onMoveNodes?.([...dragDraftRef.current].map(([id, p]) => ({ id, x: p.x, y: p.y })));
+        onMoveNodes?.(
+          [...dragDraftRef.current].map(([id, p]) => ({ id: horiz ? id : `v::${id}`, x: p.x, y: p.y })),
+        );
       } else {
         onClick();
       }
@@ -313,8 +346,10 @@ export function HierarchyMap({
     press.current = null;
     setSelEdge(null);
     const el = e.target as Element;
-    const groupId = el?.getAttribute?.("data-group") ?? null;
-    const toggleId = el?.getAttribute?.("data-toggle") ?? null;
+    // Walk ancestors (not just e.target) so a click anywhere inside the group box
+    // — body, header, label — resolves to the group; the ▾ grip wins via toggle.
+    const toggleId = el?.closest?.("[data-toggle]")?.getAttribute("data-toggle") ?? null;
+    const groupId = el?.closest?.("[data-group]")?.getAttribute("data-group") ?? null;
     // The ▾ grip toggles (no drag); a group header drags the whole group (its
     // descendant leaves) or, on a no-move tap, selects it; the background pans.
     if (toggleId) {
@@ -362,8 +397,8 @@ export function HierarchyMap({
       <>
         <circle
           className="topo-in"
-          cx={0}
-          cy={n.h / 2}
+          cx={horiz ? 0 : n.w / 2}
+          cy={horiz ? n.h / 2 : 0}
           r={6}
           style={{ cursor: "crosshair" }}
           onPointerUp={(e) => {
@@ -375,8 +410,8 @@ export function HierarchyMap({
         />
         <circle
           className="topo-out"
-          cx={n.w}
-          cy={n.h / 2}
+          cx={horiz ? n.w : n.w / 2}
+          cy={horiz ? n.h / 2 : n.h}
           r={6}
           style={{ cursor: "crosshair" }}
           onPointerDown={(e) => {
@@ -398,6 +433,46 @@ export function HierarchyMap({
         <button className="ghost" style={{ padding: "3px 10px", fontSize: "0.76rem" }} onClick={collapseAll} title="Collapse every group">
           ⊟ Collapse all
         </button>
+        {editable && (
+          <>
+            <button
+              className="ghost"
+              style={{ padding: "3px 10px", fontSize: "0.76rem" }}
+              onClick={() => setOrientation((o) => (o === "h" ? "v" : "h"))}
+              title="Switch flow direction — left→right ↔ top→bottom"
+            >
+              {horiz ? "⇄ Horizontal" : "⇳ Vertical"}
+            </button>
+            <button
+              className="ghost"
+              style={{
+                padding: "3px 10px",
+                fontSize: "0.76rem",
+                background: ortho ? "var(--brand-fill)" : undefined,
+                borderColor: ortho ? "var(--brand)" : undefined,
+                color: ortho ? "var(--brand)" : undefined,
+              }}
+              onClick={() => setOrtho((v) => !v)}
+              title="Straight flow lines — horizontal/vertical segments only, to reduce overlap"
+            >
+              ⌐ Straight lines
+            </button>
+            {onResetLayout && (
+              <button
+                className="ghost"
+                style={{ padding: "3px 10px", fontSize: "0.76rem" }}
+                onClick={() => {
+                  onResetLayout();
+                  const pad = 50;
+                  setVb({ x: -pad, y: -pad, w: Math.max(structural.width, bandW) + 2 * pad, h: bandH + structural.height + 2 * pad });
+                }}
+                title="Reset all moved nodes back to the automatic layout"
+              >
+                ↺ Reset layout
+              </button>
+            )}
+          </>
+        )}
         {editable && flowLevels.length > 0 && (
           <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "0.74rem" }} title="Aggregate the flows to this level (independent of expand/collapse)">
             <span className="muted">flows by</span>
@@ -499,9 +574,11 @@ export function HierarchyMap({
           const sel = selectedId === g.id;
           return (
             <g key={`c-${g.id}`}>
-              {/* body — not a toggle target (clicking/dragging it pans); only the
-                  header collapses the group. */}
+              {/* body — also a drag/select target (data-group): grab anywhere on
+                  the box (not on a child) to move the whole group. The ▾ grip
+                  still collapses; children on top keep their own handlers. */}
               <rect
+                data-group={g.id}
                 x={g.x}
                 y={g.y}
                 width={g.w}
@@ -511,6 +588,7 @@ export function HierarchyMap({
                 stroke={sel ? "var(--brand)" : "var(--border-strong)"}
                 strokeWidth={sel ? 3 : 1}
                 opacity={0.5 + 0.12 * Math.min(3, g.depth)}
+                style={{ cursor: editable ? "grab" : "pointer" }}
               />
               {/* header strip — the NAME / select target (data-group): click shows
                   details, leaving the chart level as is. */}
@@ -534,17 +612,37 @@ export function HierarchyMap({
           const a = boxById.get(e.from);
           const b = boxById.get(e.to);
           if (!a || !b) return null;
-          const x1 = a.x + a.w;
-          const y1 = a.y + a.h / 2;
-          const x2 = b.x;
-          const y2 = b.y + b.h / 2;
-          const c = Math.max(40, (x2 - x1) / 2);
+          const p1 = outPt(a);
+          const p2 = inPt(b);
+          const x1 = p1.x;
+          const y1 = p1.y;
+          const x2 = p2.x;
+          const y2 = p2.y;
           const fv = overlay?.flow(e.origFrom, e.origTo, e.commodity);
           const active = fv != null && fv > 1e-6;
           const mx = (x1 + x2) / 2;
           const my = (y1 + y2) / 2;
           const sel = editable && e.rowIndex >= 0 && selEdge === e.rowIndex;
-          const d = `M${x1},${y1} C${x1 + c},${y1} ${x2 - c},${y2} ${x2},${y2}`;
+          // Edge geometry: orthogonal = right-angle elbow down the inter-box gutter
+          // (staggered per edge so parallel flows don't overlap); else a smooth
+          // Bézier. Both follow the flow axis (horizontal vs vertical).
+          let d: string;
+          if (ortho) {
+            const lane = (edgeLabelRank.get(edgeKey(e)) ?? 0) * 12;
+            if (horiz) {
+              const cx = mx + lane;
+              d = `M${x1},${y1} L${cx},${y1} L${cx},${y2} L${x2},${y2}`;
+            } else {
+              const cy = my + lane;
+              d = `M${x1},${y1} L${x1},${cy} L${x2},${cy} L${x2},${y2}`;
+            }
+          } else if (horiz) {
+            const c = Math.max(40, (x2 - x1) / 2);
+            d = `M${x1},${y1} C${x1 + c},${y1} ${x2 - c},${y2} ${x2},${y2}`;
+          } else {
+            const c = Math.max(40, (y2 - y1) / 2);
+            d = `M${x1},${y1} C${x1},${y1 + c} ${x2},${y2 - c} ${x2},${y2}`;
+          }
           const label =
             (active ? `${clip(e.commodity, 8)} ${fmtVal(fv!)}` : clip(e.commodity, 10)) +
             (e.count > 1 ? ` ×${e.count}` : "") +
@@ -579,7 +677,8 @@ export function HierarchyMap({
         {connect && (() => {
           const a = boxById.get(connect.from);
           if (!a) return null;
-          return <path d={`M${a.x + a.w},${a.y + a.h / 2} L${connect.wx},${connect.wy}`} fill="none" stroke="#0f766e" strokeWidth={1.5} strokeDasharray="5 4" opacity={0.7} />;
+          const p = outPt(a);
+          return <path d={`M${p.x},${p.y} L${connect.wx},${connect.wy}`} fill="none" stroke="#0f766e" strokeWidth={1.5} strokeDasharray="5 4" opacity={0.7} />;
         })()}
 
         {leaves.map((n: LaidNode) => {

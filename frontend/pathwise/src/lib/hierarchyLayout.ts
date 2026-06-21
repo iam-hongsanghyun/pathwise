@@ -8,6 +8,11 @@ import type { Workbook } from "../types";
 
 export type MapMode = "nested" | "swimlane" | "expandable";
 
+/** Flow direction of the auto-layout: "h" = left→right (depth grows in x,
+ *  siblings stack in y); "v" = top→bottom (depth grows in y, siblings spread
+ *  in x). The title strip stays at the TOP of every box in both. */
+export type Orientation = "h" | "v";
+
 /** A positioned box for any node (group container or machine leaf). */
 export interface LaidNode {
   id: string;
@@ -101,11 +106,15 @@ interface NestOpts {
   /** Expandable mode: only these group ids show their children; others collapse.
    *  Undefined → fully expanded (plain nested mode). */
   expanded?: Set<string>;
+  /** Flow direction (default "h"). */
+  orientation?: Orientation;
 }
 
 /** Recursive variable-size box packing: each expanded group is a container whose
- *  children are arranged left→right by flow-depth and stacked within a column. */
+ *  children are arranged by flow-depth along the primary axis (x for "h", y for
+ *  "v") and spread along the secondary axis within a depth bucket. */
 export function layoutNested(wb: Workbook, opts: NestOpts = {}): Laid {
+  const horiz = (opts.orientation ?? "h") === "h";
   const nodes = parseNodes(wb);
   const byParent = new Map<string | null, GroupNode[]>();
   for (const n of nodes) {
@@ -137,17 +146,26 @@ export function layoutNested(wb: Workbook, opts: NestOpts = {}): Laid {
         if (!byCol.has(c)) byCol.set(c, []);
         byCol.get(c)!.push(k);
       }
-      let contentW = 0;
-      let contentH = 0;
-      const cols = [...byCol.keys()].sort((a, b) => a - b);
-      cols.forEach((c, i) => {
-        const members = byCol.get(c)!;
-        const colW = Math.max(...members.map((m) => size(m).w));
-        const colH = members.reduce((acc, m) => acc + size(m).h, 0) + GAP_Y * (members.length - 1);
-        contentW += colW + (i > 0 ? GAP_X : 0);
-        contentH = Math.max(contentH, colH);
+      // `along` = total extent along the depth axis; `across` = max across it.
+      const buckets = [...byCol.keys()].sort((a, b) => a - b).map((c) => byCol.get(c)!);
+      let along = 0;
+      let across = 0;
+      buckets.forEach((members, i) => {
+        if (horiz) {
+          const colW = Math.max(...members.map((m) => size(m).w));
+          const colH = members.reduce((acc, m) => acc + size(m).h, 0) + GAP_Y * (members.length - 1);
+          along += colW + (i > 0 ? GAP_X : 0);
+          across = Math.max(across, colH);
+        } else {
+          const rowH = Math.max(...members.map((m) => size(m).h));
+          const rowW = members.reduce((acc, m) => acc + size(m).w, 0) + GAP_X * (members.length - 1);
+          along += rowH + (i > 0 ? GAP_Y : 0);
+          across = Math.max(across, rowW);
+        }
       });
-      box = { w: contentW + 2 * PAD, h: contentH + HEADER + 2 * PAD };
+      box = horiz
+        ? { w: along + 2 * PAD, h: across + HEADER + 2 * PAD }
+        : { w: across + 2 * PAD, h: along + HEADER + 2 * PAD };
     }
     sizeCache.set(n.id, box);
     return box;
@@ -180,37 +198,57 @@ export function layoutNested(wb: Workbook, opts: NestOpts = {}): Laid {
       if (!byCol.has(c)) byCol.set(c, []);
       byCol.get(c)!.push(k);
     }
-    const cols = [...byCol.keys()].sort((a, b) => a - b);
-    let colX = x + PAD;
-    for (const c of cols) {
-      const members = byCol.get(c)!;
-      const colW = Math.max(...members.map((m) => size(m).w));
-      let cy = y + HEADER + PAD;
-      for (const m of members) {
-        const ms = size(m);
-        place(m, colX + (colW - ms.w) / 2, cy, depth + 1);
-        cy += ms.h + GAP_Y;
+    const buckets = [...byCol.keys()].sort((a, b) => a - b).map((c) => byCol.get(c)!);
+    if (horiz) {
+      // Depth buckets are columns advancing in x; members stack down each column.
+      let colX = x + PAD;
+      for (const members of buckets) {
+        const colW = Math.max(...members.map((m) => size(m).w));
+        let cy = y + HEADER + PAD;
+        for (const m of members) {
+          const ms = size(m);
+          place(m, colX + (colW - ms.w) / 2, cy, depth + 1);
+          cy += ms.h + GAP_Y;
+        }
+        colX += colW + GAP_X;
       }
-      colX += colW + GAP_X;
+    } else {
+      // Depth buckets are rows advancing in y; members spread right across each row.
+      let rowY = y + HEADER + PAD;
+      for (const members of buckets) {
+        const rowH = Math.max(...members.map((m) => size(m).h));
+        let cx = x + PAD;
+        for (const m of members) {
+          const ms = size(m);
+          place(m, cx, rowY + (rowH - ms.h) / 2, depth + 1);
+          cx += ms.w + GAP_X;
+        }
+        rowY += rowH + GAP_Y;
+      }
     }
   };
 
-  // Lay the roots out as columns of a virtual top container.
-  let rx = PAD;
-  let maxH = 0;
-  for (const r of roots) {
-    place(r, rx, PAD, 0);
-    const sz = size(r);
-    rx += sz.w + GAP_X;
-    maxH = Math.max(maxH, sz.h);
+  // Lay the roots out along the primary axis of a virtual top container.
+  if (horiz) {
+    let rx = PAD;
+    let maxH = 0;
+    for (const r of roots) {
+      place(r, rx, PAD, 0);
+      const sz = size(r);
+      rx += sz.w + GAP_X;
+      maxH = Math.max(maxH, sz.h);
+    }
+    return { nodes: out, edges: resolveEdges(wb, nodes, out, opts.expanded), width: rx, height: maxH + 2 * PAD };
   }
-
-  return {
-    nodes: out,
-    edges: resolveEdges(wb, nodes, out, opts.expanded),
-    width: rx,
-    height: maxH + 2 * PAD,
-  };
+  let ry = PAD;
+  let maxW = 0;
+  for (const r of roots) {
+    place(r, PAD, ry, 0);
+    const sz = size(r);
+    ry += sz.h + GAP_Y;
+    maxW = Math.max(maxW, sz.w);
+  }
+  return { nodes: out, edges: resolveEdges(wb, nodes, out, opts.expanded), width: maxW + 2 * PAD, height: ry };
 }
 
 // ── Swimlanes-by-level ────────────────────────────────────────────────────────
@@ -323,11 +361,17 @@ export function defaultExpanded(wb: Workbook, budget = 120): Set<string> {
   return expanded;
 }
 
-/** Convenience: lay out for any mode. */
-export function layoutFor(wb: Workbook, mode: MapMode, expanded?: Set<string>): Laid {
+/** Convenience: lay out for any mode. `orientation` ("h" default / "v") sets the
+ *  flow direction for the nested layouts (swimlane is always banded by depth). */
+export function layoutFor(
+  wb: Workbook,
+  mode: MapMode,
+  expanded?: Set<string>,
+  orientation: Orientation = "h",
+): Laid {
   if (mode === "swimlane") return layoutSwimlane(wb);
-  if (mode === "expandable") return layoutNested(wb, { expanded });
-  return layoutNested(wb);
+  if (mode === "expandable") return layoutNested(wb, { expanded, orientation });
+  return layoutNested(wb, { orientation });
 }
 
 /** One editable edge per `connections` row, resolved to the deepest VISIBLE

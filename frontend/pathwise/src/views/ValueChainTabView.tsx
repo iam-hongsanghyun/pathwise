@@ -227,6 +227,10 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     const have = new Set(updated.map((r) => s(r.id)));
     setWorkbook(setSheet(workbook, "node_layout", [...updated, ...rows.filter((r) => !have.has(r.id))]));
   }
+  // Reset layout: drop every manual position so the map falls back to auto-layout.
+  function resetLayout() {
+    setWorkbook(setSheet(workbook, "node_layout", []));
+  }
 
   // ── Purchasing (markets scoped to a node) ───────────────────────────────────
   function addMarket(nodeId: string, commodity: string, kind: "buy" | "sell") {
@@ -470,6 +474,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 onEditConnection={editConnection}
                 onDeleteConnection={deleteConnection}
                 onMoveNodes={moveNodes}
+                onResetLayout={resetLayout}
                 commodities={commodities}
               />
             </div>
