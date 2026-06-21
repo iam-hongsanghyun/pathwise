@@ -557,6 +557,7 @@ export function SourceStreamInspector({
   commodityId,
   consumerLabels,
   onSupplyCap,
+  onAvailability,
   baseYear = 2025,
   periods,
 }: {
@@ -565,6 +566,8 @@ export function SourceStreamInspector({
   consumerLabels: string[];
   /** Set / clear (null) this stream's annual supply cap — static or by-year. */
   onSupplyCap?: (v: TemporalVal | null) => void;
+  /** Set this stream's external-purchase window (year or null for open-ended). */
+  onAvailability?: (from: number | null, to: number | null) => void;
   baseYear?: number;
   periods?: number[];
 }) {
@@ -608,11 +611,45 @@ export function SourceStreamInspector({
       ) : (
         kv("max supply / yr", g("max_purchase") ?? "∞", unit || undefined)
       )}
-      {kv("available from", g("available_from") ?? "any")}
-      {kv("available until", g("available_to") ?? "any")}
+      {onAvailability ? (
+        <>
+          <div className="mi-kv">
+            <span>available from</span>
+            <span className="mi-val">
+              <input
+                type="number"
+                placeholder="any"
+                value={g("available_from") ?? ""}
+                className="field-input"
+                style={{ width: 90 }}
+                onChange={(e) => onAvailability(e.target.value === "" ? null : Number(e.target.value) || 0, g("available_to") == null ? null : Number(g("available_to")))}
+              />
+            </span>
+          </div>
+          <div className="mi-kv">
+            <span>available until</span>
+            <span className="mi-val">
+              <input
+                type="number"
+                placeholder="any"
+                value={g("available_to") ?? ""}
+                className="field-input"
+                style={{ width: 90 }}
+                onChange={(e) => onAvailability(g("available_from") == null ? null : Number(g("available_from")), e.target.value === "" ? null : Number(e.target.value) || 0)}
+              />
+            </span>
+          </div>
+        </>
+      ) : (
+        <>
+          {kv("available from", g("available_from") ?? "any")}
+          {kv("available until", g("available_to") ?? "any")}
+        </>
+      )}
       <p className="muted mi-note">
-        The supply cap is a hard ceiling on this stream's annual supply. Price &amp;
-        availability are edited in the <b>Component</b> view (its Streams sheet).
+        The supply cap is a hard ceiling on this stream's annual supply; the window gates
+        external purchase. When a producer is wired to this stream, the producer's
+        build/close years govern instead. Price is edited in the <b>Component</b> view.
       </p>
       <div className="mi-section-head">
         <span>feeds {consumerLabels.length} facilit{consumerLabels.length === 1 ? "y" : "ies"}</span>

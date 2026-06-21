@@ -485,6 +485,19 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 baseYear={baseYear}
                 periods={periods}
                 onSupplyCap={(v) => setWorkbook(setSupplyCap(workbook, cid, v))}
+                onAvailability={(from, to) =>
+                  setWorkbook(
+                    setSheet(
+                      workbook,
+                      "commodities",
+                      (workbook.commodities ?? []).map((r) =>
+                        s(r.commodity_id) === cid
+                          ? { ...r, available_from: from ?? "", available_to: to ?? "" }
+                          : r,
+                      ),
+                    ),
+                  )
+                }
               />
             </FloatingPanel>
           );
