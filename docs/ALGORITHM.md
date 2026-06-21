@@ -101,8 +101,9 @@ to transition capex, renewal capex, and technology capex.
   mix follows prices within the unit's physical flexibility. Grouped outputs are
   produced via `fout`; others keep the fixed form `yield·x`. Declared on `io`
   output rows via the same `group`/`share_min`/`share_max` columns.
-- **Replacement coupling** (incompatible swap forces neighbours): planned;
-  edges currently model pure flow.
+- **Replacement coupling** (incompatible swap forces neighbours): planned. Edges
+  otherwise model flow with optional per-period min/max bounds — see *Edge flow
+  bounds* in §5b and [features/stream-bounds.md](features/stream-bounds.md).
 - **Asset end-of-life lifecycle** (`_lifecycle` in `core/build.py`): a process that
   declares `introduced_year` is lifecycle-tracked. A technology may be active in
   year `t` only if a *live vintage* covers it:
@@ -133,7 +134,20 @@ to transition capex, renewal capex, and technology capex.
   cheap years / release dear years against fluctuating annual prices.
 - **Investment budget**: `Σ (nominal capex in year t for company c) ≤ budget_{c,t}`
   over transition + measure + storage capex.
-- **Minimum production**: `Σ_{p∈c} deliver_{p,q,t} ≥ min_production_{c,q,t}` (hard).
+- **Production bounds** (per scope `c`, commodity `q`, year `t`):
+  `Σ_{p∈c} deliver_{p,q,t} ≥ min_production_{c,q,t}` and `≤ max_production_{c,q,t}`
+  (both hard). `c` resolves via `Process.in_scope` (`"all"`, node id, company,
+  group, or any ancestor), so a per-machine cap binds just that machine.
+- **Consumption bounds** (the consumer-side mirror; per scope `c`, commodity `q`,
+  year `t`): `Σ_{p∈c} gross_consumed_{p,q,t} ≥ min_consumption_{c,q,t}` and
+  `≤ max_consumption_{c,q,t}`. `gross_consumed` is the machine's intake of `q`
+  (the blend `fin` flow for grouped members, else `int·x`), summed over its
+  providers — `min` = required offtake (take-or-pay), `max` = max purchase.
+- **Edge flow bounds** (per provider→consumer link, commodity): `min_flow_{e,t}
+  ≤ flow_{e,t} ≤ max_flow_{e,t}` via `Edge.min_flow_at`/`max_flow_at` (year-aware;
+  sparse year rows interpolated, flat-held ends). A node-space `connections_t`
+  row is fanned onto every synthesized edge by `_expand_hierarchy`, so a
+  per-provider bound caps each provider's link independently.
 
 ## 6b. Markets, tradable ETS & profit
 

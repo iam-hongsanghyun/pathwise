@@ -59,8 +59,11 @@ periods, commodities, technologies, processes, demand
 | `macc_links` | MACC deployment targets (`macc`, `facility`\|`technology`\|`commodity`\|`storage`). |
 | `nodes` | Recursive hierarchy nodes (`node_id`, `parent_id`, `kind`, `level`, `label`). |
 | `machines` | Leaf-machine details (`machine_id`, `baseline_technology`, `capacity`). |
-| `connections` | Commodity flows between sibling nodes (`from_node`, `to_node`, `commodity_id`, `lag_years`). |
-| `edges` | Commodity flows between flat processes (`from_process`, `to_process`, `commodity_id`). |
+| `connections` | Commodity flows between sibling nodes (`from_node`, `to_node`, `commodity_id`, `lag_years`, optional static `min_flow`/`max_flow`). |
+| `connections_t` | Per-year connection flow bounds (`from_node`, `to_node`, `commodity_id`, `year`, `min_flow`, `max_flow`) — node-space counterpart of `edges_t`, fanned onto edges at solve time. |
+| `edges` | Commodity flows between flat processes (`from_process`, `to_process`, `commodity_id`, optional static `min_flow`/`max_flow`). |
+| `min_production` / `max_production` | Per-machine (or scoped) production floor / ceiling (`company`, `commodity_id`, optional `year`, `amount`). A year-less row holds every year. |
+| `min_consumption` / `max_consumption` | Per-machine (or scoped) intake floor / ceiling — `min` = required offtake, `max` = max purchase (`company`, `commodity_id`, optional `year`, `amount`). Year-less ⇒ all years. |
 
 ---
 
@@ -99,6 +102,9 @@ Sheet name convention: `<entity_base>_t__<attribute>` (double underscore). Each 
 | `storage_t__standing_loss` | `storage_id` | Standing loss |
 | `investment_budget_t__limit` | `budget_id` | Investment budget |
 | `min_production_t__amount` | `min_id` | Minimum production floor |
+| `max_production_t__amount` | `max_id` | Maximum production ceiling |
+| `min_consumption_t__amount` | `min_cons_id` | Minimum intake / required offtake |
+| `max_consumption_t__amount` | `max_cons_id` | Maximum intake / max purchase |
 | `demand_t__amount` | `demand_id` | Demand target |
 | `impact_caps_t__limit` | `cap_id` | Impact cap |
 
@@ -121,7 +127,8 @@ Used for multi-keyed values where a wide matrix would be sparse or ambiguous.
 | `technologies_prices` | `technology_id`, `year` | `capex`, `opex` | Per-technology cost trajectory (emitted by the component library) |
 | `io_t` | `technology_id`, `target`, `role`, `year` | `coefficient`, `share_min`, `share_max` | Year-varying I/O intensity / yield / emission factor, and blend/slate share bounds |
 | `transitions_t` | `from_technology`, `to_technology`, `year` | `capex_per_capacity` | Year-varying transition CAPEX |
-| `edges_t` | `from_process`, `to_process`, `commodity_id`, `year` | `max_flow` | Year-varying edge capacity |
+| `edges_t` | `from_process`, `to_process`, `commodity_id`, `year` | `min_flow`, `max_flow` | Year-varying edge flow floor / cap |
+| `connections_t` | `from_node`, `to_node`, `commodity_id`, `year` | `min_flow`, `max_flow` | Year-varying connection flow floor / cap (node-space; fanned onto edges) |
 | `commodity_impacts_t` | `commodity_id`, `impact_id`, `year` | `factor` | Year-varying upstream carbon intensity |
 | `measure_blocks_t` | `measure_id`, `block`, `year` | `capex`, `opex`, `reduction` | Year-varying block costs (absolute, scaled to instance capacity) and abatement |
 | `impact_prices` | `impact_id`, `year` | `price` | Carbon price trajectory (long-format alternative to `impacts_t__price`) |

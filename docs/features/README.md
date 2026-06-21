@@ -10,6 +10,7 @@ Per-feature documentation for the pathwise builder and engine.
 | Facility transitions — switching a machine's technology over time, asset renewal | [transitions.md](transitions.md) | ✅ |
 | MACC — marginal abatement cost curves (measures + blocks) | [macc.md](macc.md) | ✅ |
 | Alternatives & substitution — import ↔ domestic, competing supply | [alternatives.md](alternatives.md) | ✅ |
+| Stream bounds & temporal values — min/max on every flow (production, consumption, per-provider, supply), static or by-year | [stream-bounds.md](stream-bounds.md) | ✅ |
 
 See also: [`../ALGORITHM.md`](../ALGORITHM.md) (the optimisation maths) and
 [`../HANDBOOK.md`](../HANDBOOK.md) (team standards).
