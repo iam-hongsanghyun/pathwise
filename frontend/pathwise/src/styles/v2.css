@@ -468,6 +468,21 @@ th {
 .mi-bound-lbl:not(:first-child) {
   margin-left: 4px;
 }
+.mi-providers {
+  margin: 0 0 6px 46px;
+  border-left: 2px solid var(--border);
+  padding-left: 10px;
+}
+.mi-provider {
+  padding: 6px 0;
+}
+.mi-provider:not(:last-child) {
+  border-bottom: 1px dashed var(--border);
+}
+.mi-provider-name {
+  font-size: 0.78rem;
+  color: var(--text);
+}
 .mi-val {
   font-family: var(--font-mono);
   font-size: 0.96rem;

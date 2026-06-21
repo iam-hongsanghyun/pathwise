@@ -217,3 +217,23 @@ export function setConnectionTemporal(
   const { [CONN_T]: _drop, ...rest } = wb;
   return rest;
 }
+
+/** Set BOTH stores for an EXISTING connection (no new wiring): the static column
+ *  on the connection row + the temporal `connections_t` rows. Used when editing a
+ *  per-provider bound from the buyer's popup rather than the connection editor. */
+export function setConnectionBounds(
+  wb: Workbook,
+  from: string,
+  to: string,
+  commodity: string,
+  min: Bound | null,
+  max: Bound | null,
+): Workbook {
+  const withStatic: Workbook = {
+    ...wb,
+    connections: (wb.connections ?? []).map((r) =>
+      matchesConn(r, from, to, commodity) ? { ...r, min_flow: connStatic(min), max_flow: connStatic(max) } : r,
+    ),
+  };
+  return setConnectionTemporal(withStatic, from, to, commodity, min, max);
+}

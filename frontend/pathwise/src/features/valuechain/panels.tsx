@@ -2,16 +2,18 @@
 // how each is satisfied), ports/purchasing, demand targets, and the per-level
 // cascade result summary. Presentational; the host mutates the workbook.
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { SearchableSelect } from "../controls/SearchableSelect";
 import { SearchSelect } from "../controls/SearchSelect";
 import { TemporalValue, type TemporalVal } from "../controls/TemporalValue";
 import {
   commodityUnit,
+  connectionFlow,
   maxConsumptionCap,
   maxOutputCap,
   minConsumptionCap,
   minOutputCap,
+  setConnectionBounds,
   setMaxConsumptionCap,
   setMaxOutputCap,
   setMinConsumptionCap,
@@ -122,6 +124,24 @@ export function MachineInspector({
       .map((x) => lab(s(x[far])));
     return [...new Set(g)];
   };
+  // The provider connections feeding input commodity `c` to this machine (or any
+  // ancestor): each is a per-producer channel into the pooled commodity, so the
+  // buyer can cap purchase from each producer independently.
+  const inputProviders = (c: string): { from: string; to: string; label: string }[] => {
+    const seen = new Set<string>();
+    const out: { from: string; to: string; label: string }[] = [];
+    for (const x of wb.connections ?? []) {
+      if (s(x.commodity_id) !== c) continue;
+      const from = s(x.from_node);
+      const to = s(x.to_node);
+      if (!scope.has(to) || scope.has(from)) continue;
+      const key = `${from}→${to}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ from, to, label: lab(from) });
+    }
+    return out;
+  };
   const inFrom = (c: string): { text: string; ok: boolean } => {
     const src = partners(c, "in");
     if (src.length) return { text: `← ${src.join(", ")}`, ok: true };
@@ -207,6 +227,25 @@ export function MachineInspector({
     );
   };
 
+  // A per-producer buy bound on the pooled input commodity `c`: each provider
+  // connection capped independently (edits that connection's min/max flow).
+  const providerRow = (c: string, prov: { from: string; to: string; label: string }) => {
+    const unit = commodityUnit(wb, c);
+    const { min, max } = connectionFlow(wb, prov.from, prov.to, c);
+    const toLbl = prov.to === machineId ? "" : ` → ${lab(prov.to)}`;
+    return (
+      <div className="mi-provider" key={`prov:${c}:${prov.from}:${prov.to}`}>
+        <span className="mi-provider-name">← {prov.label}{toLbl}</span>
+        <div className="mi-bounds">
+          <span className="mi-bound-lbl">min</span>
+          <TemporalValue value={min} onChange={(v) => onWorkbookChange?.(setConnectionBounds(wb, prov.from, prov.to, c, v, max))} unit={unit} baseYear={baseYear} periods={periods} placeholder="none" label={`${prov.label} → ${c} · min buy`} />
+          <span className="mi-bound-lbl">max</span>
+          <TemporalValue value={max} onChange={(v) => onWorkbookChange?.(setConnectionBounds(wb, prov.from, prov.to, c, min, v))} unit={unit} baseYear={baseYear} periods={periods} placeholder="no cap" label={`${prov.label} → ${c} · max buy`} />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="mi" style={{ padding: "16px 20px", overflow: "auto" }}>
       <div className="eyebrow">machine</div>
@@ -218,7 +257,16 @@ export function MachineInspector({
 
       <div className="mi-section-head"><span>recipe — wiring</span><span className="muted">per {thru} output</span></div>
       <div>
-        {inputs.map((r) => wireRow(r, "IN"))}
+        {inputs.map((r) => {
+          const c = s(r.target);
+          const provs = onWorkbookChange ? inputProviders(c) : [];
+          return (
+            <Fragment key={`in:${c}`}>
+              {wireRow(r, "IN")}
+              {provs.length > 0 && <div className="mi-providers">{provs.map((p) => providerRow(c, p))}</div>}
+            </Fragment>
+          );
+        })}
         {outputs.map((r) => wireRow(r, "OUT"))}
         {io.length === 0 && <div className="muted" style={{ padding: "8px 0", fontSize: "0.8rem" }}>no recipe</div>}
       </div>
