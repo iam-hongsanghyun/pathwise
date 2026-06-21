@@ -759,21 +759,21 @@
 },
 {
 "node_id": "Dom_Explorer",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Dom Explorer"
 },
 {
 "node_id": "Eiger_Explorer",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Eiger Explorer"
 },
 {
 "node_id": "G_Arete",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "G. Arete"
@@ -787,35 +787,35 @@
 },
 {
 "node_id": "G_Dolce",
-"parent_id": "op_SK_Gas",
+"parent_id": "op_SK_Gas/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "G. Dolce"
 },
 {
 "node_id": "G_Forever",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "G. Forever"
 },
 {
 "node_id": "G_Paragon",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "G. Paragon"
 },
 {
 "node_id": "G_Spirit",
-"parent_id": "op_SK_Gas",
+"parent_id": "op_SK_Gas/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "G. Spirit"
 },
 {
 "node_id": "G_Swan",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "G. Swan"
@@ -829,7 +829,7 @@
 },
 {
 "node_id": "Gas_Friend",
-"parent_id": "op_KSS_Line",
+"parent_id": "op_KSS_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Gas Friend"
@@ -843,70 +843,70 @@
 },
 {
 "node_id": "Gas_Planet",
-"parent_id": "op_E1_Corporation",
+"parent_id": "op_E1_Corporation/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Gas Planet"
 },
 {
 "node_id": "Gas_Power",
-"parent_id": "op_KSS_Line",
+"parent_id": "op_KSS_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Gas Power"
 },
 {
 "node_id": "Gas_Stella",
-"parent_id": "op_E1_Corporation",
+"parent_id": "op_E1_Corporation/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Gas Stella"
 },
 {
 "node_id": "Gas_Summit",
-"parent_id": "op_KSS_Line",
+"parent_id": "op_KSS_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Gas Summit"
 },
 {
 "node_id": "Gas_Young",
-"parent_id": "op_KSS_Line",
+"parent_id": "op_KSS_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Gas Young"
 },
 {
 "node_id": "HLS_Amber",
-"parent_id": "op_E1_Corporation",
+"parent_id": "op_E1_Corporation/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HLS Amber"
 },
 {
 "node_id": "HLS_Blue_Sapphire",
-"parent_id": "op_E1_Corporation",
+"parent_id": "op_E1_Corporation/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HLS Blue Sapphire"
 },
 {
 "node_id": "HLS_Diamond",
-"parent_id": "op_E1_Corporation",
+"parent_id": "op_E1_Corporation/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HLS Diamond"
 },
 {
 "node_id": "Leo_Green",
-"parent_id": "op_E1_Corporation",
+"parent_id": "op_E1_Corporation/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Leo Green"
 },
 {
 "node_id": "Matterhorn_Explorer",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Matterhorn Explorer"
@@ -920,7 +920,7 @@
 },
 {
 "node_id": "Ah_Shin",
-"parent_id": "op_Samjoo_Maritime",
+"parent_id": "op_Samjoo_Maritime/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ah Shin"
@@ -934,455 +934,455 @@
 },
 {
 "node_id": "Argus_Ray",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Argus Ray"
 },
 {
 "node_id": "Crystal_Ray",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Crystal Ray"
 },
 {
 "node_id": "Dong_A_Glaucos",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Dong-A Glaucos"
 },
 {
 "node_id": "Dong_A_Metis",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Dong-A Metis"
 },
 {
 "node_id": "G_Poseidon",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "G Poseidon"
 },
 {
 "node_id": "Glovis_Captain",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Captain"
 },
 {
 "node_id": "Glovis_Caravel",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Caravel"
 },
 {
 "node_id": "Glovis_Cardinal",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Cardinal"
 },
 {
 "node_id": "Glovis_Century",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Century"
 },
 {
 "node_id": "Glovis_Challenge",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Challenge"
 },
 {
 "node_id": "Glovis_Champion",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Champion"
 },
 {
 "node_id": "Glovis_Chorus",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Chorus"
 },
 {
 "node_id": "Glovis_Clipper",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Clipper"
 },
 {
 "node_id": "Glovis_Comet",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Comet"
 },
 {
 "node_id": "Glovis_Companion",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Companion"
 },
 {
 "node_id": "Glovis_Condor",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Condor"
 },
 {
 "node_id": "Glovis_Corona",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Corona"
 },
 {
 "node_id": "Glovis_Cosmos",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Cosmos"
 },
 {
 "node_id": "Glovis_Cougar",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Cougar"
 },
 {
 "node_id": "Glovis_Countess",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Countess"
 },
 {
 "node_id": "Glovis_Courage",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Courage"
 },
 {
 "node_id": "Glovis_Crown",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Crown"
 },
 {
 "node_id": "Glovis_Crystal",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Crystal"
 },
 {
 "node_id": "Glovis_Safety",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Safety"
 },
 {
 "node_id": "Glovis_Selene",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Selene"
 },
 {
 "node_id": "Glovis_Sigma",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Sigma"
 },
 {
 "node_id": "Glovis_Silver",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Silver"
 },
 {
 "node_id": "Glovis_Sirius",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Sirius"
 },
 {
 "node_id": "Glovis_Sky",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Sky"
 },
 {
 "node_id": "Glovis_Solar",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Solar"
 },
 {
 "node_id": "Glovis_Solomon",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Solomon"
 },
 {
 "node_id": "Glovis_Sonic",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Sonic"
 },
 {
 "node_id": "Glovis_Spirit",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Spirit"
 },
 {
 "node_id": "Glovis_Splendor",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Splendor"
 },
 {
 "node_id": "Glovis_Spring",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Spring"
 },
 {
 "node_id": "Glovis_Star",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Star"
 },
 {
 "node_id": "Glovis_Stella",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Stella"
 },
 {
 "node_id": "Glovis_Success",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Success"
 },
 {
 "node_id": "Glovis_Summit",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Summit"
 },
 {
 "node_id": "Glovis_Sun",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Sun"
 },
 {
 "node_id": "Glovis_Sunlight",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Sunlight"
 },
 {
 "node_id": "Glovis_Sunrise",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Sunrise"
 },
 {
 "node_id": "Glovis_Sunshine",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Sunshine"
 },
 {
 "node_id": "Glovis_Superior",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Superior"
 },
 {
 "node_id": "Glovis_Supreme",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Supreme"
 },
 {
 "node_id": "Glovis_Symphony",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Symphony"
 },
 {
 "node_id": "GMT_Astro",
-"parent_id": "op_Samjoo_Maritime",
+"parent_id": "op_Samjoo_Maritime/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "GMT Astro"
 },
 {
 "node_id": "Grand_Hero",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grand Hero"
 },
 {
 "node_id": "Grand_Mark",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grand Mark"
 },
 {
 "node_id": "Grand_Mercury",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grand Mercury"
 },
 {
 "node_id": "Grand_Pace",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grand Pace"
 },
 {
 "node_id": "Grand_Pioneer",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grand Pioneer"
 },
 {
 "node_id": "Grand_Race",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grand Race"
 },
 {
 "node_id": "Hae_Shin",
-"parent_id": "op_Samjoo_Maritime",
+"parent_id": "op_Samjoo_Maritime/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hae Shin"
 },
 {
 "node_id": "K_Asian_Beauty",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "K Asian Beauty"
 },
 {
 "node_id": "Lake_Fuxian",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Lake Fuxian"
 },
 {
 "node_id": "Lake_Geneva",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Lake Geneva"
 },
 {
 "node_id": "Platinum_Ray",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Platinum Ray"
 },
 {
 "node_id": "RCC_America",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "RCC America"
 },
 {
 "node_id": "RCC_Classic",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "RCC Classic"
 },
 {
 "node_id": "RCC_Compass",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "RCC Compass"
 },
 {
 "node_id": "RCC_Europe",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "RCC Europe"
 },
 {
 "node_id": "Sang_Shin",
-"parent_id": "op_Samjoo_Maritime",
+"parent_id": "op_Samjoo_Maritime/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sang Shin"
 },
 {
 "node_id": "UGR_Istanbul",
-"parent_id": "op_Samjoo_Maritime",
+"parent_id": "op_Samjoo_Maritime/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "UGR Istanbul"
 },
 {
 "node_id": "Young_Shin",
-"parent_id": "op_Samjoo_Maritime",
+"parent_id": "op_Samjoo_Maritime/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Young Shin"
@@ -1396,7 +1396,7 @@
 },
 {
 "node_id": "DDS_Marina",
-"parent_id": "op_Daedong_Shipping",
+"parent_id": "op_Daedong_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "DDS Marina"
@@ -1410,14 +1410,14 @@
 },
 {
 "node_id": "DK_Ilios",
-"parent_id": "op_Intergis",
+"parent_id": "op_Intergis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "DK Ilios"
 },
 {
 "node_id": "DK_Itonia",
-"parent_id": "op_Intergis",
+"parent_id": "op_Intergis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "DK Itonia"
@@ -1431,7 +1431,7 @@
 },
 {
 "node_id": "Dragon_Star",
-"parent_id": "op_Ssangyong_Shpg_Co",
+"parent_id": "op_Ssangyong_Shpg_Co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Dragon Star"
@@ -1445,14 +1445,14 @@
 },
 {
 "node_id": "Eastern_Delight",
-"parent_id": "op_Sino_Far_East",
+"parent_id": "op_Sino_Far_East/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Eastern Delight"
 },
 {
 "node_id": "Eastern_Harmony",
-"parent_id": "op_Sino_Far_East",
+"parent_id": "op_Sino_Far_East/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Eastern Harmony"
@@ -1466,7 +1466,7 @@
 },
 {
 "node_id": "Encore",
-"parent_id": "op_Soosung_Corp",
+"parent_id": "op_Soosung_Corp/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Encore"
@@ -1480,7 +1480,7 @@
 },
 {
 "node_id": "Ginga",
-"parent_id": "op_K_J_Ship_Mngt",
+"parent_id": "op_K_J_Ship_Mngt/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ginga"
@@ -1494,7 +1494,7 @@
 },
 {
 "node_id": "K_Pine",
-"parent_id": "op_Korea_Shipmanagers",
+"parent_id": "op_Korea_Shipmanagers/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "K Pine"
@@ -1508,7 +1508,7 @@
 },
 {
 "node_id": "K_Tajo",
-"parent_id": "op_BD_Shipping",
+"parent_id": "op_BD_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "K Tajo"
@@ -1522,7 +1522,7 @@
 },
 {
 "node_id": "KMC_Miracle",
-"parent_id": "op_KMC_Line",
+"parent_id": "op_KMC_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMC Miracle"
@@ -1536,7 +1536,7 @@
 },
 {
 "node_id": "Kookyang_Singapore",
-"parent_id": "op_KookYang_Shipping",
+"parent_id": "op_KookYang_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Kookyang Singapore"
@@ -1550,7 +1550,7 @@
 },
 {
 "node_id": "Korex_Yeosu",
-"parent_id": "op_CJ_Logistics",
+"parent_id": "op_CJ_Logistics/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Korex Yeosu"
@@ -1564,21 +1564,21 @@
 },
 {
 "node_id": "Morning_Nuri",
-"parent_id": "op_Suseong_Marine_Co",
+"parent_id": "op_Suseong_Marine_Co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Morning Nuri"
 },
 {
 "node_id": "Morning_Victory",
-"parent_id": "op_Suseong_Marine_Co",
+"parent_id": "op_Suseong_Marine_Co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Morning Victory"
 },
 {
 "node_id": "Nymph",
-"parent_id": "op_Soosung_Corp",
+"parent_id": "op_Soosung_Corp/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Nymph"
@@ -1592,7 +1592,7 @@
 },
 {
 "node_id": "Ocean_Concord_2",
-"parent_id": "op_Techmarine_Co_Ltd",
+"parent_id": "op_Techmarine_Co_Ltd/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ocean Concord 2"
@@ -1606,7 +1606,7 @@
 },
 {
 "node_id": "Ocean_Success",
-"parent_id": "op_Mariso_Corp",
+"parent_id": "op_Mariso_Corp/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ocean Success"
@@ -1620,7 +1620,7 @@
 },
 {
 "node_id": "Sea_Bright",
-"parent_id": "op_Sea_Bright_Maritime",
+"parent_id": "op_Sea_Bright_Maritime/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sea Bright"
@@ -1634,7 +1634,7 @@
 },
 {
 "node_id": "Shinsung_Bright",
-"parent_id": "op_Shinsung_Shpg_Co",
+"parent_id": "op_Shinsung_Shpg_Co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Shinsung Bright"
@@ -1648,14 +1648,14 @@
 },
 {
 "node_id": "Sky_Aurora",
-"parent_id": "op_CK_Line",
+"parent_id": "op_CK_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sky Aurora"
 },
 {
 "node_id": "Sky_Glory",
-"parent_id": "op_CK_Line",
+"parent_id": "op_CK_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sky Glory"
@@ -1669,14 +1669,14 @@
 },
 {
 "node_id": "Woohyun_Green",
-"parent_id": "op_Woohyun_Shipping_Co",
+"parent_id": "op_Woohyun_Shipping_Co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Woohyun Green"
 },
 {
 "node_id": "Woohyun_Hope",
-"parent_id": "op_Woohyun_Shipping_Co",
+"parent_id": "op_Woohyun_Shipping_Co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Woohyun Hope"
@@ -1690,7 +1690,7 @@
 },
 {
 "node_id": "Zenith_Royal",
-"parent_id": "op_Daeho_Merchant",
+"parent_id": "op_Daeho_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Zenith Royal"
@@ -1704,7 +1704,7 @@
 },
 {
 "node_id": "Angela_Glory",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Angela Glory"
@@ -1718,28 +1718,28 @@
 },
 {
 "node_id": "BD_51",
-"parent_id": "op_Motardship_Ltd",
+"parent_id": "op_Motardship_Ltd/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "BD 51"
 },
 {
 "node_id": "Blue_Grass_Mariner",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Blue Grass Mariner"
 },
 {
 "node_id": "Cindy_Glory",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Cindy Glory"
 },
 {
 "node_id": "Citrine",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Citrine"
@@ -1753,21 +1753,21 @@
 },
 {
 "node_id": "DAT_Mercury",
-"parent_id": "op_Dong_A_Tanker_Co",
+"parent_id": "op_Dong_A_Tanker_Co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "DAT Mercury"
 },
 {
 "node_id": "DAT_Venus",
-"parent_id": "op_Dong_A_Tanker_Co",
+"parent_id": "op_Dong_A_Tanker_Co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "DAT Venus"
 },
 {
 "node_id": "Evergreen_Mariner",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Evergreen Mariner"
@@ -1781,14 +1781,14 @@
 },
 {
 "node_id": "Gloriland",
-"parent_id": "op_DM_Maritime",
+"parent_id": "op_DM_Maritime/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Gloriland"
 },
 {
 "node_id": "Glorisea",
-"parent_id": "op_DM_Maritime",
+"parent_id": "op_DM_Maritime/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glorisea"
@@ -1802,63 +1802,63 @@
 },
 {
 "node_id": "Grand_Ace_6",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grand Ace 6"
 },
 {
 "node_id": "Grand_Winner_1",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grand Winner 1"
 },
 {
 "node_id": "Grand_Winner_2",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grand Winner 2"
 },
 {
 "node_id": "Grand_Winner_3",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grand Winner 3"
 },
 {
 "node_id": "Grand_Winner_5",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grand Winner 5"
 },
 {
 "node_id": "Harmony_Chemist",
-"parent_id": "op_KSS_Line",
+"parent_id": "op_KSS_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Harmony Chemist"
 },
 {
 "node_id": "Jessie_Glory",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Jessie Glory"
 },
 {
 "node_id": "Jill_Glory",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Jill Glory"
 },
 {
 "node_id": "Jocelyn_Glory",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Jocelyn Glory"
@@ -1872,28 +1872,28 @@
 },
 {
 "node_id": "Korea_Venus",
-"parent_id": "op_Gs_Caltex_Corp",
+"parent_id": "op_Gs_Caltex_Corp/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Korea Venus"
 },
 {
 "node_id": "Lucky_Chemist",
-"parent_id": "op_KSS_Line",
+"parent_id": "op_KSS_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Lucky Chemist"
 },
 {
 "node_id": "Magic_Chemist",
-"parent_id": "op_KSS_Line",
+"parent_id": "op_KSS_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Magic Chemist"
 },
 {
 "node_id": "Obsidian",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Obsidian"
@@ -1907,63 +1907,63 @@
 },
 {
 "node_id": "Oriental_Aquamarine",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Oriental Aquamarine"
 },
 {
 "node_id": "Oriental_Diamond",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Oriental Diamond"
 },
 {
 "node_id": "Oriental_Gold",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Oriental Gold"
 },
 {
 "node_id": "Pacific_Martina",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pacific Martina"
 },
 {
 "node_id": "Pacific_Nafsika",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pacific Nafsika"
 },
 {
 "node_id": "Pacific_Rawan",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pacific Rawan"
 },
 {
 "node_id": "Pacific_Sarah",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pacific Sarah"
 },
 {
 "node_id": "Paula_Glory",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Paula Glory"
 },
 {
 "node_id": "Pelican_Mariner",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pelican Mariner"
@@ -1977,259 +1977,259 @@
 },
 {
 "node_id": "Redwood_Mariner",
-"parent_id": "op_Sinokor_Petrochem",
+"parent_id": "op_Sinokor_Petrochem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Redwood Mariner"
 },
 {
 "node_id": "Sabrina_Glory",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sabrina Glory"
 },
 {
 "node_id": "Silver_Cindy",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Silver Cindy"
 },
 {
 "node_id": "Silver_Eleanor",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Silver Eleanor"
 },
 {
 "node_id": "Silver_Ginny",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Silver Ginny"
 },
 {
 "node_id": "Silver_Hannah",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Silver Hannah"
 },
 {
 "node_id": "Silver_London",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Silver London"
 },
 {
 "node_id": "Silver_Valerie",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Silver Valerie"
 },
 {
 "node_id": "Silver_Zoe",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Silver Zoe"
 },
 {
 "node_id": "Success",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Success"
 },
 {
 "node_id": "Victoria_Glory",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Victoria Glory"
 },
 {
 "node_id": "Zircon",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Zircon"
 },
 {
 "node_id": "Agios_Sostis_I",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Agios Sostis I"
 },
 {
 "node_id": "As_Suwayq",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "As Suwayq"
 },
 {
 "node_id": "Baltic_Loyalty",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Baltic Loyalty"
 },
 {
 "node_id": "Bunga_Kasturi_Lima",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Bunga Kasturi Lima"
 },
 {
 "node_id": "C_Brave",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Brave"
 },
 {
 "node_id": "C_Creator",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Creator"
 },
 {
 "node_id": "C_Dignity",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Dignity"
 },
 {
 "node_id": "C_Earnest",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Earnest"
 },
 {
 "node_id": "C_Eternity",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Eternity"
 },
 {
 "node_id": "C_Freedom",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Freedom"
 },
 {
 "node_id": "C_Galaxy",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Galaxy"
 },
 {
 "node_id": "C_Genuine",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Genuine"
 },
 {
 "node_id": "C_Glory",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Glory"
 },
 {
 "node_id": "C_Grace",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Grace"
 },
 {
 "node_id": "C_Infinity",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Infinity"
 },
 {
 "node_id": "C_Innovator",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Innovator"
 },
 {
 "node_id": "C_Majesty",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Majesty"
 },
 {
 "node_id": "C_Mighty",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Mighty"
 },
 {
 "node_id": "C_Primacy",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Primacy"
 },
 {
 "node_id": "Caribbean_Glory",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Caribbean Glory"
 },
 {
 "node_id": "Caribbean_Loyalty",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Caribbean Loyalty"
 },
 {
 "node_id": "Eagle_Victoria",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Eagle Victoria"
 },
 {
 "node_id": "East_Loyalty",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "East Loyalty"
 },
 {
 "node_id": "Freedom_Glory",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Freedom Glory"
 },
 {
 "node_id": "G_Dream",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "G. Dream"
@@ -2243,266 +2243,266 @@
 },
 {
 "node_id": "G_Future",
-"parent_id": "op_GS_Energy",
+"parent_id": "op_GS_Energy/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "G. Future"
 },
 {
 "node_id": "G_Hope",
-"parent_id": "op_GS_Energy",
+"parent_id": "op_GS_Energy/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "G. Hope"
 },
 {
 "node_id": "Grand_Ambition",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grand Ambition"
 },
 {
 "node_id": "Grand_Bonanza",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grand Bonanza"
 },
 {
 "node_id": "Gulf_Loyalty",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Gulf Loyalty"
 },
 {
 "node_id": "Gulf_Sunrise",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Gulf Sunrise"
 },
 {
 "node_id": "Lucky_Carrier",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Lucky Carrier"
 },
 {
 "node_id": "Lucky_Pioneer",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Lucky Pioneer"
 },
 {
 "node_id": "Maritime_Glory",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Maritime Glory"
 },
 {
 "node_id": "Megan_Glory",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Megan Glory"
 },
 {
 "node_id": "Monaco_Loyalty",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Monaco Loyalty"
 },
 {
 "node_id": "Monique_Glory",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Monique Glory"
 },
 {
 "node_id": "North_Loyalty",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "North Loyalty"
 },
 {
 "node_id": "Papalemos",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Papalemos"
 },
 {
 "node_id": "Plata_Carrier",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Plata Carrier"
 },
 {
 "node_id": "Plata_East",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Plata East"
 },
 {
 "node_id": "Plata_Glory",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Plata Glory"
 },
 {
 "node_id": "Plata_Lucky",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Plata Lucky"
 },
 {
 "node_id": "Plata_North",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Plata North"
 },
 {
 "node_id": "Plata_Singapore",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Plata Singapore"
 },
 {
 "node_id": "Plata_South",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Plata South"
 },
 {
 "node_id": "Plata_West",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Plata West"
 },
 {
 "node_id": "Singapore_Loyalty",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Singapore Loyalty"
 },
 {
 "node_id": "Spyros_K",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Spyros K"
 },
 {
 "node_id": "Ulysses",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ulysses"
 },
 {
 "node_id": "Universal_Creator",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Universal Creator"
 },
 {
 "node_id": "Universal_Frontier",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Universal Frontier"
 },
 {
 "node_id": "Universal_Glory",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Universal Glory"
 },
 {
 "node_id": "Universal_Honor",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Universal Honor"
 },
 {
 "node_id": "Universal_Innovator",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Universal Innovator"
 },
 {
 "node_id": "Universal_Leader",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Universal Leader"
 },
 {
 "node_id": "Universal_Partner",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Universal Partner"
 },
 {
 "node_id": "Universal_Victor",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Universal Victor"
 },
 {
 "node_id": "V_Advance",
-"parent_id": "op_Gs_Caltex_Corp",
+"parent_id": "op_Gs_Caltex_Corp/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "V. Advance"
 },
 {
 "node_id": "V_Glory",
-"parent_id": "op_Gs_Caltex_Corp",
+"parent_id": "op_Gs_Caltex_Corp/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "V. Glory"
 },
 {
 "node_id": "V_Harmony",
-"parent_id": "op_Gs_Caltex_Corp",
+"parent_id": "op_Gs_Caltex_Corp/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "V. Harmony"
 },
 {
 "node_id": "V_Progress",
-"parent_id": "op_Gs_Caltex_Corp",
+"parent_id": "op_Gs_Caltex_Corp/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "V. Progress"
 },
 {
 "node_id": "V_Prosperity",
-"parent_id": "op_Gs_Caltex_Corp",
+"parent_id": "op_Gs_Caltex_Corp/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "V. Prosperity"
@@ -2516,1176 +2516,1176 @@
 },
 {
 "node_id": "VL_Breeze",
-"parent_id": "op_HD_Hyundai_Oilbank",
+"parent_id": "op_HD_Hyundai_Oilbank/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "VL Breeze"
 },
 {
 "node_id": "VL_Bright",
-"parent_id": "op_HD_Hyundai_Oilbank",
+"parent_id": "op_HD_Hyundai_Oilbank/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "VL Bright"
 },
 {
 "node_id": "VL_Pioneer",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "VL Pioneer"
 },
 {
 "node_id": "VL_Prosperity",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "VL Prosperity"
 },
 {
 "node_id": "VL_Renaissance",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "VL Renaissance"
 },
 {
 "node_id": "West_Loyalty",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "West Loyalty"
 },
 {
 "node_id": "Agios_Sostis_I_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Agios Sostis I"
 },
 {
 "node_id": "Angela_Glory_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Angela Glory"
 },
 {
 "node_id": "As_Suwayq_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "As Suwayq"
 },
 {
 "node_id": "Baltic_Loyalty_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Baltic Loyalty"
 },
 {
 "node_id": "BD_51_2",
-"parent_id": "op_Motardship_Ltd",
+"parent_id": "op_Motardship_Ltd/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "BD 51"
 },
 {
 "node_id": "Blue_Grass_Mariner_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Blue Grass Mariner"
 },
 {
 "node_id": "Bunga_Kasturi_Lima_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Bunga Kasturi Lima"
 },
 {
 "node_id": "C_Brave_2",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Brave"
 },
 {
 "node_id": "C_Creator_2",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Creator"
 },
 {
 "node_id": "C_Dignity_2",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Dignity"
 },
 {
 "node_id": "C_Earnest_2",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Earnest"
 },
 {
 "node_id": "C_Eternity_2",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Eternity"
 },
 {
 "node_id": "C_Freedom_2",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Freedom"
 },
 {
 "node_id": "C_Galaxy_2",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Galaxy"
 },
 {
 "node_id": "C_Genuine_2",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Genuine"
 },
 {
 "node_id": "C_Glory_2",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Glory"
 },
 {
 "node_id": "C_Grace_2",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Grace"
 },
 {
 "node_id": "C_Infinity_2",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Infinity"
 },
 {
 "node_id": "C_Innovator_2",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Innovator"
 },
 {
 "node_id": "C_Majesty_2",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Majesty"
 },
 {
 "node_id": "C_Mighty_2",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Mighty"
 },
 {
 "node_id": "C_Primacy_2",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Primacy"
 },
 {
 "node_id": "Caribbean_Glory_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Caribbean Glory"
 },
 {
 "node_id": "Caribbean_Loyalty_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Caribbean Loyalty"
 },
 {
 "node_id": "Cindy_Glory_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Cindy Glory"
 },
 {
 "node_id": "Citrine_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Citrine"
 },
 {
 "node_id": "DAT_Mercury_2",
-"parent_id": "op_Dong_A_Tanker_Co",
+"parent_id": "op_Dong_A_Tanker_Co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "DAT Mercury"
 },
 {
 "node_id": "DAT_Venus_2",
-"parent_id": "op_Dong_A_Tanker_Co",
+"parent_id": "op_Dong_A_Tanker_Co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "DAT Venus"
 },
 {
 "node_id": "Eagle_Victoria_2",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Eagle Victoria"
 },
 {
 "node_id": "East_Loyalty_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "East Loyalty"
 },
 {
 "node_id": "Evergreen_Mariner_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Evergreen Mariner"
 },
 {
 "node_id": "Freedom_Glory_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Freedom Glory"
 },
 {
 "node_id": "G_Dream_2",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "G. Dream"
 },
 {
 "node_id": "G_Future_2",
-"parent_id": "op_GS_Energy",
+"parent_id": "op_GS_Energy/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "G. Future"
 },
 {
 "node_id": "G_Hope_2",
-"parent_id": "op_GS_Energy",
+"parent_id": "op_GS_Energy/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "G. Hope"
 },
 {
 "node_id": "Gloriland_2",
-"parent_id": "op_DM_Maritime",
+"parent_id": "op_DM_Maritime/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Gloriland"
 },
 {
 "node_id": "Glorisea_2",
-"parent_id": "op_DM_Maritime",
+"parent_id": "op_DM_Maritime/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glorisea"
 },
 {
 "node_id": "Grand_Ace_6_2",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grand Ace 6"
 },
 {
 "node_id": "Grand_Ambition_2",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grand Ambition"
 },
 {
 "node_id": "Grand_Bonanza_2",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grand Bonanza"
 },
 {
 "node_id": "Grand_Winner_1_2",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grand Winner 1"
 },
 {
 "node_id": "Grand_Winner_2_2",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grand Winner 2"
 },
 {
 "node_id": "Grand_Winner_3_2",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grand Winner 3"
 },
 {
 "node_id": "Grand_Winner_5_2",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grand Winner 5"
 },
 {
 "node_id": "Gulf_Loyalty_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Gulf Loyalty"
 },
 {
 "node_id": "Gulf_Sunrise_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Gulf Sunrise"
 },
 {
 "node_id": "Harmony_Chemist_2",
-"parent_id": "op_KSS_Line",
+"parent_id": "op_KSS_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Harmony Chemist"
 },
 {
 "node_id": "Jessie_Glory_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Jessie Glory"
 },
 {
 "node_id": "Jill_Glory_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Jill Glory"
 },
 {
 "node_id": "Jocelyn_Glory_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Jocelyn Glory"
 },
 {
 "node_id": "Korea_Venus_2",
-"parent_id": "op_Gs_Caltex_Corp",
+"parent_id": "op_Gs_Caltex_Corp/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Korea Venus"
 },
 {
 "node_id": "Lucky_Carrier_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Lucky Carrier"
 },
 {
 "node_id": "Lucky_Chemist_2",
-"parent_id": "op_KSS_Line",
+"parent_id": "op_KSS_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Lucky Chemist"
 },
 {
 "node_id": "Lucky_Pioneer_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Lucky Pioneer"
 },
 {
 "node_id": "Magic_Chemist_2",
-"parent_id": "op_KSS_Line",
+"parent_id": "op_KSS_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Magic Chemist"
 },
 {
 "node_id": "Maritime_Glory_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Maritime Glory"
 },
 {
 "node_id": "Megan_Glory_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Megan Glory"
 },
 {
 "node_id": "Monaco_Loyalty_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Monaco Loyalty"
 },
 {
 "node_id": "Monique_Glory_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Monique Glory"
 },
 {
 "node_id": "North_Loyalty_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "North Loyalty"
 },
 {
 "node_id": "Obsidian_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Obsidian"
 },
 {
 "node_id": "Oriental_Aquamarine_2",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Oriental Aquamarine"
 },
 {
 "node_id": "Oriental_Diamond_2",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Oriental Diamond"
 },
 {
 "node_id": "Oriental_Gold_2",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Oriental Gold"
 },
 {
 "node_id": "Pacific_Martina_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pacific Martina"
 },
 {
 "node_id": "Pacific_Nafsika_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pacific Nafsika"
 },
 {
 "node_id": "Pacific_Rawan_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pacific Rawan"
 },
 {
 "node_id": "Pacific_Sarah_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pacific Sarah"
 },
 {
 "node_id": "Papalemos_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Papalemos"
 },
 {
 "node_id": "Paula_Glory_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Paula Glory"
 },
 {
 "node_id": "Pelican_Mariner_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pelican Mariner"
 },
 {
 "node_id": "Plata_Carrier_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Plata Carrier"
 },
 {
 "node_id": "Plata_East_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Plata East"
 },
 {
 "node_id": "Plata_Glory_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Plata Glory"
 },
 {
 "node_id": "Plata_Lucky_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Plata Lucky"
 },
 {
 "node_id": "Plata_North_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Plata North"
 },
 {
 "node_id": "Plata_Singapore_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Plata Singapore"
 },
 {
 "node_id": "Plata_South_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Plata South"
 },
 {
 "node_id": "Plata_West_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Plata West"
 },
 {
 "node_id": "Redwood_Mariner_2",
-"parent_id": "op_Sinokor_Petrochem",
+"parent_id": "op_Sinokor_Petrochem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Redwood Mariner"
 },
 {
 "node_id": "Sabrina_Glory_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sabrina Glory"
 },
 {
 "node_id": "Silver_Cindy_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Silver Cindy"
 },
 {
 "node_id": "Silver_Eleanor_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Silver Eleanor"
 },
 {
 "node_id": "Silver_Ginny_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Silver Ginny"
 },
 {
 "node_id": "Silver_Hannah_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Silver Hannah"
 },
 {
 "node_id": "Silver_London_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Silver London"
 },
 {
 "node_id": "Silver_Valerie_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Silver Valerie"
 },
 {
 "node_id": "Silver_Zoe_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Silver Zoe"
 },
 {
 "node_id": "Singapore_Loyalty_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Singapore Loyalty"
 },
 {
 "node_id": "Spyros_K_2",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Spyros K"
 },
 {
 "node_id": "Success_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Success"
 },
 {
 "node_id": "Ulysses_2",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ulysses"
 },
 {
 "node_id": "Universal_Creator_2",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Universal Creator"
 },
 {
 "node_id": "Universal_Frontier_2",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Universal Frontier"
 },
 {
 "node_id": "Universal_Glory_2",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Universal Glory"
 },
 {
 "node_id": "Universal_Honor_2",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Universal Honor"
 },
 {
 "node_id": "Universal_Innovator_2",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Universal Innovator"
 },
 {
 "node_id": "Universal_Leader_2",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Universal Leader"
 },
 {
 "node_id": "Universal_Partner_2",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Universal Partner"
 },
 {
 "node_id": "Universal_Victor_2",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Universal Victor"
 },
 {
 "node_id": "V_Advance_2",
-"parent_id": "op_Gs_Caltex_Corp",
+"parent_id": "op_Gs_Caltex_Corp/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "V. Advance"
 },
 {
 "node_id": "V_Glory_2",
-"parent_id": "op_Gs_Caltex_Corp",
+"parent_id": "op_Gs_Caltex_Corp/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "V. Glory"
 },
 {
 "node_id": "V_Harmony_2",
-"parent_id": "op_Gs_Caltex_Corp",
+"parent_id": "op_Gs_Caltex_Corp/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "V. Harmony"
 },
 {
 "node_id": "V_Progress_2",
-"parent_id": "op_Gs_Caltex_Corp",
+"parent_id": "op_Gs_Caltex_Corp/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "V. Progress"
 },
 {
 "node_id": "V_Prosperity_2",
-"parent_id": "op_Gs_Caltex_Corp",
+"parent_id": "op_Gs_Caltex_Corp/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "V. Prosperity"
 },
 {
 "node_id": "Victoria_Glory_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Victoria Glory"
 },
 {
 "node_id": "VL_Breeze_2",
-"parent_id": "op_HD_Hyundai_Oilbank",
+"parent_id": "op_HD_Hyundai_Oilbank/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "VL Breeze"
 },
 {
 "node_id": "VL_Bright_2",
-"parent_id": "op_HD_Hyundai_Oilbank",
+"parent_id": "op_HD_Hyundai_Oilbank/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "VL Bright"
 },
 {
 "node_id": "VL_Pioneer_2",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "VL Pioneer"
 },
 {
 "node_id": "VL_Prosperity_2",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "VL Prosperity"
 },
 {
 "node_id": "VL_Renaissance_2",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "VL Renaissance"
 },
 {
 "node_id": "West_Loyalty_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "West Loyalty"
 },
 {
 "node_id": "Zircon_2",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Zircon"
 },
 {
 "node_id": "HMM_Oslo",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Oslo"
 },
 {
 "node_id": "HMM_Southampton",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Southampton"
 },
 {
 "node_id": "HMM_Rotterdam",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Rotterdam"
 },
 {
 "node_id": "HMM_Stockholm",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Stockholm"
 },
 {
 "node_id": "HMM_St_Petersburg",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM St. Petersburg"
 },
 {
 "node_id": "HMM_Algeciras",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Algeciras"
 },
 {
 "node_id": "HMM_Copenhagen",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Copenhagen"
 },
 {
 "node_id": "HMM_Dublin",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Dublin"
 },
 {
 "node_id": "HMM_Gdansk",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Gdansk"
 },
 {
 "node_id": "HMM_Hamburg",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Hamburg"
 },
 {
 "node_id": "HMM_Helsinki",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Helsinki"
 },
 {
 "node_id": "HMM_Le_Havre",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Le Havre"
 },
 {
 "node_id": "HMM_Nuri",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Nuri"
 },
 {
 "node_id": "HMM_Garam",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Garam"
 },
 {
 "node_id": "HMM_Raon",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Raon"
 },
 {
 "node_id": "HMM_Gaon",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Gaon"
 },
 {
 "node_id": "HMM_Mir",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Mir"
 },
 {
 "node_id": "HMM_Hanbada",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Hanbada"
 },
 {
 "node_id": "HMM_Daon",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Daon"
 },
 {
 "node_id": "HMM_Hanul",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Hanul"
 },
 {
 "node_id": "HMM_Hope",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Hope"
 },
 {
 "node_id": "HMM_Pride",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Pride"
 },
 {
 "node_id": "HMM_Drive",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Drive"
 },
 {
 "node_id": "HMM_Dream",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Dream"
 },
 {
 "node_id": "HMM_Victory",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Victory"
 },
 {
 "node_id": "HMM_Ruby",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Ruby"
 },
 {
 "node_id": "HMM_Sapphire",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Sapphire"
 },
 {
 "node_id": "HMM_Opal",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Opal"
 },
 {
 "node_id": "HMM_Topaz",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Topaz"
 },
 {
 "node_id": "HMM_Turquoise",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Turquoise"
 },
 {
 "node_id": "HMM_Peridot",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Peridot"
 },
 {
 "node_id": "HMM_Amethyst",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Amethyst"
 },
 {
 "node_id": "HMM_Garnet",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Garnet"
 },
 {
 "node_id": "HMM_Diamond",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Diamond"
 },
 {
 "node_id": "HMM_Aquamarine",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Aquamarine"
 },
 {
 "node_id": "HMM_Emerald",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Emerald"
 },
 {
 "node_id": "HMM_Pearl",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Pearl"
 },
 {
 "node_id": "HMM_Blessing",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Blessing"
 },
 {
 "node_id": "HMM_Promise",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Promise"
 },
 {
 "node_id": "Hyundai_Neptune",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Neptune"
 },
 {
 "node_id": "Hyundai_Earth",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Earth"
 },
 {
 "node_id": "Hyundai_Mars",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Mars"
 },
 {
 "node_id": "Hyundai_Jupiter",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Jupiter"
 },
 {
 "node_id": "Hyundai_Saturn",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Saturn"
 },
 {
 "node_id": "Hyundai_Pluto",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Pluto"
 },
 {
 "node_id": "Hyundai_Courage",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Courage"
 },
 {
 "node_id": "Hyundai_Brave",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Brave"
 },
 {
 "node_id": "Hyundai_Faith",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Faith"
 },
 {
 "node_id": "Hyundai_Force",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Force"
@@ -3699,35 +3699,35 @@
 },
 {
 "node_id": "Hakata_Seoul",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hakata Seoul"
 },
 {
 "node_id": "Mumbai_Bridge",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Mumbai Bridge"
 },
 {
 "node_id": "Sydney_Bridge",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sydney Bridge"
 },
 {
 "node_id": "KMTC_Mundra",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Mundra"
 },
 {
 "node_id": "KMTC_Colombo",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Colombo"
@@ -3741,420 +3741,420 @@
 },
 {
 "node_id": "SM_Ningbo",
-"parent_id": "op_SM_Line",
+"parent_id": "op_SM_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM Ningbo"
 },
 {
 "node_id": "SM_Yantian",
-"parent_id": "op_SM_Line",
+"parent_id": "op_SM_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM Yantian"
 },
 {
 "node_id": "SM_Shanghai",
-"parent_id": "op_SM_Line",
+"parent_id": "op_SM_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM Shanghai"
 },
 {
 "node_id": "SM_Busan",
-"parent_id": "op_SM_Line",
+"parent_id": "op_SM_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM Busan"
 },
 {
 "node_id": "SM_Long_Beach",
-"parent_id": "op_SM_Line",
+"parent_id": "op_SM_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM Long Beach"
 },
 {
 "node_id": "SM_Kwangyang",
-"parent_id": "op_SM_Line",
+"parent_id": "op_SM_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM Kwangyang"
 },
 {
 "node_id": "Hyundai_Jakarta",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Jakarta"
 },
 {
 "node_id": "HMM_Bangkok",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Bangkok"
 },
 {
 "node_id": "Hyundai_Hongkong",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Hongkong"
 },
 {
 "node_id": "Hyundai_Shanghai",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Shanghai"
 },
 {
 "node_id": "Hyundai_Tokyo",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Tokyo"
 },
 {
 "node_id": "HMM_Colombo",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Colombo"
 },
 {
 "node_id": "KMTC_Delhi",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Delhi"
 },
 {
 "node_id": "HMM_Vancouver",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Vancouver"
 },
 {
 "node_id": "HMM_Tacoma",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Tacoma"
 },
 {
 "node_id": "HMM_Oakland",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Oakland"
 },
 {
 "node_id": "ESL_Oman",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "ESL Oman"
 },
 {
 "node_id": "Grace_Bridge",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grace Bridge"
 },
 {
 "node_id": "Beijing_Bridge",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Beijing Bridge"
 },
 {
 "node_id": "Hyundai_Unity",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Unity"
 },
 {
 "node_id": "Hyundai_Integral",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Integral"
 },
 {
 "node_id": "Hyundai_Forward",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Forward"
 },
 {
 "node_id": "Hyundai_Goodwill",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Goodwill"
 },
 {
 "node_id": "Hyundai_Supreme",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Supreme"
 },
 {
 "node_id": "Hyundai_Grace",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Grace"
 },
 {
 "node_id": "Hyundai_Voyager",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Voyager"
 },
 {
 "node_id": "Hyundai_Dynasty",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Dynasty"
 },
 {
 "node_id": "Hyundai_Platinum",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Platinum"
 },
 {
 "node_id": "Hyundai_Paramount",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Paramount"
 },
 {
 "node_id": "Hyundai_Privilege",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Privilege"
 },
 {
 "node_id": "Hyundai_Premium",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Premium"
 },
 {
 "node_id": "Hyundai_Prestige",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Prestige"
 },
 {
 "node_id": "KMTC_Dubai",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Dubai"
 },
 {
 "node_id": "KMTC_Mumbai",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Mumbai"
 },
 {
 "node_id": "Celsius_Naples",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Celsius Naples"
 },
 {
 "node_id": "SM_Tianjin",
-"parent_id": "op_SM_Line",
+"parent_id": "op_SM_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM Tianjin"
 },
 {
 "node_id": "SM_Seoul",
-"parent_id": "op_SM_Line",
+"parent_id": "op_SM_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM Seoul"
 },
 {
 "node_id": "SM_Portland",
-"parent_id": "op_SM_Line",
+"parent_id": "op_SM_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM Portland"
 },
 {
 "node_id": "SM_Qingdao",
-"parent_id": "op_SM_Line",
+"parent_id": "op_SM_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM Qingdao"
 },
 {
 "node_id": "KMTC_Jebel_Ali",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Jebel Ali"
 },
 {
 "node_id": "KMTC_Nhava_Sheva",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Nhava Sheva"
 },
 {
 "node_id": "KMTC_Chennai",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Chennai"
 },
 {
 "node_id": "SM_Mumbai",
-"parent_id": "op_SM_Line",
+"parent_id": "op_SM_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM Mumbai"
 },
 {
 "node_id": "Port_Klang_Voyager",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Port Klang Voyager"
 },
 {
 "node_id": "Wan_Hai_363",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Wan Hai 363"
 },
 {
 "node_id": "Qingdao_Voyager",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Qingdao Voyager"
 },
 {
 "node_id": "Tianjin_Voyager",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Tianjin Voyager"
 },
 {
 "node_id": "Laem_Chabang_Voyager",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Laem Chabang Voyager"
 },
 {
 "node_id": "Ningbo_Voyager",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ningbo Voyager"
 },
 {
 "node_id": "KMTC_Hochiminh",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Hochiminh"
 },
 {
 "node_id": "KMTC_Surabaya",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Surabaya"
 },
 {
 "node_id": "KMTC_Penang",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Penang"
 },
 {
 "node_id": "KMTC_Ningbo",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Ningbo"
 },
 {
 "node_id": "KMTC_Shenzhen",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Shenzhen"
 },
 {
 "node_id": "Zhong_Gu_Peng_Lai",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Zhong Gu Peng Lai"
 },
 {
 "node_id": "KMTC_Yokohama",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Yokohama"
 },
 {
 "node_id": "KMTC_Seoul",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Seoul"
 },
 {
 "node_id": "KMTC_Xiamen",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Xiamen"
 },
 {
 "node_id": "KMTC_Dalian",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Dalian"
 },
 {
 "node_id": "KMTC_Shimizu",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Shimizu"
@@ -4168,245 +4168,245 @@
 },
 {
 "node_id": "Starship_Jupiter",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Starship Jupiter"
 },
 {
 "node_id": "Starship_Venus",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Starship Venus"
 },
 {
 "node_id": "Starship_Mercury",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Starship Mercury"
 },
 {
 "node_id": "Starship_Neptune",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Starship Neptune"
 },
 {
 "node_id": "Ulsan_Voyager",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ulsan Voyager"
 },
 {
 "node_id": "Incheon_Voyager",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Incheon Voyager"
 },
 {
 "node_id": "Yeosu_Voyager",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Yeosu Voyager"
 },
 {
 "node_id": "Kwangyang_Voyager",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Kwangyang Voyager"
 },
 {
 "node_id": "KMTC_Qingdao",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Qingdao"
 },
 {
 "node_id": "KMTC_Tianjin",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Tianjin"
 },
 {
 "node_id": "Hochiminh_Voyager",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hochiminh Voyager"
 },
 {
 "node_id": "Shanghai_Voyager",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Shanghai Voyager"
 },
 {
 "node_id": "Jakarta_Voyager",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Jakarta Voyager"
 },
 {
 "node_id": "AS_Patria",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "AS Patria"
 },
 {
 "node_id": "HMM_Cebu",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Cebu"
 },
 {
 "node_id": "HMM_Mongla",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Mongla"
 },
 {
 "node_id": "HMM_Dhaka",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Dhaka"
 },
 {
 "node_id": "HMM_Chittagong",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Chittagong"
 },
 {
 "node_id": "HMM_Manila",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Manila"
 },
 {
 "node_id": "HMM_Davao",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Davao"
 },
 {
 "node_id": "Surabaya_Voyager",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Surabaya Voyager"
 },
 {
 "node_id": "Starship_Pegasus",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Starship Pegasus"
 },
 {
 "node_id": "Starship_Ursa",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Starship Ursa"
 },
 {
 "node_id": "KMTC_Shanghai",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Shanghai"
 },
 {
 "node_id": "Sky_Orion",
-"parent_id": "op_CK_Line",
+"parent_id": "op_CK_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sky Orion"
 },
 {
 "node_id": "Haian_Opus",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Haian Opus"
 },
 {
 "node_id": "Inferro",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Inferro"
 },
 {
 "node_id": "Invicta",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Invicta"
 },
 {
 "node_id": "HMM_Harmony",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Harmony"
 },
 {
 "node_id": "HMM_Miracle",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Miracle"
 },
 {
 "node_id": "HMM_Master",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Master"
 },
 {
 "node_id": "KMTC_Haiphong",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Haiphong"
 },
 {
 "node_id": "KMTC_Taipeis",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Taipeis"
 },
 {
 "node_id": "Starship_Draco",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Starship Draco"
 },
 {
 "node_id": "Pegasus_Proto",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pegasus Proto"
@@ -4420,161 +4420,161 @@
 },
 {
 "node_id": "Dongjin_Confident",
-"parent_id": "op_Dong_Jin_Shipping",
+"parent_id": "op_Dong_Jin_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Dongjin Confident"
 },
 {
 "node_id": "KMTC_Laem_Chabang",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Laem Chabang"
 },
 {
 "node_id": "KMTC_Bangkok",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Bangkok"
 },
 {
 "node_id": "POS_Hochiminh",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "POS Hochiminh"
 },
 {
 "node_id": "POS_Bangkok",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "POS Bangkok"
 },
 {
 "node_id": "Sawasdee_Shanghai",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sawasdee Shanghai"
 },
 {
 "node_id": "Sawasdee_Mimosa",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sawasdee Mimosa"
 },
 {
 "node_id": "Sawasdee_Vega",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sawasdee Vega"
 },
 {
 "node_id": "Sawasdee_Sirius",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sawasdee Sirius"
 },
 {
 "node_id": "Sawasdee_Rigel",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sawasdee Rigel"
 },
 {
 "node_id": "Sawasdee_Xiamen",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sawasdee Xiamen"
 },
 {
 "node_id": "Sawasdee_Altair",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sawasdee Altair"
 },
 {
 "node_id": "Sawasdee_Capella",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sawasdee Capella"
 },
 {
 "node_id": "Sawasdee_Incheon",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sawasdee Incheon"
 },
 {
 "node_id": "Sawasdee_Spica",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sawasdee Spica"
 },
 {
 "node_id": "Sawasdee_Deneb",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sawasdee Deneb"
 },
 {
 "node_id": "Sawasdee_Chittagong",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sawasdee Chittagong"
 },
 {
 "node_id": "Starship_Aquila",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Starship Aquila"
 },
 {
 "node_id": "Starship_Taurus",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Starship Taurus"
 },
 {
 "node_id": "Sawasdee_Atlantic",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sawasdee Atlantic"
 },
 {
 "node_id": "Sawasdee_Baltic",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sawasdee Baltic"
 },
 {
 "node_id": "Sawasdee_Sunrise",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sawasdee Sunrise"
 },
 {
 "node_id": "Sawasdee_Pacific",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sawasdee Pacific"
@@ -4588,70 +4588,70 @@
 },
 {
 "node_id": "Pancon_Bridge",
-"parent_id": "op_Pan_Continental_Shpg",
+"parent_id": "op_Pan_Continental_Shpg/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pancon Bridge"
 },
 {
 "node_id": "Sky_Rainbow",
-"parent_id": "op_CK_Line",
+"parent_id": "op_CK_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sky Rainbow"
 },
 {
 "node_id": "KMTC_Tokyo",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Tokyo"
 },
 {
 "node_id": "KMTC_Nagoya",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Nagoya"
 },
 {
 "node_id": "KMTC_Gwangyang",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Gwangyang"
 },
 {
 "node_id": "KMTC_Incheon",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Incheon"
 },
 {
 "node_id": "KMTC_Pohang",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Pohang"
 },
 {
 "node_id": "KMTC_Osaka",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Osaka"
 },
 {
 "node_id": "POS_Laemchabang",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "POS Laemchabang"
 },
 {
 "node_id": "POS_Singapore",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "POS Singapore"
@@ -4665,119 +4665,119 @@
 },
 {
 "node_id": "Heung_A_Bangkok",
-"parent_id": "op_Heung_A_Line",
+"parent_id": "op_Heung_A_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Heung-A Bangkok"
 },
 {
 "node_id": "Heung_A_Hochiminh",
-"parent_id": "op_Heung_A_Line",
+"parent_id": "op_Heung_A_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Heung-A Hochiminh"
 },
 {
 "node_id": "Ren_Jian_6",
-"parent_id": "op_SM_Line",
+"parent_id": "op_SM_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ren Jian 6"
 },
 {
 "node_id": "Sawasdee_Thailand",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sawasdee Thailand"
 },
 {
 "node_id": "HMM_Harvest",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HMM Harvest"
 },
 {
 "node_id": "SM_Jakarta",
-"parent_id": "op_SM_Line",
+"parent_id": "op_SM_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM Jakarta"
 },
 {
 "node_id": "KMTC_Pusan",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Pusan"
 },
 {
 "node_id": "KMTC_Ulsan",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Ulsan"
 },
 {
 "node_id": "KMTC_Keelung",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Keelung"
 },
 {
 "node_id": "KMTC_Jakarta",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Jakarta"
 },
 {
 "node_id": "KMTC_Singapore",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KMTC Singapore"
 },
 {
 "node_id": "Kharis_Heritage",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Kharis Heritage"
 },
 {
 "node_id": "Hong_Kong_Voyager",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hong Kong Voyager"
 },
 {
 "node_id": "Pancon_Sunshine",
-"parent_id": "op_Pan_Continental_Shpg",
+"parent_id": "op_Pan_Continental_Shpg/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pancon Sunshine"
 },
 {
 "node_id": "Dongjin_Enterprise",
-"parent_id": "op_Dong_Jin_Shipping",
+"parent_id": "op_Dong_Jin_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Dongjin Enterprise"
 },
 {
 "node_id": "Honor_Prosper",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Honor Prosper"
 },
 {
 "node_id": "SM_Tokyo",
-"parent_id": "op_SM_Line",
+"parent_id": "op_SM_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM Tokyo"
@@ -4791,490 +4791,490 @@
 },
 {
 "node_id": "Pegasus_Peta",
-"parent_id": "op_Dong_Young_Shipping",
+"parent_id": "op_Dong_Young_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pegasus Peta"
 },
 {
 "node_id": "Pegasus_Tera",
-"parent_id": "op_Dong_Young_Shipping",
+"parent_id": "op_Dong_Young_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pegasus Tera"
 },
 {
 "node_id": "Sky_Jade",
-"parent_id": "op_Dong_A_Tanker_Co",
+"parent_id": "op_Dong_A_Tanker_Co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sky Jade"
 },
 {
 "node_id": "Sky_Moon",
-"parent_id": "op_Dong_A_Tanker_Co",
+"parent_id": "op_Dong_A_Tanker_Co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sky Moon"
 },
 {
 "node_id": "Toyama_Trader",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Toyama Trader"
 },
 {
 "node_id": "Akita_Trader",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Akita Trader"
 },
 {
 "node_id": "Isara_Bhum",
-"parent_id": "op_Pan_Continental_Shpg",
+"parent_id": "op_Pan_Continental_Shpg/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Isara Bhum"
 },
 {
 "node_id": "Sendai_Trader",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sendai Trader"
 },
 {
 "node_id": "POS_Qingdao",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "POS Qingdao"
 },
 {
 "node_id": "POS_Guangzhou",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "POS Guangzhou"
 },
 {
 "node_id": "Heung_A_Janice",
-"parent_id": "op_Heung_A_Line",
+"parent_id": "op_Heung_A_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Heung-A Janice"
 },
 {
 "node_id": "Heung_A_Xiamen",
-"parent_id": "op_Heung_A_Line",
+"parent_id": "op_Heung_A_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Heung-A Xiamen"
 },
 {
 "node_id": "Heung_A_Haiphong",
-"parent_id": "op_Heung_A_Line",
+"parent_id": "op_Heung_A_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Heung-A Haiphong"
 },
 {
 "node_id": "Heung_A_Akita",
-"parent_id": "op_Heung_A_Line",
+"parent_id": "op_Heung_A_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Heung-A Akita"
 },
 {
 "node_id": "Star_Challenger",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Star Challenger"
 },
 {
 "node_id": "POS_Shanghai",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "POS Shanghai"
 },
 {
 "node_id": "Star_Voyager",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Star Voyager"
 },
 {
 "node_id": "Pegasus_Dream",
-"parent_id": "op_Dong_Young_Shipping",
+"parent_id": "op_Dong_Young_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pegasus Dream"
 },
 {
 "node_id": "Optima",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Optima"
 },
 {
 "node_id": "Star_Explorer",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Star Explorer"
 },
 {
 "node_id": "Star_Frontier",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Star Frontier"
 },
 {
 "node_id": "Ningbo_Trader",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ningbo Trader"
 },
 {
 "node_id": "Pancon_Harmony",
-"parent_id": "op_Pan_Continental_Shpg",
+"parent_id": "op_Pan_Continental_Shpg/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pancon Harmony"
 },
 {
 "node_id": "Dongjin_Continental",
-"parent_id": "op_Dong_Jin_Shipping",
+"parent_id": "op_Dong_Jin_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Dongjin Continental"
 },
 {
 "node_id": "Kobe_Trader",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Kobe Trader"
 },
 {
 "node_id": "Qingdao_Trader",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Qingdao Trader"
 },
 {
 "node_id": "Yangtze_Trader",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Yangtze Trader"
 },
 {
 "node_id": "Yokohama_Trader",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Yokohama Trader"
 },
 {
 "node_id": "Resurgence",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Resurgence"
 },
 {
 "node_id": "Sunny_Violet",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sunny Violet"
 },
 {
 "node_id": "Sunny_Lilac",
-"parent_id": "op_CK_Line",
+"parent_id": "op_CK_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sunny Lilac"
 },
 {
 "node_id": "Sky_Iris",
-"parent_id": "op_CK_Line",
+"parent_id": "op_CK_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sky Iris"
 },
 {
 "node_id": "Pancon_Victory",
-"parent_id": "op_Pan_Continental_Shpg",
+"parent_id": "op_Pan_Continental_Shpg/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pancon Victory"
 },
 {
 "node_id": "Star_Chaser",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Star Chaser"
 },
 {
 "node_id": "Star_Ranger",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Star Ranger"
 },
 {
 "node_id": "Pegasus_Grace",
-"parent_id": "op_Dong_Young_Shipping",
+"parent_id": "op_Dong_Young_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pegasus Grace"
 },
 {
 "node_id": "Pegasus_Glory",
-"parent_id": "op_Dong_Young_Shipping",
+"parent_id": "op_Dong_Young_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pegasus Glory"
 },
 {
 "node_id": "Pancon_Success",
-"parent_id": "op_Pan_Continental_Shpg",
+"parent_id": "op_Pan_Continental_Shpg/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pancon Success"
 },
 {
 "node_id": "Pancon_Glory",
-"parent_id": "op_Pan_Continental_Shpg",
+"parent_id": "op_Pan_Continental_Shpg/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pancon Glory"
 },
 {
 "node_id": "Sunny_Laurel",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sunny Laurel"
 },
 {
 "node_id": "Sunny_Canna",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sunny Canna"
 },
 {
 "node_id": "Sunny_Daisy",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sunny Daisy"
 },
 {
 "node_id": "Sunny_Acacia",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sunny Acacia"
 },
 {
 "node_id": "Sunny_Clover",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sunny Clover"
 },
 {
 "node_id": "Sunny_Rose",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sunny Rose"
 },
 {
 "node_id": "Sunny_Lavender",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sunny Lavender"
 },
 {
 "node_id": "Shecan",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Shecan"
 },
 {
 "node_id": "He_Sheng",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "He Sheng"
 },
 {
 "node_id": "Sky_Tiara",
-"parent_id": "op_CK_Line",
+"parent_id": "op_CK_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sky Tiara"
 },
 {
 "node_id": "Sky_Hope",
-"parent_id": "op_CK_Line",
+"parent_id": "op_CK_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sky Hope"
 },
 {
 "node_id": "Sky_Flower",
-"parent_id": "op_CK_Line",
+"parent_id": "op_CK_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sky Flower"
 },
 {
 "node_id": "Wecan",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Wecan"
 },
 {
 "node_id": "Sky_Victoria",
-"parent_id": "op_CK_Line",
+"parent_id": "op_CK_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sky Victoria"
 },
 {
 "node_id": "Ultima",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ultima"
 },
 {
 "node_id": "Heung_A_Sarah",
-"parent_id": "op_Heung_A_Line",
+"parent_id": "op_Heung_A_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Heung-A Sarah"
 },
 {
 "node_id": "Heung_A_Young",
-"parent_id": "op_Heung_A_Line",
+"parent_id": "op_Heung_A_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Heung-A Young"
 },
 {
 "node_id": "Sunny_Calla",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sunny Calla"
 },
 {
 "node_id": "Sunny_Camellia",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sunny Camellia"
 },
 {
 "node_id": "Sunny_Ivy",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sunny Ivy"
 },
 {
 "node_id": "Sunny_Freesia",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sunny Freesia"
 },
 {
 "node_id": "Dongjin_Venus",
-"parent_id": "op_Dong_Jin_Shipping",
+"parent_id": "op_Dong_Jin_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Dongjin Venus"
 },
 {
 "node_id": "Star_Skipper",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Star Skipper"
 },
 {
 "node_id": "Star_Express",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Star Express"
 },
 {
 "node_id": "Star_Pioneer",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Star Pioneer"
 },
 {
 "node_id": "Star_Clipper",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Star Clipper"
 },
 {
 "node_id": "Nagoya_Trader",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Nagoya Trader"
 },
 {
 "node_id": "Niigata_Trader",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Niigata Trader"
 },
 {
 "node_id": "BAL_Boan",
-"parent_id": "op_CK_Line",
+"parent_id": "op_CK_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "BAL Boan"
 },
 {
 "node_id": "POS_Yokohama",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "POS Yokohama"
 },
 {
 "node_id": "POS_Tokyo",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "POS Tokyo"
@@ -5288,119 +5288,119 @@
 },
 {
 "node_id": "TY_Incheon",
-"parent_id": "op_Taiyoung_Shipping",
+"parent_id": "op_Taiyoung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "TY Incheon"
 },
 {
 "node_id": "Dongjin_Fides",
-"parent_id": "op_Dong_Jin_Shipping",
+"parent_id": "op_Dong_Jin_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Dongjin Fides"
 },
 {
 "node_id": "Dongjin_Fortune",
-"parent_id": "op_Pan_Continental_Shpg",
+"parent_id": "op_Pan_Continental_Shpg/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Dongjin Fortune"
 },
 {
 "node_id": "Sunny_Dahlia",
-"parent_id": "op_KMTC",
+"parent_id": "op_KMTC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sunny Dahlia"
 },
 {
 "node_id": "Pacific_Monaco",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pacific Monaco"
 },
 {
 "node_id": "Honor_Bright",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Honor Bright"
 },
 {
 "node_id": "T12_Apple",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "T12 Apple"
 },
 {
 "node_id": "Run_Long",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Run Long"
 },
 {
 "node_id": "Bohai_Star",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Bohai Star"
 },
 {
 "node_id": "Sunwin",
-"parent_id": "op_CK_Line",
+"parent_id": "op_CK_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sunwin"
 },
 {
 "node_id": "Osaka_Voyager",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Osaka Voyager"
 },
 {
 "node_id": "Vostochny_Voyager",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Vostochny Voyager"
 },
 {
 "node_id": "Hakata_Voyager",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hakata Voyager"
 },
 {
 "node_id": "Atlantic_South",
-"parent_id": "op_Heung_A_Line",
+"parent_id": "op_Heung_A_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Atlantic South"
 },
 {
 "node_id": "Sinokor_Niigata",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sinokor Niigata"
 },
 {
 "node_id": "Honor_Ocean",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Honor Ocean"
 },
 {
 "node_id": "Honor_Voyager",
-"parent_id": "op_Namsung_Shipping",
+"parent_id": "op_Namsung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Honor Voyager"
@@ -5414,49 +5414,49 @@
 },
 {
 "node_id": "Hansung_Incheon",
-"parent_id": "op_HS_Line",
+"parent_id": "op_HS_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hansung Incheon"
 },
 {
 "node_id": "Sea_Ponta_da_Madeira",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sea Ponta da Madeira"
 },
 {
 "node_id": "Sea_Maranhao",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sea Maranhao"
 },
 {
 "node_id": "Sea_Qingdao",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sea Qingdao"
 },
 {
 "node_id": "Sea_Fujiyama",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sea Fujiyama"
 },
 {
 "node_id": "Sea_Tubarao",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sea Tubarao"
 },
 {
 "node_id": "Sea_Indonesia",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sea Indonesia"
@@ -5470,119 +5470,119 @@
 },
 {
 "node_id": "Stellar_Ace",
-"parent_id": "op_Polaris_Shipping_co",
+"parent_id": "op_Polaris_Shipping_co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Stellar Ace"
 },
 {
 "node_id": "Stellar_Crown",
-"parent_id": "op_Polaris_Shipping_co",
+"parent_id": "op_Polaris_Shipping_co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Stellar Crown"
 },
 {
 "node_id": "Pan_Esperanza",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Esperanza"
 },
 {
 "node_id": "Stellar_Venture",
-"parent_id": "op_Polaris_Shipping_co",
+"parent_id": "op_Polaris_Shipping_co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Stellar Venture"
 },
 {
 "node_id": "Stellar_Way",
-"parent_id": "op_Polaris_Shipping_co",
+"parent_id": "op_Polaris_Shipping_co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Stellar Way"
 },
 {
 "node_id": "Stellar_Young",
-"parent_id": "op_Polaris_Shipping_co",
+"parent_id": "op_Polaris_Shipping_co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Stellar Young"
 },
 {
 "node_id": "Atlantic_Dragon",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Atlantic Dragon"
 },
 {
 "node_id": "Atlantic_Tiger",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Atlantic Tiger"
 },
 {
 "node_id": "Atlantic_Lion",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Atlantic Lion"
 },
 {
 "node_id": "Global_Adventure",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Global Adventure"
 },
 {
 "node_id": "Global_Pioneer",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Global Pioneer"
 },
 {
 "node_id": "Solar_Legend",
-"parent_id": "op_Polaris_Shipping_co",
+"parent_id": "op_Polaris_Shipping_co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Solar Legend"
 },
 {
 "node_id": "Pan_Universal",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Universal"
 },
 {
 "node_id": "Solar_Dolphin",
-"parent_id": "op_Polaris_Shipping_co",
+"parent_id": "op_Polaris_Shipping_co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Solar Dolphin"
 },
 {
 "node_id": "Hyundai_Pioneer",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Pioneer"
 },
 {
 "node_id": "Pan_Cosmos",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Cosmos"
 },
 {
 "node_id": "Pan_Delight",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Delight"
@@ -5596,84 +5596,84 @@
 },
 {
 "node_id": "HL_Eco",
-"parent_id": "op_POSCO",
+"parent_id": "op_POSCO/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HL Eco"
 },
 {
 "node_id": "HL_Green",
-"parent_id": "op_POSCO",
+"parent_id": "op_POSCO/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HL Green"
 },
 {
 "node_id": "Pan_Freesia",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Freesia"
 },
 {
 "node_id": "Sun_Orchid",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sun Orchid"
 },
 {
 "node_id": "Pan_Margaret",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Margaret"
 },
 {
 "node_id": "Solar_Majesty",
-"parent_id": "op_Polaris_Shipping_co",
+"parent_id": "op_Polaris_Shipping_co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Solar Majesty"
 },
 {
 "node_id": "Glovis_Advance",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Advance"
 },
 {
 "node_id": "Meredith_Victory",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Meredith Victory"
 },
 {
 "node_id": "Solar_Hope",
-"parent_id": "op_Polaris_Shipping_co",
+"parent_id": "op_Polaris_Shipping_co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Solar Hope"
 },
 {
 "node_id": "Solar_Glory",
-"parent_id": "op_Polaris_Shipping_co",
+"parent_id": "op_Polaris_Shipping_co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Solar Glory"
 },
 {
 "node_id": "Solar_Frontier",
-"parent_id": "op_Polaris_Shipping_co",
+"parent_id": "op_Polaris_Shipping_co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Solar Frontier"
 },
 {
 "node_id": "Solar_Icon",
-"parent_id": "op_Polaris_Shipping_co",
+"parent_id": "op_Polaris_Shipping_co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Solar Icon"
@@ -5687,21 +5687,21 @@
 },
 {
 "node_id": "SM_Newcastle",
-"parent_id": "op_Korea_Shipping_Corp",
+"parent_id": "op_Korea_Shipping_Corp/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM Newcastle"
 },
 {
 "node_id": "Pan_Advance",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Advance"
 },
 {
 "node_id": "Youngheung",
-"parent_id": "op_Korea_Shipping_Corp",
+"parent_id": "op_Korea_Shipping_Corp/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Youngheung"
@@ -5715,91 +5715,91 @@
 },
 {
 "node_id": "F_Sun",
-"parent_id": "op_Five_Ocean_Corp",
+"parent_id": "op_Five_Ocean_Corp/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "F. Sun"
 },
 {
 "node_id": "Global_Trust",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Global Trust"
 },
 {
 "node_id": "Pacific_West",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pacific West"
 },
 {
 "node_id": "Pan_Bona",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Bona"
 },
 {
 "node_id": "Pan_Acacia",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Acacia"
 },
 {
 "node_id": "Pan_Gold",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Gold"
 },
 {
 "node_id": "Pan_Emerald",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Emerald"
 },
 {
 "node_id": "Pan_Freedom",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Freedom"
 },
 {
 "node_id": "Pan_Iris",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Iris"
 },
 {
 "node_id": "Pan_Joy",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Joy"
 },
 {
 "node_id": "Pan_Hope",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Hope"
 },
 {
 "node_id": "Pan_Champion",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Champion"
 },
 {
 "node_id": "Pacific_East",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pacific East"
@@ -5813,42 +5813,42 @@
 },
 {
 "node_id": "C_Utopia",
-"parent_id": "op_Chang_Myung_Shipping",
+"parent_id": "op_Chang_Myung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C. Utopia"
 },
 {
 "node_id": "Pan_Dream",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Dream"
 },
 {
 "node_id": "Pan_Komipo",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Komipo"
 },
 {
 "node_id": "Pan_Dangjin",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Dangjin"
 },
 {
 "node_id": "K_Taean",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "K. Taean"
 },
 {
 "node_id": "Western_Marine",
-"parent_id": "op_HS_Line",
+"parent_id": "op_HS_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Western Marine"
@@ -5862,21 +5862,21 @@
 },
 {
 "node_id": "Sea_Honesty",
-"parent_id": "op_SW_Shipping",
+"parent_id": "op_SW_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sea Honesty"
 },
 {
 "node_id": "SM_Challenger",
-"parent_id": "op_Korea_Shipping_Corp",
+"parent_id": "op_Korea_Shipping_Corp/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM Challenger"
 },
 {
 "node_id": "Sea_Future",
-"parent_id": "op_SW_Shipping",
+"parent_id": "op_SW_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sea Future"
@@ -5890,42 +5890,42 @@
 },
 {
 "node_id": "Wooyang_Venus",
-"parent_id": "op_Wooyang_Shipping",
+"parent_id": "op_Wooyang_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Wooyang Venus"
 },
 {
 "node_id": "Pan_Topaz",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Topaz"
 },
 {
 "node_id": "Pan_Unity",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Unity"
 },
 {
 "node_id": "Pan_Flower",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Flower"
 },
 {
 "node_id": "Pan_Global",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Global"
 },
 {
 "node_id": "Pan_Horizon",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Horizon"
@@ -5939,21 +5939,21 @@
 },
 {
 "node_id": "Donghae_Star",
-"parent_id": "op_Dusung_Shipping_Co",
+"parent_id": "op_Dusung_Shipping_Co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Donghae Star"
 },
 {
 "node_id": "Atlantic_Bonanza",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Atlantic Bonanza"
 },
 {
 "node_id": "Ocean_Carrier",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ocean Carrier"
@@ -5967,28 +5967,28 @@
 },
 {
 "node_id": "DL_Acacia",
-"parent_id": "op_Daelim_Corporation",
+"parent_id": "op_Daelim_Corporation/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "DL Acacia"
 },
 {
 "node_id": "DL_Dahlia",
-"parent_id": "op_Daelim_Corporation",
+"parent_id": "op_Daelim_Corporation/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "DL Dahlia"
 },
 {
 "node_id": "CK_Angie",
-"parent_id": "op_Chang_Myung_Shipping",
+"parent_id": "op_Chang_Myung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "CK Angie"
 },
 {
 "node_id": "CK_Bluebell",
-"parent_id": "op_Chang_Myung_Shipping",
+"parent_id": "op_Chang_Myung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "CK Bluebell"
@@ -6002,35 +6002,35 @@
 },
 {
 "node_id": "Daebo_Gladstone",
-"parent_id": "op_Daebo_International",
+"parent_id": "op_Daebo_International/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Daebo Gladstone"
 },
 {
 "node_id": "Pan_Mutiara",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Mutiara"
 },
 {
 "node_id": "Geneva_Queen",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Geneva Queen"
 },
 {
 "node_id": "Marianne_Stoeger",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Marianne Stoeger"
 },
 {
 "node_id": "Margreth_Pissarek",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Margreth Pissarek"
@@ -6044,14 +6044,14 @@
 },
 {
 "node_id": "Glad_Young",
-"parent_id": "op_Joong_Ang_Shipping",
+"parent_id": "op_Joong_Ang_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glad Young"
 },
 {
 "node_id": "Sound_Young",
-"parent_id": "op_Joong_Ang_Shipping",
+"parent_id": "op_Joong_Ang_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sound Young"
@@ -6065,56 +6065,56 @@
 },
 {
 "node_id": "Girasole_River",
-"parent_id": "op_P_F_Marine",
+"parent_id": "op_P_F_Marine/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Girasole River"
 },
 {
 "node_id": "Pan_Pegasus",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Pegasus"
 },
 {
 "node_id": "Pan_Quantum",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Quantum"
 },
 {
 "node_id": "Glovis_Desire",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Desire"
 },
 {
 "node_id": "Glovis_Daylight",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Daylight"
 },
 {
 "node_id": "Glovis_Diamond",
-"parent_id": "op_Hyundai_Glovis",
+"parent_id": "op_Hyundai_Glovis/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Glovis Diamond"
 },
 {
 "node_id": "Pan_Navigator",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Navigator"
 },
 {
 "node_id": "Sinokor_Sunrise",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sinokor Sunrise"
@@ -6128,98 +6128,98 @@
 },
 {
 "node_id": "Sea_Empire",
-"parent_id": "op_Hanaro_Shipping",
+"parent_id": "op_Hanaro_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sea Empire"
 },
 {
 "node_id": "Sea_Hope",
-"parent_id": "op_Hanaro_Shipping",
+"parent_id": "op_Hanaro_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sea Hope"
 },
 {
 "node_id": "Atlantic_Affinity",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Atlantic Affinity"
 },
 {
 "node_id": "Pan_Ceres",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Ceres"
 },
 {
 "node_id": "Pan_Bicorn",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Bicorn"
 },
 {
 "node_id": "Wooyang_Friend",
-"parent_id": "op_Wooyang_Shipping",
+"parent_id": "op_Wooyang_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Wooyang Friend"
 },
 {
 "node_id": "Dunnii",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Dunnii"
 },
 {
 "node_id": "Grandis",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Grandis"
 },
 {
 "node_id": "Robusta",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Robusta"
 },
 {
 "node_id": "Saligna",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Saligna"
 },
 {
 "node_id": "Urophylla",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Urophylla"
 },
 {
 "node_id": "Sea_Diamond",
-"parent_id": "op_Hanaro_Shipping",
+"parent_id": "op_Hanaro_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sea Diamond"
 },
 {
 "node_id": "Wooyang_Banders",
-"parent_id": "op_Wooyang_Shipping",
+"parent_id": "op_Wooyang_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Wooyang Banders"
 },
 {
 "node_id": "Melia",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Melia"
@@ -6233,49 +6233,49 @@
 },
 {
 "node_id": "Jade",
-"parent_id": "op_Pillos_Co",
+"parent_id": "op_Pillos_Co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Jade"
 },
 {
 "node_id": "Sea_Orion",
-"parent_id": "op_Hanaro_Shipping",
+"parent_id": "op_Hanaro_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sea Orion"
 },
 {
 "node_id": "Arborella",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Arborella"
 },
 {
 "node_id": "Brassiana",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Brassiana"
 },
 {
 "node_id": "Citriodora",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Citriodora"
 },
 {
 "node_id": "Delicata",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Delicata"
 },
 {
 "node_id": "Halophyla",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Halophyla"
@@ -6289,119 +6289,119 @@
 },
 {
 "node_id": "Intrans_Tina",
-"parent_id": "op_Intrans_Shpg_Co",
+"parent_id": "op_Intrans_Shpg_Co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Intrans Tina"
 },
 {
 "node_id": "Pan_Orion",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Orion"
 },
 {
 "node_id": "Pacific_Blessing",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pacific Blessing"
 },
 {
 "node_id": "Pan_Majesty",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Majesty"
 },
 {
 "node_id": "Pan_Harvest",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Harvest"
 },
 {
 "node_id": "Pan_Imperial",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Imperial"
 },
 {
 "node_id": "Young_Spirit",
-"parent_id": "op_Joong_Ang_Shipping",
+"parent_id": "op_Joong_Ang_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Young Spirit"
 },
 {
 "node_id": "Pan_Poseidon",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Poseidon"
 },
 {
 "node_id": "Pan_Quest",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Quest"
 },
 {
 "node_id": "Pan_Regina",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Regina"
 },
 {
 "node_id": "Pan_Talisman",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Talisman"
 },
 {
 "node_id": "Wooyang_Ivy",
-"parent_id": "op_Wooyang_Shipping",
+"parent_id": "op_Wooyang_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Wooyang Ivy"
 },
 {
 "node_id": "Wooyang_Belos",
-"parent_id": "op_Wooyang_Shipping",
+"parent_id": "op_Wooyang_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Wooyang Belos"
 },
 {
 "node_id": "Pacific_Ace",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pacific Ace"
 },
 {
 "node_id": "Pacific_Pride",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pacific Pride"
 },
 {
 "node_id": "Wooyang_Ares",
-"parent_id": "op_Wooyang_Shipping",
+"parent_id": "op_Wooyang_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Wooyang Ares"
 },
 {
 "node_id": "Pan_Sapphire",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Sapphire"
@@ -6415,49 +6415,49 @@
 },
 {
 "node_id": "DK_Ione",
-"parent_id": "op_CS_Marine",
+"parent_id": "op_CS_Marine/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "DK Ione"
 },
 {
 "node_id": "DL_Pansy",
-"parent_id": "op_Dong_A_Tanker_Co",
+"parent_id": "op_Dong_A_Tanker_Co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "DL Pansy"
 },
 {
 "node_id": "Pan_Queen",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Queen"
 },
 {
 "node_id": "Pan_Rapido",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Rapido"
 },
 {
 "node_id": "Pan_Spirit",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Spirit"
 },
 {
 "node_id": "Wooyang_Dandy",
-"parent_id": "op_Wooyang_Shipping",
+"parent_id": "op_Wooyang_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Wooyang Dandy"
 },
 {
 "node_id": "Indigo_River",
-"parent_id": "op_P_F_Marine",
+"parent_id": "op_P_F_Marine/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Indigo River"
@@ -6471,28 +6471,28 @@
 },
 {
 "node_id": "Maple_Harbour",
-"parent_id": "op_Hangang_Global",
+"parent_id": "op_Hangang_Global/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Maple Harbour"
 },
 {
 "node_id": "K_Ruby",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "K. Ruby"
 },
 {
 "node_id": "SJ_Colombo",
-"parent_id": "op_Samjoo_Maritime",
+"parent_id": "op_Samjoo_Maritime/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SJ Colombo"
 },
 {
 "node_id": "Wooyang_Hermes",
-"parent_id": "op_Wooyang_Shipping",
+"parent_id": "op_Wooyang_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Wooyang Hermes"
@@ -6506,7 +6506,7 @@
 },
 {
 "node_id": "Ilshin_Green_Iris",
-"parent_id": "op_IlShin_Marine",
+"parent_id": "op_IlShin_Marine/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ilshin Green Iris"
@@ -6520,7 +6520,7 @@
 },
 {
 "node_id": "Star_Mann",
-"parent_id": "op_Portmann_Shpg",
+"parent_id": "op_Portmann_Shpg/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Star Mann"
@@ -6534,56 +6534,56 @@
 },
 {
 "node_id": "Woori_Sun",
-"parent_id": "op_Woori_Shipping",
+"parent_id": "op_Woori_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Woori Sun"
 },
 {
 "node_id": "Rose_Mann",
-"parent_id": "op_Portmann_Shpg",
+"parent_id": "op_Portmann_Shpg/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Rose Mann"
 },
 {
 "node_id": "Wooyang_Elite",
-"parent_id": "op_Wooyang_Shipping",
+"parent_id": "op_Wooyang_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Wooyang Elite"
 },
 {
 "node_id": "Wooyang_Cles",
-"parent_id": "op_Wooyang_Shipping",
+"parent_id": "op_Wooyang_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Wooyang Cles"
 },
 {
 "node_id": "Pan_Ruby",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Ruby"
 },
 {
 "node_id": "Luni",
-"parent_id": "op_Hanaro_Shipping",
+"parent_id": "op_Hanaro_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Luni"
 },
 {
 "node_id": "Pan_Amber",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Amber"
 },
 {
 "node_id": "Pan_Bonita",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Bonita"
@@ -6597,77 +6597,77 @@
 },
 {
 "node_id": "CS_Onsan",
-"parent_id": "op_LS_Nikko_Copper",
+"parent_id": "op_LS_Nikko_Copper/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "CS Onsan"
 },
 {
 "node_id": "DL_Olive",
-"parent_id": "op_Daelim_Corporation",
+"parent_id": "op_Daelim_Corporation/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "DL Olive"
 },
 {
 "node_id": "DL_Lavender",
-"parent_id": "op_Daelim_Corporation",
+"parent_id": "op_Daelim_Corporation/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "DL Lavender"
 },
 {
 "node_id": "Pan_Nova",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Nova"
 },
 {
 "node_id": "Pan_Optimum",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Optimum"
 },
 {
 "node_id": "Ocean_Flora",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ocean Flora"
 },
 {
 "node_id": "Ocean_Galaxy",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ocean Galaxy"
 },
 {
 "node_id": "Pan_Grace",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Grace"
 },
 {
 "node_id": "Pan_Fortune",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pan Fortune"
 },
 {
 "node_id": "Woohyun_Sky",
-"parent_id": "op_Woohyun_Shipping_Co",
+"parent_id": "op_Woohyun_Shipping_Co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Woohyun Sky"
 },
 {
 "node_id": "Shinsung_Accord",
-"parent_id": "op_Shinsung_Shpg_Co",
+"parent_id": "op_Shinsung_Shpg_Co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Shinsung Accord"
@@ -6681,14 +6681,14 @@
 },
 {
 "node_id": "T_Clever",
-"parent_id": "op_STX_Marine_Service",
+"parent_id": "op_STX_Marine_Service/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "T Clever"
 },
 {
 "node_id": "Wooyang_Queen",
-"parent_id": "op_Wooyang_Shipping",
+"parent_id": "op_Wooyang_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Wooyang Queen"
@@ -6702,21 +6702,21 @@
 },
 {
 "node_id": "Joo_Hye",
-"parent_id": "op_Asan_Merchant",
+"parent_id": "op_Asan_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Joo Hye"
 },
 {
 "node_id": "Maple_Marina",
-"parent_id": "op_Hangang_Global",
+"parent_id": "op_Hangang_Global/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Maple Marina"
 },
 {
 "node_id": "Ocean_Draco",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ocean Draco"
@@ -6730,7 +6730,7 @@
 },
 {
 "node_id": "SN_Serenity",
-"parent_id": "op_Seanet_Shipping",
+"parent_id": "op_Seanet_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SN Serenity"
@@ -6744,49 +6744,49 @@
 },
 {
 "node_id": "KS_Camellia",
-"parent_id": "op_Korin_Star",
+"parent_id": "op_Korin_Star/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KS Camellia"
 },
 {
 "node_id": "KS_Grace",
-"parent_id": "op_Korin_Star",
+"parent_id": "op_Korin_Star/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "KS Grace"
 },
 {
 "node_id": "Ocean_Capella",
-"parent_id": "op_HMM",
+"parent_id": "op_HMM/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ocean Capella"
 },
 {
 "node_id": "King_Island",
-"parent_id": "op_P_F_Marine",
+"parent_id": "op_P_F_Marine/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "King Island"
 },
 {
 "node_id": "T_Symphony",
-"parent_id": "op_STX_Marine_Service",
+"parent_id": "op_STX_Marine_Service/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "T Symphony"
 },
 {
 "node_id": "T_Prime",
-"parent_id": "op_STX_Marine_Service",
+"parent_id": "op_STX_Marine_Service/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "T Prime"
 },
 {
 "node_id": "Sea_Topaz",
-"parent_id": "op_Hanaro_Shipping",
+"parent_id": "op_Hanaro_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sea Topaz"
@@ -6800,42 +6800,42 @@
 },
 {
 "node_id": "Daejoo_Arirang_2",
-"parent_id": "op_Kings_Ocean_Shipping",
+"parent_id": "op_Kings_Ocean_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Daejoo Arirang 2"
 },
 {
 "node_id": "Golden_Maple",
-"parent_id": "op_Hangang_Global",
+"parent_id": "op_Hangang_Global/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Golden Maple"
 },
 {
 "node_id": "Sea_Sapphire",
-"parent_id": "op_Hanaro_Shipping",
+"parent_id": "op_Hanaro_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sea Sapphire"
 },
 {
 "node_id": "CH_Doris",
-"parent_id": "op_Chang_Myung_Shipping",
+"parent_id": "op_Chang_Myung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "CH Doris"
 },
 {
 "node_id": "CH_Bella",
-"parent_id": "op_Chang_Myung_Shipping",
+"parent_id": "op_Chang_Myung_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "CH Bella"
 },
 {
 "node_id": "Il_Shin_Gold_River",
-"parent_id": "op_IlShin_Marine",
+"parent_id": "op_IlShin_Marine/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Il Shin Gold River"
@@ -6849,14 +6849,14 @@
 },
 {
 "node_id": "Sun_Grace",
-"parent_id": "op_Sun_Ace_Shipping",
+"parent_id": "op_Sun_Ace_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sun Grace"
 },
 {
 "node_id": "SN_Opal",
-"parent_id": "op_Seanet_Shipping",
+"parent_id": "op_Seanet_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SN Opal"
@@ -6870,7 +6870,7 @@
 },
 {
 "node_id": "CS_Glory",
-"parent_id": "op_SPS_Line",
+"parent_id": "op_SPS_Line/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "CS Glory"
@@ -6884,7 +6884,7 @@
 },
 {
 "node_id": "Kharis_Trinity",
-"parent_id": "op_Kharis_Shipping_Co",
+"parent_id": "op_Kharis_Shipping_Co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Kharis Trinity"
@@ -6898,7 +6898,7 @@
 },
 {
 "node_id": "HS_Glory",
-"parent_id": "op_Haesung_Mrn",
+"parent_id": "op_Haesung_Mrn/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HS Glory"
@@ -6912,35 +6912,35 @@
 },
 {
 "node_id": "Sampyo_5",
-"parent_id": "op_Sampyo_Cement_Co",
+"parent_id": "op_Sampyo_Cement_Co/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Sampyo 5"
 },
 {
 "node_id": "Prism_Diversity",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Prism Diversity"
 },
 {
 "node_id": "Prism_Agility",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Prism Agility"
 },
 {
 "node_id": "Prism_Brilliance",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Prism Brilliance"
 },
 {
 "node_id": "Prism_Courage",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Prism Courage"
@@ -6954,14 +6954,14 @@
 },
 {
 "node_id": "SM_Eagle",
-"parent_id": "op_KOGAS",
+"parent_id": "op_KOGAS/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM Eagle"
 },
 {
 "node_id": "SM_Seahawk",
-"parent_id": "op_KOGAS",
+"parent_id": "op_KOGAS/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM Seahawk"
@@ -6975,101 +6975,640 @@
 },
 {
 "node_id": "HLS_Bilbao",
-"parent_id": "op_Hyundai_LNG_Shipping",
+"parent_id": "op_Hyundai_LNG_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HLS Bilbao"
 },
 {
 "node_id": "Hyundai_Princepia",
-"parent_id": "op_KOGAS",
+"parent_id": "op_KOGAS/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Princepia"
 },
 {
 "node_id": "Hyundai_Peacepia",
-"parent_id": "op_KOGAS",
+"parent_id": "op_KOGAS/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Peacepia"
 },
 {
 "node_id": "Pacific_Success",
-"parent_id": "op_Sinokor_Merchant",
+"parent_id": "op_Sinokor_Merchant/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pacific Success"
 },
 {
 "node_id": "Hyundai_Oceanpia",
-"parent_id": "op_KOGAS",
+"parent_id": "op_KOGAS/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Oceanpia"
 },
 {
 "node_id": "Marvel_Dove",
-"parent_id": "op_SK_Shipping",
+"parent_id": "op_SK_Shipping/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Marvel Dove"
 },
 {
 "node_id": "Hyundai_Utopia",
-"parent_id": "op_KOGAS",
+"parent_id": "op_KOGAS/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Utopia"
 },
 {
 "node_id": "Hyundai_Ecopia",
-"parent_id": "op_KOGAS",
+"parent_id": "op_KOGAS/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Hyundai Ecopia"
 },
 {
 "node_id": "LNG_Kolt",
-"parent_id": "op_Pan_Ocean",
+"parent_id": "op_Pan_Ocean/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "LNG Kolt"
 },
 {
 "node_id": "K_Mugungwha",
-"parent_id": "op_KOGAS",
+"parent_id": "op_KOGAS/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "K. Mugungwha"
 },
 {
 "node_id": "K_Jasmine",
-"parent_id": "op_KOGAS",
+"parent_id": "op_KOGAS/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "K. Jasmine"
 },
 {
 "node_id": "K_Freesia",
-"parent_id": "op_KOGAS",
+"parent_id": "op_KOGAS/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "K. Freesia"
 },
 {
 "node_id": "K_Acacia",
-"parent_id": "op_KOGAS",
+"parent_id": "op_KOGAS/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "K. Acacia"
 },
 {
 "node_id": "HL_Muscat",
-"parent_id": "op_KOGAS",
+"parent_id": "op_KOGAS/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HL Muscat"
+},
+{
+"node_id": "op_SK_Shipping/_technology",
+"parent_id": "op_SK_Shipping",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_SK_Gas/_technology",
+"parent_id": "op_SK_Gas",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_KSS_Line/_technology",
+"parent_id": "op_KSS_Line",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_E1_Corporation/_technology",
+"parent_id": "op_E1_Corporation",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Samjoo_Maritime/_technology",
+"parent_id": "op_Samjoo_Maritime",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Hyundai_Glovis/_technology",
+"parent_id": "op_Hyundai_Glovis",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Daedong_Shipping/_technology",
+"parent_id": "op_Daedong_Shipping",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Intergis/_technology",
+"parent_id": "op_Intergis",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Ssangyong_Shpg_Co/_technology",
+"parent_id": "op_Ssangyong_Shpg_Co",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Sino_Far_East/_technology",
+"parent_id": "op_Sino_Far_East",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Soosung_Corp/_technology",
+"parent_id": "op_Soosung_Corp",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_K_J_Ship_Mngt/_technology",
+"parent_id": "op_K_J_Ship_Mngt",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Korea_Shipmanagers/_technology",
+"parent_id": "op_Korea_Shipmanagers",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_BD_Shipping/_technology",
+"parent_id": "op_BD_Shipping",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_KMC_Line/_technology",
+"parent_id": "op_KMC_Line",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_KookYang_Shipping/_technology",
+"parent_id": "op_KookYang_Shipping",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_CJ_Logistics/_technology",
+"parent_id": "op_CJ_Logistics",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Suseong_Marine_Co/_technology",
+"parent_id": "op_Suseong_Marine_Co",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Techmarine_Co_Ltd/_technology",
+"parent_id": "op_Techmarine_Co_Ltd",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Mariso_Corp/_technology",
+"parent_id": "op_Mariso_Corp",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Sea_Bright_Maritime/_technology",
+"parent_id": "op_Sea_Bright_Maritime",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Shinsung_Shpg_Co/_technology",
+"parent_id": "op_Shinsung_Shpg_Co",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_CK_Line/_technology",
+"parent_id": "op_CK_Line",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Woohyun_Shipping_Co/_technology",
+"parent_id": "op_Woohyun_Shipping_Co",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Daeho_Merchant/_technology",
+"parent_id": "op_Daeho_Merchant",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Sinokor_Merchant/_technology",
+"parent_id": "op_Sinokor_Merchant",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Motardship_Ltd/_technology",
+"parent_id": "op_Motardship_Ltd",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Dong_A_Tanker_Co/_technology",
+"parent_id": "op_Dong_A_Tanker_Co",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_DM_Maritime/_technology",
+"parent_id": "op_DM_Maritime",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Pan_Ocean/_technology",
+"parent_id": "op_Pan_Ocean",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Gs_Caltex_Corp/_technology",
+"parent_id": "op_Gs_Caltex_Corp",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_HMM/_technology",
+"parent_id": "op_HMM",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Sinokor_Petrochem/_technology",
+"parent_id": "op_Sinokor_Petrochem",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_GS_Energy/_technology",
+"parent_id": "op_GS_Energy",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_HD_Hyundai_Oilbank/_technology",
+"parent_id": "op_HD_Hyundai_Oilbank",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_KMTC/_technology",
+"parent_id": "op_KMTC",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_SM_Line/_technology",
+"parent_id": "op_SM_Line",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Namsung_Shipping/_technology",
+"parent_id": "op_Namsung_Shipping",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Dong_Jin_Shipping/_technology",
+"parent_id": "op_Dong_Jin_Shipping",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Pan_Continental_Shpg/_technology",
+"parent_id": "op_Pan_Continental_Shpg",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Heung_A_Line/_technology",
+"parent_id": "op_Heung_A_Line",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Dong_Young_Shipping/_technology",
+"parent_id": "op_Dong_Young_Shipping",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Taiyoung_Shipping/_technology",
+"parent_id": "op_Taiyoung_Shipping",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_HS_Line/_technology",
+"parent_id": "op_HS_Line",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Polaris_Shipping_co/_technology",
+"parent_id": "op_Polaris_Shipping_co",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_POSCO/_technology",
+"parent_id": "op_POSCO",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Korea_Shipping_Corp/_technology",
+"parent_id": "op_Korea_Shipping_Corp",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Five_Ocean_Corp/_technology",
+"parent_id": "op_Five_Ocean_Corp",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Chang_Myung_Shipping/_technology",
+"parent_id": "op_Chang_Myung_Shipping",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_SW_Shipping/_technology",
+"parent_id": "op_SW_Shipping",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Wooyang_Shipping/_technology",
+"parent_id": "op_Wooyang_Shipping",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Dusung_Shipping_Co/_technology",
+"parent_id": "op_Dusung_Shipping_Co",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Daelim_Corporation/_technology",
+"parent_id": "op_Daelim_Corporation",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Daebo_International/_technology",
+"parent_id": "op_Daebo_International",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Joong_Ang_Shipping/_technology",
+"parent_id": "op_Joong_Ang_Shipping",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_P_F_Marine/_technology",
+"parent_id": "op_P_F_Marine",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Hanaro_Shipping/_technology",
+"parent_id": "op_Hanaro_Shipping",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Pillos_Co/_technology",
+"parent_id": "op_Pillos_Co",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Intrans_Shpg_Co/_technology",
+"parent_id": "op_Intrans_Shpg_Co",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_CS_Marine/_technology",
+"parent_id": "op_CS_Marine",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Hangang_Global/_technology",
+"parent_id": "op_Hangang_Global",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_IlShin_Marine/_technology",
+"parent_id": "op_IlShin_Marine",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Portmann_Shpg/_technology",
+"parent_id": "op_Portmann_Shpg",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Woori_Shipping/_technology",
+"parent_id": "op_Woori_Shipping",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_LS_Nikko_Copper/_technology",
+"parent_id": "op_LS_Nikko_Copper",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_STX_Marine_Service/_technology",
+"parent_id": "op_STX_Marine_Service",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Asan_Merchant/_technology",
+"parent_id": "op_Asan_Merchant",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Seanet_Shipping/_technology",
+"parent_id": "op_Seanet_Shipping",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Korin_Star/_technology",
+"parent_id": "op_Korin_Star",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Kings_Ocean_Shipping/_technology",
+"parent_id": "op_Kings_Ocean_Shipping",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Sun_Ace_Shipping/_technology",
+"parent_id": "op_Sun_Ace_Shipping",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_SPS_Line/_technology",
+"parent_id": "op_SPS_Line",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Kharis_Shipping_Co/_technology",
+"parent_id": "op_Kharis_Shipping_Co",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Haesung_Mrn/_technology",
+"parent_id": "op_Haesung_Mrn",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Sampyo_Cement_Co/_technology",
+"parent_id": "op_Sampyo_Cement_Co",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_KOGAS/_technology",
+"parent_id": "op_KOGAS",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "op_Hyundai_LNG_Shipping/_technology",
+"parent_id": "op_Hyundai_LNG_Shipping",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
 }
 ],
 "machines": [

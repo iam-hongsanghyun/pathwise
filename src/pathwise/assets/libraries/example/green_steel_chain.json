@@ -22,7 +22,7 @@
 },
 {
 "node_id": "vc/australia/au_ironore/mine",
-"parent_id": "vc/australia/au_ironore",
+"parent_id": "vc/australia/au_ironore/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "Iron-ore mine"
@@ -36,14 +36,14 @@
 },
 {
 "node_id": "vc/australia/au_greenh2/wind",
-"parent_id": "vc/australia/au_greenh2",
+"parent_id": "vc/australia/au_greenh2/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "Wind farm"
 },
 {
 "node_id": "vc/australia/au_greenh2/ely",
-"parent_id": "vc/australia/au_greenh2",
+"parent_id": "vc/australia/au_greenh2/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "Electrolyser"
@@ -64,7 +64,7 @@
 },
 {
 "node_id": "vc/qatar/qa_blueh2/smr",
-"parent_id": "vc/qatar/qa_blueh2",
+"parent_id": "vc/qatar/qa_blueh2/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "SMR + CCS"
@@ -85,14 +85,14 @@
 },
 {
 "node_id": "vc/korea/kr_power/grid",
-"parent_id": "vc/korea/kr_power",
+"parent_id": "vc/korea/kr_power/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "CCGT grid"
 },
 {
 "node_id": "vc/korea/kr_power/wind",
-"parent_id": "vc/korea/kr_power",
+"parent_id": "vc/korea/kr_power/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "Wind farm"
@@ -106,14 +106,14 @@
 },
 {
 "node_id": "vc/korea/kr_greenh2/wind",
-"parent_id": "vc/korea/kr_greenh2",
+"parent_id": "vc/korea/kr_greenh2/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "Wind farm"
 },
 {
 "node_id": "vc/korea/kr_greenh2/ely",
-"parent_id": "vc/korea/kr_greenh2",
+"parent_id": "vc/korea/kr_greenh2/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "Electrolyser"
@@ -134,14 +134,14 @@
 },
 {
 "node_id": "vc/korea/kr_steel/mill/bf",
-"parent_id": "vc/korea/kr_steel/mill",
+"parent_id": "vc/korea/kr_steel/mill/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "Blast furnace"
 },
 {
 "node_id": "vc/korea/kr_steel/mill/bof",
-"parent_id": "vc/korea/kr_steel/mill",
+"parent_id": "vc/korea/kr_steel/mill/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "Basic oxygen furnace"
@@ -155,7 +155,7 @@
 },
 {
 "node_id": "vc/korea/kr_auto/assembly",
-"parent_id": "vc/korea/kr_auto",
+"parent_id": "vc/korea/kr_auto/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "Vehicle assembly"
@@ -169,10 +169,66 @@
 },
 {
 "node_id": "vc/korea/kr_ship/shipyard",
-"parent_id": "vc/korea/kr_ship",
+"parent_id": "vc/korea/kr_ship/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "Shipyard"
+},
+{
+"node_id": "vc/australia/au_ironore/_technology",
+"parent_id": "vc/australia/au_ironore",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "vc/australia/au_greenh2/_technology",
+"parent_id": "vc/australia/au_greenh2",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "vc/qatar/qa_blueh2/_technology",
+"parent_id": "vc/qatar/qa_blueh2",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "vc/korea/kr_power/_technology",
+"parent_id": "vc/korea/kr_power",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "vc/korea/kr_greenh2/_technology",
+"parent_id": "vc/korea/kr_greenh2",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "vc/korea/kr_steel/mill/_technology",
+"parent_id": "vc/korea/kr_steel/mill",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "vc/korea/kr_auto/_technology",
+"parent_id": "vc/korea/kr_auto",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "vc/korea/kr_ship/_technology",
+"parent_id": "vc/korea/kr_ship",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
 }
 ],
 "machines": [

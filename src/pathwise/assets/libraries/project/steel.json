@@ -3084,115 +3084,122 @@
 },
 {
 "node_id": "Pohang_BF3",
-"parent_id": "steel",
+"parent_id": "steel/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pohang BF3"
 },
 {
 "node_id": "HyundaiBF3",
-"parent_id": "steel",
+"parent_id": "steel/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HyundaiBF3"
 },
 {
 "node_id": "Pohang_BF4",
-"parent_id": "steel",
+"parent_id": "steel/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pohang BF4"
 },
 {
 "node_id": "Gwangyang_BF2",
-"parent_id": "steel",
+"parent_id": "steel/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Gwangyang BF2"
 },
 {
 "node_id": "Gwangyang_BF1",
-"parent_id": "steel",
+"parent_id": "steel/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Gwangyang BF1"
 },
 {
 "node_id": "Gwangyang_BF5",
-"parent_id": "steel",
+"parent_id": "steel/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Gwangyang BF5"
 },
 {
 "node_id": "HyundaiBF2",
-"parent_id": "steel",
+"parent_id": "steel/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HyundaiBF2"
 },
 {
 "node_id": "Gwangyang_BF4",
-"parent_id": "steel",
+"parent_id": "steel/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Gwangyang BF4"
 },
 {
 "node_id": "Gwangyang_BF3",
-"parent_id": "steel",
+"parent_id": "steel/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Gwangyang BF3"
 },
 {
 "node_id": "HyundaiBF1",
-"parent_id": "steel",
+"parent_id": "steel/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HyundaiBF1"
 },
 {
 "node_id": "Pohang_BF2",
-"parent_id": "steel",
+"parent_id": "steel/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pohang BF2"
 },
 {
 "node_id": "Pohang_FNX3",
-"parent_id": "steel",
+"parent_id": "steel/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pohang FNX3"
 },
 {
 "node_id": "Pohang_FNX2",
-"parent_id": "steel",
+"parent_id": "steel/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Pohang FNX2"
 },
 {
 "node_id": "EAF1",
-"parent_id": "steel",
+"parent_id": "steel/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "EAF1"
 },
 {
 "node_id": "EAF2",
-"parent_id": "steel",
+"parent_id": "steel/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "EAF2"
 },
 {
 "node_id": "EAF3",
-"parent_id": "steel",
+"parent_id": "steel/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "EAF3"
+},
+{
+"node_id": "steel/_technology",
+"parent_id": "steel",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
 }
 ],
 "machines": [

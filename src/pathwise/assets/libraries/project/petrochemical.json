@@ -3296,1739 +3296,2159 @@
 },
 {
 "node_id": "F000",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ethylene \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F001",
-"parent_id": "co_HD_Hyundai_Chemical",
+"parent_id": "co_HD_Hyundai_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ethylene \u00b7 HD Hyundai Chemical"
 },
 {
 "node_id": "F002",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ethylene \u00b7 LG Chem"
 },
 {
 "node_id": "F003",
-"parent_id": "co_Hanwha_TotalEnergies",
+"parent_id": "co_Hanwha_TotalEnergies/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ethylene \u00b7 Hanwha TotalEnergies"
 },
 {
 "node_id": "F004",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ethylene \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F005",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ethylene \u00b7 LG Chem"
 },
 {
 "node_id": "F006",
-"parent_id": "co_Yeochon_NCC",
+"parent_id": "co_Yeochon_NCC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ethylene \u00b7 Yeochon NCC"
 },
 {
 "node_id": "F007",
-"parent_id": "co_GS_Caltex",
+"parent_id": "co_GS_Caltex/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ethylene \u00b7 GS Caltex"
 },
 {
 "node_id": "F008",
-"parent_id": "co_Daehan_Oil_Chemical",
+"parent_id": "co_Daehan_Oil_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ethylene \u00b7 Daehan Oil Chemical"
 },
 {
 "node_id": "F009",
-"parent_id": "co_S_Oil",
+"parent_id": "co_S_Oil/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ethylene \u00b7 S-Oil"
 },
 {
 "node_id": "F010",
-"parent_id": "co_SK_Geocentric",
+"parent_id": "co_SK_Geocentric/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ethylene \u00b7 SK Geocentric"
 },
 {
 "node_id": "F011",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Propylene \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F012",
-"parent_id": "co_HDHyundai_Oilbank",
+"parent_id": "co_HDHyundai_Oilbank/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Propylene \u00b7 HDHyundai Oilbank"
 },
 {
 "node_id": "F013",
-"parent_id": "co_HD_Hyundai_Chemical",
+"parent_id": "co_HD_Hyundai_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Propylene \u00b7 HD Hyundai Chemical"
 },
 {
 "node_id": "F014",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Propylene \u00b7 LG Chem"
 },
 {
 "node_id": "F015",
-"parent_id": "co_Hanwha_TotalEnergies",
+"parent_id": "co_Hanwha_TotalEnergies/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Propylene \u00b7 Hanwha TotalEnergies"
 },
 {
 "node_id": "F016",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Propylene \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F017",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Propylene \u00b7 LG Chem"
 },
 {
 "node_id": "F018",
-"parent_id": "co_Yeochon_NCC",
+"parent_id": "co_Yeochon_NCC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Propylene \u00b7 Yeochon NCC"
 },
 {
 "node_id": "F019",
-"parent_id": "co_GS_Caltex",
+"parent_id": "co_GS_Caltex/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Propylene \u00b7 GS Caltex"
 },
 {
 "node_id": "F020",
-"parent_id": "co_Daehan_Oil_Chemical",
+"parent_id": "co_Daehan_Oil_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Propylene \u00b7 Daehan Oil Chemical"
 },
 {
 "node_id": "F021",
-"parent_id": "co_S_Oil",
+"parent_id": "co_S_Oil/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Propylene \u00b7 S-Oil"
 },
 {
 "node_id": "F022",
-"parent_id": "co_SK_Advanced",
+"parent_id": "co_SK_Advanced/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Propylene \u00b7 SK Advanced"
 },
 {
 "node_id": "F023",
-"parent_id": "co_SK_Energy",
+"parent_id": "co_SK_Energy/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Propylene \u00b7 SK Energy"
 },
 {
 "node_id": "F024",
-"parent_id": "co_SK_Geocentric",
+"parent_id": "co_SK_Geocentric/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Propylene \u00b7 SK Geocentric"
 },
 {
 "node_id": "F025",
-"parent_id": "co_Taekwang_Industrial",
+"parent_id": "co_Taekwang_Industrial/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Propylene \u00b7 Taekwang Industrial"
 },
 {
 "node_id": "F026",
-"parent_id": "co_Hyosung_Chemical",
+"parent_id": "co_Hyosung_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Propylene \u00b7 Hyosung Chemical"
 },
 {
 "node_id": "F027",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Butadiene \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F028",
-"parent_id": "co_HD_Hyundai_Chemical",
+"parent_id": "co_HD_Hyundai_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Butadiene \u00b7 HD Hyundai Chemical"
 },
 {
 "node_id": "F029",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Butadiene \u00b7 LG Chem"
 },
 {
 "node_id": "F030",
-"parent_id": "co_Hanwha_TotalEnergies",
+"parent_id": "co_Hanwha_TotalEnergies/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Butadiene \u00b7 Hanwha TotalEnergies"
 },
 {
 "node_id": "F031",
-"parent_id": "co_Kumho_Petrochemical",
+"parent_id": "co_Kumho_Petrochemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Butadiene \u00b7 Kumho Petrochemical"
 },
 {
 "node_id": "F032",
-"parent_id": "co_Lotte_GS_Chemical",
+"parent_id": "co_Lotte_GS_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Butadiene \u00b7 Lotte GS Chemical"
 },
 {
 "node_id": "F033",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Butadiene \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F034",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Butadiene \u00b7 LG Chem"
 },
 {
 "node_id": "F035",
-"parent_id": "co_Yeochon_NCC",
+"parent_id": "co_Yeochon_NCC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Butadiene \u00b7 Yeochon NCC"
 },
 {
 "node_id": "F036",
-"parent_id": "co_Kumho_Petrochemical",
+"parent_id": "co_Kumho_Petrochemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Butadiene \u00b7 Kumho Petrochemical"
 },
 {
 "node_id": "F037",
-"parent_id": "co_Daehan_Oil_Chemical",
+"parent_id": "co_Daehan_Oil_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Butadiene \u00b7 Daehan Oil Chemical"
 },
 {
 "node_id": "F038",
-"parent_id": "co_SK_Geocentric",
+"parent_id": "co_SK_Geocentric/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Butadiene \u00b7 SK Geocentric"
 },
 {
 "node_id": "F039",
-"parent_id": "co_OCI",
+"parent_id": "co_OCI/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Benzene \u00b7 OCI"
 },
 {
 "node_id": "F040",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Benzene \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F041",
-"parent_id": "co_HD_Hyundai_Chemical",
+"parent_id": "co_HD_Hyundai_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Benzene \u00b7 HD Hyundai Chemical"
 },
 {
 "node_id": "F042",
-"parent_id": "co_HDHyundai_Oilbank",
+"parent_id": "co_HDHyundai_Oilbank/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Benzene \u00b7 HDHyundai Oilbank"
 },
 {
 "node_id": "F043",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Benzene \u00b7 LG Chem"
 },
 {
 "node_id": "F044",
-"parent_id": "co_Hanwha_TotalEnergies",
+"parent_id": "co_Hanwha_TotalEnergies/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Benzene \u00b7 Hanwha TotalEnergies"
 },
 {
 "node_id": "F045",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Benzene \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F046",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Benzene \u00b7 LG Chem"
 },
 {
 "node_id": "F047",
-"parent_id": "co_Yeochon_NCC",
+"parent_id": "co_Yeochon_NCC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Benzene \u00b7 Yeochon NCC"
 },
 {
 "node_id": "F048",
-"parent_id": "co_GS_Caltex",
+"parent_id": "co_GS_Caltex/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Benzene \u00b7 GS Caltex"
 },
 {
 "node_id": "F049",
-"parent_id": "co_Daehan_Oil_Chemical",
+"parent_id": "co_Daehan_Oil_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Benzene \u00b7 Daehan Oil Chemical"
 },
 {
 "node_id": "F050",
-"parent_id": "co_S_Oil",
+"parent_id": "co_S_Oil/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Benzene \u00b7 S-Oil"
 },
 {
 "node_id": "F051",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Benzene \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F052",
-"parent_id": "co_SK_Geocentric",
+"parent_id": "co_SK_Geocentric/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Benzene \u00b7 SK Geocentric"
 },
 {
 "node_id": "F053",
-"parent_id": "co_Ulsan_Aromatics",
+"parent_id": "co_Ulsan_Aromatics/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Benzene \u00b7 Ulsan Aromatics"
 },
 {
 "node_id": "F054",
-"parent_id": "co_SK_Incheon_Petrochemical",
+"parent_id": "co_SK_Incheon_Petrochemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Benzene \u00b7 SK Incheon Petrochemical"
 },
 {
 "node_id": "F055",
-"parent_id": "co_OCI",
+"parent_id": "co_OCI/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Toluene \u00b7 OCI"
 },
 {
 "node_id": "F056",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Toluene \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F057",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Toluene \u00b7 LG Chem"
 },
 {
 "node_id": "F058",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Toluene \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F059",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Toluene \u00b7 LG Chem"
 },
 {
 "node_id": "F060",
-"parent_id": "co_Yeochon_NCC",
+"parent_id": "co_Yeochon_NCC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Toluene \u00b7 Yeochon NCC"
 },
 {
 "node_id": "F061",
-"parent_id": "co_GS_Caltex",
+"parent_id": "co_GS_Caltex/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Toluene \u00b7 GS Caltex"
 },
 {
 "node_id": "F062",
-"parent_id": "co_Daehan_Oil_Chemical",
+"parent_id": "co_Daehan_Oil_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Toluene \u00b7 Daehan Oil Chemical"
 },
 {
 "node_id": "F063",
-"parent_id": "co_S_Oil",
+"parent_id": "co_S_Oil/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Toluene \u00b7 S-Oil"
 },
 {
 "node_id": "F064",
-"parent_id": "co_SK_Geocentric",
+"parent_id": "co_SK_Geocentric/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Toluene \u00b7 SK Geocentric"
 },
 {
 "node_id": "F065",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Xylene \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F066",
-"parent_id": "co_HD_Hyundai_Chemical",
+"parent_id": "co_HD_Hyundai_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Xylene \u00b7 HD Hyundai Chemical"
 },
 {
 "node_id": "F067",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Xylene \u00b7 LG Chem"
 },
 {
 "node_id": "F068",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Xylene \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F069",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Xylene \u00b7 LG Chem"
 },
 {
 "node_id": "F070",
-"parent_id": "co_Yeochon_NCC",
+"parent_id": "co_Yeochon_NCC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Xylene \u00b7 Yeochon NCC"
 },
 {
 "node_id": "F071",
-"parent_id": "co_GS_Caltex",
+"parent_id": "co_GS_Caltex/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Xylene \u00b7 GS Caltex"
 },
 {
 "node_id": "F072",
-"parent_id": "co_Daehan_Oil_Chemical",
+"parent_id": "co_Daehan_Oil_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Xylene \u00b7 Daehan Oil Chemical"
 },
 {
 "node_id": "F073",
-"parent_id": "co_S_Oil",
+"parent_id": "co_S_Oil/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Xylene \u00b7 S-Oil"
 },
 {
 "node_id": "F074",
-"parent_id": "co_SK_Geocentric",
+"parent_id": "co_SK_Geocentric/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Xylene \u00b7 SK Geocentric"
 },
 {
 "node_id": "F075",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "O-X \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F076",
-"parent_id": "co_SK_Geocentric",
+"parent_id": "co_SK_Geocentric/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "O-X \u00b7 SK Geocentric"
 },
 {
 "node_id": "F077",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "M-X \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F078",
-"parent_id": "co_HDHyundai_Oilbank",
+"parent_id": "co_HDHyundai_Oilbank/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "P-X \u00b7 HDHyundai Oilbank"
 },
 {
 "node_id": "F079",
-"parent_id": "co_Hanwha_TotalEnergies",
+"parent_id": "co_Hanwha_TotalEnergies/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "P-X \u00b7 Hanwha TotalEnergies"
 },
 {
 "node_id": "F080",
-"parent_id": "co_GS_Caltex",
+"parent_id": "co_GS_Caltex/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "P-X \u00b7 GS Caltex"
 },
 {
 "node_id": "F081",
-"parent_id": "co_S_Oil",
+"parent_id": "co_S_Oil/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "P-X \u00b7 S-Oil"
 },
 {
 "node_id": "F082",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "P-X \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F083",
-"parent_id": "co_SK_Geocentric",
+"parent_id": "co_SK_Geocentric/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "P-X \u00b7 SK Geocentric"
 },
 {
 "node_id": "F084",
-"parent_id": "co_Ulsan_Aromatics",
+"parent_id": "co_Ulsan_Aromatics/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "P-X \u00b7 Ulsan Aromatics"
 },
 {
 "node_id": "F085",
-"parent_id": "co_SK_Incheon_Petrochemical",
+"parent_id": "co_SK_Incheon_Petrochemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "P-X \u00b7 SK Incheon Petrochemical"
 },
 {
 "node_id": "F086",
-"parent_id": "co_SK_Geocentric",
+"parent_id": "co_SK_Geocentric/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C-H \u00b7 SK Geocentric"
 },
 {
 "node_id": "F087",
-"parent_id": "co_Caprolactam",
+"parent_id": "co_Caprolactam/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "C-H \u00b7 Caprolactam"
 },
 {
 "node_id": "F088",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F089",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM \u00b7 LG Chem"
 },
 {
 "node_id": "F090",
-"parent_id": "co_Hanwha_TotalEnergies",
+"parent_id": "co_Hanwha_TotalEnergies/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM \u00b7 Hanwha TotalEnergies"
 },
 {
 "node_id": "F091",
-"parent_id": "co_Yeochon_NCC",
+"parent_id": "co_Yeochon_NCC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM \u00b7 Yeochon NCC"
 },
 {
 "node_id": "F092",
-"parent_id": "co_SKpicglobal",
+"parent_id": "co_SKpicglobal/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SM \u00b7 SKpicglobal"
 },
 {
 "node_id": "F093",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "EDC \u00b7 LG Chem"
 },
 {
 "node_id": "F094",
-"parent_id": "co_Hanwha_Solutions",
+"parent_id": "co_Hanwha_Solutions/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "EDC \u00b7 Hanwha Solutions"
 },
 {
 "node_id": "F095",
-"parent_id": "co_Hanwha_Solutions",
+"parent_id": "co_Hanwha_Solutions/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "EDC \u00b7 Hanwha Solutions"
 },
 {
 "node_id": "F096",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "VCM \u00b7 LG Chem"
 },
 {
 "node_id": "F097",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "VCM \u00b7 LG Chem"
 },
 {
 "node_id": "F098",
-"parent_id": "co_Hanwha_Solutions",
+"parent_id": "co_Hanwha_Solutions/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "VCM \u00b7 Hanwha Solutions"
 },
 {
 "node_id": "F099",
-"parent_id": "co_Hanwha_Solutions",
+"parent_id": "co_Hanwha_Solutions/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "VCM \u00b7 Hanwha Solutions"
 },
 {
 "node_id": "F100",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PC \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F101",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PC \u00b7 LG Chem"
 },
 {
 "node_id": "F102",
-"parent_id": "co_Samyang_Chemical",
+"parent_id": "co_Samyang_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PC \u00b7 Samyang Chemical"
 },
 {
 "node_id": "F103",
-"parent_id": "co_HD_Hyundai_Chemical",
+"parent_id": "co_HD_Hyundai_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "LDPE \u00b7 HD Hyundai Chemical"
 },
 {
 "node_id": "F104",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "LDPE \u00b7 LG Chem"
 },
 {
 "node_id": "F105",
-"parent_id": "co_Hanwha_TotalEnergies",
+"parent_id": "co_Hanwha_TotalEnergies/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "LDPE \u00b7 Hanwha TotalEnergies"
 },
 {
 "node_id": "F106",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "LDPE \u00b7 LG Chem"
 },
 {
 "node_id": "F107",
-"parent_id": "co_Hanwha_Solutions",
+"parent_id": "co_Hanwha_Solutions/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "LDPE \u00b7 Hanwha Solutions"
 },
 {
 "node_id": "F108",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "LDPE \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F109",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "LDPE \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F110",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "L-LDPE \u00b7 LG Chem"
 },
 {
 "node_id": "F111",
-"parent_id": "co_Hanwha_TotalEnergies",
+"parent_id": "co_Hanwha_TotalEnergies/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "L-LDPE \u00b7 Hanwha TotalEnergies"
 },
 {
 "node_id": "F112",
-"parent_id": "co_DL_Chemical",
+"parent_id": "co_DL_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "L-LDPE \u00b7 DL Chemical"
 },
 {
 "node_id": "F113",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "L-LDPE \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F114",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "L-LDPE \u00b7 LG Chem"
 },
 {
 "node_id": "F115",
-"parent_id": "co_Hanwha_Solutions",
+"parent_id": "co_Hanwha_Solutions/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "L-LDPE \u00b7 Hanwha Solutions"
 },
 {
 "node_id": "F116",
-"parent_id": "co_SSNC",
+"parent_id": "co_SSNC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "L-LDPE \u00b7 SSNC"
 },
 {
 "node_id": "F117",
-"parent_id": "co_SK_Geocentric",
+"parent_id": "co_SK_Geocentric/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "L-LDPE \u00b7 SK Geocentric"
 },
 {
 "node_id": "F118",
-"parent_id": "co_HD_Hyundai_Chemical",
+"parent_id": "co_HD_Hyundai_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HDPE \u00b7 HD Hyundai Chemical"
 },
 {
 "node_id": "F119",
-"parent_id": "co_Hanwha_TotalEnergies",
+"parent_id": "co_Hanwha_TotalEnergies/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HDPE \u00b7 Hanwha TotalEnergies"
 },
 {
 "node_id": "F120",
-"parent_id": "co_DL_Chemical",
+"parent_id": "co_DL_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HDPE \u00b7 DL Chemical"
 },
 {
 "node_id": "F121",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HDPE \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F122",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HDPE \u00b7 LG Chem"
 },
 {
 "node_id": "F123",
-"parent_id": "co_GS_Caltex",
+"parent_id": "co_GS_Caltex/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HDPE \u00b7 GS Caltex"
 },
 {
 "node_id": "F124",
-"parent_id": "co_Daehan_Oil_Chemical",
+"parent_id": "co_Daehan_Oil_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HDPE \u00b7 Daehan Oil Chemical"
 },
 {
 "node_id": "F125",
-"parent_id": "co_SK_Geocentric",
+"parent_id": "co_SK_Geocentric/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "HDPE \u00b7 SK Geocentric"
 },
 {
 "node_id": "F126",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PP \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F127",
-"parent_id": "co_HD_Hyundai_Chemical",
+"parent_id": "co_HD_Hyundai_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PP \u00b7 HD Hyundai Chemical"
 },
 {
 "node_id": "F128",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PP \u00b7 LG Chem"
 },
 {
 "node_id": "F129",
-"parent_id": "co_Hanwha_TotalEnergies",
+"parent_id": "co_Hanwha_TotalEnergies/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PP \u00b7 Hanwha TotalEnergies"
 },
 {
 "node_id": "F130",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PP \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F131",
-"parent_id": "co_GS_Caltex",
+"parent_id": "co_GS_Caltex/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PP \u00b7 GS Caltex"
 },
 {
 "node_id": "F132",
-"parent_id": "co_Poly_Mirae",
+"parent_id": "co_Poly_Mirae/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PP \u00b7 Poly Mirae"
 },
 {
 "node_id": "F133",
-"parent_id": "co_S_Oil",
+"parent_id": "co_S_Oil/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PP \u00b7 S-Oil"
 },
 {
 "node_id": "F134",
-"parent_id": "co_Daehan_Oil_Chemical",
+"parent_id": "co_Daehan_Oil_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PP \u00b7 Daehan Oil Chemical"
 },
 {
 "node_id": "F135",
-"parent_id": "co_SK_Geocentric",
+"parent_id": "co_SK_Geocentric/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PP \u00b7 SK Geocentric"
 },
 {
 "node_id": "F136",
-"parent_id": "co_Ulsan_PP",
+"parent_id": "co_Ulsan_PP/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PP \u00b7 Ulsan PP"
 },
 {
 "node_id": "F137",
-"parent_id": "co_Hyosung_Chemical",
+"parent_id": "co_Hyosung_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PP \u00b7 Hyosung Chemical"
 },
 {
 "node_id": "F138",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PS \u00b7 LG Chem"
 },
 {
 "node_id": "F139",
-"parent_id": "co_Kumho_Petrochemical",
+"parent_id": "co_Kumho_Petrochemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PS \u00b7 Kumho Petrochemical"
 },
 {
 "node_id": "F140",
-"parent_id": "co_HDC_Hyundai_EP",
+"parent_id": "co_HDC_Hyundai_EP/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PS \u00b7 HDC Hyundai EP"
 },
 {
 "node_id": "F141",
-"parent_id": "co_Korea_INEOS_Styrolution",
+"parent_id": "co_Korea_INEOS_Styrolution/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PS \u00b7 Korea INEOS Styrolution"
 },
 {
 "node_id": "F142",
-"parent_id": "co_SH_Energy_Chemical",
+"parent_id": "co_SH_Energy_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "EPS \u00b7 SH Energy Chemical"
 },
 {
 "node_id": "F143",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "EPS \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F144",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "EPS \u00b7 LG Chem"
 },
 {
 "node_id": "F145",
-"parent_id": "co_Kumho_Petrochemical",
+"parent_id": "co_Kumho_Petrochemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "EPS \u00b7 Kumho Petrochemical"
 },
 {
 "node_id": "F146",
-"parent_id": "co_HDC_Hyundai_EP",
+"parent_id": "co_HDC_Hyundai_EP/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "EPS \u00b7 HDC Hyundai EP"
 },
 {
 "node_id": "F147",
-"parent_id": "co_BASF_Korea",
+"parent_id": "co_BASF_Korea/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "EPS \u00b7 BASF Korea"
 },
 {
 "node_id": "F148",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "ABS \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F149",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "ABS \u00b7 LG Chem"
 },
 {
 "node_id": "F150",
-"parent_id": "co_Kumho_Petrochemical",
+"parent_id": "co_Kumho_Petrochemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "ABS \u00b7 Kumho Petrochemical"
 },
 {
 "node_id": "F151",
-"parent_id": "co_Korea_INEOS_Styrolution",
+"parent_id": "co_Korea_INEOS_Styrolution/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "ABS \u00b7 Korea INEOS Styrolution"
 },
 {
 "node_id": "F152",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PVC \u00b7 LG Chem"
 },
 {
 "node_id": "F153",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PVC \u00b7 LG Chem"
 },
 {
 "node_id": "F154",
-"parent_id": "co_Hanwha_Solutions",
+"parent_id": "co_Hanwha_Solutions/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PVC \u00b7 Hanwha Solutions"
 },
 {
 "node_id": "F155",
-"parent_id": "co_Hanwha_Solutions",
+"parent_id": "co_Hanwha_Solutions/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PVC \u00b7 Hanwha Solutions"
 },
 {
 "node_id": "F156",
-"parent_id": "co_Hanwha_Impact",
+"parent_id": "co_Hanwha_Impact/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "TPA \u00b7 Hanwha Impact"
 },
 {
 "node_id": "F157",
-"parent_id": "co_Samnam_Petrochemical",
+"parent_id": "co_Samnam_Petrochemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "TPA \u00b7 Samnam Petrochemical"
 },
 {
 "node_id": "F158",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "TPA \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F159",
-"parent_id": "co_Hanwha_Impact",
+"parent_id": "co_Hanwha_Impact/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "TPA \u00b7 Hanwha Impact"
 },
 {
 "node_id": "F160",
-"parent_id": "co_Taekwang_Industrial",
+"parent_id": "co_Taekwang_Industrial/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "TPA \u00b7 Taekwang Industrial"
 },
 {
 "node_id": "F161",
-"parent_id": "co_Hyosung_Chemical",
+"parent_id": "co_Hyosung_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "TPA \u00b7 Hyosung Chemical"
 },
 {
 "node_id": "F162",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PIA \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F163",
-"parent_id": "co_Caprolactam",
+"parent_id": "co_Caprolactam/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "CPLM \u00b7 Caprolactam"
 },
 {
 "node_id": "F164",
-"parent_id": "co_SK_Chemical",
+"parent_id": "co_SK_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "DMT \u00b7 SK Chemical"
 },
 {
 "node_id": "F165",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "EG \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F166",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "EG \u00b7 LG Chem"
 },
 {
 "node_id": "F167",
-"parent_id": "co_Hanwha_TotalEnergies",
+"parent_id": "co_Hanwha_TotalEnergies/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "EG \u00b7 Hanwha TotalEnergies"
 },
 {
 "node_id": "F168",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "EG \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F169",
-"parent_id": "co_Daehan_Oil_Chemical",
+"parent_id": "co_Daehan_Oil_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "EG \u00b7 Daehan Oil Chemical"
 },
 {
 "node_id": "F170",
-"parent_id": "co_Dongseo_Petrochemical",
+"parent_id": "co_Dongseo_Petrochemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "AN \u00b7 Dongseo Petrochemical"
 },
 {
 "node_id": "F171",
-"parent_id": "co_Taekwang_Industrial",
+"parent_id": "co_Taekwang_Industrial/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "AN \u00b7 Taekwang Industrial"
 },
 {
 "node_id": "F172",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SBR \u00b7 LG Chem"
 },
 {
 "node_id": "F173",
-"parent_id": "co_Kumho_Petrochemical",
+"parent_id": "co_Kumho_Petrochemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SBR \u00b7 Kumho Petrochemical"
 },
 {
 "node_id": "F174",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "S-SBR \u00b7 LG Chem"
 },
 {
 "node_id": "F175",
-"parent_id": "co_Kumho_Petrochemical",
+"parent_id": "co_Kumho_Petrochemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "S-SBR \u00b7 Kumho Petrochemical"
 },
 {
 "node_id": "F176",
-"parent_id": "co_Lotte_Versalis_Elastomers",
+"parent_id": "co_Lotte_Versalis_Elastomers/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "S-SBR \u00b7 Lotte Versalis Elastomers"
 },
 {
 "node_id": "F177",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SB-Latex \u00b7 LG Chem"
 },
 {
 "node_id": "F178",
-"parent_id": "co_Kumho_Petrochemical",
+"parent_id": "co_Kumho_Petrochemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SB-Latex \u00b7 Kumho Petrochemical"
 },
 {
 "node_id": "F179",
-"parent_id": "co_Korea_Trinseo",
+"parent_id": "co_Korea_Trinseo/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SB-Latex \u00b7 Korea Trinseo"
 },
 {
 "node_id": "F180",
-"parent_id": "co_Hansol_Chemical",
+"parent_id": "co_Hansol_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "SB-Latex \u00b7 Hansol Chemical"
 },
 {
 "node_id": "F181",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "BR \u00b7 LG Chem"
 },
 {
 "node_id": "F182",
-"parent_id": "co_Kumho_Petrochemical",
+"parent_id": "co_Kumho_Petrochemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "BR \u00b7 Kumho Petrochemical"
 },
 {
 "node_id": "F183",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "NBR \u00b7 LG Chem"
 },
 {
 "node_id": "F184",
-"parent_id": "co_Kumho_Petrochemical",
+"parent_id": "co_Kumho_Petrochemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "NBR \u00b7 Kumho Petrochemical"
 },
 {
 "node_id": "F185",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "NB-Latex \u00b7 LG Chem"
 },
 {
 "node_id": "F186",
-"parent_id": "co_Kumho_Petrochemical",
+"parent_id": "co_Kumho_Petrochemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "NB-Latex \u00b7 Kumho Petrochemical"
 },
 {
 "node_id": "F187",
-"parent_id": "co_Hansol_Chemical",
+"parent_id": "co_Hansol_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "NB-Latex \u00b7 Hansol Chemical"
 },
 {
 "node_id": "F188",
-"parent_id": "co_Kumho_Polychem",
+"parent_id": "co_Kumho_Polychem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "EPDM \u00b7 Kumho Polychem"
 },
 {
 "node_id": "F189",
-"parent_id": "co_Lotte_Versalis_Elastomers",
+"parent_id": "co_Lotte_Versalis_Elastomers/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "EPDM \u00b7 Lotte Versalis Elastomers"
 },
 {
 "node_id": "F190",
-"parent_id": "co_Lotte_INEOS_Chemical",
+"parent_id": "co_Lotte_INEOS_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Acetic Acid \u00b7 Lotte INEOS Chemical"
 },
 {
 "node_id": "F191",
-"parent_id": "co_Lotte_INEOS_Chemical",
+"parent_id": "co_Lotte_INEOS_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Vinyl Acetate \u00b7 Lotte INEOS Chemical"
 },
 {
 "node_id": "F192",
-"parent_id": "co_Korea_Alcohol_Industrial",
+"parent_id": "co_Korea_Alcohol_Industrial/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ethanol \u00b7 Korea Alcohol Industrial"
 },
 {
 "node_id": "F193",
-"parent_id": "co_Korea_Alcohol_Industrial",
+"parent_id": "co_Korea_Alcohol_Industrial/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Ethyl Acetate \u00b7 Korea Alcohol Industrial"
 },
 {
 "node_id": "F194",
-"parent_id": "co_ISU_Chemical",
+"parent_id": "co_ISU_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Alkylbenzene \u00b7 ISU Chemical"
 },
 {
 "node_id": "F195",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PA \u00b7 LG Chem"
 },
 {
 "node_id": "F196",
-"parent_id": "co_Aekyung_Chemical",
+"parent_id": "co_Aekyung_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PA \u00b7 Aekyung Chemical"
 },
 {
 "node_id": "F197",
-"parent_id": "co_Hanwha_Solutions",
+"parent_id": "co_Hanwha_Solutions/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PA \u00b7 Hanwha Solutions"
 },
 {
 "node_id": "F198",
-"parent_id": "co_OCI",
+"parent_id": "co_OCI/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PA \u00b7 OCI"
 },
 {
 "node_id": "F199",
-"parent_id": "co_Aekyung_Chemical",
+"parent_id": "co_Aekyung_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "MA \u00b7 Aekyung Chemical"
 },
 {
 "node_id": "F200",
-"parent_id": "co_Yongsan_Chemical",
+"parent_id": "co_Yongsan_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "MA \u00b7 Yongsan Chemical"
 },
 {
 "node_id": "F201",
-"parent_id": "co_Korea_PTG",
+"parent_id": "co_Korea_PTG/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "MA \u00b7 Korea PTG"
 },
 {
 "node_id": "F202",
-"parent_id": "co_Hanwha_Solutions",
+"parent_id": "co_Hanwha_Solutions/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "MA \u00b7 Hanwha Solutions"
 },
 {
 "node_id": "F203",
-"parent_id": "co_OCI",
+"parent_id": "co_OCI/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "TDI \u00b7 OCI"
 },
 {
 "node_id": "F204",
-"parent_id": "co_BASF_Korea",
+"parent_id": "co_BASF_Korea/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "TDI \u00b7 BASF Korea"
 },
 {
 "node_id": "F205",
-"parent_id": "co_Hanwha_Solutions",
+"parent_id": "co_Hanwha_Solutions/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "TDI \u00b7 Hanwha Solutions"
 },
 {
 "node_id": "F206",
-"parent_id": "co_Downing_Chemical",
+"parent_id": "co_Downing_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "MDI \u00b7 Downing Chemical"
 },
 {
 "node_id": "F207",
-"parent_id": "co_Kumho_Mitsui_Chemical",
+"parent_id": "co_Kumho_Mitsui_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "MDI \u00b7 Kumho Mitsui Chemical"
 },
 {
 "node_id": "F208",
-"parent_id": "co_BASF_Korea",
+"parent_id": "co_BASF_Korea/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "MDI \u00b7 BASF Korea"
 },
 {
 "node_id": "F209",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Phenol \u00b7 LG Chem"
 },
 {
 "node_id": "F210",
-"parent_id": "co_Kumho_P_B_Chemical",
+"parent_id": "co_Kumho_P_B_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Phenol \u00b7 Kumho P&B Chemical"
 },
 {
 "node_id": "F211",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Phenol \u00b7 LG Chem"
 },
 {
 "node_id": "F212",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Acetone \u00b7 LG Chem"
 },
 {
 "node_id": "F213",
-"parent_id": "co_Kumho_P_B_Chemical",
+"parent_id": "co_Kumho_P_B_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Acetone \u00b7 Kumho P&B Chemical"
 },
 {
 "node_id": "F214",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Acetone \u00b7 LG Chem"
 },
 {
 "node_id": "F215",
-"parent_id": "co_Samyang_Innochem",
+"parent_id": "co_Samyang_Innochem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "BPA \u00b7 Samyang Innochem"
 },
 {
 "node_id": "F216",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "BPA \u00b7 LG Chem"
 },
 {
 "node_id": "F217",
-"parent_id": "co_Kumho_P_B_Chemical",
+"parent_id": "co_Kumho_P_B_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "BPA \u00b7 Kumho P&B Chemical"
 },
 {
 "node_id": "F218",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "BPA \u00b7 LG Chem"
 },
 {
 "node_id": "F219",
-"parent_id": "co_Bluecube_Chemical",
+"parent_id": "co_Bluecube_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Epoxy Resin \u00b7 Bluecube Chemical"
 },
 {
 "node_id": "F220",
-"parent_id": "co_Kolon_Industries",
+"parent_id": "co_Kolon_Industries/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Epoxy Resin \u00b7 Kolon Industries"
 },
 {
 "node_id": "F221",
-"parent_id": "co_Kukdo_Chemical",
+"parent_id": "co_Kukdo_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Epoxy Resin \u00b7 Kukdo Chemical"
 },
 {
 "node_id": "F222",
-"parent_id": "co_Kumho_P_B_Chemical",
+"parent_id": "co_Kumho_P_B_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Epoxy Resin \u00b7 Kumho P&B Chemical"
 },
 {
 "node_id": "F223",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Octanol \u00b7 LG Chem"
 },
 {
 "node_id": "F224",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Octanol \u00b7 LG Chem"
 },
 {
 "node_id": "F225",
-"parent_id": "co_Hanwha_Solutions",
+"parent_id": "co_Hanwha_Solutions/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Octanol \u00b7 Hanwha Solutions"
 },
 {
 "node_id": "F226",
-"parent_id": "co_LG_Chem",
+"parent_id": "co_LG_Chem/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Butanol \u00b7 LG Chem"
 },
 {
 "node_id": "F227",
-"parent_id": "co_Hanwha_Solutions",
+"parent_id": "co_Hanwha_Solutions/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Butanol \u00b7 Hanwha Solutions"
 },
 {
 "node_id": "F228",
-"parent_id": "co_Kumho_Petrochemical",
+"parent_id": "co_Kumho_Petrochemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PPG \u00b7 Kumho Petrochemical"
 },
 {
 "node_id": "F229",
-"parent_id": "co_PU_Core",
+"parent_id": "co_PU_Core/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PPG \u00b7 PU Core"
 },
 {
 "node_id": "F230",
-"parent_id": "co_KPX_Chemical",
+"parent_id": "co_KPX_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PPG \u00b7 KPX Chemical"
 },
 {
 "node_id": "F231",
-"parent_id": "co_BASF_Korea",
+"parent_id": "co_BASF_Korea/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PPG \u00b7 BASF Korea"
 },
 {
 "node_id": "F232",
-"parent_id": "co_Lotte_MCC",
+"parent_id": "co_Lotte_MCC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "MMA \u00b7 Lotte MCC"
 },
 {
 "node_id": "F233",
-"parent_id": "co_Lotte_MCC",
+"parent_id": "co_Lotte_MCC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "MMA \u00b7 Lotte MCC"
 },
 {
 "node_id": "F234",
-"parent_id": "co_Lotte_Chemical",
+"parent_id": "co_Lotte_Chemical/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "MMA \u00b7 Lotte Chemical"
 },
 {
 "node_id": "F235",
-"parent_id": "co_LXMMA",
+"parent_id": "co_LXMMA/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "MMA \u00b7 LXMMA"
 },
 {
 "node_id": "F236",
-"parent_id": "co_Lotte_MCC",
+"parent_id": "co_Lotte_MCC/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PMMA \u00b7 Lotte MCC"
 },
 {
 "node_id": "F237",
-"parent_id": "co_LXMMA",
+"parent_id": "co_LXMMA/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PMMA \u00b7 LXMMA"
 },
 {
 "node_id": "F238",
-"parent_id": "co_Arkema",
+"parent_id": "co_Arkema/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "PMMA \u00b7 Arkema"
 },
 {
 "node_id": "F239",
-"parent_id": "co_OCI",
+"parent_id": "co_OCI/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Carbon Black(CB) \u00b7 OCI"
 },
 {
 "node_id": "F240",
-"parent_id": "co_HD_Hyundai_OCI",
+"parent_id": "co_HD_Hyundai_OCI/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Carbon Black(CB) \u00b7 HD Hyundai OCI"
 },
 {
 "node_id": "F241",
-"parent_id": "co_Birla_Carbon_Korea",
+"parent_id": "co_Birla_Carbon_Korea/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Carbon Black(CB) \u00b7 Birla Carbon Korea"
 },
 {
 "node_id": "F242",
-"parent_id": "co_Orion_Engineered_Carbons",
+"parent_id": "co_Orion_Engineered_Carbons/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Carbon Black(CB) \u00b7 Orion Engineered Carbons"
 },
 {
 "node_id": "F243",
-"parent_id": "co_OCI",
+"parent_id": "co_OCI/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Carbon Black(CB) \u00b7 OCI"
 },
 {
 "node_id": "F244",
-"parent_id": "co_Kolon_Industries",
+"parent_id": "co_Kolon_Industries/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Petroleum Resin \u00b7 Kolon Industries"
 },
 {
 "node_id": "F245",
-"parent_id": "co_Kolon_Industries",
+"parent_id": "co_Kolon_Industries/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Petroleum Resin \u00b7 Kolon Industries"
 },
 {
 "node_id": "F246",
-"parent_id": "co_Hanwha_Solutions",
+"parent_id": "co_Hanwha_Solutions/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Petroleum Resin \u00b7 Hanwha Solutions"
 },
 {
 "node_id": "F247",
-"parent_id": "co_Kolon_Industries",
+"parent_id": "co_Kolon_Industries/_technology",
 "kind": "machine",
 "level": "facility",
 "label": "Petroleum Resin \u00b7 Kolon Industries"
+},
+{
+"node_id": "co_Lotte_Chemical/_technology",
+"parent_id": "co_Lotte_Chemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_HD_Hyundai_Chemical/_technology",
+"parent_id": "co_HD_Hyundai_Chemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_LG_Chem/_technology",
+"parent_id": "co_LG_Chem",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Hanwha_TotalEnergies/_technology",
+"parent_id": "co_Hanwha_TotalEnergies",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Yeochon_NCC/_technology",
+"parent_id": "co_Yeochon_NCC",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_GS_Caltex/_technology",
+"parent_id": "co_GS_Caltex",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Daehan_Oil_Chemical/_technology",
+"parent_id": "co_Daehan_Oil_Chemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_S_Oil/_technology",
+"parent_id": "co_S_Oil",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_SK_Geocentric/_technology",
+"parent_id": "co_SK_Geocentric",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_HDHyundai_Oilbank/_technology",
+"parent_id": "co_HDHyundai_Oilbank",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_SK_Advanced/_technology",
+"parent_id": "co_SK_Advanced",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_SK_Energy/_technology",
+"parent_id": "co_SK_Energy",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Taekwang_Industrial/_technology",
+"parent_id": "co_Taekwang_Industrial",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Hyosung_Chemical/_technology",
+"parent_id": "co_Hyosung_Chemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Kumho_Petrochemical/_technology",
+"parent_id": "co_Kumho_Petrochemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Lotte_GS_Chemical/_technology",
+"parent_id": "co_Lotte_GS_Chemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_OCI/_technology",
+"parent_id": "co_OCI",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Ulsan_Aromatics/_technology",
+"parent_id": "co_Ulsan_Aromatics",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_SK_Incheon_Petrochemical/_technology",
+"parent_id": "co_SK_Incheon_Petrochemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Caprolactam/_technology",
+"parent_id": "co_Caprolactam",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_SKpicglobal/_technology",
+"parent_id": "co_SKpicglobal",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Hanwha_Solutions/_technology",
+"parent_id": "co_Hanwha_Solutions",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Samyang_Chemical/_technology",
+"parent_id": "co_Samyang_Chemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_DL_Chemical/_technology",
+"parent_id": "co_DL_Chemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_SSNC/_technology",
+"parent_id": "co_SSNC",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Poly_Mirae/_technology",
+"parent_id": "co_Poly_Mirae",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Ulsan_PP/_technology",
+"parent_id": "co_Ulsan_PP",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_HDC_Hyundai_EP/_technology",
+"parent_id": "co_HDC_Hyundai_EP",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Korea_INEOS_Styrolution/_technology",
+"parent_id": "co_Korea_INEOS_Styrolution",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_SH_Energy_Chemical/_technology",
+"parent_id": "co_SH_Energy_Chemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_BASF_Korea/_technology",
+"parent_id": "co_BASF_Korea",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Hanwha_Impact/_technology",
+"parent_id": "co_Hanwha_Impact",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Samnam_Petrochemical/_technology",
+"parent_id": "co_Samnam_Petrochemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_SK_Chemical/_technology",
+"parent_id": "co_SK_Chemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Dongseo_Petrochemical/_technology",
+"parent_id": "co_Dongseo_Petrochemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Lotte_Versalis_Elastomers/_technology",
+"parent_id": "co_Lotte_Versalis_Elastomers",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Korea_Trinseo/_technology",
+"parent_id": "co_Korea_Trinseo",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Hansol_Chemical/_technology",
+"parent_id": "co_Hansol_Chemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Kumho_Polychem/_technology",
+"parent_id": "co_Kumho_Polychem",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Lotte_INEOS_Chemical/_technology",
+"parent_id": "co_Lotte_INEOS_Chemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Korea_Alcohol_Industrial/_technology",
+"parent_id": "co_Korea_Alcohol_Industrial",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_ISU_Chemical/_technology",
+"parent_id": "co_ISU_Chemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Aekyung_Chemical/_technology",
+"parent_id": "co_Aekyung_Chemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Yongsan_Chemical/_technology",
+"parent_id": "co_Yongsan_Chemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Korea_PTG/_technology",
+"parent_id": "co_Korea_PTG",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Downing_Chemical/_technology",
+"parent_id": "co_Downing_Chemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Kumho_Mitsui_Chemical/_technology",
+"parent_id": "co_Kumho_Mitsui_Chemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Kumho_P_B_Chemical/_technology",
+"parent_id": "co_Kumho_P_B_Chemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Samyang_Innochem/_technology",
+"parent_id": "co_Samyang_Innochem",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Bluecube_Chemical/_technology",
+"parent_id": "co_Bluecube_Chemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Kolon_Industries/_technology",
+"parent_id": "co_Kolon_Industries",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Kukdo_Chemical/_technology",
+"parent_id": "co_Kukdo_Chemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_PU_Core/_technology",
+"parent_id": "co_PU_Core",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_KPX_Chemical/_technology",
+"parent_id": "co_KPX_Chemical",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Lotte_MCC/_technology",
+"parent_id": "co_Lotte_MCC",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_LXMMA/_technology",
+"parent_id": "co_LXMMA",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Arkema/_technology",
+"parent_id": "co_Arkema",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_HD_Hyundai_OCI/_technology",
+"parent_id": "co_HD_Hyundai_OCI",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Birla_Carbon_Korea/_technology",
+"parent_id": "co_Birla_Carbon_Korea",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "co_Orion_Engineered_Carbons/_technology",
+"parent_id": "co_Orion_Engineered_Carbons",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
 }
 ],
 "machines": [

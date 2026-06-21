@@ -22,21 +22,21 @@
 },
 {
 "node_id": "kr/power/ccgt/gt",
-"parent_id": "kr/power/ccgt",
+"parent_id": "kr/power/ccgt/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "Gas turbine"
 },
 {
 "node_id": "kr/power/ccgt/st",
-"parent_id": "kr/power/ccgt",
+"parent_id": "kr/power/ccgt/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "Steam turbine"
 },
 {
 "node_id": "kr/power/solar",
-"parent_id": "kr/power",
+"parent_id": "kr/power/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "Solar farm"
@@ -57,24 +57,45 @@
 },
 {
 "node_id": "kr/steel/mill/bf",
-"parent_id": "kr/steel/mill",
+"parent_id": "kr/steel/mill/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "Blast furnace"
 },
 {
 "node_id": "kr/steel/mill/bof",
-"parent_id": "kr/steel/mill",
+"parent_id": "kr/steel/mill/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "Basic oxygen furnace"
 },
 {
 "node_id": "kr/steel/mill/eaf",
-"parent_id": "kr/steel/mill",
+"parent_id": "kr/steel/mill/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "Electric arc furnace"
+},
+{
+"node_id": "kr/power/ccgt/_technology",
+"parent_id": "kr/power/ccgt",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "kr/power/_technology",
+"parent_id": "kr/power",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "kr/steel/mill/_technology",
+"parent_id": "kr/steel/mill",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
 }
 ],
 "machines": [

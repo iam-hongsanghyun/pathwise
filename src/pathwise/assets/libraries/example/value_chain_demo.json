@@ -22,7 +22,7 @@
 },
 {
 "node_id": "kr_chain/power_kr/ccgt/gt",
-"parent_id": "kr_chain/power_kr/ccgt",
+"parent_id": "kr_chain/power_kr/ccgt/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "Gas turbine"
@@ -43,24 +43,38 @@
 },
 {
 "node_id": "kr_chain/steel_kr/mill/bf",
-"parent_id": "kr_chain/steel_kr/mill",
+"parent_id": "kr_chain/steel_kr/mill/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "Blast furnace"
 },
 {
 "node_id": "kr_chain/steel_kr/mill/bof",
-"parent_id": "kr_chain/steel_kr/mill",
+"parent_id": "kr_chain/steel_kr/mill/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "BOF"
 },
 {
 "node_id": "kr_chain/steel_kr/mill/eaf",
-"parent_id": "kr_chain/steel_kr/mill",
+"parent_id": "kr_chain/steel_kr/mill/_technology",
 "kind": "machine",
 "level": "machine",
 "label": "Electric arc furnace"
+},
+{
+"node_id": "kr_chain/power_kr/ccgt/_technology",
+"parent_id": "kr_chain/power_kr/ccgt",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
+},
+{
+"node_id": "kr_chain/steel_kr/mill/_technology",
+"parent_id": "kr_chain/steel_kr/mill",
+"kind": "group",
+"level": "Technology",
+"label": "Technology"
 }
 ],
 "machines": [
