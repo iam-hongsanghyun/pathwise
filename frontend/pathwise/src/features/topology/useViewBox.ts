@@ -1,6 +1,6 @@
 // Reusable SVG viewBox hook: wheel zoom (center-preserving) + background pan.
 // Mirrors the proven logic in TopologyCanvas.tsx but as a standalone hook so
-// GroupCanvas (and future canvases) can share it without touching TopologyCanvas.
+// HierarchyMap (and future canvases) can share it without touching TopologyCanvas.
 
 import { useCallback, useRef, useState } from "react";
 

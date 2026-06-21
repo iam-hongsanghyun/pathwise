@@ -288,6 +288,63 @@ export function HierarchyMap({
     return out;
   }, [edges, boxById, ortho, orthoRoutes, horiz, overlay]);
 
+  // Flow labels: horizontal text next to each connector, then de-overlapped so no
+  // two ever touch. Memoised (the O(n²) push only re-runs when geometry changes —
+  // not on hover / pan / year scrub).
+  const LABEL_LH = 11;
+  const placedLabels = useMemo(() => {
+    const LH = LABEL_LH;
+    const CW = 5.4; // approx char width at 9px
+    const PAD = 5; // gap from the line
+    const G = 3; // min gap between two labels
+    type Lbl = {
+      key: string; lines: string[]; w: number; h: number;
+      bx: number; by: number; tx: number; ta: "start" | "middle" | "end"; dx: number; dy: number; active: boolean;
+    };
+    const raw: Lbl[] = [];
+    for (const { e, poly, active } of edgeViews) {
+      const lines = e.commodities.map((c) => clip(c, 16) + (e.lag ? ` ·${e.lag}y` : ""));
+      const w = Math.max(...lines.map((l) => l.length)) * CW;
+      const h = lines.length * LH;
+      for (const out of [true, false]) {
+        const port = out ? poly[0] : poly[poly.length - 1];
+        const nxt = out ? poly[1] : poly[poly.length - 2];
+        const lineH = Math.abs(nxt.x - port.x) >= Math.abs(nxt.y - port.y);
+        const px = port.x + (lineH ? Math.sign(nxt.x - port.x) * 10 : 0);
+        const py = port.y + (lineH ? 0 : Math.sign(nxt.y - port.y) * 10);
+        let bx: number;
+        let by: number;
+        let tx: number;
+        let ta: "start" | "middle" | "end";
+        let dx = 0;
+        let dy = 0;
+        if (lineH) {
+          bx = px - w / 2; tx = px; ta = "middle";
+          by = out ? py - PAD - h : py + PAD;
+          dy = out ? -1 : 1;
+        } else {
+          if (out) { bx = px - PAD - w; tx = px - PAD; ta = "end"; dx = -1; }
+          else { bx = px + PAD; tx = px + PAD; ta = "start"; dx = 1; }
+          by = py - h / 2;
+        }
+        raw.push({ key: `${out ? "ls" : "ld"}-${edgeKey(e)}`, lines, w, h, bx, by, tx, ta, dx, dy, active });
+      }
+    }
+    const hit = (a: Lbl, b: Lbl) =>
+      a.bx < b.bx + b.w + G && b.bx < a.bx + a.w + G && a.by < b.by + b.h + G && b.by < a.by + a.h + G;
+    const placed: Lbl[] = [];
+    for (const L of raw) {
+      let guard = 0;
+      while (guard++ < 240 && placed.some((p) => hit(L, p))) {
+        L.bx += L.dx * 4;
+        L.by += L.dy * 4;
+        L.tx += L.dx * 4;
+      }
+      placed.push(L);
+    }
+    return placed;
+  }, [edgeViews]);
+
   const svgRef = useRef<SVGSVGElement | null>(null);
   const { vb, setVb, onWheel, onPanStart, onPanMove, onPanEnd, toWorld } = useViewBox();
   const fitKey = `${mode}|${orientation}|${laid.width}x${laid.height}|${laid.nodes.length}|${sources.length}`;
@@ -325,6 +382,9 @@ export function HierarchyMap({
   const [selEdge, setSelEdge] = useState<number | null>(null);
   // Hover-a-flow popup: which arrow, and where the cursor is.
   const [hover, setHover] = useState<{ x: number; y: number; from: string; to: string; commodities: string[]; lag: number } | null>(null);
+  // Changing the aggregation / orientation rebuilds the edge set, so a selected
+  // edge (and its edit/delete controls) would point at a stale rowIndex — clear it.
+  useEffect(() => setSelEdge(null), [flowLevel, orientation, ortho]);
 
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -360,11 +420,21 @@ export function HierarchyMap({
     if (b && !b.moved && Math.hypot(e.clientX - b.x, e.clientY - b.y) >= DRAG_PX) b.moved = true;
     onPanMove(e);
   }
-  function bgUp() {
+  function bgUp(e?: React.PointerEvent) {
     const b = bgPress.current;
     bgPress.current = null;
     onPanEnd();
     if (connect) {
+      // Complete the link if released anywhere on a destination node/group (not
+      // just on its tiny in-port dot); otherwise cancel.
+      const el = e?.target as Element | undefined;
+      const to =
+        el?.closest?.("[data-node]")?.getAttribute("data-node") ??
+        el?.closest?.("[data-group]")?.getAttribute("data-group") ??
+        null;
+      if (to && to !== connect.from && e) {
+        setForm({ from: connect.from, to, sx: e.clientX, sy: e.clientY });
+      }
       setConnect(null);
       return;
     }
@@ -419,6 +489,9 @@ export function HierarchyMap({
           onPointerDown={(e) => {
             e.stopPropagation();
             e.preventDefault(); // don't let the drag start a text/area selection
+            // Capture so move/up reach the SVG even if released off-canvas (and so
+            // the link completes via bgUp's hit-test instead of the tiny in-port).
+            try { svgRef.current?.setPointerCapture(e.pointerId); } catch { /* synthetic */ }
             const w = toWorld(e.clientX, e.clientY, svgRef.current);
             setConnect({ from: n.id, wx: w.x, wy: w.y });
           }}
@@ -481,7 +554,7 @@ export function HierarchyMap({
           </>
         )}
         {editable && (
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "0.74rem" }} title="Aggregate the flows to this level (independent of expand/collapse). Dynamic draws each flow where its two sides first diverge.">
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "0.74rem" }} title="Aggregate the flows to this level (independent of expand/collapse). The top 'Value Chain' level draws each flow where its two sides first diverge.">
             <span className="muted">flows by</span>
             <select
               value={flowLevel ?? ""}
@@ -516,7 +589,7 @@ export function HierarchyMap({
         onWheel={onWheel}
         onPointerDown={bgDown}
         onPointerMove={bgMove}
-        onPointerUp={bgUp}
+        onPointerUp={(e) => bgUp(e)}
         role="img"
         aria-label="hierarchy map"
         style={{ flex: 1, minHeight: 0 }}
@@ -592,9 +665,9 @@ export function HierarchyMap({
           const sel = selectedId === g.id;
           return (
             <g key={`c-${g.id}`}>
-              {/* body — also a drag/select target (data-group): grab anywhere on
-                  the box (not on a child) to move the whole group. The ▾ grip
-                  still collapses; children on top keep their own handlers. */}
+              {/* body (data-group): a no-move tap selects the group (tap again to
+                  clear); a drag pans the canvas. The ▾ grip collapses/expands;
+                  children on top keep their own handlers. */}
               <rect
                 data-group={g.id}
                 x={g.x}
@@ -679,69 +752,13 @@ export function HierarchyMap({
           );
         })}
 
-        {/* EDGE LABELS — HORIZONTAL text (one commodity per line), placed next to each
-            connector (as close as possible), then DE-OVERLAPPED so no two labels ever
-            touch. No backing box. */}
-        {(() => {
-          const LH = 11;
-          const CW = 5.4; // approx char width at 9px
-          const PAD = 5; // gap from the line
-          const G = 3; // min gap between two labels
-          type Lbl = {
-            key: string; lines: string[]; w: number; h: number;
-            bx: number; by: number; tx: number; ta: "start" | "middle" | "end";
-            dx: number; dy: number; active: boolean;
-          };
-          const raw: Lbl[] = [];
-          for (const { e, poly, active } of edgeViews) {
-            const lines = e.commodities.map((c) => clip(c, 16) + (e.lag ? ` ·${e.lag}y` : ""));
-            const w = Math.max(...lines.map((l) => l.length)) * CW;
-            const h = lines.length * LH;
-            for (const out of [true, false]) {
-              const port = out ? poly[0] : poly[poly.length - 1];
-              const nxt = out ? poly[1] : poly[poly.length - 2];
-              const lineH = Math.abs(nxt.x - port.x) >= Math.abs(nxt.y - port.y);
-              const px = port.x + (lineH ? Math.sign(nxt.x - port.x) * 10 : 0);
-              const py = port.y + (lineH ? 0 : Math.sign(nxt.y - port.y) * 10);
-              let bx: number;
-              let by: number;
-              let tx: number;
-              let ta: "start" | "middle" | "end";
-              let dx = 0;
-              let dy = 0;
-              if (lineH) {
-                // horizontal line → text above (out) / below (in)
-                bx = px - w / 2; tx = px; ta = "middle";
-                by = out ? py - PAD - h : py + PAD;
-                dy = out ? -1 : 1;
-              } else {
-                // vertical line → text left (out) / right (in)
-                if (out) { bx = px - PAD - w; tx = px - PAD; ta = "end"; dx = -1; }
-                else { bx = px + PAD; tx = px + PAD; ta = "start"; dx = 1; }
-                by = py - h / 2;
-              }
-              raw.push({ key: `${out ? "ls" : "ld"}-${edgeKey(e)}`, lines, w, h, bx, by, tx, ta, dx, dy, active });
-            }
-          }
-          // De-overlap: push each label away from the line (along dx/dy) until clear.
-          const hit = (a: Lbl, b: Lbl) =>
-            a.bx < b.bx + b.w + G && b.bx < a.bx + a.w + G && a.by < b.by + b.h + G && b.by < a.by + a.h + G;
-          const placed: Lbl[] = [];
-          for (const L of raw) {
-            let guard = 0;
-            while (guard++ < 240 && placed.some((p) => hit(L, p))) {
-              L.bx += L.dx * 4;
-              L.by += L.dy * 4;
-              L.tx += L.dx * 4;
-            }
-            placed.push(L);
-          }
-          return placed.map((L) => (
-            <text key={L.key} x={L.tx} y={L.by + LH - 2} fontSize={9} fill={L.active ? "var(--text)" : "var(--muted)"} textAnchor={L.ta} style={{ pointerEvents: "none" }}>
-              {L.lines.map((l, i) => (<tspan key={i} x={L.tx} dy={i ? LH : 0}>{l}</tspan>))}
-            </text>
-          ));
-        })()}
+        {/* EDGE LABELS — horizontal text next to each connector, de-overlapped
+            (computed in the `placedLabels` memo). No backing box. */}
+        {placedLabels.map((L) => (
+          <text key={L.key} x={L.tx} y={L.by + LABEL_LH - 2} fontSize={9} fill={L.active ? "var(--text)" : "var(--muted)"} textAnchor={L.ta} style={{ pointerEvents: "none" }}>
+            {L.lines.map((l, i) => (<tspan key={i} x={L.tx} dy={i ? LABEL_LH : 0}>{l}</tspan>))}
+          </text>
+        ))}
 
         {/* interactive hit-paths ON TOP of the boxes — so hovering a flow line shows
             its popup even where the line runs behind a box. */}
@@ -760,6 +777,9 @@ export function HierarchyMap({
               onMouseEnter={onHover}
               onMouseMove={onHover}
               onMouseLeave={() => setHover(null)}
+              // Don't let the press reach the SVG (it would clear the selection /
+              // pan); the click below toggles this edge's selection.
+              onPointerDown={(ev) => ev.stopPropagation()}
               onClick={editable && e.rowIndex >= 0 ? () => setSelEdge(sel ? null : e.rowIndex) : undefined}
             />
           );
@@ -775,13 +795,13 @@ export function HierarchyMap({
               return (
                 <g key={`ec-${edgeKey(e)}`}>
                   {onEditConnection && (
-                    <g style={{ cursor: "pointer" }} onClick={(ev) => setForm({ from: e.from, to: e.to, sx: ev.clientX, sy: ev.clientY, editRowIndex: e.rowIndex, commodity: e.commodity, lag: e.lag })}>
+                    <g style={{ cursor: "pointer" }} onPointerDown={(ev) => ev.stopPropagation()} onClick={(ev) => setForm({ from: e.from, to: e.to, sx: ev.clientX, sy: ev.clientY, editRowIndex: e.rowIndex, commodity: e.commodity, lag: e.lag })}>
                       <circle cx={m.x - 11} cy={m.y} r={8} fill="var(--brand)" />
                       <text x={m.x - 11} y={m.y + 1} fontSize={9} fill="#fff" textAnchor="middle" dominantBaseline="middle">✎</text>
                     </g>
                   )}
                   {onDeleteConnection && (
-                    <g style={{ cursor: "pointer" }} onClick={() => { onDeleteConnection(e.rowIndex); setSelEdge(null); }}>
+                    <g style={{ cursor: "pointer" }} onPointerDown={(ev) => ev.stopPropagation()} onClick={() => { onDeleteConnection(e.rowIndex); setSelEdge(null); }}>
                       <circle cx={m.x + 11} cy={m.y} r={8} fill="var(--danger)" />
                       <text x={m.x + 11} y={m.y + 1} fontSize={10} fill="#fff" textAnchor="middle" dominantBaseline="middle">✕</text>
                     </g>

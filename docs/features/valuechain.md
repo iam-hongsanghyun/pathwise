@@ -79,8 +79,10 @@ links route onto the group box.
   outline), bends in the **nearest inter-box gutter**, and takes the **shortest**
   path that avoids same/lower-level boxes while moving freely through the enclosing
   box (an A* over the gutters). Toggle off for smooth curves.
-- **↺ Reset layout** — drop every manual position and snap back to the automatic
-  arrangement (and re-fit the view).
+
+Nodes are auto-arranged (not repositionable); the bottom-right **100%** button
+re-fits the whole chain. Drag from anywhere on the canvas (including over a box) to
+pan; a no-move tap selects.
 
 ## Connections (commodity flows)
 

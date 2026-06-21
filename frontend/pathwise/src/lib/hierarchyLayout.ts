@@ -238,7 +238,7 @@ export function layoutNested(wb: Workbook, opts: NestOpts = {}): Laid {
       rx += sz.w + GAP_X;
       maxH = Math.max(maxH, sz.h);
     }
-    return { nodes: out, edges: resolveEdges(wb, nodes, out, opts.expanded), width: rx, height: maxH + 2 * PAD };
+    return { nodes: out, edges: resolveEdges(wb, nodes, out), width: rx, height: maxH + 2 * PAD };
   }
   let ry = PAD;
   let maxW = 0;
@@ -248,7 +248,7 @@ export function layoutNested(wb: Workbook, opts: NestOpts = {}): Laid {
     ry += sz.h + GAP_Y;
     maxW = Math.max(maxW, sz.w);
   }
-  return { nodes: out, edges: resolveEdges(wb, nodes, out, opts.expanded), width: maxW + 2 * PAD, height: ry };
+  return { nodes: out, edges: resolveEdges(wb, nodes, out), width: maxW + 2 * PAD, height: ry };
 }
 
 // ── Swimlanes-by-level ────────────────────────────────────────────────────────
@@ -293,7 +293,7 @@ export function layoutSwimlane(wb: Workbook): Laid {
   const width = PAD + Math.max(1, ...[...idxByDepth.values()]) * CELL_W;
   return {
     nodes: out,
-    edges: resolveEdges(wb, nodes, out, undefined),
+    edges: resolveEdges(wb, nodes, out),
     width,
     height: PAD + (maxDepth + 1) * BAND_H,
   };
@@ -301,15 +301,9 @@ export function layoutSwimlane(wb: Workbook): Laid {
 
 // ── Edge resolution (machine flows → visible endpoints) ───────────────────────
 
-function resolveEdges(
-  wb: Workbook,
-  nodes: GroupNode[],
-  laid: LaidNode[],
-  expanded: Set<string> | undefined,
-): LaidEdge[] {
+function resolveEdges(wb: Workbook, nodes: GroupNode[], laid: LaidNode[]): LaidEdge[] {
   const visible = new Set(laid.map((n) => n.id));
   const toVisible = visibleAncestor(nodes, visible);
-  void expanded;
   const out: LaidEdge[] = [];
   const seen = new Set<string>();
   (wb.connections ?? []).forEach((row, i) => {
