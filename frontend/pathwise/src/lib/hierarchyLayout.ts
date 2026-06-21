@@ -380,11 +380,15 @@ export function layoutFor(
  *  the read-only `Laid.edges`, which dedupes for display. */
 export interface EditEdge {
   /** The connections-sheet row, or -1 when this is an AGGREGATE of several rows
-   *  (many machine→machine links collapsed onto one level→level arrow). */
+   *  (many machine→machine links, or several commodities, folded onto one arrow). */
   rowIndex: number;
   from: string;
   to: string;
+  /** Primary commodity (the first, for the single-link edit form). */
   commodity: string;
+  /** Every distinct commodity carried between these two endpoints (one arrow now
+   *  aggregates ALL commodities for a from→to pair). */
+  commodities: string[];
   lag: number;
   /** Per-provider annual flow bounds (null = unset). */
   maxFlow: number | null;
@@ -507,10 +511,6 @@ export function applyManualLayout(laid: Laid, positions: Map<string, { x: number
   };
 }
 
-/** Sentinel flow level: aggregate each link to the level where its two endpoints
- *  first diverge (the children of their lowest common ancestor). */
-export const DYNAMIC_FLOW = "__dynamic__";
-
 export function editEdges(wb: Workbook, laid: LaidNode[], flowLevel: string | null = null): EditEdge[] {
   const nodes = parseNodes(wb);
   const visible = new Set(laid.map((n) => n.id));
@@ -522,9 +522,8 @@ export function editEdges(wb: Workbook, laid: LaidNode[], flowLevel: string | nu
   // that level). null ⇒ "Component" (the machine itself).
   const levelOf = new Map(nodes.map((n) => [n.id, n.level]));
   const parentOf = new Map(nodes.map((n) => [n.id, n.parentId]));
-  const dynamic = flowLevel === DYNAMIC_FLOW;
   const atLevel = (id: string): string => {
-    if (!flowLevel || dynamic) return id;
+    if (!flowLevel) return id;
     let cur: string | null = id;
     const seen = new Set<string>();
     while (cur && !seen.has(cur)) {
@@ -569,16 +568,13 @@ export function editEdges(wb: Workbook, laid: LaidNode[], flowLevel: string | nu
     return cf && ct ? [cf, ct] : null;
   };
   // Resolve one connection's drawn endpoints for the current flow level:
-  //   • dynamic  → always the diverging level;
   //   • a level  → that level if the two sides sit in DIFFERENT level-groups;
   //                otherwise (an intra-group link) fall back to the diverging
-  //                level so it is still shown rather than dropped;
+  //                level so it is still shown rather than dropped. The top
+  //                "Value Chain" level therefore draws every link at its natural
+  //                diverging point (children of the lowest common ancestor);
   //   • null     → the machines themselves (Component).
   const endpointsFor = (rawFrom: string, rawTo: string): [string | null, string | null] => {
-    if (dynamic) {
-      const dv = divergingEndpoints(rawFrom, rawTo);
-      return dv ? [toVisible(dv[0]), toVisible(dv[1])] : [null, null];
-    }
     if (flowLevel) {
       const fx = atLevel(rawFrom);
       const tx = atLevel(rawTo);
@@ -588,9 +584,10 @@ export function editEdges(wb: Workbook, laid: LaidNode[], flowLevel: string | nu
     }
     return [toVisible(rawFrom), toVisible(rawTo)];
   };
-  // Map every connection onto its drawn endpoints, then aggregate by
-  // (from, to, commodity): a single underlying link stays editable; several
-  // folded onto one arrow become a display-only arrow with a count.
+  // Map every connection onto its drawn endpoints, then aggregate by (from, to)
+  // — ALL commodities between the same two boxes fold onto ONE arrow that lists
+  // each flow's name. A single underlying link stays editable; anything folded
+  // (several links, or several commodities) becomes a display-only arrow.
   const groups = new Map<string, EditEdge[]>();
   (wb.connections ?? []).forEach((row, rowIndex) => {
     const [from, to] = endpointsFor(s(row.from_node), s(row.to_node));
@@ -601,20 +598,25 @@ export function editEdges(wb: Workbook, laid: LaidNode[], flowLevel: string | nu
       from,
       to,
       commodity,
+      commodities: [commodity],
       lag: num(row.lag_years),
       maxFlow: flow(row.max_flow),
       minFlow: flow(row.min_flow),
       count: 1,
     };
-    const key = `${from}|${to}|${commodity}`;
+    const key = `${from}|${to}`;
     const bucket = groups.get(key);
     if (bucket) bucket.push(e);
     else groups.set(key, [e]);
   });
   const out: EditEdge[] = [];
   for (const bucket of groups.values()) {
-    if (bucket.length === 1) out.push(bucket[0]); // a single link — stays editable
-    else out.push({ ...bucket[0], rowIndex: -1, lag: 0, maxFlow: null, minFlow: null, count: bucket.length });
+    const commodities = [...new Set(bucket.map((e) => e.commodity))];
+    if (bucket.length === 1) {
+      out.push({ ...bucket[0], commodities }); // a single link — stays editable
+    } else {
+      out.push({ ...bucket[0], rowIndex: -1, lag: 0, maxFlow: null, minFlow: null, count: bucket.length, commodities });
+    }
   }
   return out;
 }

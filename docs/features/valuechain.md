@@ -43,18 +43,21 @@ re-open).
 of which nodes are expanded, choose how the *flows* are aggregated:
 
 - **Component** (default) — every machine→machine link, as authored.
-- **Dynamic** — each link is drawn at the level where its two ends first *diverge*:
-  the children of their lowest common ancestor. A flow between machines in two
-  different countries reads **country→country**; between two companies in one
-  country, **company→company**; between two machines in one technology group it
-  stays **machine→machine**. This is usually the clearest view — long links that
-  would otherwise cut across many boxes collapse to a single box-to-box arrow at
-  the natural separation level.
 - **A group level** (Facility, Company, Country … — derived from the model, never
-  hardcoded) — links *crossing* that level roll up to it (folding into one `×N`
-  arrow), while links *inside* one such group are **kept** and shown at their own
-  diverging level rather than dropped. So *Country* aggregates the international
-  trade to country boxes yet still shows the within-country company links.
+  hardcoded) — links *crossing* that level roll up to it, while links *inside* one
+  such group are **kept** and shown at their own diverging level rather than
+  dropped. So *Country* aggregates the international trade to country boxes yet
+  still shows the within-country company links.
+- **Value Chain** (the top level) — every link is drawn at the point where its two
+  ends first *diverge*: the children of their lowest common ancestor. A flow
+  between machines in different countries reads **country→country**; between two
+  companies in one country, **company→company**; between two machines in one
+  technology group it stays **machine→machine**. Usually the clearest view — long
+  links that would otherwise cut across many boxes collapse to one box-to-box arrow.
+
+Whatever the level, **all commodities between the same two boxes share one arrow**,
+labelled with each flow's name (e.g. `iron_ore, hydrogen`). **Hover** an arrow for a
+popup listing exactly what flows along it.
 
 Collapsing a group also aggregates: its internal links fold away and its external
 links route onto the group box.
@@ -73,9 +76,10 @@ all*:
   top→bottom flow.
 - **⌐ Straight lines** — route the flows as right-angle (horizontal/vertical-only)
   segments instead of curves. Adjacent boxes get a short elbow in the gutter
-  between them; a link that would otherwise cross *intermediate* boxes is routed
-  out into the margin **outside** the boxes and back in, minimising line-over-box
-  overlap. Pairs best with **Dynamic** flows. Toggle off for smooth curves.
+  between them; a longer link runs along the margin **inside its enclosing box** —
+  a flow between two children of one group never leaves that group's box — which
+  keeps the routing tidy without cutting across unrelated boxes. Toggle off for
+  smooth curves.
 - **↺ Reset layout** — drop every manual position and snap back to the automatic
   arrangement (and re-fit the view).
 

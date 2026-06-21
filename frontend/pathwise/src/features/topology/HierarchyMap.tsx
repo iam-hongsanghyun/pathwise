@@ -15,7 +15,6 @@ import { parseNodes } from "../../lib/groupGraph";
 import {
   applyManualLayout,
   defaultExpanded,
-  DYNAMIC_FLOW,
   editEdges,
   layoutFor,
   sourceStreams,
@@ -119,8 +118,8 @@ export function HierarchyMap({
     return [...minDepth.entries()].sort((a, b) => b[1] - a[1]).map(([lvl]) => lvl);
   }, [workbook]);
   useEffect(() => {
-    // Drop the selection if the model no longer has that level (Dynamic is always valid).
-    if (flowLevel && flowLevel !== DYNAMIC_FLOW && !flowLevels.includes(flowLevel)) setFlowLevel(null);
+    // Drop the selection if the model no longer has that level.
+    if (flowLevel && !flowLevels.includes(flowLevel)) setFlowLevel(null);
   }, [flowLevels, flowLevel]);
   const titleCase = (s: string) => s.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
@@ -206,9 +205,21 @@ export function HierarchyMap({
     () =>
       editable
         ? editEdges(workbook, laid.nodes, flowLevel).map((e) => ({ ...e, origFrom: e.from, origTo: e.to }))
-        : laid.edges.map((e) => ({ ...e, rowIndex: -1, lag: 0, count: 1 })),
+        : laid.edges.map((e) => ({ ...e, rowIndex: -1, lag: 0, count: 1, commodities: [e.commodity] })),
     [editable, workbook, laid, flowLevel],
   );
+  // Lowest-common-ancestor box of two endpoints — orthogonal routing stays INSIDE
+  // it (a flow between two children of one box never leaves that box).
+  const lcaBox = (fromId: string, toId: string): LaidNode | null => {
+    const anc = new Set<string>();
+    let c: string | null = fromId;
+    const seen = new Set<string>();
+    while (c && !seen.has(c)) { anc.add(c); seen.add(c); c = parentOf.get(c) ?? null; }
+    let d: string | null = toId;
+    const seen2 = new Set<string>();
+    while (d && !seen2.has(d)) { if (anc.has(d)) return boxById.get(d) ?? null; seen2.add(d); d = parentOf.get(d) ?? null; }
+    return null;
+  };
   const edgeKey = (e: { from: string; to: string; commodity: string; rowIndex: number }) =>
     `${e.from}-${e.to}-${e.commodity}-${e.rowIndex}`;
   // Stagger labels of edges whose midpoints collide, so two flows between the
@@ -269,6 +280,8 @@ export function HierarchyMap({
   const [connect, setConnect] = useState<{ from: string; wx: number; wy: number } | null>(null);
   const [form, setForm] = useState<{ from: string; to: string; sx: number; sy: number; editRowIndex?: number; commodity?: string; lag?: number } | null>(null);
   const [selEdge, setSelEdge] = useState<number | null>(null);
+  // Hover-a-flow popup: which arrow, and where the cursor is.
+  const [hover, setHover] = useState<{ x: number; y: number; from: string; to: string; commodities: string[]; lag: number } | null>(null);
 
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -483,7 +496,6 @@ export function HierarchyMap({
               style={{ fontSize: "0.74rem", padding: "2px 4px", border: "1px solid var(--border-strong)", borderRadius: 4, background: "var(--surface)", font: "inherit" }}
             >
               <option value="">Component</option>
-              <option value={DYNAMIC_FLOW}>Dynamic</option>
               {flowLevels.map((lvl) => (
                 <option key={lvl} value={lvl}>{titleCase(lvl)}</option>
               ))}
@@ -632,11 +644,11 @@ export function HierarchyMap({
           if (ortho) {
             const lane = (edgeLabelRank.get(edgeKey(e)) ?? 0) * 14;
             const EM = 16; // exit margin past a box edge
-            // Enclosing (1-step-higher) group boxes of each endpoint. A non-adjacent
-            // link routes in the gutter OUTSIDE these so the perpendicular leg never
-            // cuts through a sub-box between the two ("go round the side, not through").
-            const apar = boxById.get(parentOf.get(e.from) ?? "") ?? a;
-            const bpar = boxById.get(parentOf.get(e.to) ?? "") ?? b;
+            const INSET = 8; // clear margin strip just inside a box's border
+            // The link's enclosing box (lowest common ancestor): the perpendicular
+            // lane is kept INSIDE it, so a flow between two children of one group
+            // never leaves that group's box ("stay within the one level upper box").
+            const L = lcaBox(e.from, e.to);
             if (horiz) {
               const gap = x2 - x1; // x1 = a's right edge, x2 = b's left edge
               if (gap > 0 && gap < 96 && Math.abs(y2 - y1) < a.h + b.h) {
@@ -644,8 +656,9 @@ export function HierarchyMap({
                 const cx = x1 + gap / 2 + lane;
                 d = `M${x1},${y1} L${cx},${y1} L${cx},${y2} L${x2},${y2}`;
               } else {
-                // route along a horizontal lane below both parent boxes
-                const gy = Math.max(apar.y + apar.h, bpar.y + bpar.h) + EM + lane;
+                // non-adjacent: a horizontal lane below the boxes, inside the LCA box
+                let gy = Math.max(a.y + a.h, b.y + b.h) + EM + lane;
+                if (L) gy = Math.min(gy, L.y + L.h - INSET);
                 d = `M${x1},${y1} L${x1 + EM},${y1} L${x1 + EM},${gy} L${x2 - EM},${gy} L${x2 - EM},${y2} L${x2},${y2}`;
               }
             } else {
@@ -654,8 +667,9 @@ export function HierarchyMap({
                 const cy = y1 + gap / 2 + lane;
                 d = `M${x1},${y1} L${x1},${cy} L${x2},${cy} L${x2},${y2}`;
               } else {
-                // route up/down a vertical lane to the right of both parent boxes
-                const gx = Math.max(apar.x + apar.w, bpar.x + bpar.w) + EM + lane;
+                // non-adjacent: a vertical lane right of the boxes, inside the LCA box
+                let gx = Math.max(a.x + a.w, b.x + b.w) + EM + lane;
+                if (L) gx = Math.min(gx, L.x + L.w - INSET);
                 d = `M${x1},${y1} L${x1},${y1 + EM} L${gx},${y1 + EM} L${gx},${y2 - EM} L${x2},${y2 - EM} L${x2},${y2}`;
               }
             }
@@ -666,17 +680,28 @@ export function HierarchyMap({
             const c = Math.max(40, (y2 - y1) / 2);
             d = `M${x1},${y1} C${x1},${y1 + c} ${x2},${y2 - c} ${x2},${y2}`;
           }
-          const label =
-            (active ? `${clip(e.commodity, 8)} ${fmtVal(fv!)}` : clip(e.commodity, 10)) +
-            (e.count > 1 ? ` ×${e.count}` : "") +
-            (e.lag ? ` ·${e.lag}y` : "");
+          // One arrow now carries ALL commodities between the two boxes — list each
+          // flow's name; full detail (and per-flow values) is in the hover popup.
+          const names = e.commodities.join(", ");
+          const label = clip(active ? `${names} ${fmtVal(fv!)}` : names, 30) + (e.lag ? ` ·${e.lag}y` : "");
           const labelY = my - 4 - (edgeLabelRank.get(edgeKey(e)) ?? 0) * 12;
+          const onHover = (ev: React.MouseEvent) =>
+            setHover({ x: ev.clientX, y: ev.clientY, from: e.from, to: e.to, commodities: e.commodities, lag: e.lag });
           return (
             <g key={edgeKey(e)} className="topo-edge">
               <path d={d} fill="none" stroke={sel ? "#0b5d56" : "#0f766e"} strokeWidth={sel ? 2.6 : active ? 2.2 : 1.3} markerEnd="url(#hm-arrow)" opacity={overlay && !active ? 0.28 : 0.78} />
-              {editable && e.rowIndex >= 0 && (
-                <path d={d} fill="none" stroke="transparent" strokeWidth={12} style={{ cursor: "pointer" }} onClick={() => setSelEdge(sel ? null : e.rowIndex)} />
-              )}
+              {/* transparent hit-path: hover for the flow popup, click to select (editable) */}
+              <path
+                d={d}
+                fill="none"
+                stroke="transparent"
+                strokeWidth={14}
+                style={{ cursor: editable && e.rowIndex >= 0 ? "pointer" : "default" }}
+                onMouseEnter={onHover}
+                onMouseMove={onHover}
+                onMouseLeave={() => setHover(null)}
+                onClick={editable && e.rowIndex >= 0 ? () => setSelEdge(sel ? null : e.rowIndex) : undefined}
+              />
               <text x={mx} y={labelY} fontSize={9} fill={active ? "var(--text)" : "var(--muted)"} textAnchor="middle" style={{ pointerEvents: "none" }}>
                 {label}
               </text>
@@ -744,6 +769,41 @@ export function HierarchyMap({
           );
         })}
       </svg>
+
+      {/* hover-a-flow popup: what commodities travel along the arrow under the cursor */}
+      {hover && (
+        <div
+          style={{
+            position: "fixed",
+            left: Math.min(hover.x + 14, window.innerWidth - 240),
+            top: Math.min(hover.y + 14, window.innerHeight - 120),
+            zIndex: 1200,
+            pointerEvents: "none",
+            background: "var(--surface)",
+            border: "1px solid var(--border-strong)",
+            borderRadius: "var(--radius-button)",
+            boxShadow: "0 6px 24px rgba(0,0,0,0.16)",
+            padding: "8px 10px",
+            maxWidth: 240,
+            fontSize: "0.76rem",
+          }}
+        >
+          <div style={{ marginBottom: 4 }}>
+            <b>{boxById.get(hover.from)?.label ?? hover.from}</b>
+            <span className="muted"> → </span>
+            <b>{boxById.get(hover.to)?.label ?? hover.to}</b>
+          </div>
+          <div className="muted" style={{ marginBottom: 2, fontSize: "0.7rem" }}>
+            {hover.commodities.length} flow{hover.commodities.length === 1 ? "" : "s"}
+            {hover.lag ? ` · ${hover.lag}y lag` : ""}
+          </div>
+          <ul style={{ margin: 0, padding: "0 0 0 14px" }}>
+            {hover.commodities.map((c) => (
+              <li key={c} style={{ color: "var(--text)" }}>{c}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* zoom controls (bottom-right): − / fit% / + */}
       <div
