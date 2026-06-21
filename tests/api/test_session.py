@@ -41,6 +41,19 @@ def test_patch_sheet_malformed_op_returns_422() -> None:
     assert r.status_code == 422
 
 
+def test_cache_clear_open_when_no_admin_token() -> None:
+    # Local-first default: no token configured ⇒ the destructive endpoint is open.
+    assert client.post("/api/cache/clear").status_code == 200
+
+
+def test_cache_clear_requires_admin_token_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PATHWISE_ADMIN_TOKEN", "s3cret")
+    get_settings.cache_clear()
+    assert client.post("/api/cache/clear").status_code == 403  # missing
+    assert client.post("/api/cache/clear", headers={"X-Admin-Token": "no"}).status_code == 403
+    assert client.post("/api/cache/clear", headers={"X-Admin-Token": "s3cret"}).status_code == 200
+
+
 def test_value_chain_list_and_run() -> None:
     chains = client.get("/api/value-chains").json()
     assert any(c["id"] == "elec_steel" for c in chains), "shipped value chain missing from index"

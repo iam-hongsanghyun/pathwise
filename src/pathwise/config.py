@@ -85,6 +85,13 @@ class Settings(BaseSettings):
     # ── Backend identity ─────────────────────────────────────────────────────
     schema_version: str = "1.0"
 
+    # ── Security ───────────────────────────────────────────────────────────────
+    # Optional token guarding destructive global endpoints (e.g. POST
+    # /api/cache/clear, which wipes ALL sessions). Empty (the default) leaves them
+    # open — correct for the local-first single-user app. Set it in any shared /
+    # multi-tenant deployment; callers must then send a matching ``X-Admin-Token``.
+    admin_token: str = ""
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
