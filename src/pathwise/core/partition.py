@@ -82,7 +82,14 @@ def _project(flat: Workbook, members: set[str], cut: str, h: Hierarchy) -> Workb
                 for r in rows
                 if str(r.get("from_process")) in members and str(r.get("to_process")) in members
             ]
-        elif sheet in ("demand", "impact_caps", "min_production", "investment_budget"):
+        elif sheet in (
+            "demand",
+            "impact_caps",
+            "min_production",
+            "min_consumption",
+            "max_consumption",
+            "investment_budget",
+        ):
             sub[sheet] = [r for r in rows if _scope_in_cut(str(r.get("company")), cut, h)]
         else:
             sub[sheet] = list(rows)  # shared catalogue / scenario sheet
@@ -212,7 +219,15 @@ def subset_workbook(workbook: Workbook, hierarchy: Hierarchy, keep: list[str]) -
             sub[sheet] = [r for r in rows if str(r.get("node_id")) in members]
         elif sheet == "measures":
             sub[sheet] = [r for r in rows if str(r.get("facility")) in members]
-        elif sheet in ("demand", "markets", "impact_caps", "min_production", "investment_budget"):
+        elif sheet in (
+            "demand",
+            "markets",
+            "impact_caps",
+            "min_production",
+            "min_consumption",
+            "max_consumption",
+            "investment_budget",
+        ):
             sub[sheet] = [
                 r
                 for r in rows

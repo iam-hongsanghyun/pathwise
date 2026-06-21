@@ -1462,6 +1462,20 @@ def _controls(ctx: BuildContext) -> None:
         if delivered is not None:
             m.add_constraints(delivered <= amount, name=f"maxprod[{c},{q},{y}]")
 
+    # Per-machine intake bounds (the consumer side): the machine's gross consumption
+    # of a commodity, summed over its providers. min = required offtake (take-or-pay
+    # floor), max = maximum purchase (intake ceiling).
+    for (c, q, y), amount in prob.min_consumption.items():
+        terms = [_gross_consumed(ctx, p, q, y) for p in _scope_processes(ctx, c)]
+        consumed = _lin_sum([t for t in terms if t is not None])
+        if consumed is not None:
+            m.add_constraints(consumed >= amount, name=f"mincons[{c},{q},{y}]")
+    for (c, q, y), amount in prob.max_consumption.items():
+        terms = [_gross_consumed(ctx, p, q, y) for p in _scope_processes(ctx, c)]
+        consumed = _lin_sum([t for t in terms if t is not None])
+        if consumed is not None:
+            m.add_constraints(consumed <= amount, name=f"maxcons[{c},{q},{y}]")
+
 
 def _adoption_caps(ctx: BuildContext) -> None:
     r"""Fleet-wide cap on the number of processes running a technology each year.

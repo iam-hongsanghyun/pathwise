@@ -63,6 +63,8 @@ from pathwise.data.sheets import (
     MARKETS_T_MAX_SELL,
     MARKETS_T_PRICE,
     MARKETS_T_SELL_PRICE,
+    MAX_CONSUMPTION,
+    MAX_CONSUMPTION_T_AMOUNT,
     MAX_PRODUCTION,
     MAX_PRODUCTION_T_AMOUNT,
     MEASURE_BLOCKS,
@@ -70,6 +72,8 @@ from pathwise.data.sheets import (
     MEASURE_LINKS,
     MEASURES,
     META,
+    MIN_CONSUMPTION,
+    MIN_CONSUMPTION_T_AMOUNT,
     MIN_PRODUCTION,
     MIN_PRODUCTION_T_AMOUNT,
     NODE_LAYOUT,
@@ -1090,6 +1094,24 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         "amount",
         base_years=years,  # a year-less cap (per-machine / per-stream) holds every year
     )
+    min_consumption = _temporal_dict(
+        workbook,
+        MIN_CONSUMPTION,
+        MIN_CONSUMPTION_T_AMOUNT,
+        "min_cons_id",
+        ["company", "commodity_id"],
+        "amount",
+        base_years=years,  # a year-less required offtake (per-machine intake floor) holds every year
+    )
+    max_consumption = _temporal_dict(
+        workbook,
+        MAX_CONSUMPTION,
+        MAX_CONSUMPTION_T_AMOUNT,
+        "max_cons_id",
+        ["company", "commodity_id"],
+        "amount",
+        base_years=years,  # a year-less max purchase (per-machine intake cap) holds every year
+    )
     demand = _temporal_dict(
         workbook,
         DEMAND,
@@ -1168,6 +1190,8 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         investment_budget=investment_budget,
         min_production=min_production,
         max_production=max_production,
+        min_consumption=min_consumption,
+        max_consumption=max_consumption,
         technology_caps=technology_caps,
         company_objective=company_objective,
         default_objective=ObjectiveMode(scenario.objective),

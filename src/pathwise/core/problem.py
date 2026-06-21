@@ -101,6 +101,12 @@ class Problem:
     investment_budget: dict[tuple[str, int], float] = field(default_factory=dict)
     min_production: dict[tuple[str, str, int], float] = field(default_factory=dict)
     max_production: dict[tuple[str, str, int], float] = field(default_factory=dict)
+    # Per-machine intake bounds on a consumed commodity (the consumer side, the
+    # mirror of min/max_production), keyed by ``(company, commodity_id, year)``
+    # [commodity unit / yr]. min = required offtake (a take-or-pay floor on how
+    # much the machine must consume); max = maximum purchase (an intake ceiling).
+    min_consumption: dict[tuple[str, str, int], float] = field(default_factory=dict)
+    max_consumption: dict[tuple[str, str, int], float] = field(default_factory=dict)
     # Upper bound on how many processes may run a technology in any one year
     # (fleet-wide adoption cap), keyed by technology id — e.g. only N greenfield
     # H2-DRI plants can exist by a given year.
