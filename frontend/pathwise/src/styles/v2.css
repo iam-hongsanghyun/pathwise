@@ -452,35 +452,52 @@ th {
   font-size: 0.74rem;
   color: var(--muted);
 }
-.mi-bounds {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 6px;
-  margin-top: 6px;
-}
 .mi-bound-lbl {
   font-size: 0.68rem;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.mi-bound-lbl:not(:first-child) {
-  margin-left: 4px;
+/* One stream's bounds, aligned in [name | min | max] columns so the pooled row
+   and each per-provider row share the same min/max columns. */
+.mi-flow {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
 }
-.mi-providers {
-  margin: 0 0 6px 46px;
-  border-left: 2px solid var(--border);
-  padding-left: 10px;
+.mi-flow-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content max-content;
+  gap: 7px 16px;
+  align-items: baseline;
 }
-.mi-provider {
-  padding: 6px 0;
+.mi-flow-label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
 }
-.mi-provider:not(:last-child) {
-  border-bottom: 1px dashed var(--border);
-}
-.mi-provider-name {
+.mi-coef {
+  font-family: var(--font-mono);
   font-size: 0.78rem;
+  color: var(--muted);
+  margin-left: auto;
+  white-space: nowrap;
+}
+.mi-flow-cell {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;
+}
+.mi-flow-sub {
+  grid-column: 1 / -1;
+  font-size: 0.74rem;
+  color: var(--muted);
+  margin-top: -3px;
+}
+.mi-flow-prov {
+  padding-left: 18px;
+  font-size: 0.84rem;
   color: var(--text);
 }
 .mi-val {

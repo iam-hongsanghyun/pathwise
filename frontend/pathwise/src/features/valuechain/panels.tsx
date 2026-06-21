@@ -194,53 +194,71 @@ export function MachineInspector({
   const yFrom = techRow?.introduction_year, yTo = techRow?.phase_out_year;
   const avail = yFrom == null && yTo == null ? "always available" : `available ${yFrom ?? "—"} → ${yTo ?? "—"}`;
 
-  const wireRow = (r: Record<string, Cell>, role: "IN" | "OUT") => {
+  // One min/max value cell: a "min"/"max" header (first row only) + the value as
+  // inline clickable text (opens the temporal editor). No boxy inputs here.
+  const flowCell = (
+    v: TemporalVal | null,
+    onChange: (x: TemporalVal | null) => void,
+    label: string,
+    unit: string,
+    placeholder: string,
+    header?: string,
+  ) => (
+    <span className="mi-flow-cell">
+      {header && <span className="mi-bound-lbl">{header}</span>}
+      <TemporalValue value={v} onChange={onChange} unit={unit} baseYear={baseYear} periods={periods} placeholder={placeholder} label={label} variant="text" />
+    </span>
+  );
+
+  // One stream (an io commodity): a grid of [name | min | max]. OUTPUT bounds the
+  // machine's production; INPUT bounds the pooled intake (min = required offtake,
+  // max = max purchase) AND lists each provider connection so the buyer can cap
+  // purchase per producer.
+  const streamFlow = (r: Record<string, Cell>, role: "IN" | "OUT") => {
     const c = s(r.target);
-    const sub = role === "IN" ? inFrom(c) : { text: outTo(c, !!r.is_product), ok: true };
     const isOut = role === "OUT";
     const unit = commodityUnit(wb, c);
-    // OUTPUT streams bound production (min/max_production); INPUT streams bound the
-    // machine's intake (min/max_consumption): min = required offtake, max = max purchase.
+    const sub = isOut ? { text: outTo(c, !!r.is_product), ok: true } : inFrom(c);
     const minVal = isOut ? minOutputCap(wb, machineId, c) : minConsumptionCap(wb, machineId, c);
     const maxVal = isOut ? maxOutputCap(wb, machineId, c) : maxConsumptionCap(wb, machineId, c);
     const setMin = (v: TemporalVal | null) =>
       onWorkbookChange?.(isOut ? setMinOutputCap(wb, machineId, c, v) : setMinConsumptionCap(wb, machineId, c, v));
     const setMax = (v: TemporalVal | null) =>
       onWorkbookChange?.(isOut ? setMaxOutputCap(wb, machineId, c, v) : setMaxConsumptionCap(wb, machineId, c, v));
+    const provs = !isOut && onWorkbookChange ? inputProviders(c) : [];
     return (
-      <div className="mi-row" key={`${role}:${c}`}>
-        <span className={`mi-badge ${isOut ? "mi-out" : ""}`}>{role}</span>
-        <div className="mi-stream">
-          <div className="mi-name">{c}{r.is_product ? " ★" : ""}</div>
-          <div className="mi-sub" style={sub.ok === false ? { color: "var(--danger)" } : undefined}>{sub.text}</div>
-          {onWorkbookChange && (
-            <div className="mi-bounds">
-              <span className="mi-bound-lbl">{isOut ? "min" : "min offtake"}</span>
-              <TemporalValue value={minVal} onChange={setMin} unit={unit} baseYear={baseYear} periods={periods} placeholder={isOut ? "no floor" : "none"} label={`${c} · ${isOut ? "min output" : "required offtake"}`} />
-              <span className="mi-bound-lbl">{isOut ? "max" : "max purchase"}</span>
-              <TemporalValue value={maxVal} onChange={setMax} unit={unit} baseYear={baseYear} periods={periods} placeholder="no cap" label={`${c} · ${isOut ? "max output" : "max purchase"}`} />
-            </div>
+      <div className="mi-flow" key={`${role}:${c}`}>
+        <div className="mi-flow-grid">
+          <span className="mi-flow-label">
+            <span className={`mi-badge ${isOut ? "mi-out" : ""}`}>{role}</span>
+            <span className="mi-name">{c}{r.is_product ? " ★" : ""}</span>
+            <span className="mi-coef">{fmt(r.coefficient)} {unitOf(c)}</span>
+          </span>
+          {onWorkbookChange ? (
+            <>
+              {flowCell(minVal, setMin, `${c} · ${isOut ? "min output" : "required offtake"}`, unit, isOut ? "no floor" : "none", "min")}
+              {flowCell(maxVal, setMax, `${c} · ${isOut ? "max output" : "max purchase"}`, unit, "no cap", "max")}
+            </>
+          ) : (
+            <>
+              <span />
+              <span />
+            </>
           )}
-        </div>
-        <div className="mi-val">{fmt(r.coefficient)} <span className="mi-unit">{unitOf(c)}</span></div>
-      </div>
-    );
-  };
-
-  // A per-producer buy bound on the pooled input commodity `c`: each provider
-  // connection capped independently (edits that connection's min/max flow).
-  const providerRow = (c: string, prov: { from: string; to: string; label: string }) => {
-    const unit = commodityUnit(wb, c);
-    const { min, max } = connectionFlow(wb, prov.from, prov.to, c);
-    const toLbl = prov.to === machineId ? "" : ` → ${lab(prov.to)}`;
-    return (
-      <div className="mi-provider" key={`prov:${c}:${prov.from}:${prov.to}`}>
-        <span className="mi-provider-name">← {prov.label}{toLbl}</span>
-        <div className="mi-bounds">
-          <span className="mi-bound-lbl">min</span>
-          <TemporalValue value={min} onChange={(v) => onWorkbookChange?.(setConnectionBounds(wb, prov.from, prov.to, c, v, max))} unit={unit} baseYear={baseYear} periods={periods} placeholder="none" label={`${prov.label} → ${c} · min buy`} />
-          <span className="mi-bound-lbl">max</span>
-          <TemporalValue value={max} onChange={(v) => onWorkbookChange?.(setConnectionBounds(wb, prov.from, prov.to, c, min, v))} unit={unit} baseYear={baseYear} periods={periods} placeholder="no cap" label={`${prov.label} → ${c} · max buy`} />
+          {(provs.length === 0 || isOut) && (
+            <span className="mi-flow-sub" style={sub.ok === false ? { color: "var(--danger)" } : undefined}>{sub.text}</span>
+          )}
+          {provs.map((p) => {
+            const { min, max } = connectionFlow(wb, p.from, p.to, c);
+            const toLbl = p.to === machineId ? "" : ` → ${lab(p.to)}`;
+            return (
+              <Fragment key={`prov:${c}:${p.from}:${p.to}`}>
+                <span className="mi-flow-label mi-flow-prov">← {p.label}{toLbl}</span>
+                {flowCell(min, (v) => onWorkbookChange?.(setConnectionBounds(wb, p.from, p.to, c, v, max)), `${p.label} → ${c} · min buy`, unit, "none")}
+                {flowCell(max, (v) => onWorkbookChange?.(setConnectionBounds(wb, p.from, p.to, c, min, v)), `${p.label} → ${c} · max buy`, unit, "no cap")}
+              </Fragment>
+            );
+          })}
         </div>
       </div>
     );
@@ -257,17 +275,8 @@ export function MachineInspector({
 
       <div className="mi-section-head"><span>recipe — wiring</span><span className="muted">per {thru} output</span></div>
       <div>
-        {inputs.map((r) => {
-          const c = s(r.target);
-          const provs = onWorkbookChange ? inputProviders(c) : [];
-          return (
-            <Fragment key={`in:${c}`}>
-              {wireRow(r, "IN")}
-              {provs.length > 0 && <div className="mi-providers">{provs.map((p) => providerRow(c, p))}</div>}
-            </Fragment>
-          );
-        })}
-        {outputs.map((r) => wireRow(r, "OUT"))}
+        {inputs.map((r) => streamFlow(r, "IN"))}
+        {outputs.map((r) => streamFlow(r, "OUT"))}
         {io.length === 0 && <div className="muted" style={{ padding: "8px 0", fontSize: "0.8rem" }}>no recipe</div>}
       </div>
 

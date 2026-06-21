@@ -823,6 +823,21 @@
 .temporal-btn:hover {
   border-color: var(--brand);
 }
+/* Inline-text variant: no box — a small clickable value/trend that opens the editor. */
+.temporal-btn.is-text {
+  background: none;
+  border: none;
+  border-bottom: 1px dashed var(--border-strong);
+  border-radius: 0;
+  padding: 1px 2px;
+  min-width: 0;
+  color: var(--brand-strong);
+  font-variant-numeric: tabular-nums;
+}
+.temporal-btn.is-text:hover {
+  border-bottom-color: var(--brand);
+  border-bottom-style: solid;
+}
 /* Centered modal overlay (TemporalValue editor; reusable). */
 .modal-scrim {
   position: fixed;

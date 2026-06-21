@@ -92,6 +92,7 @@ export function TemporalValue({
   baseYear,
   periods,
   placeholder = "set…",
+  variant = "button",
 }: {
   value: TemporalVal | null;
   onChange: (v: TemporalVal | null) => void;
@@ -101,6 +102,8 @@ export function TemporalValue({
   /** The model's run periods (years). The fill is materialised onto these. */
   periods?: number[];
   placeholder?: string;
+  /** "button" = a bordered box; "text" = inline clickable value/trend (no box). */
+  variant?: "button" | "text";
 }) {
   const [open, setOpen] = useState(false);
   const text =
@@ -111,7 +114,7 @@ export function TemporalValue({
         : fmt(value);
   return (
     <>
-      <button className="temporal-btn" title="edit value — static or by-year" onClick={() => setOpen(true)}>
+      <button className={`temporal-btn${variant === "text" ? " is-text" : ""}`} title="edit value — static or by-year" onClick={() => setOpen(true)}>
         <span>{text}</span>
         {unit && value != null ? <span className="muted"> {unit}/yr</span> : null}
       </button>
