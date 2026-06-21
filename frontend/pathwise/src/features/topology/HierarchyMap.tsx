@@ -322,7 +322,7 @@ export function HierarchyMap({
   // Background/container press: the SVG captures the pointer for panning, so a
   // click on a container rect can't use onClick (the click retargets to the SVG).
   // We record the pointer-down target's group id here and act on a no-move up.
-  const bgPress = useRef<{ x: number; y: number; moved: boolean; groupId: string | null; toggleId: string | null } | null>(null);
+  const bgPress = useRef<{ x: number; y: number; moved: boolean; kind: "toggle" | "group" | "node" | "empty"; id: string | null } | null>(null);
   const [connect, setConnect] = useState<{ from: string; wx: number; wy: number } | null>(null);
   const [form, setForm] = useState<{ from: string; to: string; sx: number; sy: number; editRowIndex?: number; commodity?: string; lag?: number } | null>(null);
   const [selEdge, setSelEdge] = useState<number | null>(null);
@@ -336,50 +336,23 @@ export function HierarchyMap({
       return next;
     });
 
-  // A no-move tap runs `onClick` (select / toggle). Nodes are NOT draggable; a
-  // press-and-drag does nothing here (panning happens from empty canvas).
-  function tap(onClick: () => void, e: React.PointerEvent) {
-    if (connect || !editable) {
-      onClick();
-      return;
-    }
-    e.stopPropagation();
-    const sx = e.clientX;
-    const sy = e.clientY;
-    let moved = false;
-    const move = (ev: PointerEvent) => {
-      if (Math.hypot(ev.clientX - sx, ev.clientY - sy) >= DRAG_PX) moved = true;
-    };
-    const up = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      if (!moved) onClick();
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-  }
-
+  // Every press — on a node, a group, or empty canvas — starts a potential PAN
+  // (so you can drag the canvas from anywhere). On pointer-up, a no-move tap is
+  // resolved to a select / toggle; a real drag was a pan. Nodes aren't repositioned.
   function bgDown(e: React.PointerEvent) {
     press.current = null;
     setSelEdge(null);
     const el = e.target as Element;
-    // Walk ancestors (not just e.target) so a click anywhere inside the group box
-    // — body, header, label — resolves to the group; the ▾ grip wins via toggle.
     const toggleId = el?.closest?.("[data-toggle]")?.getAttribute("data-toggle") ?? null;
+    const nodeId = el?.closest?.("[data-node]")?.getAttribute("data-node") ?? null;
     const groupId = el?.closest?.("[data-group]")?.getAttribute("data-group") ?? null;
-    // The ▾ grip toggles the group; the rest of the box selects it (tap again to
-    // close the inspector); the background pans.
-    if (toggleId) {
-      tap(() => toggle(toggleId), e);
-      return;
-    }
-    if (groupId) {
-      const gid = groupId;
-      tap(() => (selectedId === gid && onBackgroundClick ? onBackgroundClick() : onSelect?.(gid)), e);
-      return;
-    }
-    bgPress.current = { x: e.clientX, y: e.clientY, moved: false, groupId: null, toggleId: null };
-    onPanStart(e);
+    let kind: "toggle" | "group" | "node" | "empty" = "empty";
+    let id: string | null = null;
+    if (toggleId) { kind = "toggle"; id = toggleId; }
+    else if (nodeId) { kind = "node"; id = nodeId; }
+    else if (groupId) { kind = "group"; id = groupId; }
+    bgPress.current = { x: e.clientX, y: e.clientY, moved: false, kind, id };
+    if (!connect) onPanStart(e);
   }
   function bgMove(e: React.PointerEvent) {
     if (connect) {
@@ -392,14 +365,24 @@ export function HierarchyMap({
     onPanMove(e);
   }
   function bgUp() {
-    // Background pan end (group select / toggle / drag are handled in startNodeDrag).
     const b = bgPress.current;
     bgPress.current = null;
     onPanEnd();
-    // A no-move tap on empty canvas (not a pan, not a link drag) clears the
-    // selection so the floating inspector closes.
-    if (b && !b.moved && !connect) onBackgroundClick?.();
-    setConnect(null);
+    if (connect) {
+      setConnect(null);
+      return;
+    }
+    // A no-move tap → act on whatever was under the cursor; a drag was a pan.
+    if (b && !b.moved) {
+      if (b.kind === "toggle" && b.id) toggle(b.id);
+      else if (b.kind === "node" && b.id) {
+        const n = boxById.get(b.id);
+        if (n) nodeClick(n);
+      } else if (b.kind === "group" && b.id) {
+        if (selectedId === b.id && onBackgroundClick) onBackgroundClick();
+        else onSelect?.(b.id);
+      } else onBackgroundClick?.();
+    }
   }
   function nodeClick(n: LaidNode) {
     // Collapsed groups in the read-only (analytics) map still drill on click; the
@@ -674,11 +657,11 @@ export function HierarchyMap({
           return (
             <g
               key={`n-${n.id}`}
+              data-node={n.id}
               className={`topo-node ${isMachine ? "topo-commodity" : "topo-process"}`}
               transform={`translate(${n.x},${n.y})`}
               opacity={idle ? 0.45 : 1}
               style={{ cursor: "pointer" }}
-              onPointerDown={(e) => tap(() => nodeClick(n), e)}
             >
               <rect width={n.w} height={n.h} rx={3} fill={fill} fillOpacity={isSel ? 1 : 0.92} stroke={stroke} strokeWidth={isSel || toTech ? 2.5 : undefined} />
               <text className="topo-kind" x={8} y={14}>{isMachine ? "machine" : !editable && n.collapsed ? "group ▸" : "group"}</text>
