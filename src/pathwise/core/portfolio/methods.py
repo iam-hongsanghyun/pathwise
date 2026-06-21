@@ -35,7 +35,11 @@ import numpy.typing as npt
 import pandas as pd
 from pypfopt import BlackLittermanModel, EfficientCVaR, EfficientFrontier, HRPOpt
 
-_FRONTIER_POINTS = 25
+_FRONTIER_POINTS = 25  # points sampled along the efficient frontier for the chart
+
+#: Diagonal nudge added to a degenerate/singular covariance so the QP stays
+#: positive-definite; small enough to leave well-posed problems unchanged.
+_COV_NUDGE = 1.0e-8
 
 
 class PortfolioMethod(StrEnum):
@@ -87,12 +91,13 @@ def _inputs(asset_ids: list[str], returns: npt.NDArray[np.float64]) -> _Inputs:
     frame = pd.DataFrame(returns, columns=pd.Index(asset_ids))
     mu = frame.mean(axis=0)
     cov = frame.cov().fillna(0.0)
-    # A single scenario (or identical draws) yields a zero/degenerate covariance;
-    # nudge the diagonal so the QP stays well-posed.
-    if len(frame) < 2 or not np.any(np.asarray(cov)):
-        cov = cov + pd.DataFrame(
-            np.eye(len(asset_ids)) * 1e-8, index=cov.index, columns=cov.columns
-        )
+    # A single scenario, identical draws, or perfectly-correlated assets give a
+    # zero/rank-deficient covariance; nudge the diagonal so the QP stays
+    # positive-definite. Full-rank (well-posed) inputs are left untouched.
+    cov_arr = np.asarray(cov, dtype=float)
+    n = len(asset_ids)
+    if len(frame) < 2 or not np.any(cov_arr) or np.linalg.matrix_rank(cov_arr) < n:
+        cov = cov + pd.DataFrame(np.eye(n) * _COV_NUDGE, index=cov.index, columns=cov.columns)
     return _Inputs(ids=asset_ids, mu=mu, cov=cov, returns=frame)
 
 
