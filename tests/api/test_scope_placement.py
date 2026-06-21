@@ -79,7 +79,7 @@ def test_place_technology_resolves_session_scope() -> None:
     assert res.status_code == 200, res.text
     assert res.json()["root"]
     model = client.get(f"/api/session/{sid}/model").json()["model"]
-    assert any(m.get("baseline_technology") == "MY_BF" for m in model.get("machines", []))
+    assert any(m.get("source_technology") == "MY_BF" for m in model.get("machines", []))
 
 
 def test_place_technology_defaults_to_base_scope() -> None:

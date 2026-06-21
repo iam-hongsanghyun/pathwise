@@ -72,6 +72,9 @@ export function MachineInspector({
 }) {
   const machine = (wb.machines ?? []).find((m) => s(m.machine_id) === machineId);
   const tech = s(machine?.baseline_technology);
+  // `tech` is the (per-machine) instance id used for lookups; show the friendlier
+  // source-component name to the user.
+  const techLabel = s(machine?.source_technology) || tech;
   const techRow = (wb.technologies ?? []).find((t) => s(t.technology_id) === tech);
   const io = (wb.io ?? []).filter((r) => s(r.technology_id) === tech);
   const inputs = io.filter((r) => s(r.role) === "input");
@@ -87,7 +90,7 @@ export function MachineInspector({
   for (const ln of wb.macc_links ?? []) {
     const g = s(ln.macc);
     if (s(ln.facility) === machineId) linkScope.set(g, "this facility");
-    else if (tech && s(ln.technology) === tech) linkScope.set(g, `every ${tech} · adopted independently`);
+    else if (tech && s(ln.technology) === tech) linkScope.set(g, `every ${techLabel} · adopted independently`);
     else if (s(ln.commodity) && inputStreams.has(s(ln.commodity)))
       linkScope.set(g, `stream ${s(ln.commodity)} · adopted independently`);
   }
@@ -95,7 +98,7 @@ export function MachineInspector({
   for (const m of wb.measures ?? []) {
     const mid = s(m.measure_id);
     if (s(m.facility) === machineId) appliedMeasures.set(mid, "this facility");
-    else if (tech && s(m.technology) === tech) appliedMeasures.set(mid, `every ${tech} · adopted independently`);
+    else if (tech && s(m.technology) === tech) appliedMeasures.set(mid, `every ${techLabel} · adopted independently`);
   }
   for (const mm of wb.maccs ?? []) {
     const scope = linkScope.get(s(mm.macc));
@@ -287,7 +290,7 @@ export function MachineInspector({
       <div className="eyebrow">machine</div>
       <h2 className="mi-title">{s(machine.label) || machineId.split("/").pop()}</h2>
       <div className="mi-chips">
-        {tech && <span className="mi-chip">runs {tech}</span>}
+        {tech && <span className="mi-chip">runs {techLabel}</span>}
         <span className="mi-avail">{avail}</span>
       </div>
 

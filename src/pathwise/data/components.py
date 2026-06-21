@@ -1055,22 +1055,6 @@ def _merge_row(wb: Workbook, sheet: str, id_col: str, row: dict[str, Any]) -> No
         rows.append(row)
 
 
-def _merge_tech_traj(wb: Workbook, tech: TechnologyTemplate) -> None:
-    """Carry a technology's per-year capex/opex into the model's ``technologies_prices``.
-
-    So per-year costs authored on the library template actually reach the
-    assembler when the technology is placed. No-op when the technology has no
-    trajectory or already has rows in the model (idempotent, recipe shared).
-    """
-    traj = _tech_traj_rows(tech)
-    if not traj:
-        return
-    rows = wb.setdefault(TECHNOLOGIES_PRICES, [])
-    if any(str(r.get("technology_id")) == tech.technology_id for r in rows):
-        return
-    rows.extend(traj)
-
-
 def _merge_commodity_traj(wb: Workbook, c: CommodityTemplate) -> None:
     """Carry a commodity's per-year price/sale_price into the model's ``commodity_prices``."""
     traj = _commodity_traj_rows(c)
@@ -1080,22 +1064,6 @@ def _merge_commodity_traj(wb: Workbook, c: CommodityTemplate) -> None:
     if any(str(r.get("commodity_id")) == c.commodity_id for r in rows):
         return
     rows.extend(traj)
-
-
-def _merge_io_t(wb: Workbook, tech: TechnologyTemplate) -> None:
-    """Carry a technology's per-year io coefficients into the model's ``io_t`` sheet.
-
-    So a coefficient time-series authored on the library template reaches the
-    assembler when the technology is placed. No-op when there is no trajectory or
-    the model already carries the technology's rows (idempotent, recipe shared).
-    """
-    rows_new = _io_t_rows(tech)
-    if not rows_new:
-        return
-    rows = wb.setdefault(IO_T, [])
-    if any(str(r.get("technology_id")) == tech.technology_id for r in rows):
-        return
-    rows.extend(rows_new)
 
 
 def _read_io_t(rows: list[dict[str, Any]]) -> dict[str, dict[str, dict[str, dict[int, float]]]]:
@@ -1125,6 +1093,35 @@ def _io_t_fields(
     """The three ``*_by_year`` kwargs for a ``TechnologyTemplate`` from grouped io_t."""
     by_role = io_t_by.get(tid, {})
     return {field: by_role.get(role, {}) for field, role in _ROLE_TRAJ}
+
+
+def _instance_into(wb: Workbook, tech: TechnologyTemplate, iid: str, source: str) -> None:
+    """Copy a technology template into ``wb`` under a unique instance id ``iid``.
+
+    Rekeys the technology / io / cost-trajectory / io-trajectory rows to ``iid``
+    so a placed machine owns a **private, independently-editable copy** of the
+    technology; ``source_technology`` records the component it was stamped from.
+    Two machines stamped from the same component therefore get distinct instances
+    and can be edited apart.
+    """
+
+    if any(str(r.get("technology_id")) == iid for r in wb.get(TECHNOLOGIES, [])):
+        return  # already stamped this instance (idempotent)
+
+    def _rekey(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        for r in rows:
+            r["technology_id"] = iid
+        return rows
+
+    trow = _tech_row(tech)
+    trow["technology_id"] = iid
+    trow["source_technology"] = source
+    _merge_row(wb, TECHNOLOGIES, "technology_id", trow)  # iid is unique → always added
+    wb.setdefault(IO, []).extend(_rekey(_io_rows(tech)))
+    if traj := _rekey(_tech_traj_rows(tech)):
+        wb.setdefault(TECHNOLOGIES_PRICES, []).extend(traj)
+    if iot := _rekey(_io_t_rows(tech)):
+        wb.setdefault(IO_T, []).extend(iot)
 
 
 def place_technology(
@@ -1168,15 +1165,18 @@ def place_technology(
             "label": technology_id,
         }
     )
+    # The machine runs its OWN instance of the technology (a private copy), so the
+    # same component placed on two machines can be edited independently.
+    iid = f"{technology_id}@{node_id}"
     wb.setdefault(MACHINES, []).append(
-        {"machine_id": node_id, "baseline_technology": technology_id, "capacity": capacity}
+        {
+            "machine_id": node_id,
+            "baseline_technology": iid,
+            "capacity": capacity,
+            "source_technology": technology_id,
+        }
     )
-
-    _merge_row(wb, TECHNOLOGIES, "technology_id", _tech_row(tech))
-    _merge_tech_traj(wb, tech)
-    if all(str(r.get("technology_id")) != technology_id for r in model.get(IO, [])):
-        wb.setdefault(IO, []).extend(_io_rows(tech))
-    _merge_io_t(wb, tech)
+    _instance_into(wb, tech, iid, technology_id)
     inputs_outputs = {r.target for r in tech.io if r.role != "impact"}
     for c in library.commodities:
         if c.commodity_id in inputs_outputs:
@@ -1238,11 +1238,12 @@ def add_alternative(
         raise KeyError(f"unknown technology '{technology_id}'")
 
     wb: Workbook = {k: list(v) for k, v in model.items()}
-    _merge_row(wb, TECHNOLOGIES, "technology_id", _tech_row(tech))
-    _merge_tech_traj(wb, tech)
-    if all(str(r.get("technology_id")) != technology_id for r in model.get(IO, [])):
-        wb.setdefault(IO, []).extend(_io_rows(tech))
-    _merge_io_t(wb, tech)
+    # Per-machine alternative: stamp a PRIVATE instance of the alternative
+    # technology for the machine whose baseline is ``from_technology`` (itself an
+    # instance id), so the switch option is editable independently per machine.
+    node = from_technology.split("@", 1)[1] if "@" in from_technology else from_technology
+    alt_iid = f"{technology_id}@{node}"
+    _instance_into(wb, tech, alt_iid, technology_id)
     inputs_outputs = {r.target for r in tech.io if r.role != "impact"}
     for c in library.commodities:
         if c.commodity_id in inputs_outputs:
@@ -1253,17 +1254,17 @@ def add_alternative(
 
     transitions = wb.setdefault(TRANSITIONS, [])
     exists = any(
-        str(r.get("from_technology")) == from_technology
-        and str(r.get("to_technology")) == technology_id
+        str(r.get("from_technology")) == from_technology and str(r.get("to_technology")) == alt_iid
         for r in transitions
     )
     if not exists:
         transitions.append(
             {
                 "from_technology": from_technology,
-                "to_technology": technology_id,
+                "to_technology": alt_iid,
                 "action": "replace",
                 "capex_per_capacity": capex_per_capacity,
+                "source_technology": technology_id,
             }
         )
     return wb

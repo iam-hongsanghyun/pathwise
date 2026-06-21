@@ -205,7 +205,10 @@ def test_place_technology_makes_a_machine_with_its_macc() -> None:
     model = {"nodes": [{"node_id": "co", "parent_id": None, "kind": "group", "level": "company"}]}
     model = place_technology(model, lib, "EAF", parent_id="co", capacity=200)
     machine = next(m for m in model["machines"] if m["machine_id"] == "co/EAF")
-    assert machine["baseline_technology"] == "EAF" and machine["capacity"] == 200
+    # The machine runs its OWN instance of the technology; provenance kept on
+    # source_technology.
+    assert machine["baseline_technology"] == "EAF@co/EAF" and machine["capacity"] == 200
+    assert machine["source_technology"] == "EAF"
     # the linked MACC's measure is stamped onto the machine, scaled to capacity
     meas = [m for m in model["measures"] if m["facility"] == "co/EAF"]
     assert meas and meas[0]["measure_id"] == "co/EAF · vfd"
@@ -237,17 +240,51 @@ def test_place_technology_carries_per_year_costs() -> None:
     )
     model = {"nodes": [{"node_id": "co", "parent_id": None, "kind": "group", "level": "company"}]}
     model = place_technology(model, lib, "EAF", parent_id="co", capacity=10)
-    # the per-year costs ride into the model on the technologies_prices sheet
+    # the per-year costs ride into the model on the technologies_prices sheet,
+    # rekeyed to the machine's own technology instance
+    iid = "EAF@co/EAF"
     tp = model.get("technologies_prices", [])
-    assert {(r["technology_id"], r["year"]) for r in tp} == {("EAF", 2025), ("EAF", 2035)}
+    assert {(r["technology_id"], r["year"]) for r in tp} == {(iid, 2025), (iid, 2035)}
     # and the assembler turns them into a per-year capex the optimiser sees
     from pathwise.data import assemble_problem
 
     model["periods"] = [{"year": 2025}, {"year": 2030}, {"year": 2035}]
     prob = assemble_problem(model, SC)
-    assert prob.technologies["EAF"].capex(2025) == 100.0
-    assert prob.technologies["EAF"].capex(2030) == 200.0  # linear midpoint
-    assert prob.technologies["EAF"].capex(2035) == 300.0
+    assert prob.technologies[iid].capex(2025) == 100.0
+    assert prob.technologies[iid].capex(2030) == 200.0  # linear midpoint
+    assert prob.technologies[iid].capex(2035) == 300.0
+
+
+def test_placing_a_technology_twice_makes_independent_instances() -> None:
+    # The same component placed on two machines must yield two INDEPENDENT
+    # technology instances (distinct ids), each tracing back to the component via
+    # source_technology — so they can later be edited apart.
+    lib = ComponentLibrary.model_validate(
+        {
+            "commodities": [{"commodity_id": "steel", "kind": "product"}],
+            "technologies": [
+                {
+                    "technology_id": "EAF",
+                    "capex": 100,
+                    "io": [
+                        {"target": "steel", "role": "output", "coefficient": 1, "is_product": True}
+                    ],
+                }
+            ],
+        }
+    )
+    model: dict = {
+        "nodes": [{"node_id": "co", "parent_id": None, "kind": "group", "level": "company"}]
+    }
+    model = place_technology(model, lib, "EAF", parent_id="co", capacity=10)
+    model = place_technology(model, lib, "EAF", parent_id="co", capacity=20)
+    machines = {m["machine_id"]: m for m in model["machines"]}
+    baselines = {m["baseline_technology"] for m in machines.values()}
+    assert len(machines) == 2 and len(baselines) == 2  # two distinct instances
+    assert all(m["source_technology"] == "EAF" for m in machines.values())
+    # each instance is its own technologies row
+    tech_ids = {r["technology_id"] for r in model["technologies"]}
+    assert baselines <= tech_ids
 
 
 def test_place_technology_carries_per_year_measure_block_cost() -> None:
