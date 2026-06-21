@@ -809,13 +809,18 @@ def instantiate(
                     "label": machine.label or machine.name,
                 }
             )
-            machines.append(
-                {
-                    "machine_id": node_id,
-                    "baseline_technology": machine.technology,
-                    "capacity": machine.capacity,
-                }
-            )
+            m_row: dict[str, Any] = {
+                "machine_id": node_id,
+                "baseline_technology": machine.technology,
+                "capacity": machine.capacity,
+            }
+            # Carry the machine's lifecycle years under the canonical column names
+            # the engine reads (0 = unset for the legacy build_year/close_year).
+            if machine.build_year:
+                m_row["introduced_year"] = machine.build_year
+            if machine.close_year:
+                m_row["decommission_year"] = machine.close_year
+            machines.append(m_row)
             # Measures come from the machine's technology's linked MACCs, plus
             # any embedded directly on the machine (legacy); deduped by id.
             applied = list(machine.measures)
