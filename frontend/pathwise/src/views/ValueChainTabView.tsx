@@ -35,8 +35,7 @@ import {
 } from "../lib/api/components";
 import type { LibraryEntry } from "../lib/api/libraries";
 import { getFullModel, putModel } from "../lib/api/session";
-import { connectionFlow, connStatic, setConnectionTemporal, setSupplyCap } from "../lib/caps";
-import type { TemporalVal } from "../features/controls/TemporalValue";
+import { setSupplyCap } from "../lib/caps";
 import { parseNodes } from "../lib/groupGraph";
 import type { Cell, Row, Workbook } from "../types";
 
@@ -205,29 +204,18 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
       (workbook.transitions ?? []).filter((r) => !(s(r.from_technology) === baseline && s(r.to_technology) === technology))));
   }
 
-  // ── Connections ─────────────────────────────────────────────────────────────
-  function addConnection(from: string, to: string, commodity: string, lag: number, minFlow: TemporalVal | null, maxFlow: TemporalVal | null) {
+  // ── Connections (pure wiring — flow limits are machine→machine, set in the
+  //    machine popup per provider machine; a group connection just routes flow). ──
+  function addConnection(from: string, to: string, commodity: string, lag: number) {
     if (!from || !to || from === to || !commodity) return;
-    let wb = setSheet(workbook, "connections", [...(workbook.connections ?? []), { from_node: from, to_node: to, commodity_id: commodity, lag_years: lag, min_flow: connStatic(minFlow), max_flow: connStatic(maxFlow) }]);
-    wb = setConnectionTemporal(wb, from, to, commodity, minFlow, maxFlow);
-    setWorkbook(wb);
+    setWorkbook(setSheet(workbook, "connections", [...(workbook.connections ?? []), { from_node: from, to_node: to, commodity_id: commodity, lag_years: lag }]));
   }
-  function editConnection(rowIndex: number, commodity: string, lag: number, minFlow: TemporalVal | null, maxFlow: TemporalVal | null) {
+  function editConnection(rowIndex: number, commodity: string, lag: number) {
     if (!commodity) return;
-    const old = (workbook.connections ?? [])[rowIndex];
-    const from = s(old?.from_node);
-    const to = s(old?.to_node);
-    const oldCommodity = s(old?.commodity_id);
-    let wb = setSheet(workbook, "connections", (workbook.connections ?? []).map((r, i) => (i === rowIndex ? { ...r, commodity_id: commodity, lag_years: lag, min_flow: connStatic(minFlow), max_flow: connStatic(maxFlow) } : r)));
-    if (oldCommodity && oldCommodity !== commodity) wb = setConnectionTemporal(wb, from, to, oldCommodity, null, null);
-    wb = setConnectionTemporal(wb, from, to, commodity, minFlow, maxFlow);
-    setWorkbook(wb);
+    setWorkbook(setSheet(workbook, "connections", (workbook.connections ?? []).map((r, i) => (i === rowIndex ? { ...r, commodity_id: commodity, lag_years: lag } : r))));
   }
   function deleteConnection(rowIndex: number) {
-    const old = (workbook.connections ?? [])[rowIndex];
-    let wb = setSheet(workbook, "connections", (workbook.connections ?? []).filter((_, i) => i !== rowIndex));
-    if (old) wb = setConnectionTemporal(wb, s(old.from_node), s(old.to_node), s(old.commodity_id), null, null);
-    setWorkbook(wb);
+    setWorkbook(setSheet(workbook, "connections", (workbook.connections ?? []).filter((_, i) => i !== rowIndex)));
   }
 
   // ── Purchasing (markets scoped to a node) ───────────────────────────────────
@@ -460,9 +448,6 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 onEditConnection={editConnection}
                 onDeleteConnection={deleteConnection}
                 commodities={commodities}
-                flowBoundsOf={(from, to, commodity) => connectionFlow(workbook, from, to, commodity)}
-                baseYear={baseYear}
-                periods={periods}
               />
             </div>
           )}
@@ -589,7 +574,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
           fromLabel={nodeById.get(connectFrom)?.label ?? connectFrom}
           targets={nodes.filter((n) => n.id !== connectFrom).map((n) => ({ id: n.id, label: `${n.label}${n.level ? ` · ${n.level}` : ""}` }))}
           commodities={commodities}
-          onConfirm={(to, commodity, lag) => { addConnection(connectFrom, to, commodity, lag, null, null); setConnectFrom(null); }}
+          onConfirm={(to, commodity, lag) => { addConnection(connectFrom, to, commodity, lag); setConnectFrom(null); }}
           onClose={() => setConnectFrom(null)}
         />
       )}

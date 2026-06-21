@@ -10,7 +10,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SearchableSelect } from "../controls/SearchableSelect";
-import { TemporalValue, type TemporalVal } from "../controls/TemporalValue";
 import { buildOverlay, ResultYearBar, type CascadeResult, type YearOverlay } from "../valuechain/panels";
 import { parseNodes } from "../../lib/groupGraph";
 import {
@@ -44,15 +43,10 @@ interface Props {
   editable?: boolean;
   selectedId?: string | null;
   onSelect?: (id: string) => void;
-  onAddConnection?: (from: string, to: string, commodity: string, lag: number, minFlow: TemporalVal | null, maxFlow: TemporalVal | null) => void;
-  onEditConnection?: (rowIndex: number, commodity: string, lag: number, minFlow: TemporalVal | null, maxFlow: TemporalVal | null) => void;
+  onAddConnection?: (from: string, to: string, commodity: string, lag: number) => void;
+  onEditConnection?: (rowIndex: number, commodity: string, lag: number) => void;
   onDeleteConnection?: (rowIndex: number) => void;
   commodities?: string[];
-  /** Current min/max offtake for a link (static or by-year) — seeds the editor. */
-  flowBoundsOf?: (from: string, to: string, commodity: string) => { min: TemporalVal | null; max: TemporalVal | null };
-  /** Horizon start + run periods — passed to the temporal flow editor. */
-  baseYear?: number;
-  periods?: number[];
 }
 
 export function HierarchyMap({
@@ -65,9 +59,6 @@ export function HierarchyMap({
   onEditConnection,
   onDeleteConnection,
   commodities = [],
-  flowBoundsOf,
-  baseYear = 2025,
-  periods,
 }: Props) {
   const mode: MapMode = "expandable"; // the only layout: an expandable drill-down
   const overlayIdx = useMemo(() => (result ? buildOverlay(result) : null), [result]);
@@ -138,7 +129,7 @@ export function HierarchyMap({
     () =>
       editable
         ? editEdges(workbook, laid.nodes).map((e) => ({ ...e, origFrom: e.from, origTo: e.to }))
-        : laid.edges.map((e) => ({ ...e, rowIndex: -1, lag: 0, minFlow: null, maxFlow: null })),
+        : laid.edges.map((e) => ({ ...e, rowIndex: -1, lag: 0 })),
     [editable, workbook, laid],
   );
   const edgeKey = (e: { from: string; to: string; commodity: string; rowIndex: number }) =>
@@ -197,7 +188,7 @@ export function HierarchyMap({
   // We record the pointer-down target's group id here and act on a no-move up.
   const bgPress = useRef<{ x: number; y: number; moved: boolean; groupId: string | null } | null>(null);
   const [connect, setConnect] = useState<{ from: string; wx: number; wy: number } | null>(null);
-  const [form, setForm] = useState<{ from: string; to: string; sx: number; sy: number; editRowIndex?: number; commodity?: string; lag?: number; minFlow?: number | null; maxFlow?: number | null } | null>(null);
+  const [form, setForm] = useState<{ from: string; to: string; sx: number; sy: number; editRowIndex?: number; commodity?: string; lag?: number } | null>(null);
   const [selEdge, setSelEdge] = useState<number | null>(null);
 
   const toggle = (id: string) =>
@@ -432,7 +423,7 @@ export function HierarchyMap({
                 {label}
               </text>
               {sel && onEditConnection && (
-                <g style={{ cursor: "pointer" }} onClick={(ev) => setForm({ from: e.from, to: e.to, sx: ev.clientX, sy: ev.clientY, editRowIndex: e.rowIndex, commodity: e.commodity, lag: e.lag, minFlow: e.minFlow, maxFlow: e.maxFlow })}>
+                <g style={{ cursor: "pointer" }} onClick={(ev) => setForm({ from: e.from, to: e.to, sx: ev.clientX, sy: ev.clientY, editRowIndex: e.rowIndex, commodity: e.commodity, lag: e.lag })}>
                   <circle cx={mx + 22} cy={my - 2} r={8} fill="var(--brand)" />
                   <text x={mx + 22} y={my - 1} fontSize={9} fill="#fff" textAnchor="middle" dominantBaseline="middle">✎</text>
                 </g>
@@ -527,21 +518,16 @@ export function HierarchyMap({
         <ConnectForm
           fromLabel={boxById.get(form.from)?.label ?? form.from}
           toLabel={boxById.get(form.to)?.label ?? form.to}
-          from={form.from}
-          to={form.to}
           commodities={commodities}
           initialCommodity={form.commodity ?? ""}
           initialLag={form.lag ?? 0}
-          flowBoundsOf={flowBoundsOf}
-          baseYear={baseYear}
-          periods={periods}
           editing={form.editRowIndex != null}
           x={form.sx}
           y={form.sy}
           onCancel={() => setForm(null)}
-          onConfirm={(commodity, lag, minFlow, maxFlow) => {
-            if (form.editRowIndex != null) onEditConnection?.(form.editRowIndex, commodity, lag, minFlow, maxFlow);
-            else onAddConnection?.(form.from, form.to, commodity, lag, minFlow, maxFlow);
+          onConfirm={(commodity, lag) => {
+            if (form.editRowIndex != null) onEditConnection?.(form.editRowIndex, commodity, lag);
+            else onAddConnection?.(form.from, form.to, commodity, lag);
             setForm(null);
             setSelEdge(null);
           }}
@@ -552,42 +538,31 @@ export function HierarchyMap({
 }
 
 function ConnectForm({
-  fromLabel, toLabel, from, to, commodities, x, y, onConfirm, onCancel, initialCommodity = "", initialLag = 0,
-  flowBoundsOf, baseYear = 2025, periods, editing = false,
+  fromLabel, toLabel, commodities, x, y, onConfirm, onCancel, initialCommodity = "", initialLag = 0, editing = false,
 }: {
-  fromLabel: string; toLabel: string; from: string; to: string; commodities: string[]; x: number; y: number;
-  onConfirm: (commodity: string, lag: number, minFlow: TemporalVal | null, maxFlow: TemporalVal | null) => void;
+  fromLabel: string; toLabel: string; commodities: string[]; x: number; y: number;
+  onConfirm: (commodity: string, lag: number) => void;
   onCancel: () => void;
-  initialCommodity?: string; initialLag?: number;
-  flowBoundsOf?: (from: string, to: string, commodity: string) => { min: TemporalVal | null; max: TemporalVal | null };
-  baseYear?: number; periods?: number[]; editing?: boolean;
+  initialCommodity?: string; initialLag?: number; editing?: boolean;
 }) {
-  const seed = flowBoundsOf && initialCommodity ? flowBoundsOf(from, to, initialCommodity) : { min: null, max: null };
   const [commodity, setCommodity] = useState(initialCommodity);
   const [lag, setLag] = useState(initialLag);
-  const [minFlow, setMinFlow] = useState<TemporalVal | null>(seed.min);
-  const [maxFlow, setMaxFlow] = useState<TemporalVal | null>(seed.max);
   return (
-    <div style={{ position: "fixed", left: Math.min(x, window.innerWidth - 300), top: Math.min(y, window.innerHeight - 240), zIndex: 1000, background: "var(--surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-button)", boxShadow: "0 6px 24px rgba(0,0,0,0.14)", padding: 10, width: 268, fontSize: "0.78rem" }}>
+    <div style={{ position: "fixed", left: Math.min(x, window.innerWidth - 300), top: Math.min(y, window.innerHeight - 160), zIndex: 1000, background: "var(--surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-button)", boxShadow: "0 6px 24px rgba(0,0,0,0.14)", padding: 10, width: 268, fontSize: "0.78rem" }}>
       <div style={{ marginBottom: 6 }}><b>{fromLabel}</b> → <b>{toLabel}</b></div>
       <div style={{ marginBottom: 6 }}>
         <SearchableSelect value={commodity} options={commodities} onChange={setCommodity} onCreate={setCommodity} placeholder="stream / commodity" />
       </div>
-      <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+      <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
         <span className="muted" style={{ width: 70 }}>lag (yr)</span>
         <input type="number" value={lag} onChange={(e) => setLag(Number(e.target.value) || 0)} style={{ width: 70, padding: "3px 6px", border: "1px solid var(--border-strong)", borderRadius: 4, font: "inherit" }} />
       </label>
-      <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-        <span className="muted" style={{ width: 70 }}>min offtake</span>
-        <TemporalValue value={minFlow} onChange={setMinFlow} baseYear={baseYear} periods={periods} placeholder="no floor" label={`${fromLabel} → ${toLabel} · min offtake`} />
-      </label>
-      <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-        <span className="muted" style={{ width: 70 }}>max offtake</span>
-        <TemporalValue value={maxFlow} onChange={setMaxFlow} baseYear={baseYear} periods={periods} placeholder="no cap" label={`${fromLabel} → ${toLabel} · max offtake`} />
-      </label>
+      <p className="muted" style={{ fontSize: "0.72rem", margin: "0 0 8px" }}>
+        Min/max offtake is set per machine in the machine popup (per provider machine).
+      </p>
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
         <button className="ghost" onClick={onCancel}>cancel</button>
-        <button className="run-button" disabled={!commodity} onClick={() => onConfirm(commodity, lag, minFlow, maxFlow)}>{editing ? "✓ update" : "＋ link"}</button>
+        <button className="run-button" disabled={!commodity} onClick={() => onConfirm(commodity, lag)}>{editing ? "✓ update" : "＋ link"}</button>
       </div>
     </div>
   );

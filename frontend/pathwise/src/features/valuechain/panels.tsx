@@ -8,12 +8,12 @@ import { SearchSelect } from "../controls/SearchSelect";
 import { TemporalValue, type TemporalVal } from "../controls/TemporalValue";
 import {
   commodityUnit,
-  connectionFlow,
+  edgeFlow,
   maxConsumptionCap,
   maxOutputCap,
   minConsumptionCap,
   minOutputCap,
-  setConnectionBounds,
+  setEdgeBounds,
   setMaxConsumptionCap,
   setMaxOutputCap,
   setMinConsumptionCap,
@@ -124,21 +124,30 @@ export function MachineInspector({
       .map((x) => lab(s(x[far])));
     return [...new Set(g)];
   };
-  // The provider connections feeding input commodity `c` to this machine (or any
-  // ancestor): each is a per-producer channel into the pooled commodity, so the
-  // buyer can cap purchase from each producer independently.
-  const inputProviders = (c: string): { from: string; to: string; label: string }[] => {
+  // The actual provider MACHINES feeding input commodity `c` to THIS machine —
+  // resolved through connections (at any level) down to the producing machines, so
+  // a per-provider limit is genuinely machine→machine. Groups are visual only.
+  const providerMachines = (c: string): { id: string; label: string; via: string }[] => {
+    const techMakes = (techId: string): boolean =>
+      (wb.io ?? []).some(
+        (r) => s(r.technology_id) === techId && s(r.role) === "output" && s(r.target) === c,
+      );
     const seen = new Set<string>();
-    const out: { from: string; to: string; label: string }[] = [];
+    const out: { id: string; label: string; via: string }[] = [];
     for (const x of wb.connections ?? []) {
       if (s(x.commodity_id) !== c) continue;
       const from = s(x.from_node);
       const to = s(x.to_node);
-      if (!scope.has(to) || scope.has(from)) continue;
-      const key = `${from}→${to}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push({ from, to, label: lab(from) });
+      if (!scope.has(to) || scope.has(from)) continue; // `to` feeds this machine; `from` is outside
+      for (const m of wb.machines ?? []) {
+        const mid = s(m.machine_id);
+        if (seen.has(mid)) continue;
+        const anc = chain(wb, mid); // [self, parent, …]
+        if (anc.includes(from) && techMakes(s(m.baseline_technology))) {
+          seen.add(mid);
+          out.push({ id: mid, label: lab(mid), via: anc.length > 1 ? lab(anc[1]) : "" });
+        }
+      }
     }
     return out;
   };
@@ -225,7 +234,7 @@ export function MachineInspector({
       onWorkbookChange?.(isOut ? setMinOutputCap(wb, machineId, c, v) : setMinConsumptionCap(wb, machineId, c, v));
     const setMax = (v: TemporalVal | null) =>
       onWorkbookChange?.(isOut ? setMaxOutputCap(wb, machineId, c, v) : setMaxConsumptionCap(wb, machineId, c, v));
-    const provs = !isOut && onWorkbookChange ? inputProviders(c) : [];
+    const provs = !isOut && onWorkbookChange ? providerMachines(c) : [];
     return (
       <div className="mi-flow" key={`${role}:${c}`}>
         <div className="mi-flow-grid">
@@ -249,13 +258,12 @@ export function MachineInspector({
             <span className="mi-flow-sub" style={sub.ok === false ? { color: "var(--danger)" } : undefined}>{sub.text}</span>
           )}
           {provs.map((p) => {
-            const { min, max } = connectionFlow(wb, p.from, p.to, c);
-            const toLbl = p.to === machineId ? "" : ` → ${lab(p.to)}`;
+            const { min, max } = edgeFlow(wb, p.id, machineId, c);
             return (
-              <Fragment key={`prov:${c}:${p.from}:${p.to}`}>
-                <span className="mi-flow-label mi-flow-prov">← {p.label}{toLbl}</span>
-                {flowCell(min, (v) => onWorkbookChange?.(setConnectionBounds(wb, p.from, p.to, c, v, max)), `${p.label} → ${c} · min buy`, unit, "none")}
-                {flowCell(max, (v) => onWorkbookChange?.(setConnectionBounds(wb, p.from, p.to, c, min, v)), `${p.label} → ${c} · max buy`, unit, "no cap")}
+              <Fragment key={`prov:${c}:${p.id}`}>
+                <span className="mi-flow-label mi-flow-prov">← {p.label}{p.via ? <span className="muted"> · {p.via}</span> : null}</span>
+                {flowCell(min, (v) => onWorkbookChange?.(setEdgeBounds(wb, p.id, machineId, c, v, max)), `${p.label} → ${c} · min buy`, unit, "none")}
+                {flowCell(max, (v) => onWorkbookChange?.(setEdgeBounds(wb, p.id, machineId, c, min, v)), `${p.label} → ${c} · max buy`, unit, "no cap")}
               </Fragment>
             );
           })}

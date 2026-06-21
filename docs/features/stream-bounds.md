@@ -28,9 +28,15 @@ So a buyer has **two independent levers** on an input:
    summed across all providers.
 
 There is **no separate "pool" commodity**: the commodity *is* the pool, and each
-provider→buyer **connection** is its tagged channel. Two providers of the same
-commodity are two connections that cap independently and both feed the one
-commodity that the pooled bound governs.
+provider→buyer **machine→machine edge** is its tagged channel. Two providers of the
+same commodity are two edges that cap independently and both feed the one commodity
+that the pooled bound governs.
+
+**Everything is a machine.** A limit only ever belongs to a *machine* — never to a
+company, a group, or a connection. Facility / company / country are **visual**
+containers that aggregate their machines. So a per-provider limit is genuinely
+*machine→machine* (the specific producing machine), and a group connection is pure
+wiring (it routes flow; it carries no limit).
 
 ---
 
@@ -40,7 +46,7 @@ commodity that the pooled bound governs.
 |---|---|---|---|---|
 | **Production** (output) | how much a machine **produces** of a commodity | machine node + commodity | `min_production`, `max_production` (+ `_t__amount`) | `Σ deliver ≥ min` / `≤ max` |
 | **Consumption** (input, pooled) | how much a machine **takes in** of a commodity (all providers) | machine node + commodity | `min_consumption`, `max_consumption` (+ `_t__amount`) | `Σ gross_consumed ≥ min` / `≤ max` |
-| **Connection flow** (input, per-provider) | how much flows on **one** provider→buyer link | from_node + to_node + commodity | `connections` (static cols), `connections_t` (long) | per-edge `flow ≥ min_flow` / `≤ max_flow` |
+| **Edge flow** (input, per-provider) | how much flows on **one** provider-machine→consumer-machine link | from_process + to_process + commodity | `edges` (static cols), `edges_t` (long) | per-edge `flow ≥ min_flow` / `≤ max_flow` |
 | **Supply cap** (source stream) | how much of a **bought-in** raw stream may be purchased externally | commodity | `commodities.max_purchase`, `commodities_t__max_purchase` | external `buy ≤ max_purchase` |
 
 Plus the **availability window** (`available_from` / `available_to` on
@@ -77,20 +83,21 @@ static number, or a trend marker like `↗ 6 yr`); click to open the editor.
 
 ```
 IN  electricity   50 MWh   min none         max no cap        ← pooled commodity (consumption)
-    ← Wind farm             ↗ 6 yr MWh/yr    200 MWh/yr        ← per-producer (connection flow)
-    ← CCGT                  none             no cap            ← per-producer
+    ← Wind farm · Korea Power    ↗ 6 yr      200 MWh/yr        ← per-producer machine (edge flow)
+    ← CCGT grid · Korea Power    none        no cap            ← per-producer machine
 OUT hydrogen      1 t       min no floor     max no cap        ← production
 ```
 
 - **Output row** → the machine's **production** bounds (`min/max_production`).
 - **Input row** → the **pooled commodity** bounds (`min/max_consumption`): *min
   offtake* / *max purchase*.
-- Under each input, one row **per provider** (`← Wind farm`, `← CCGT`) → the
-  per-producer **connection flow** bounds. If a provider link is wired at a
-  higher level (e.g. a company-level `Korea Power → Korea Steel`), it appears in
-  the child machine's popup as `← Korea Power → Korea Steel`, and editing it caps
-  the *company's* purchase on that shared link.
-- **Capacity** + **CO₂ intensity** sit below as the machine's own limits.
+- Under each input, one row **per provider MACHINE** (`← Wind farm · Korea Power`)
+  → the machine→machine **edge flow** bounds. The popup resolves the actual
+  producing machines (through connections at any level) and disambiguates by their
+  group, so the limit is genuinely machine-specific — no group-level connection
+  leaks in.
+- **Capacity** + **max cap. factor** + **CO₂ intensity** sit below as the
+  machine's own limits.
 
 ### Source-stream inspector (Value chain → click a source node)
 
@@ -103,9 +110,9 @@ external buying.
 
 ### Connection editor (Value chain → click an edge → ✎)
 
-The same per-provider min/max **offtake** can also be set directly on a
-connection. The popup and the connection editor write the **same** stores, so a
-bound edited in one place shows in the other.
+A connection is **pure wiring** — it routes a commodity between two nodes (and
+carries an optional `lag_years`). It holds **no** min/max: per-provider limits are
+machine→machine and live in the buyer machine's popup (above).
 
 ### Optimisation constraints (Targets & constraints tab)
 
@@ -135,15 +142,15 @@ anchors; a 50→10 ramp re-opens as two Linear anchors).
 
 > **Storage note.** A bound has two mutually-exclusive stores: static writes the
 > scalar column / a year-less row; temporal writes the per-year rows (or the wide
-> `_t__amount` / `connections_t` sheet). Setting one clears the other.
+> `_t__amount` / `edges_t` sheet). Setting one clears the other.
 
 > **Interpolation nuance.** The `min/max_production` and `min/max_consumption`
 > sheets treat per-year rows as **exact** (a lone year row does **not** spread to
 > other years; a *year-less* row is the base for every year). The editor sidesteps
-> this by materialising a value for every period. The `connections_t`,
-> `edges_t` and `commodities_t__*` sheets are **interpolated** (linear, flat-held
-> ends) like all other trajectories — so a single year row there flat-holds to the
-> whole horizon; author a row per period to vary it (again, what the editor does).
+> this by materialising a value for every period. The `edges_t` and
+> `commodities_t__*` sheets are **interpolated** (linear, flat-held ends) like all
+> other trajectories — so a single year row there flat-holds to the whole horizon;
+> author a row per period to vary it (again, what the editor does).
 
 See [`../AUTHORING.md` §3](../AUTHORING.md) for the full temporal-sheet reference.
 
@@ -163,9 +170,13 @@ Engine constraints (`core/build.py`):
   `≤ max_consumption`. `gross_consumed` is the machine's intake of `q` (the
   `fin` mix flow for blend-group members, else `intensity·throughput`), summed
   over providers.
-- **Connection flow**: a node-space `connections_t` row is fanned by
-  `_expand_hierarchy` onto every synthesized `from_process→to_process` **edge**;
-  the edge then binds `flow ≥ min_flow_at(t)` / `≤ max_flow_at(t)` per period.
+- **Edge flow** (per-provider): the buyer machine's popup writes an `edges` row
+  (+ `edges_t`) for the `provider_machine→consumer_machine` pair; the edge binds
+  `flow ≥ min_flow_at(t)` / `≤ max_flow_at(t)` per period. `_expand_hierarchy`
+  seeds these into its `seen_edges` set so the hierarchy fan-out doesn't create a
+  second, unbounded parallel channel for the same triple. (A node-space
+  `connections_t` row, if present, is still fanned onto edges too — but the UI no
+  longer authors it; connections are wiring only.)
 - **Supply cap**: outside `commodities.max_purchase` / over the year's
   interpolated value, external `buy` is bounded; outside the availability window
   `buy = 0` (the `nobuy` mask via `Commodity.available(t)`).
@@ -181,10 +192,9 @@ H₂ instead. See `tests/core/test_consumption_bounds.py` and
 
 ## 6. Not yet (roadmap)
 
-- **Strictly machine-specific per-provider limits.** Today a per-provider bound
-  lives on the connection at whatever level it is wired; a company-level link is
-  shared by every machine under it. Machine-specific limits need machine-to-machine
-  connections.
+- **Group-level visual aggregation.** Per-provider limits are machine-specific
+  now; the remaining piece is rolling those machine numbers up into a read-only
+  aggregate when a facility / company / country is selected.
 - **Lag + quality change between flows** — e.g. a car returning as lower-grade
   scrap years later (a recycling loop with a time lag and a commodity transform).
 - **Availability windows as alternatives** — multiple sources of one commodity

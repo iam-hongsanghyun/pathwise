@@ -237,3 +237,80 @@ export function setConnectionBounds(
   };
   return setConnectionTemporal(withStatic, from, to, commodity, min, max);
 }
+
+// ── Per-machine→machine edge flow bounds (the machine-only per-provider model) ──
+// "How much THIS machine buys from THAT provider machine" is a bound between two
+// machines — machine-specific by construction. Stored on the `edges` row (static
+// columns) + `edges_t` (per-year). The engine seeds these edges so the hierarchy
+// fan-out doesn't duplicate the channel.
+
+const EDGES = "edges";
+const EDGES_T = "edges_t";
+
+const matchesEdge = (r: Row, from: string, to: string, commodity: string): boolean =>
+  s(r.from_process) === from && s(r.to_process) === to && s(r.commodity_id) === commodity;
+
+function edgeBound(wb: Workbook, from: string, to: string, commodity: string, side: FlowSide): Bound | null {
+  const by: ByYear = {};
+  for (const r of wb[EDGES_T] ?? []) {
+    if (!matchesEdge(r, from, to, commodity)) continue;
+    const v = (r as Record<string, Cell>)[side];
+    if (!isYearless(r) && v != null && String(v).trim() !== "")
+      by[String(Math.round(Number(r.year)))] = Number(v) || 0;
+  }
+  if (Object.keys(by).length) return by;
+  const row = (wb[EDGES] ?? []).find((r) => matchesEdge(r, from, to, commodity));
+  const v = (row as Record<string, Cell> | undefined)?.[side];
+  return v == null || String(v).trim() === "" ? null : Number(v) || 0;
+}
+
+/** Both flow bounds for one provider→consumer machine edge (the popup's initial state). */
+export const edgeFlow = (
+  wb: Workbook,
+  from: string,
+  to: string,
+  commodity: string,
+): { min: Bound | null; max: Bound | null } => ({
+  min: edgeBound(wb, from, to, commodity, "min_flow"),
+  max: edgeBound(wb, from, to, commodity, "max_flow"),
+});
+
+/** Set the per-provider bound on the machine→machine edge. Authors an `edges` row
+ *  (static columns; suppresses the fanned duplicate) + `edges_t` rows for any
+ *  by-year part. Clearing both removes the authored edge so the fan-out restores it. */
+export function setEdgeBounds(
+  wb: Workbook,
+  from: string,
+  to: string,
+  commodity: string,
+  min: Bound | null,
+  max: Bound | null,
+): Workbook {
+  const otherE = (wb[EDGES] ?? []).filter((r) => !matchesEdge(r, from, to, commodity));
+  const otherT = (wb[EDGES_T] ?? []).filter((r) => !matchesEdge(r, from, to, commodity));
+  if (min == null && max == null) {
+    // Fully cleared → drop the authored edge + its temporal rows (fan-out restores it).
+    const next = { ...wb, [EDGES]: otherE, [EDGES_T]: otherT } as Workbook;
+    if (!otherE.length) delete next[EDGES];
+    if (!otherT.length) delete next[EDGES_T];
+    return next;
+  }
+
+  const byYear = new Map<string, Row>();
+  const add = (b: Bound | null, side: FlowSide) => {
+    if (b == null || typeof b === "number") return;
+    for (const [yr, v] of Object.entries(b)) {
+      const k = String(Math.round(Number(yr)));
+      const ex = byYear.get(k) ?? { from_process: from, to_process: to, commodity_id: commodity, year: Number(k) };
+      byYear.set(k, { ...ex, [side]: v });
+    }
+  };
+  add(min, "min_flow");
+  add(max, "max_flow");
+  const edgeRow: Row = { from_process: from, to_process: to, commodity_id: commodity, min_flow: connStatic(min), max_flow: connStatic(max) };
+  const tRows = [...otherT, ...Array.from(byYear.values())];
+  const next = { ...wb, [EDGES]: [...otherE, edgeRow] } as Workbook;
+  if (tRows.length) next[EDGES_T] = tRows;
+  else delete next[EDGES_T];
+  return next;
+}

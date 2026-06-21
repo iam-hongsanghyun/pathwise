@@ -313,7 +313,16 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
 
     edges = list(workbook.get(EDGES, []))
     edges_t = list(workbook.get(EDGES_T, []))
-    seen_edges: set[tuple[str, str, str]] = set()
+    # Seed with any pre-authored machine→machine edge (e.g. a per-provider bound set
+    # in the machine popup): the fan-out then skips that triple, so the authored row
+    # — carrying its bounds — IS the edge, rather than a duplicate parallel channel.
+    seen_edges: set[tuple[str, str, str]] = {
+        (f, t, ci)
+        for e in edges
+        if (f := _str(e.get("from_process")))
+        and (t := _str(e.get("to_process")))
+        and (ci := _str(e.get("commodity_id")))
+    }
     for c in h.connections:
         for s in producers(c.from_node, c.commodity_id):
             for d in consumers(c.to_node, c.commodity_id):
