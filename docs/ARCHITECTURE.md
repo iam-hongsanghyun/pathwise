@@ -27,6 +27,31 @@ frontend (React + React Flow)  ──HTTP──▶  api (FastAPI)
   workbook in place. The patched workbook is then pushed to the session via
   `PATCH /api/session/{id}/sheet/{name}`.
 
+## Model layers: Component · Facility · Value chain
+
+Three layers with **strictly separate concerns** — a technology's physics, a
+specific machine's economics, and the market it trades in. Do not mix them.
+
+| Layer | Is a… | Owns | Capacity |
+|---|---|---|---|
+| **Component** | Technology (general, machine-agnostic) | **Every** technical value that defines the technology: input requirements & intensities, output yields & intensities, efficiency, direct-impact factors, lifespan, replacement capex, **renewal cost**, opex, allowed actions | `1` (a unit technology) |
+| **Facility** | Machine (one instance of a technology) | **Everything inherited from its component, editable per machine** (the same technology can have different capex / renewal cost / efficiency / intensities), **plus** the machine-specific facts: capacity, build year, close year, replace capex, renewal cost, `max_renewals`, `max_capacity_factor`, min/max output, required input/output streams + their intensities | per-machine (set here) |
+| **Value chain** | Market (who trades what with whom) | Stream connections (who provides which commodity to which consumer), buy/sell **prices**, and per-link input/output **stream limits** | — |
+
+Rules:
+
+- The **component schema must carry every field**, including the machine-specific
+  ones — they sit empty/default at the component level (it is a template). A
+  facility is a component with those fields filled in and any inherited value
+  overridden.
+- **Fixed machine/technology facts never live in the value chain.** Not renewal
+  cost, not `max_renewals`, not capacity, not `max_capacity_factor` — those are
+  properties of the machine (facility), set once.
+- Boundary cases: **`max_capacity_factor` → machine (facility)**, not market.
+  Input/output **stream limits → market (value chain)**. Intensities/requirements
+  → technology (component) with per-machine override (facility). Renewal
+  cost / capex → component default + facility override; never value chain.
+
 ## Storage / persistence
 
 | Layer | Format | Location | Purpose |
