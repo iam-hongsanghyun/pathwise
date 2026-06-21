@@ -475,6 +475,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 onDeleteConnection={deleteConnection}
                 onMoveNodes={moveNodes}
                 onResetLayout={resetLayout}
+                onBackgroundClick={() => { setShowHealth(false); setSelId(null); }}
                 commodities={commodities}
               />
             </div>

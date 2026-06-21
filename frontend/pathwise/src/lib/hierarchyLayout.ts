@@ -620,3 +620,155 @@ export function editEdges(wb: Workbook, laid: LaidNode[], flowLevel: string | nu
   }
   return out;
 }
+
+// ── Orthogonal obstacle-avoiding routing ──────────────────────────────────────
+
+export interface Pt {
+  x: number;
+  y: number;
+}
+export interface Box {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Shortest orthogonal (right-angle) path from `p1` to `p2` that does not cross any
+ *  obstacle rectangle, kept within `bounds`. Returns the polyline (incl. endpoints)
+ *  or null if no route exists.
+ *
+ *  Algorithm: a Hanan grid (candidate lines just outside each obstacle edge, plus
+ *  the endpoints) → A* over the grid, minimising path length with a small per-turn
+ *  penalty so it prefers straight, few-bend routes. Pure (no React / DOM).
+ *
+ *  Algorithm:
+ *    $$\min_{\pi}\; \sum_i \lVert v_{i+1}-v_i\rVert_1 + \lambda\, t(\pi)$$
+ *    where $t(\pi)$ counts direction changes and $\lambda$ is `turnPenalty`.
+ *  ASCII: minimise total Manhattan length + turnPenalty × (number of bends).
+ */
+export function routeOrthogonal(
+  p1: Pt,
+  p2: Pt,
+  obstacles: Box[],
+  bounds: Box,
+  opts: { margin?: number; turnPenalty?: number } = {},
+): Pt[] | null {
+  const M = opts.margin ?? 8;
+  const TP = opts.turnPenalty ?? 18;
+  const EPS = 0.5;
+  const bx0 = bounds.x + 2;
+  const bx1 = bounds.x + bounds.w - 2;
+  const by0 = bounds.y + 2;
+  const by1 = bounds.y + bounds.h - 2;
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+  // Candidate coordinate lines: endpoints + a margin line each side of every box.
+  const xsSet = new Set<number>([p1.x, p2.x]);
+  const ysSet = new Set<number>([p1.y, p2.y]);
+  for (const o of obstacles) {
+    xsSet.add(clamp(o.x - M, bx0, bx1));
+    xsSet.add(clamp(o.x + o.w + M, bx0, bx1));
+    ysSet.add(clamp(o.y - M, by0, by1));
+    ysSet.add(clamp(o.y + o.h + M, by0, by1));
+  }
+  const xs = [...xsSet].sort((a, b) => a - b);
+  const ys = [...ysSet].sort((a, b) => a - b);
+  const nx = xs.length;
+  const ny = ys.length;
+  const inObstacle = (x: number, y: number) =>
+    obstacles.some((o) => x > o.x + EPS && x < o.x + o.w - EPS && y > o.y + EPS && y < o.y + o.h - EPS);
+  // Does an axis-aligned segment cross any obstacle's interior?
+  const segHits = (ax: number, ay: number, bx: number, by: number) => {
+    for (const o of obstacles) {
+      if (Math.abs(ax - bx) < EPS) {
+        if (ax > o.x + EPS && ax < o.x + o.w - EPS) {
+          const lo = Math.min(ay, by);
+          const hi = Math.max(ay, by);
+          if (hi > o.y + EPS && lo < o.y + o.h - EPS) return true;
+        }
+      } else if (ay > o.y + EPS && ay < o.y + o.h - EPS) {
+        const lo = Math.min(ax, bx);
+        const hi = Math.max(ax, bx);
+        if (hi > o.x + EPS && lo < o.x + o.w - EPS) return true;
+      }
+    }
+    return false;
+  };
+  const ix = new Map(xs.map((v, i) => [v, i]));
+  const iy = new Map(ys.map((v, i) => [v, i]));
+  const si = ix.get(p1.x);
+  const sj = iy.get(p1.y);
+  const gi = ix.get(p2.x);
+  const gj = iy.get(p2.y);
+  if (si == null || sj == null || gi == null || gj == null) return null;
+  // A* state = (i, j, dir): dir 0=horizontal, 1=vertical, 2=none(start).
+  const key = (i: number, j: number, d: number) => (i * ny + j) * 3 + d;
+  const best = new Map<number, number>();
+  const came = new Map<number, number>();
+  const h = (i: number, j: number) => Math.abs(xs[i] - p2.x) + Math.abs(ys[j] - p2.y);
+  type Node = { i: number; j: number; d: number; g: number; f: number };
+  const open: Node[] = [{ i: si, j: sj, d: 2, g: 0, f: h(si, sj) }];
+  best.set(key(si, sj, 2), 0);
+  const popMin = () => {
+    let m = 0;
+    for (let k = 1; k < open.length; k++) if (open[k].f < open[m].f) m = k;
+    return open.splice(m, 1)[0];
+  };
+  let goal: Node | null = null;
+  while (open.length) {
+    const cur = popMin();
+    if (cur.i === gi && cur.j === gj) { goal = cur; break; }
+    if (cur.g > (best.get(key(cur.i, cur.j, cur.d)) ?? Infinity)) continue;
+    const steps = [
+      { di: 1, dj: 0, dir: 0 },
+      { di: -1, dj: 0, dir: 0 },
+      { di: 0, dj: 1, dir: 1 },
+      { di: 0, dj: -1, dir: 1 },
+    ];
+    for (const s2 of steps) {
+      const ni = cur.i + s2.di;
+      const nj = cur.j + s2.dj;
+      if (ni < 0 || ni >= nx || nj < 0 || nj >= ny) continue;
+      const ax = xs[cur.i];
+      const ay = ys[cur.j];
+      const bx = xs[ni];
+      const by = ys[nj];
+      if (inObstacle(bx, by)) continue;
+      if (segHits(ax, ay, bx, by)) continue;
+      const step = Math.abs(bx - ax) + Math.abs(by - ay);
+      const turn = cur.d !== 2 && cur.d !== s2.dir ? TP : 0;
+      const ng = cur.g + step + turn;
+      const nk = key(ni, nj, s2.dir);
+      if (ng < (best.get(nk) ?? Infinity)) {
+        best.set(nk, ng);
+        came.set(nk, key(cur.i, cur.j, cur.d));
+        open.push({ i: ni, j: nj, d: s2.dir, g: ng, f: ng + h(ni, nj) });
+      }
+    }
+  }
+  if (!goal) return null;
+  // Reconstruct, then drop collinear midpoints.
+  const pts: Pt[] = [];
+  let k: number | undefined = key(goal.i, goal.j, goal.d);
+  while (k != null) {
+    const d = k % 3;
+    const ij = (k - d) / 3;
+    const j = ij % ny;
+    const i = (ij - j) / ny;
+    pts.push({ x: xs[i], y: ys[j] });
+    k = came.get(k);
+  }
+  pts.reverse();
+  const simplified: Pt[] = [];
+  for (let n = 0; n < pts.length; n++) {
+    const a = simplified[simplified.length - 1];
+    const b = pts[n];
+    if (n > 0 && n < pts.length - 1) {
+      const c = pts[n + 1];
+      const collinear = (a.x === b.x && b.x === c.x) || (a.y === b.y && b.y === c.y);
+      if (collinear) continue;
+    }
+    if (!a || a.x !== b.x || a.y !== b.y) simplified.push(b);
+  }
+  return simplified;
+}

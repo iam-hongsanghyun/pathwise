@@ -56,8 +56,10 @@ of which nodes are expanded, choose how the *flows* are aggregated:
   links that would otherwise cut across many boxes collapse to one box-to-box arrow.
 
 Whatever the level, **all commodities between the same two boxes share one arrow**,
-labelled with each flow's name (e.g. `iron_ore, hydrogen`). **Hover** an arrow for a
-popup listing exactly what flows along it.
+its label listing each flow on **its own line** over a solid backing chip so the
+text is never hidden by a line behind it. **Hover** an arrow for a popup of exactly
+what flows along it. **Click empty canvas** to clear the selection / close the
+inspector.
 
 Collapsing a group also aggregates: its internal links fold away and its external
 links route onto the group box.
@@ -75,11 +77,10 @@ all*:
 - **⇄ Horizontal / ⇳ Vertical** — flip the whole chain between left→right and
   top→bottom flow.
 - **⌐ Straight lines** — route the flows as right-angle (horizontal/vertical-only)
-  segments instead of curves. Adjacent boxes get a short elbow in the gutter
-  between them; a longer link runs along the margin **inside its enclosing box** —
-  a flow between two children of one group never leaves that group's box — which
-  keeps the routing tidy without cutting across unrelated boxes. Toggle off for
-  smooth curves.
+  segments instead of curves, each taking the **shortest path that avoids the
+  group / component boxes** (an A* search over the gutters between them) while
+  staying **inside its enclosing box** — a flow between two children of one group
+  never leaves that group's box. Toggle off for smooth curves.
 - **↺ Reset layout** — drop every manual position and snap back to the automatic
   arrangement (and re-fit the view).
 

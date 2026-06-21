@@ -17,6 +17,7 @@ import {
   defaultExpanded,
   editEdges,
   layoutFor,
+  routeOrthogonal,
   sourceStreams,
   type LaidNode,
   type MapMode,
@@ -52,6 +53,8 @@ interface Props {
   onMoveNodes?: (positions: { id: string; x: number; y: number }[]) => void;
   /** Clear all manual positions — "reset layout" back to the auto arrangement. */
   onResetLayout?: () => void;
+  /** A no-drag click on empty canvas — clears the selection / closes the inspector. */
+  onBackgroundClick?: () => void;
   commodities?: string[];
 }
 
@@ -66,6 +69,7 @@ export function HierarchyMap({
   onDeleteConnection,
   onMoveNodes,
   onResetLayout,
+  onBackgroundClick,
   commodities = [],
 }: Props) {
   const mode: MapMode = "expandable"; // the only layout: an expandable drill-down
@@ -243,6 +247,47 @@ export function HierarchyMap({
     return rank;
   }, [edges, boxById]);
 
+  // The child of `ancId` that lies on the path down to `descId` (its diverging box).
+  const childTowards = (descId: string, ancId: string): string => {
+    let cur: string | null = descId;
+    const seen = new Set<string>();
+    while (cur && !seen.has(cur)) {
+      if (parentOf.get(cur) === ancId) return cur;
+      seen.add(cur);
+      cur = parentOf.get(cur) ?? null;
+    }
+    return descId;
+  };
+  // Precompute the obstacle-avoiding orthogonal path for every edge (only in
+  // straight-line mode). Each flow routes the SHORTEST right-angle path inside its
+  // lowest-common-ancestor box, around the sibling boxes — so lines don't cross
+  // group / component boxes. Memoised so hover / pan don't recompute the A*.
+  const orthoRoutes = useMemo(() => {
+    const map = new Map<string, { x: number; y: number }[]>();
+    if (!ortho) return map;
+    const childrenByParent = new Map<string, LaidNode[]>();
+    for (const n of placed) {
+      if (!n.parentId) continue;
+      const arr = childrenByParent.get(n.parentId);
+      if (arr) arr.push(n);
+      else childrenByParent.set(n.parentId, [n]);
+    }
+    for (const e of edges) {
+      const a = boxById.get(e.from);
+      const b = boxById.get(e.to);
+      const L = lcaBox(e.from, e.to);
+      if (!a || !b || !L) continue;
+      const sa = childTowards(e.from, L.id);
+      const sb = childTowards(e.to, L.id);
+      const obstacles = (childrenByParent.get(L.id) ?? [])
+        .filter((n) => n.id !== sa && n.id !== sb)
+        .map((n) => ({ x: n.x, y: n.y, w: n.w, h: n.h }));
+      const path = routeOrthogonal(outPt(a), inPt(b), obstacles, { x: L.x, y: L.y, w: L.w, h: L.h });
+      if (path && path.length >= 2) map.set(edgeKey(e), path);
+    }
+    return map;
+  }, [ortho, edges, placed, boxById, horiz]);
+
   const svgRef = useRef<SVGSVGElement | null>(null);
   const { vb, setVb, onWheel, onPanStart, onPanMove, onPanEnd, toWorld } = useViewBox();
   const fitKey = `${mode}|${orientation}|${structural.width}x${structural.height}|${structural.nodes.length}|${sources.length}`;
@@ -389,8 +434,12 @@ export function HierarchyMap({
   }
   function bgUp() {
     // Background pan end (group select / toggle / drag are handled in startNodeDrag).
+    const b = bgPress.current;
     bgPress.current = null;
     onPanEnd();
+    // A no-move tap on empty canvas (not a pan, not a link drag) clears the
+    // selection so the floating inspector closes.
+    if (b && !b.moved && !connect) onBackgroundClick?.();
     setConnect(null);
   }
   function nodeClick(n: LaidNode) {
@@ -641,37 +690,27 @@ export function HierarchyMap({
           // (staggered per edge so parallel flows don't overlap); else a smooth
           // Bézier. Both follow the flow axis (horizontal vs vertical).
           let d: string;
+          // Label position: midpoint of the (straight) port line by default.
+          let lmx = mx;
+          let lmy = my;
           if (ortho) {
-            const lane = (edgeLabelRank.get(edgeKey(e)) ?? 0) * 14;
-            const EM = 16; // exit margin past a box edge
-            const INSET = 8; // clear margin strip just inside a box's border
-            // The link's enclosing box (lowest common ancestor): the perpendicular
-            // lane is kept INSIDE it, so a flow between two children of one group
-            // never leaves that group's box ("stay within the one level upper box").
-            const L = lcaBox(e.from, e.to);
-            if (horiz) {
-              const gap = x2 - x1; // x1 = a's right edge, x2 = b's left edge
-              if (gap > 0 && gap < 96 && Math.abs(y2 - y1) < a.h + b.h) {
-                // adjacent columns: a short elbow in the gutter between the boxes
-                const cx = x1 + gap / 2 + lane;
-                d = `M${x1},${y1} L${cx},${y1} L${cx},${y2} L${x2},${y2}`;
-              } else {
-                // non-adjacent: a horizontal lane below the boxes, inside the LCA box
-                let gy = Math.max(a.y + a.h, b.y + b.h) + EM + lane;
-                if (L) gy = Math.min(gy, L.y + L.h - INSET);
-                d = `M${x1},${y1} L${x1 + EM},${y1} L${x1 + EM},${gy} L${x2 - EM},${gy} L${x2 - EM},${y2} L${x2},${y2}`;
+            // The obstacle-avoiding A* route (precomputed); fall back to a plain
+            // elbow in the inter-box gutter if no route was found.
+            const routed = orthoRoutes.get(edgeKey(e));
+            if (routed) {
+              d = routed.map((p, i) => `${i ? "L" : "M"}${p.x},${p.y}`).join(" ");
+              // place the label on the longest (most central, straight) segment
+              let bestLen = -1;
+              for (let i = 0; i < routed.length - 1; i++) {
+                const seg = Math.abs(routed[i + 1].x - routed[i].x) + Math.abs(routed[i + 1].y - routed[i].y);
+                if (seg > bestLen) { bestLen = seg; lmx = (routed[i].x + routed[i + 1].x) / 2; lmy = (routed[i].y + routed[i + 1].y) / 2; }
               }
+            } else if (horiz) {
+              const cx = (x1 + x2) / 2;
+              d = `M${x1},${y1} L${cx},${y1} L${cx},${y2} L${x2},${y2}`;
             } else {
-              const gap = y2 - y1; // y1 = a's bottom edge, y2 = b's top edge
-              if (gap > 0 && gap < 96 && Math.abs(x2 - x1) < a.w + b.w) {
-                const cy = y1 + gap / 2 + lane;
-                d = `M${x1},${y1} L${x1},${cy} L${x2},${cy} L${x2},${y2}`;
-              } else {
-                // non-adjacent: a vertical lane right of the boxes, inside the LCA box
-                let gx = Math.max(a.x + a.w, b.x + b.w) + EM + lane;
-                if (L) gx = Math.min(gx, L.x + L.w - INSET);
-                d = `M${x1},${y1} L${x1},${y1 + EM} L${gx},${y1 + EM} L${gx},${y2 - EM} L${x2},${y2 - EM} L${x2},${y2}`;
-              }
+              const cy = (y1 + y2) / 2;
+              d = `M${x1},${y1} L${x1},${cy} L${x2},${cy} L${x2},${y2}`;
             }
           } else if (horiz) {
             const c = Math.max(40, (x2 - x1) / 2);
@@ -680,11 +719,16 @@ export function HierarchyMap({
             const c = Math.max(40, (y2 - y1) / 2);
             d = `M${x1},${y1} C${x1},${y1 + c} ${x2},${y2 - c} ${x2},${y2}`;
           }
-          // One arrow now carries ALL commodities between the two boxes — list each
-          // flow's name; full detail (and per-flow values) is in the hover popup.
-          const names = e.commodities.join(", ");
-          const label = clip(active ? `${names} ${fmtVal(fv!)}` : names, 30) + (e.lag ? ` ·${e.lag}y` : "");
-          const labelY = my - 4 - (edgeLabelRank.get(edgeKey(e)) ?? 0) * 12;
+          // One arrow carries ALL commodities between the two boxes — list EACH flow
+          // on its own line, over a solid backing chip so the text is never hidden
+          // by a line or box behind it.
+          const lines = e.commodities.map((c) => clip(c, 16) + (e.lag ? ` ·${e.lag}y` : ""));
+          const LH = 11;
+          const rank = edgeLabelRank.get(edgeKey(e)) ?? 0;
+          const blockH = lines.length * LH;
+          const charW = 5.6;
+          const boxW = Math.max(...lines.map((l) => l.length)) * charW + 10;
+          const topY = lmy - blockH / 2 + LH - 2 - rank * (blockH + 6);
           const onHover = (ev: React.MouseEvent) =>
             setHover({ x: ev.clientX, y: ev.clientY, from: e.from, to: e.to, commodities: e.commodities, lag: e.lag });
           return (
@@ -702,9 +746,14 @@ export function HierarchyMap({
                 onMouseLeave={() => setHover(null)}
                 onClick={editable && e.rowIndex >= 0 ? () => setSelEdge(sel ? null : e.rowIndex) : undefined}
               />
-              <text x={mx} y={labelY} fontSize={9} fill={active ? "var(--text)" : "var(--muted)"} textAnchor="middle" style={{ pointerEvents: "none" }}>
-                {label}
-              </text>
+              <g style={{ pointerEvents: "none" }}>
+                <rect x={lmx - boxW / 2} y={topY - LH + 2} width={boxW} height={blockH + 4} rx={3} fill="var(--surface)" opacity={0.85} />
+                <text x={lmx} y={topY} fontSize={9} fill={active ? "var(--text)" : "var(--muted)"} textAnchor="middle">
+                  {lines.map((l, i) => (
+                    <tspan key={i} x={lmx} dy={i ? LH : 0}>{l}</tspan>
+                  ))}
+                </text>
+              </g>
               {sel && onEditConnection && (
                 <g style={{ cursor: "pointer" }} onClick={(ev) => setForm({ from: e.from, to: e.to, sx: ev.clientX, sy: ev.clientY, editRowIndex: e.rowIndex, commodity: e.commodity, lag: e.lag })}>
                   <circle cx={mx + 22} cy={my - 2} r={8} fill="var(--brand)" />
