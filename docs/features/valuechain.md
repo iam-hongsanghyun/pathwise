@@ -55,11 +55,15 @@ of which nodes are expanded, choose how the *flows* are aggregated:
   technology group it stays **machine→machine**. Usually the clearest view — long
   links that would otherwise cut across many boxes collapse to one box-to-box arrow.
 
-Whatever the level, **all commodities between the same two boxes share one arrow**,
-its label listing each flow on **its own line** over a solid backing chip so the
-text is never hidden by a line behind it. **Hover** an arrow for a popup of exactly
-what flows along it. **Click empty canvas** to clear the selection / close the
-inspector.
+Whatever the level, **all commodities between the same two boxes share one arrow**.
+Its label is written at **both ends** — where the flow leaves the source and where
+it enters the target — never across some other box in the middle; each commodity
+sits on **its own line** over a solid backing chip. **Hover** an arrow for a popup
+of exactly what flows along it. **Click empty canvas** to clear the selection /
+close the inspector.
+
+Boxes are always drawn **in front** of the flow lines (white, lightly translucent),
+so a line passing behind a box reads as dimmed and the boxes stay legible.
 
 Collapsing a group also aggregates: its internal links fold away and its external
 links route onto the group box.
@@ -76,11 +80,11 @@ all*:
 
 - **⇄ Horizontal / ⇳ Vertical** — flip the whole chain between left→right and
   top→bottom flow.
-- **⌐ Straight lines** — route the flows as right-angle (horizontal/vertical-only)
-  segments instead of curves, each taking the **shortest path that avoids the
-  group / component boxes** (an A* search over the gutters between them) while
-  staying **inside its enclosing box** — a flow between two children of one group
-  never leaves that group's box. Toggle off for smooth curves.
+- **⌐ Straight lines** — route the flows as right-angle segments instead of curves.
+  Each line leaves its box **perpendicular** (a straight stub, never hugging the
+  outline), bends in the **nearest inter-box gutter**, and takes the **shortest**
+  path that avoids same/lower-level boxes while moving freely through the enclosing
+  box (an A* over the gutters). Toggle off for smooth curves.
 - **↺ Reset layout** — drop every manual position and snap back to the automatic
   arrangement (and re-fit the view).
 

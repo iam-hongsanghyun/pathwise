@@ -226,26 +226,6 @@ export function HierarchyMap({
   };
   const edgeKey = (e: { from: string; to: string; commodity: string; rowIndex: number }) =>
     `${e.from}-${e.to}-${e.commodity}-${e.rowIndex}`;
-  // Stagger labels of edges whose midpoints collide, so two flows between the
-  // same area (e.g. two hydrogen links) don't print on top of each other.
-  const edgeLabelRank = useMemo(() => {
-    const bucket = new Map<string, number>();
-    const rank = new Map<string, number>();
-    for (const e of edges) {
-      const a = boxById.get(e.from);
-      const b = boxById.get(e.to);
-      if (!a || !b) continue;
-      const p1 = outPt(a);
-      const p2 = inPt(b);
-      const mx = (p1.x + p2.x) / 2;
-      const my = (p1.y + p2.y) / 2;
-      const key = `${Math.round(mx / 30)}|${Math.round(my / 18)}`;
-      const r = bucket.get(key) ?? 0;
-      bucket.set(key, r + 1);
-      rank.set(edgeKey(e), r);
-    }
-    return rank;
-  }, [edges, boxById]);
 
   // The child of `ancId` that lies on the path down to `descId` (its diverging box).
   const childTowards = (descId: string, ancId: string): string => {
@@ -295,6 +275,56 @@ export function HierarchyMap({
     }
     return map;
   }, [ortho, edges, placed, boxById, horiz, orientation]);
+
+  // Per-edge render geometry, computed once: the path `d`, plus a label anchor at
+  // EACH end (in the perpendicular-stub gutter, i.e. where the flow starts and
+  // where it connects) so the text never lands on another item's box.
+  const edgeViews = useMemo(() => {
+    const STUB = 16;
+    const out: {
+      e: (typeof edges)[number];
+      d: string;
+      active: boolean;
+      src: { x: number; y: number };
+      dst: { x: number; y: number };
+    }[] = [];
+    for (const e of edges) {
+      const a = boxById.get(e.from);
+      const b = boxById.get(e.to);
+      if (!a || !b) continue;
+      const p1 = outPt(a);
+      const p2 = inPt(b);
+      const fv = overlay?.flow(e.origFrom, e.origTo, e.commodity);
+      const active = fv != null && fv > 1e-6;
+      const mid = (u: { x: number; y: number }, v: { x: number; y: number }) => ({ x: (u.x + v.x) / 2, y: (u.y + v.y) / 2 });
+      let d: string;
+      let src: { x: number; y: number };
+      let dst: { x: number; y: number };
+      const routed = ortho ? orthoRoutes.get(edgeKey(e)) : undefined;
+      if (routed && routed.length >= 2) {
+        d = routed.map((p, i) => `${i ? "L" : "M"}${p.x},${p.y}`).join(" ");
+        src = mid(routed[0], routed[1]); // source stub
+        dst = mid(routed[routed.length - 2], routed[routed.length - 1]); // target stub
+      } else {
+        if (ortho) {
+          const cx = (p1.x + p2.x) / 2;
+          const cy = (p1.y + p2.y) / 2;
+          d = horiz
+            ? `M${p1.x},${p1.y} L${cx},${p1.y} L${cx},${p2.y} L${p2.x},${p2.y}`
+            : `M${p1.x},${p1.y} L${p1.x},${cy} L${p2.x},${cy} L${p2.x},${p2.y}`;
+        } else {
+          const c = Math.max(40, (horiz ? p2.x - p1.x : p2.y - p1.y) / 2);
+          d = horiz
+            ? `M${p1.x},${p1.y} C${p1.x + c},${p1.y} ${p2.x - c},${p2.y} ${p2.x},${p2.y}`
+            : `M${p1.x},${p1.y} C${p1.x},${p1.y + c} ${p2.x},${p2.y - c} ${p2.x},${p2.y}`;
+        }
+        src = horiz ? { x: p1.x + STUB, y: p1.y } : { x: p1.x, y: p1.y + STUB };
+        dst = horiz ? { x: p2.x - STUB, y: p2.y } : { x: p2.x, y: p2.y - STUB };
+      }
+      out.push({ e, d, active, src, dst });
+    }
+    return out;
+  }, [edges, boxById, ortho, orthoRoutes, horiz, overlay]);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const { vb, setVb, onWheel, onPanStart, onPanMove, onPanEnd, toWorld } = useViewBox();
@@ -656,6 +686,31 @@ export function HierarchyMap({
           });
         })}
 
+        {/* EDGE LINES — drawn BEHIND every box, so a line crossing a box reads as
+            dimmed (the box, white + translucent, sits on top). Labels + controls
+            are a separate pass after the boxes. */}
+        {edgeViews.map(({ e, d, active }) => {
+          const sel = editable && e.rowIndex >= 0 && selEdge === e.rowIndex;
+          const onHover = (ev: React.MouseEvent) =>
+            setHover({ x: ev.clientX, y: ev.clientY, from: e.from, to: e.to, commodities: e.commodities, lag: e.lag });
+          return (
+            <g key={`el-${edgeKey(e)}`} className="topo-edge">
+              <path d={d} fill="none" stroke={sel ? "#0b5d56" : "#0f766e"} strokeWidth={sel ? 2.6 : active ? 2.2 : 1.3} markerEnd="url(#hm-arrow)" opacity={overlay && !active ? 0.28 : 0.72} />
+              <path
+                d={d}
+                fill="none"
+                stroke="transparent"
+                strokeWidth={14}
+                style={{ cursor: "pointer" }}
+                onMouseEnter={onHover}
+                onMouseMove={onHover}
+                onMouseLeave={() => setHover(null)}
+                onClick={editable && e.rowIndex >= 0 ? () => setSelEdge(sel ? null : e.rowIndex) : undefined}
+              />
+            </g>
+          );
+        })}
+
         {containers.map((g) => {
           // In expandable mode the whole header strip toggles (click to collapse);
           // otherwise it just selects. Children cover the body, so the header is
@@ -676,9 +731,9 @@ export function HierarchyMap({
                 height={g.h}
                 rx={6}
                 fill="var(--surface)"
+                fillOpacity={0.34}
                 stroke={sel ? "var(--brand)" : "var(--border-strong)"}
                 strokeWidth={sel ? 3 : 1}
-                opacity={0.5 + 0.12 * Math.min(3, g.depth)}
                 style={{ cursor: "pointer" }}
               />
               {/* header strip — the NAME / select target (data-group): click shows
@@ -699,104 +754,8 @@ export function HierarchyMap({
           );
         })}
 
-        {edges.map((e) => {
-          const a = boxById.get(e.from);
-          const b = boxById.get(e.to);
-          if (!a || !b) return null;
-          const p1 = outPt(a);
-          const p2 = inPt(b);
-          const x1 = p1.x;
-          const y1 = p1.y;
-          const x2 = p2.x;
-          const y2 = p2.y;
-          const fv = overlay?.flow(e.origFrom, e.origTo, e.commodity);
-          const active = fv != null && fv > 1e-6;
-          const mx = (x1 + x2) / 2;
-          const my = (y1 + y2) / 2;
-          const sel = editable && e.rowIndex >= 0 && selEdge === e.rowIndex;
-          // Edge geometry: orthogonal = right-angle elbow down the inter-box gutter
-          // (staggered per edge so parallel flows don't overlap); else a smooth
-          // Bézier. Both follow the flow axis (horizontal vs vertical).
-          let d: string;
-          // Label position: midpoint of the (straight) port line by default.
-          let lmx = mx;
-          let lmy = my;
-          if (ortho) {
-            // The obstacle-avoiding A* route (precomputed); fall back to a plain
-            // elbow in the inter-box gutter if no route was found.
-            const routed = orthoRoutes.get(edgeKey(e));
-            if (routed) {
-              d = routed.map((p, i) => `${i ? "L" : "M"}${p.x},${p.y}`).join(" ");
-              // place the label on the longest (most central, straight) segment
-              let bestLen = -1;
-              for (let i = 0; i < routed.length - 1; i++) {
-                const seg = Math.abs(routed[i + 1].x - routed[i].x) + Math.abs(routed[i + 1].y - routed[i].y);
-                if (seg > bestLen) { bestLen = seg; lmx = (routed[i].x + routed[i + 1].x) / 2; lmy = (routed[i].y + routed[i + 1].y) / 2; }
-              }
-            } else if (horiz) {
-              const cx = (x1 + x2) / 2;
-              d = `M${x1},${y1} L${cx},${y1} L${cx},${y2} L${x2},${y2}`;
-            } else {
-              const cy = (y1 + y2) / 2;
-              d = `M${x1},${y1} L${x1},${cy} L${x2},${cy} L${x2},${y2}`;
-            }
-          } else if (horiz) {
-            const c = Math.max(40, (x2 - x1) / 2);
-            d = `M${x1},${y1} C${x1 + c},${y1} ${x2 - c},${y2} ${x2},${y2}`;
-          } else {
-            const c = Math.max(40, (y2 - y1) / 2);
-            d = `M${x1},${y1} C${x1},${y1 + c} ${x2},${y2 - c} ${x2},${y2}`;
-          }
-          // One arrow carries ALL commodities between the two boxes — list EACH flow
-          // on its own line, over a solid backing chip so the text is never hidden
-          // by a line or box behind it.
-          const lines = e.commodities.map((c) => clip(c, 16) + (e.lag ? ` ·${e.lag}y` : ""));
-          const LH = 11;
-          const rank = edgeLabelRank.get(edgeKey(e)) ?? 0;
-          const blockH = lines.length * LH;
-          const charW = 5.6;
-          const boxW = Math.max(...lines.map((l) => l.length)) * charW + 10;
-          const topY = lmy - blockH / 2 + LH - 2 - rank * (blockH + 6);
-          const onHover = (ev: React.MouseEvent) =>
-            setHover({ x: ev.clientX, y: ev.clientY, from: e.from, to: e.to, commodities: e.commodities, lag: e.lag });
-          return (
-            <g key={edgeKey(e)} className="topo-edge">
-              <path d={d} fill="none" stroke={sel ? "#0b5d56" : "#0f766e"} strokeWidth={sel ? 2.6 : active ? 2.2 : 1.3} markerEnd="url(#hm-arrow)" opacity={overlay && !active ? 0.28 : 0.78} />
-              {/* transparent hit-path: hover for the flow popup, click to select (editable) */}
-              <path
-                d={d}
-                fill="none"
-                stroke="transparent"
-                strokeWidth={14}
-                style={{ cursor: "pointer" }}
-                onMouseEnter={onHover}
-                onMouseMove={onHover}
-                onMouseLeave={() => setHover(null)}
-                onClick={editable && e.rowIndex >= 0 ? () => setSelEdge(sel ? null : e.rowIndex) : undefined}
-              />
-              <g style={{ pointerEvents: "none" }}>
-                <rect x={lmx - boxW / 2} y={topY - LH + 2} width={boxW} height={blockH + 4} rx={3} fill="var(--surface)" opacity={0.85} />
-                <text x={lmx} y={topY} fontSize={9} fill={active ? "var(--text)" : "var(--muted)"} textAnchor="middle">
-                  {lines.map((l, i) => (
-                    <tspan key={i} x={lmx} dy={i ? LH : 0}>{l}</tspan>
-                  ))}
-                </text>
-              </g>
-              {sel && onEditConnection && (
-                <g style={{ cursor: "pointer" }} onClick={(ev) => setForm({ from: e.from, to: e.to, sx: ev.clientX, sy: ev.clientY, editRowIndex: e.rowIndex, commodity: e.commodity, lag: e.lag })}>
-                  <circle cx={mx + 22} cy={my - 2} r={8} fill="var(--brand)" />
-                  <text x={mx + 22} y={my - 1} fontSize={9} fill="#fff" textAnchor="middle" dominantBaseline="middle">✎</text>
-                </g>
-              )}
-              {sel && onDeleteConnection && (
-                <g style={{ cursor: "pointer" }} onClick={() => { onDeleteConnection(e.rowIndex); setSelEdge(null); }}>
-                  <circle cx={mx + 40} cy={my - 2} r={8} fill="var(--danger)" />
-                  <text x={mx + 40} y={my - 1} fontSize={10} fill="#fff" textAnchor="middle" dominantBaseline="middle">✕</text>
-                </g>
-              )}
-            </g>
-          );
-        })}
+        {/* (edge lines are drawn above, before the boxes; labels + controls are a
+            separate top pass below, after the leaves) */}
 
         {/* rubber-band while connecting */}
         {connect && (() => {
@@ -815,7 +774,9 @@ export function HierarchyMap({
           const sub = isMachine ? (tech ? (toTech ? `⇄ ${tech}` : tech) : n.level || "idle") : n.level || "group";
           const isSel = selectedId === n.id;
           const stroke = toTech ? "var(--warn)" : isSel ? "var(--brand)" : undefined;
-          const fill = isSel ? "var(--brand-fill)" : undefined; // clear selection tint (like the tree)
+          // White, slightly translucent fill so a flow line passing BEHIND the box
+          // reads as dimmed (the box stays in front and legible).
+          const fill = isSel ? "var(--brand-fill)" : "var(--surface)";
           return (
             <g
               key={`n-${n.id}`}
@@ -825,7 +786,7 @@ export function HierarchyMap({
               style={{ cursor: "pointer" }}
               onPointerDown={(e) => startNodeDrag([n.id], () => nodeClick(n), e)}
             >
-              <rect width={n.w} height={n.h} rx={3} fill={fill} stroke={stroke} strokeWidth={isSel || toTech ? 2.5 : undefined} />
+              <rect width={n.w} height={n.h} rx={3} fill={fill} fillOpacity={isSel ? 1 : 0.92} stroke={stroke} strokeWidth={isSel || toTech ? 2.5 : undefined} />
               <text className="topo-kind" x={8} y={14}>{isMachine ? "machine" : !editable && n.collapsed ? "group ▸" : "group"}</text>
               {tput != null && <text className="topo-kind" x={n.w - 8} y={14} textAnchor="end">{fmtVal(tput)}</text>}
               <text className="topo-label" x={8} y={31}>{clip(n.label, 22)}</text>
@@ -845,6 +806,58 @@ export function HierarchyMap({
             </g>
           );
         })}
+
+        {/* EDGE LABELS — on TOP of the boxes, at BOTH ends of each flow (where it
+            starts and where it connects), each commodity on its own line over a
+            backing chip so the text is never hidden or written across a box. */}
+        {(() => {
+          const used = new Map<string, number>(); // stagger labels that share a port cell
+          const LH = 11;
+          const chip = (key: string, at: { x: number; y: number }, lines: string[], active: boolean) => {
+            const cell = `${Math.round(at.x / 36)}|${Math.round(at.y / 28)}`;
+            const rank = used.get(cell) ?? 0;
+            used.set(cell, rank + 1);
+            const blockH = lines.length * LH;
+            const boxW = Math.max(...lines.map((l) => l.length)) * 5.6 + 10;
+            const topY = at.y - blockH / 2 + LH - 2 + rank * (blockH + 5);
+            return (
+              <g key={key} style={{ pointerEvents: "none" }}>
+                <rect x={at.x - boxW / 2} y={topY - LH + 2} width={boxW} height={blockH + 4} rx={3} fill="var(--surface)" opacity={0.92} stroke="var(--border)" strokeWidth={0.5} />
+                <text x={at.x} y={topY} fontSize={9} fill={active ? "var(--text)" : "var(--muted)"} textAnchor="middle">
+                  {lines.map((l, i) => (
+                    <tspan key={i} x={at.x} dy={i ? LH : 0}>{l}</tspan>
+                  ))}
+                </text>
+              </g>
+            );
+          };
+          return edgeViews.flatMap(({ e, src, dst, active }) => {
+            const lines = e.commodities.map((c) => clip(c, 16) + (e.lag ? ` ·${e.lag}y` : ""));
+            return [chip(`ls-${edgeKey(e)}`, src, lines, active), chip(`ld-${edgeKey(e)}`, dst, lines, active)];
+          });
+        })()}
+
+        {/* edit / delete controls for the selected edge (top layer, clickable) */}
+        {editable &&
+          selEdge != null &&
+          edgeViews
+            .filter((v) => v.e.rowIndex === selEdge)
+            .map(({ e, src }) => (
+              <g key={`ec-${edgeKey(e)}`}>
+                {onEditConnection && (
+                  <g style={{ cursor: "pointer" }} onClick={(ev) => setForm({ from: e.from, to: e.to, sx: ev.clientX, sy: ev.clientY, editRowIndex: e.rowIndex, commodity: e.commodity, lag: e.lag })}>
+                    <circle cx={src.x} cy={src.y + 16} r={8} fill="var(--brand)" />
+                    <text x={src.x} y={src.y + 17} fontSize={9} fill="#fff" textAnchor="middle" dominantBaseline="middle">✎</text>
+                  </g>
+                )}
+                {onDeleteConnection && (
+                  <g style={{ cursor: "pointer" }} onClick={() => { onDeleteConnection(e.rowIndex); setSelEdge(null); }}>
+                    <circle cx={src.x + 20} cy={src.y + 16} r={8} fill="var(--danger)" />
+                    <text x={src.x + 20} y={src.y + 17} fontSize={10} fill="#fff" textAnchor="middle" dominantBaseline="middle">✕</text>
+                  </g>
+                )}
+              </g>
+            ))}
       </svg>
 
       {/* hover-a-flow popup: what commodities travel along the arrow under the cursor */}

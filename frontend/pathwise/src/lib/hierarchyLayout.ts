@@ -52,8 +52,8 @@ export interface Laid {
 // ── Geometry constants ────────────────────────────────────────────────────────
 const LEAF_W = 168;
 const LEAF_H = 56;
-const GAP_X = 40; // between columns inside a container
-const GAP_Y = 20; // between stacked siblings
+const GAP_X = 64; // between columns inside a container (room for the port-side flow label)
+const GAP_Y = 36; // between stacked siblings (room for the port-side flow label)
 const PAD = 16; // inner padding of a container
 const HEADER = 24; // container title strip
 
