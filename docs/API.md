@@ -38,6 +38,7 @@ a `sessionId`.
 |---|---|---|
 | `POST` | `/api/session` | Create a fresh session; returns `{sessionId}`. |
 | `POST` | `/api/session/model` | Ingest a full workbook into a (new or existing) session. |
+| `GET` | `/api/session/{id}` | Lightweight existence probe (always 200; `{exists: bool}`). |
 | `POST` | `/api/session/{id}/clear` | Reset a session to an empty model. |
 | `GET` | `/api/session/{id}/model` | Fetch the whole session workbook. |
 | `GET` | `/api/session/{id}/sheet/{name}` | One page of a sheet (params: `offset`, `limit`). |
@@ -45,6 +46,8 @@ a `sessionId`.
 | `POST` | `/api/session/{id}/workbook` | Parse an uploaded `.xlsx` and replace the session model. |
 | `GET` | `/api/session/{id}/export` | Download the session model as `.xlsx`. |
 | `POST` | `/api/export/result` | Flatten a run result into a downloadable `.xlsx`. |
+| `POST` | `/api/export/result.sqlite` | Flatten a run result into a downloadable SQLite (one table per output). |
+| `POST` | `/api/cache/clear` | Wipe ALL sessions + session libraries, return a fresh session. Guarded by an `X-Admin-Token` header when `admin_token` is configured. |
 
 ## Examples
 
@@ -70,6 +73,28 @@ a `sessionId`.
 | `GET` | `/api/session/{id}/component-library/{lib_id}` | One session library's full content. |
 | `PUT` | `/api/session/{id}/component-library/{lib_id}` | Create or overwrite a session library. |
 | `DELETE` | `/api/session/{id}/component-library/{lib_id}` | Delete a session library. |
+| `POST` | `/api/session/{id}/component-library/{lib_id}/copy` | Copy a component (+ its dependency closure) into the session project. |
+
+## Importable libraries
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/libraries` | Every importable library, discovered by globbing the tier folders. |
+| `POST` | `/api/session/{id}/library/{tier}/{library_id}/import` | Import a library into the session (components → the session library; structure → the model). |
+
+## Project bundle
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/session/{id}/project/export` | Download the whole project as one self-contained `.pathwise.json` bundle. |
+| `POST` | `/api/session/{id}/project/import` | Load a project bundle into the session (replaces the current project). |
+
+## Units
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/units` | The current unit system (writable copy if present, else the bundled seed). |
+| `PUT` | `/api/units` | Overwrite the unit system (validates that every custom unit parses). |
 
 ## Alternatives & component placement
 
