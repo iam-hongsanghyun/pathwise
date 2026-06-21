@@ -333,6 +333,37 @@ export function MachineInspector({
             <span className="mi-unit">× cap</span>
           </div>
         </div>
+        <div className="mi-card">
+          <div className="mi-card-label" title="Max same-technology rebuilds over the horizon. Blank = unlimited; 0 = no renewal (must replace at end of life). Only binds when the machine has an install year.">max renewals</div>
+          <div className="mi-card-val">
+            {onWorkbookChange ? (
+              <input
+                type="number"
+                min={0}
+                step={1}
+                placeholder="∞"
+                defaultValue={machine.max_renewals == null ? "" : Number(machine.max_renewals)}
+                className="mi-cap-input"
+                onBlur={(e) => {
+                  const raw = e.target.value.trim();
+                  onWorkbookChange({
+                    ...wb,
+                    machines: (wb.machines ?? []).map((r) => {
+                      if (s(r.machine_id) !== machineId) return r;
+                      const next = { ...r };
+                      if (raw === "") delete next.max_renewals;
+                      else next.max_renewals = Math.max(Math.round(Number(raw) || 0), 0);
+                      return next;
+                    }),
+                  });
+                }}
+              />
+            ) : (
+              <b>{machine.max_renewals == null ? "∞" : Number(machine.max_renewals)}</b>
+            )}
+            <span className="mi-unit">rebuilds</span>
+          </div>
+        </div>
         {co2Intensity != null && (
           <div className="mi-card">
             <div className="mi-card-label">CO₂ intensity</div>

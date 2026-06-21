@@ -116,6 +116,8 @@ def to_hierarchy(
         }
         if p.get("introduced_year") is not None:
             m["introduced_year"] = p.get("introduced_year")
+        if p.get("max_renewals") is not None:
+            m["max_renewals"] = p.get("max_renewals")
         machines.append(m)
 
     connections: list[dict[str, object]] = []

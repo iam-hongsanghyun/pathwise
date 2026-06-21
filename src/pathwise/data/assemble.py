@@ -279,6 +279,8 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
         }
         if m.introduced_year is not None:
             row["introduced_year"] = m.introduced_year
+        if m.max_renewals is not None:
+            row["max_renewals"] = m.max_renewals
         procs.append(row)
 
     # Connections (machine↔machine or group↔group) become machine edges: the
