@@ -6,6 +6,7 @@ including the global scaling that keeps large-coefficient models stable.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
@@ -132,11 +133,14 @@ def solve(ctx: BuildContext, options: SolverOptions | None = None) -> SolveResul
     model = ctx.model
     status, termination = model.solve(solver_name=options.solver_name, **options.as_highs_kwargs())
     normalised = _STATUS_MAP.get(termination, _STATUS_MAP.get(status, SolveStatus.ERROR))
-    objective = (
-        float(model.objective.value)  # type: ignore[arg-type]
-        if normalised == SolveStatus.OPTIMAL
-        else None
-    )
+    objective: float | None = None
+    if normalised == SolveStatus.OPTIMAL:
+        objective = float(model.objective.value)  # type: ignore[arg-type]
+        # A degenerate / ill-scaled model can terminate "optimal" with a non-finite
+        # objective; treat that as a failure rather than reporting bogus success.
+        if not math.isfinite(objective):
+            logger.error("solver reported optimal but objective is non-finite: %s", objective)
+            normalised, objective = SolveStatus.ERROR, None
     logger.info(
         "solve finished: status=%s termination=%s objective=%s", status, termination, objective
     )

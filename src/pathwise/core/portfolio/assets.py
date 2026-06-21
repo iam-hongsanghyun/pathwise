@@ -92,7 +92,8 @@ def enumerate_candidates(problem: Problem) -> list[Candidate]:
         if tr.to_technology != tr.from_technology:
             by_from.setdefault(tr.from_technology, []).append(tr.to_technology)
     capex_of = {
-        (tr.from_technology, tr.to_technology): tr.capex_per_capacity for tr in problem.transitions
+        (tr.from_technology, tr.to_technology): tr.capex_at(first_year)
+        for tr in problem.transitions
     }
 
     out: list[Candidate] = []

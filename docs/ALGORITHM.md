@@ -43,12 +43,17 @@ slacks `ξ`. Inflow needed `= Σ_k in_intensity[k,r]·thru_k`; outflow produced
 $$\min \sum_t DF_t\Big[\sum_{p,k}\text{opex}_{k,t}\,x_{p,k,t}
 +\sum_{p,r}(\text{price}_{r,t}\,\text{buy}_{p,r,t}-\text{sale}_{r,t}\,\text{sell}_{p,r,t})
 +\sum_{p,i}\pi_{i,t}\,\text{emit}_{p,i,t}\Big]
-+\sum_{p,k}DF_t\,\text{capex}_{p,k}\,w_{p,k,t}
-+\sum_{s}DF_t\,\text{capex}_s\,\Delta z_{s,t}
++\sum_{p,k}\text{capex}_{p,k,t}\,w_{p,k,t}
++\sum_{p,k}\text{renewal}_{k,t}\,\text{ren}_{p,k,t}
++\sum_{m,b}DF_t\,\text{capex}_{m,b}\,\Delta z_{m,b,t}
 +\sigma\!\sum(\xi^D+\xi^{cap})$$
 
-`DF_t=(1+ρ)^{-(t-t_0)}`. Operational terms scale by period duration; capex is
-multiplied by `capex_charge(year, lifespan)` — see section 3b below.
+`DF_t=(1+ρ)^{-(t-t_0)}`. Operational terms scale by period duration. Capex enters
+on four event families, each multiplied by `capex_charge(year, lifespan)` (see 3b):
+technology **replacement** on `w`, **renewal** (same-tech rebuild) on `ren`,
+**measure** adoption on the increment `Δz`, and a one-time **storage** build on
+`cap_built` (charged at the build year). The `min` sense is kept under the profit
+objective by entering product revenue as negative cost (§6b).
 
 ## 3b. Economics / discounting
 
@@ -95,8 +100,15 @@ to transition capex, renewal capex, and technology capex.
   inputs (kind∈{energy,material,indirect}, produced by no technology) may be bought;
   only products may be delivered; only sellable streams sold.
 - **Demand** (slack-softened): `Σ_{p∈c} deliver_{p,q,t}+ξ^D ≥ D_{c,q,t}`.
-- **Impacts**: `emit_{p,i,t}=Σ_r f_{r,i}·consumed_{p,r,t}+Σ_k d_{k,i}·x_{p,k,t}−abate_{p,i,t}`,
-  `emit ≥ 0`; caps `Σ_{p∈c} emit ≤ CAP_{c,i,t}+ξ^{cap}`.
+- **Impacts**: `emit_{p,i,t}=Σ_{r,k} f_{r,i,t}·int_{k,r,t}·x_{p,k,t}+Σ_k(d^{tech}_{k,i,t}+d^{proc}_{p,i,t})·x_{p,k,t}−abate_{p,i,t}`,
+  `emit ≥ 0`. The commodity term is on **gross** throughput (`int·x`), so MACC
+  energy-efficiency savings cut *purchased volume* via the node balance, not the
+  emission factor; only the explicit `abate` term (emission/environmental measures)
+  reduces `emit`. `d^{proc}` is a per-facility factor added on top of the
+  technology's own `d^{tech}`. Caps `Σ_{p∈c} emit ≤ CAP_{c,i,t}+ξ^{cap}` are
+  **soft** by default (penalised slack); `impact_cap_soft=false` makes a cap hard
+  (`ξ=0`), and an **intensity** cap (`impact_cap_intensity`) binds
+  `Σ emit ≤ CAP·Σ production` instead of a flat limit.
 - **MACC** (LP-safe): efficiency savings `= Σ reduction·ref_consumption·z`; abatement
   `= Σ reduction·ref_impact·z`; blocks cumulative (`z_a≥z_b`) and persistent (`z_t≥z_{prev}`).
 - **Input blend groups** (fuel mixes): per technology group `g` with members `C_g`
@@ -129,6 +141,18 @@ to transition capex, renewal capex, and technology capex.
   unaffected. See also: `TransitionAction.RENEW`, `Technology.renewal_by_year`,
   `Process.introduced_year`, and the new features docs in
   [transitions.md](features/transitions.md).
+- **Availability gates** (decide *when* a technology may run / switch):
+  - **Decommission**: `on_{p,t}=0` for `t > decommission_year_p`.
+  - **Introduction / phase-out**: a non-baseline technology is infeasible before
+    its `introduction_year` and after its `phase_out_year` (the baseline is exempt
+    from intro but not from phase-out).
+  - **Vintage timing** (opt-in `vintage_timing`): `w` and `ren` may fire only at
+    end-of-life boundaries `((t − introduced_year) mod L = 0)` — continue-only in
+    between, the rigid grid.
+  - **Fleet adoption caps**: `Σ_p u_{p,k,t} ≤ N_{k,t}` (at most `N` machines on a
+    technology in a year).
+  - **Purchase caps**: `Σ_p buy_{p,r,t} ≤ max_purchase_{r,t}` (per-commodity
+    external-supply ceiling).
 
   The action semantics that fall out of this single covering inequality:
 

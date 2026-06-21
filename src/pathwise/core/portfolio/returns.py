@@ -112,11 +112,13 @@ def _candidate_reward(
     base_cache: dict[str, _CostBasis],
 ) -> npt.NDArray[np.float64]:
     """Reward vector for a single candidate switch over all scenarios [currency]."""
-    if candidate.to_technology not in base_cache:
-        base_cache[candidate.to_technology] = _cost_basis(
-            problem, candidate.to_technology, candidate.capacity
-        )
-    to_cost = _running_cost(base_cache[candidate.to_technology], scen)
+    # Key the cache on (technology, capacity): _cost_basis scales every running-cost
+    # term by capacity, so two facilities switching to the same tech at different
+    # sizes must NOT share a basis.
+    to_key = f"{candidate.to_technology}@{candidate.capacity}"
+    if to_key not in base_cache:
+        base_cache[to_key] = _cost_basis(problem, candidate.to_technology, candidate.capacity)
+    to_cost = _running_cost(base_cache[to_key], scen)
 
     first_year = min(problem.years) if problem.years else 0
     capex_term = problem.discount_factor(first_year) * candidate.transition_capex
@@ -125,7 +127,7 @@ def _candidate_reward(
     if mode == RewardMode.PROFIT:
         return -to_cost - capex
     # cost_reduction: net-cost saving of switching from baseline to target.
-    base_key = f"::baseline::{candidate.from_technology}"
+    base_key = f"::baseline::{candidate.from_technology}@{candidate.capacity}"
     if base_key not in base_cache:
         base_cache[base_key] = _cost_basis(problem, candidate.from_technology, candidate.capacity)
     base_cost = _running_cost(base_cache[base_key], scen)

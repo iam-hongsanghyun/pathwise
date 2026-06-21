@@ -132,7 +132,9 @@ Sent as the `"scenario"` key in `POST /api/run` (all fields optional; defaults s
   },
   "optimisation_scope": "company",    // "system" | "company" | "facility" | any level name
   "optimisation_targets": [],         // node ids at the scope level; empty → all
-  "optimisation_mode": "valuechain"   // "valuechain" | "joint" | "independent"
+  "optimisation_mode": "valuechain",  // "valuechain" | "joint" | "independent"
+  "objective": "cost",                // "cost" | "profit" — default goal per company
+  "unit_overrides": {}                // project unit-rate overrides; same shape as units.yaml
 }
 ```
 
