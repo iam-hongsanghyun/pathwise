@@ -55,17 +55,21 @@ def test_add_alternative_merges_recipe_and_transition() -> None:
         "machines": [{"machine_id": "mill/bof", "baseline_technology": "BOF"}],
     }
     out = add_alternative(model, _lib(), "EAF", from_technology="BOF")
-    assert any(t["technology_id"] == "EAF" for t in out["technologies"]), "recipe merged"
-    assert any(r["technology_id"] == "EAF" and r["role"] == "input" for r in out["io"]), "io merged"
+    # The alternative is stamped as a per-machine INSTANCE (EAF@<node>) tracing
+    # back to the component via source_technology.
+    iid = "EAF@BOF"
+    assert any(t["technology_id"] == iid for t in out["technologies"]), "recipe merged"
+    assert any(r["technology_id"] == iid and r["role"] == "input" for r in out["io"]), "io merged"
     assert {
         "from_technology": "BOF",
-        "to_technology": "EAF",
+        "to_technology": iid,
         "action": "replace",
         "capex_per_capacity": 0.0,
+        "source_technology": "EAF",
     } in out["transitions"]
     # idempotent on the transition
     again = add_alternative(out, _lib(), "EAF", from_technology="BOF")
-    assert sum(1 for r in again["transitions"] if r["to_technology"] == "EAF") == 1
+    assert sum(1 for r in again["transitions"] if r["to_technology"] == iid) == 1
 
 
 def test_alternative_endpoint_on_imported_scenario() -> None:

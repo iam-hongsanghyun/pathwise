@@ -95,8 +95,10 @@ def test_place_technology_creates_independent_machines() -> None:
     assert r1["root"] and r2["root"] and r1["root"] != r2["root"], "two placements are independent"
 
     wb = client.get(f"/api/session/{sid}/model").json()["model"]
-    machines = [m for m in wb["machines"] if str(m.get("baseline_technology")) == "BF_BOF"]
+    machines = [m for m in wb["machines"] if str(m.get("source_technology")) == "BF_BOF"]
     assert {float(m["capacity"]) for m in machines} == {500.0, 700.0}
+    # each placement is its OWN technology instance (distinct baseline ids)
+    assert len({str(m["baseline_technology"]) for m in machines}) == 2
 
 
 def test_place_unknown_technology_is_422() -> None:

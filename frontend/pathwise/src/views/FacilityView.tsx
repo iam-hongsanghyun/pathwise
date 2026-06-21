@@ -415,7 +415,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
       const r = isMachine ? machineRow(k.id) : undefined;
       const sub = isMachine
         ? r
-          ? `${s(r.baseline_technology)}${r.capacity ? ` · ${r.capacity}` : ""}`
+          ? `${s(r.source_technology) || s(r.baseline_technology)}${r.capacity ? ` · ${r.capacity}` : ""}`
           : k.level || "component"
         : isPrefixedLevel(k.level)
           ? `${k.level} · ${grandkids.length}`
