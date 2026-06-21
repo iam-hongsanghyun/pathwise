@@ -141,11 +141,16 @@ to transition capex, renewal capex, and technology capex.
   unaffected. See also: `TransitionAction.RENEW`, `Technology.renewal_by_year`,
   `Process.introduced_year`, and the new features docs in
   [transitions.md](features/transitions.md).
-- **Availability gates** (decide *when* a technology may run / switch):
-  - **Decommission**: `on_{p,t}=0` for `t > decommission_year_p`.
-  - **Introduction / phase-out**: a non-baseline technology is infeasible before
-    its `introduction_year` and after its `phase_out_year` (the baseline is exempt
-    from intro but not from phase-out).
+- **Availability gates** (decide *when* a machine exists / a technology may run):
+  - **Active window** (machine existence): `on_{p,t}=0` outside
+    `[introduced_year_p, decommission_year_p)` — off **before** the build year and
+    off **from** the close year (close is **exclusive**: close 2038 ⇒ runs through
+    2037). This window overrides the technical lifespan. Either bound is optional.
+  - **Availability window** (technology market): a technology is infeasible before
+    its `introduction_year` (available-from, inclusive) and **from** its
+    `phase_out_year` (available-to, **exclusive**) — so a facility running it must
+    transition or switch off by then. Per-machine once the technology is instanced;
+    the baseline is exempt from intro but not from phase-out.
   - **Vintage timing** (opt-in `vintage_timing`): `w` and `ren` may fire only at
     end-of-life boundaries `((t − introduced_year) mod L = 0)` — continue-only in
     between, the rigid grid.
