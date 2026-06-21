@@ -124,6 +124,9 @@ export function HierarchyMap({
   // orthogonal (right-angle) edge routing. Both are view toggles in the toolbar.
   const [orientation, setOrientation] = useState<Orientation>("h");
   const [ortho, setOrtho] = useState(false);
+  // Commodity text on the flow lines is OFF by default (it crowds the map); the
+  // "Commodity" toolbar toggle turns it on. Hovering a line always shows the popup.
+  const [showCommodity, setShowCommodity] = useState(false);
   const horiz = orientation === "h";
 
   // Pure auto-layout (nodes are not draggable). Re-fits the camera only on a real
@@ -293,6 +296,7 @@ export function HierarchyMap({
   // not on hover / pan / year scrub).
   const LABEL_LH = 11;
   const placedLabels = useMemo(() => {
+    if (!showCommodity) return []; // labels hidden → skip the de-overlap work entirely
     const LH = LABEL_LH;
     const CW = 5.4; // approx char width at 9px
     const PAD = 5; // gap from the line
@@ -343,7 +347,7 @@ export function HierarchyMap({
       placed.push(L);
     }
     return placed;
-  }, [edgeViews]);
+  }, [edgeViews, showCommodity]);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const { vb, setVb, onWheel, onPanStart, onPanMove, onPanEnd, toWorld } = useViewBox();
@@ -553,6 +557,20 @@ export function HierarchyMap({
             </button>
           </>
         )}
+        <button
+          className="ghost"
+          style={{
+            ...toolBtn,
+            background: showCommodity ? "var(--brand-fill)" : undefined,
+            borderColor: showCommodity ? "var(--brand)" : undefined,
+            color: showCommodity ? "var(--brand)" : undefined,
+          }}
+          onClick={() => setShowCommodity((v) => !v)}
+          title="Show / hide the commodity name written on each flow line (hover a line for details either way)"
+        >
+          <span style={{ fontSize: "0.95rem" }}>🏷</span>
+          <span>Commodity</span>
+        </button>
         {editable && (
           <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "0.74rem" }} title="Aggregate the flows to this level (independent of expand/collapse). The top 'Value Chain' level draws each flow where its two sides first diverge.">
             <span className="muted">flows by</span>
@@ -752,13 +770,14 @@ export function HierarchyMap({
           );
         })}
 
-        {/* EDGE LABELS — horizontal text next to each connector, de-overlapped
-            (computed in the `placedLabels` memo). No backing box. */}
-        {placedLabels.map((L) => (
-          <text key={L.key} x={L.tx} y={L.by + LABEL_LH - 2} fontSize={9} fill={L.active ? "var(--text)" : "var(--muted)"} textAnchor={L.ta} style={{ pointerEvents: "none" }}>
-            {L.lines.map((l, i) => (<tspan key={i} x={L.tx} dy={i ? LABEL_LH : 0}>{l}</tspan>))}
-          </text>
-        ))}
+        {/* EDGE LABELS — horizontal commodity text next to each connector (off by
+            default; the "Commodity" toggle shows them). Hover still works either way. */}
+        {showCommodity &&
+          placedLabels.map((L) => (
+            <text key={L.key} x={L.tx} y={L.by + LABEL_LH - 2} fontSize={9} fill={L.active ? "var(--text)" : "var(--muted)"} textAnchor={L.ta} style={{ pointerEvents: "none" }}>
+              {L.lines.map((l, i) => (<tspan key={i} x={L.tx} dy={i ? LABEL_LH : 0}>{l}</tspan>))}
+            </text>
+          ))}
 
         {/* interactive hit-paths ON TOP of the boxes — so hovering a flow line shows
             its popup even where the line runs behind a box. */}

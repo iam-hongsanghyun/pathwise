@@ -464,16 +464,20 @@ th {
   padding: 10px 0;
   border-bottom: 1px solid var(--border);
 }
+/* Flex-wrap (not a fixed grid) so a long commodity name / unit or the per-provider
+   from/to inputs never overflow and overlap the MIN/MAX cells — they wrap to the
+   next line instead. The name+coef sit on their own line; MIN/MAX flow under it. */
 .mi-flow-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content max-content;
-  gap: 7px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
   align-items: baseline;
 }
 .mi-flow-label {
   display: flex;
   align-items: baseline;
   gap: 8px;
+  flex: 1 1 100%;
   min-width: 0;
 }
 .mi-coef {
@@ -488,14 +492,16 @@ th {
   align-items: baseline;
   gap: 5px;
   white-space: nowrap;
+  flex: 0 0 auto;
 }
 .mi-flow-sub {
-  grid-column: 1 / -1;
+  flex: 1 1 100%;
   font-size: 0.74rem;
   color: var(--muted);
-  margin-top: -3px;
+  margin-top: -1px;
 }
 .mi-flow-prov {
+  flex: 1 1 100%;
   padding-left: 18px;
   font-size: 0.84rem;
   color: var(--text);

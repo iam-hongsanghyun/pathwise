@@ -56,13 +56,11 @@ of which nodes are expanded, choose how the *flows* are aggregated:
   links that would otherwise cut across many boxes collapse to one box-to-box arrow.
 
 Whatever the level, **all commodities between the same two boxes share one arrow**.
-Its label is written at **both ends** — right at each connector, as close to the
-port as possible — never across another box; the text is **horizontal**, one
-commodity per line, with no backing box (so it never blocks the flow). Labels are
-then **de-overlapped**: any that would collide are nudged apart so no two ever
-touch (group boxes are spaced generously to leave room). **Hover** an arrow for a
-popup of exactly what flows along it. **Click a box again** (or empty canvas) to
-close the inspector.
+The commodity name is **off by default** (it crowds the map) — turn it on with the
+**🏷 Commodity** toggle. When shown, the text is written at **both ends** (right at
+each connector), horizontal, one commodity per line, de-overlapped so no two ever
+touch. Either way, **hover** an arrow for a popup of exactly what flows along it.
+**Click a box again** (or empty canvas) to close the inspector.
 
 Boxes are always drawn **in front** of the flow lines (white, lightly translucent),
 so a line passing behind a box reads as dimmed and the boxes stay legible.
@@ -70,7 +68,7 @@ so a line passing behind a box reads as dimmed and the boxes stay legible.
 Collapsing a group also aggregates: its internal links fold away and its external
 links route onto the group box.
 
-**Direction & routing (toolbar).** Two controls sit after *Collapse all*:
+**Direction & routing (toolbar).** Controls sit after *Collapse all*:
 
 - **⇄ Horizontal / ⇳ Vertical** — flip the whole chain between left→right and
   top→bottom flow.
@@ -79,6 +77,8 @@ links route onto the group box.
   outline), bends in the **nearest inter-box gutter**, and takes the **shortest**
   path that avoids same/lower-level boxes while moving freely through the enclosing
   box (an A* over the gutters). Toggle off for smooth curves.
+- **🏷 Commodity** — show / hide the commodity name on each flow line (off by
+  default; hover a line for details either way).
 
 Nodes are auto-arranged (not repositionable); the bottom-right **100%** button
 re-fits the whole chain. Drag from anywhere on the canvas (including over a box) to
