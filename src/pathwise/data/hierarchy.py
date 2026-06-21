@@ -66,6 +66,8 @@ class Machine:
     baseline_technology: str
     capacity: float = 0.0
     introduced_year: int | None = None
+    #: Last year this machine may operate; after it the facility is forced off.
+    decommission_year: int | None = None
     max_capacity_factor: float = 1.0
     #: Per-machine total renewal-count cap over the horizon; ``None`` ⇒ unlimited.
     max_renewals: int | None = None
@@ -311,6 +313,7 @@ def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
             baseline_technology=_str(r.get("baseline_technology")) or "",
             capacity=_num(r.get("capacity")) or 0.0,
             introduced_year=_int(r.get("introduced_year")),
+            decommission_year=_int(r.get("decommission_year")),
             max_capacity_factor=1.0 if mc is None else mc,
             max_renewals=_int(r.get("max_renewals")),
         )

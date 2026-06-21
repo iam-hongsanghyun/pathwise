@@ -377,9 +377,9 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
             <span className="muted">owner (company)</span>
             <input className="field-input" value={s(r?.owner)} placeholder="e.g. POSCO" onChange={(e) => editMachine(sel.id, { owner: e.target.value })} />
             <span className="muted">build year</span>
-            <input className="field-input" type="number" value={s(r?.build_year)} onChange={(e) => editMachine(sel.id, { build_year: e.target.value === "" ? 0 : Number(e.target.value) })} />
+            <input className="field-input" type="number" value={s(r?.introduced_year)} onChange={(e) => editMachine(sel.id, { introduced_year: e.target.value === "" ? null : Number(e.target.value) })} />
             <span className="muted">close year</span>
-            <input className="field-input" type="number" value={s(r?.close_year)} onChange={(e) => editMachine(sel.id, { close_year: e.target.value === "" ? 0 : Number(e.target.value) })} />
+            <input className="field-input" type="number" value={s(r?.decommission_year)} onChange={(e) => editMachine(sel.id, { decommission_year: e.target.value === "" ? null : Number(e.target.value) })} />
             <span className="muted">max cap. factor</span>
             <input className="field-input" type="number" min={0} max={1} step={0.05} placeholder="1 (no ceiling)" value={s(r?.max_capacity_factor)} onChange={(e) => editMachine(sel.id, { max_capacity_factor: e.target.value === "" ? 1 : Number(e.target.value) })} />
             <span className="muted">max renewals</span>

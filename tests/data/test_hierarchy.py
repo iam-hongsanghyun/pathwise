@@ -125,3 +125,44 @@ def test_machine_max_renewals_parses_and_reaches_the_process() -> None:
     assert h is not None and h.machines["P"].max_renewals == 2
     prob = assemble_problem(wb, ScenarioConfig.from_dict({}))
     assert {p.process_id: p.max_renewals for p in prob.processes} == {"P": 2}
+
+
+def test_machine_build_and_close_year_reach_the_process() -> None:
+    # The Facility view edits a machine's build/close year; both must survive the
+    # hierarchy → process expansion as introduced_year / decommission_year (the
+    # canonical engine columns). Regression: they used to be dropped silently.
+    from pathwise.data import ScenarioConfig, assemble_problem
+
+    wb = {
+        "periods": [{"year": 2025, "duration_years": 1}],
+        "commodities": [{"commodity_id": "w", "kind": "product", "unit": "t"}],
+        "impacts": [],
+        "technologies": [{"technology_id": "T", "lifespan": 30}],
+        "nodes": [
+            {"node_id": "co", "kind": "group", "level": "company"},
+            {"node_id": "P", "parent_id": "co", "kind": "machine", "level": "machine"},
+        ],
+        "machines": [
+            {
+                "machine_id": "P",
+                "baseline_technology": "T",
+                "capacity": 100,
+                "introduced_year": 2020,
+                "decommission_year": 2030,
+            }
+        ],
+        "io": [
+            {
+                "technology_id": "T",
+                "target": "w",
+                "role": "output",
+                "coefficient": 1,
+                "is_product": True,
+            }
+        ],
+    }
+    h = load_hierarchy(wb)
+    assert h is not None and h.machines["P"].decommission_year == 2030
+    prob = assemble_problem(wb, ScenarioConfig.from_dict({}))
+    p = prob.processes[0]
+    assert (p.introduced_year, p.decommission_year) == (2020, 2030)
