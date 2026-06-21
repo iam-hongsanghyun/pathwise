@@ -485,7 +485,6 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 machineId={selId!}
                 baseYear={baseYear}
                 periods={periods}
-                onCapacity={(v) => setWorkbook(setSheet(workbook, "machines", (workbook.machines ?? []).map((r) => (s(r.machine_id) === selId ? { ...r, capacity: v } : r))))}
                 onWorkbookChange={setWorkbook}
               />
               <div style={{ padding: "0 16px 14px" }}>
