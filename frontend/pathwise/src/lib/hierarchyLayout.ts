@@ -335,6 +335,8 @@ export function layoutFor(wb: Workbook, mode: MapMode, expanded?: Set<string>): 
  *  `rowIndex`/`lag` so the editor can address and delete the exact row — unlike
  *  the read-only `Laid.edges`, which dedupes for display. */
 export interface EditEdge {
+  /** The connections-sheet row, or -1 when this is an AGGREGATE of several rows
+   *  (many machine→machine links collapsed onto one level→level arrow). */
   rowIndex: number;
   from: string;
   to: string;
@@ -343,6 +345,8 @@ export interface EditEdge {
   /** Per-provider annual flow bounds (null = unset). */
   maxFlow: number | null;
   minFlow: number | null;
+  /** How many underlying connections this arrow represents (1 = a single link). */
+  count: number;
 }
 
 /** A source stream: a commodity consumed by a facility but produced by none
@@ -420,22 +424,37 @@ export function editEdges(wb: Workbook, laid: LaidNode[]): EditEdge[] {
   const nodes = parseNodes(wb);
   const visible = new Set(laid.map((n) => n.id));
   const toVisible = visibleAncestor(nodes, visible);
-  const out: EditEdge[] = [];
   const flow = (v: unknown): number | null =>
     v == null || String(v).trim() === "" ? null : Number(v);
+  // Map every connection onto the nearest VISIBLE endpoints, then aggregate by
+  // (from, to, commodity): at the machine level each arrow is one editable link;
+  // once groups collapse, the machine→machine links between two boxes fold into a
+  // single level→level arrow (display-only, with a count).
+  const groups = new Map<string, EditEdge[]>();
   (wb.connections ?? []).forEach((row, rowIndex) => {
     const from = toVisible(s(row.from_node));
     const to = toVisible(s(row.to_node));
     if (!from || !to || from === to) return;
-    out.push({
+    const commodity = s(row.commodity_id, "—");
+    const e: EditEdge = {
       rowIndex,
       from,
       to,
-      commodity: s(row.commodity_id, "—"),
+      commodity,
       lag: num(row.lag_years),
       maxFlow: flow(row.max_flow),
       minFlow: flow(row.min_flow),
-    });
+      count: 1,
+    };
+    const key = `${from}|${to}|${commodity}`;
+    const bucket = groups.get(key);
+    if (bucket) bucket.push(e);
+    else groups.set(key, [e]);
   });
+  const out: EditEdge[] = [];
+  for (const bucket of groups.values()) {
+    if (bucket.length === 1) out.push(bucket[0]); // a single link — stays editable
+    else out.push({ ...bucket[0], rowIndex: -1, lag: 0, maxFlow: null, minFlow: null, count: bucket.length });
+  }
   return out;
 }

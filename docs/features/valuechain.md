@@ -32,6 +32,17 @@ technologies in parallel.
     *N alternatives* — that's how you spot a competing/substitutable supply (see
     [alternatives.md](alternatives.md)).
 
+## Map interaction — level aggregation
+
+The map renders the model at whatever depth is expanded. Click a group's **name**
+to see its details (the inspector) *without* changing the level; click its
+**top-right ▾ grip** to collapse / expand it (a collapsed group shows a ▸ grip to
+re-open). When a group is collapsed, the machine→machine links inside it fold
+away and its external links **aggregate onto the group box** — several links
+between the same two boxes collapse to one arrow (shown `×N`). So you drill to the
+machine level to see every connection, or collapse up to read the flows by
+company / country.
+
 ## Connections (commodity flows)
 
 A **connection** (`connections` sheet: `from_node`, `to_node`, `commodity_id`,

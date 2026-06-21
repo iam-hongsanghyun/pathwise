@@ -129,7 +129,7 @@ export function HierarchyMap({
     () =>
       editable
         ? editEdges(workbook, laid.nodes).map((e) => ({ ...e, origFrom: e.from, origTo: e.to }))
-        : laid.edges.map((e) => ({ ...e, rowIndex: -1, lag: 0 })),
+        : laid.edges.map((e) => ({ ...e, rowIndex: -1, lag: 0, count: 1 })),
     [editable, workbook, laid],
   );
   const edgeKey = (e: { from: string; to: string; commodity: string; rowIndex: number }) =>
@@ -186,7 +186,7 @@ export function HierarchyMap({
   // Background/container press: the SVG captures the pointer for panning, so a
   // click on a container rect can't use onClick (the click retargets to the SVG).
   // We record the pointer-down target's group id here and act on a no-move up.
-  const bgPress = useRef<{ x: number; y: number; moved: boolean; groupId: string | null } | null>(null);
+  const bgPress = useRef<{ x: number; y: number; moved: boolean; groupId: string | null; toggleId: string | null } | null>(null);
   const [connect, setConnect] = useState<{ from: string; wx: number; wy: number } | null>(null);
   const [form, setForm] = useState<{ from: string; to: string; sx: number; sy: number; editRowIndex?: number; commodity?: string; lag?: number } | null>(null);
   const [selEdge, setSelEdge] = useState<number | null>(null);
@@ -201,8 +201,10 @@ export function HierarchyMap({
   function bgDown(e: React.PointerEvent) {
     press.current = null;
     setSelEdge(null);
-    const groupId = (e.target as Element)?.getAttribute?.("data-group") ?? null;
-    bgPress.current = { x: e.clientX, y: e.clientY, moved: false, groupId };
+    const el = e.target as Element;
+    const groupId = el?.getAttribute?.("data-group") ?? null;
+    const toggleId = el?.getAttribute?.("data-toggle") ?? null;
+    bgPress.current = { x: e.clientX, y: e.clientY, moved: false, groupId, toggleId };
     onPanStart(e);
   }
   function bgMove(e: React.PointerEvent) {
@@ -221,17 +223,19 @@ export function HierarchyMap({
     const wasConnecting = connect != null;
     onPanEnd();
     setConnect(null);
-    // A click (no drag, not a connect release) on a container's body/header
-    // toggles that group — done here because the SVG captured the pointer, so the
-    // rect's own onClick won't fire.
-    if (!wasConnecting && b && !b.moved && b.groupId) {
-      toggle(b.groupId);
-      onSelect?.(b.groupId);
+    // A no-drag click (not a connect release): the top-right grip toggles the
+    // group (collapse/expand); anywhere else on the header selects it (details).
+    // Handled here because the SVG captured the pointer, so the rect's own onClick
+    // can't fire.
+    if (!wasConnecting && b && !b.moved) {
+      if (b.toggleId) toggle(b.toggleId);
+      else if (b.groupId) onSelect?.(b.groupId);
     }
   }
   function nodeClick(n: LaidNode) {
-    if (editable && mode === "expandable" && n.kind === "group") toggle(n.id);
-    else if (!editable && mode === "expandable" && n.collapsed) toggle(n.id);
+    // Collapsed groups in the read-only (analytics) map still drill on click; the
+    // editable map selects (details) and toggles only via the top-right grip.
+    if (!editable && mode === "expandable" && n.collapsed) toggle(n.id);
     onSelect?.(n.id);
   }
 
@@ -283,8 +287,7 @@ export function HierarchyMap({
           ⊟ Collapse all
         </button>
         <span className="muted" style={{ fontSize: "0.74rem" }}>
-          click a group to expand / collapse
-          {editable ? " · drag a node's right dot → another's left dot to link · click a link to edit or delete it" : ""}
+          click a group's name for details · its ▾ grip to collapse / expand{editable ? " · drag a node's right dot → another's left dot to link" : ""}
         </span>
         {sources.length > 0 && (
           <span className="muted" style={{ fontSize: "0.72rem", marginLeft: "auto", display: "inline-flex", gap: 12, alignItems: "center" }}>
@@ -382,14 +385,18 @@ export function HierarchyMap({
                 strokeWidth={sel ? 3 : 1}
                 opacity={0.5 + 0.12 * Math.min(3, g.depth)}
               />
-              {/* header strip — the collapse/expand + select target (data-group);
-                  tinted when selected, with a subtle fill so it reads as a title bar. */}
+              {/* header strip — the NAME / select target (data-group): click shows
+                  details, leaving the chart level as is. */}
               <rect data-group={g.id} x={g.x} y={g.y} width={g.w} height={22} rx={6} fill={sel ? "var(--brand-fill)" : "var(--bg-hover)"} style={{ cursor: "pointer" }} />
               <text x={g.x + 10} y={g.y + 16} fontSize={11} fontWeight={600} fill="var(--text)" style={{ pointerEvents: "none" }}>
-                {clip(g.label, Math.max(8, Math.floor(g.w / 8)))}
+                {clip(g.label, Math.max(6, Math.floor((g.w - 30) / 8)))}
               </text>
-              <text x={g.x + g.w - 8} y={g.y + 16} fontSize={9} fill="var(--muted)" textAnchor="end" style={{ pointerEvents: "none" }}>
-                {g.level || "group"} ▾
+              {/* top-right grip — the collapse/expand target (data-toggle). */}
+              <rect data-toggle={g.id} x={g.x + g.w - 26} y={g.y} width={26} height={22} rx={6} fill="transparent" style={{ cursor: "pointer" }}>
+                <title>collapse</title>
+              </rect>
+              <text x={g.x + g.w - 9} y={g.y + 16} fontSize={11} fill="var(--muted)" textAnchor="end" style={{ pointerEvents: "none" }}>
+                ▾
               </text>
               {editable && <g transform={`translate(${g.x},${g.y})`}>{ports(g)}</g>}
             </g>
@@ -411,7 +418,10 @@ export function HierarchyMap({
           const my = (y1 + y2) / 2;
           const sel = editable && e.rowIndex >= 0 && selEdge === e.rowIndex;
           const d = `M${x1},${y1} C${x1 + c},${y1} ${x2 - c},${y2} ${x2},${y2}`;
-          const label = active ? `${clip(e.commodity, 8)} ${fmtVal(fv!)}` : clip(e.commodity, 10) + (e.lag ? ` ·${e.lag}y` : "");
+          const label =
+            (active ? `${clip(e.commodity, 8)} ${fmtVal(fv!)}` : clip(e.commodity, 10)) +
+            (e.count > 1 ? ` ×${e.count}` : "") +
+            (e.lag ? ` ·${e.lag}y` : "");
           const labelY = my - 4 - (edgeLabelRank.get(edgeKey(e)) ?? 0) * 12;
           return (
             <g key={edgeKey(e)} className="topo-edge">
@@ -472,10 +482,21 @@ export function HierarchyMap({
               }}
             >
               <rect width={n.w} height={n.h} rx={3} fill={fill} stroke={stroke} strokeWidth={isSel || toTech ? 2.5 : undefined} />
-              <text className="topo-kind" x={8} y={14}>{isMachine ? "machine" : n.collapsed ? "group ▸" : "group"}</text>
+              <text className="topo-kind" x={8} y={14}>{isMachine ? "machine" : !editable && n.collapsed ? "group ▸" : "group"}</text>
               {tput != null && <text className="topo-kind" x={n.w - 8} y={14} textAnchor="end">{fmtVal(tput)}</text>}
               <text className="topo-label" x={8} y={31}>{clip(n.label, 22)}</text>
               <text className="topo-sub" x={8} y={46} fill={toTech ? "var(--warn-text)" : undefined}>{clip(sub, 24)}</text>
+              {/* top-right grip — expand this collapsed group (the body click selects). */}
+              {editable && n.kind === "group" && n.collapsed && (
+                <g
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onPointerUp={(e) => { e.stopPropagation(); press.current = null; toggle(n.id); }}
+                  style={{ cursor: "pointer" }}
+                >
+                  <rect x={n.w - 22} y={0} width={22} height={22} rx={3} fill="transparent" />
+                  <text x={n.w - 8} y={15} textAnchor="end" fontSize={12} fill="var(--muted)" style={{ pointerEvents: "none" }}>▸</text>
+                </g>
+              )}
               {ports(n)}
             </g>
           );
