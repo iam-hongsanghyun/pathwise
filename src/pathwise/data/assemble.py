@@ -120,17 +120,26 @@ def _num(value: Any, default: float | None = None) -> float | None:
         return default
     if isinstance(value, str) and value.strip() == "":
         return default  # empty cell from an xlsx round-trip
-    if isinstance(value, float) and math.isnan(value):
-        return default
     try:
-        return float(value)
+        f = float(value)
     except (TypeError, ValueError):
         return default
+    return default if (math.isnan(f) or math.isinf(f)) else f  # reject NaN/inf cells
 
 
 def _int(value: Any, default: int | None = None) -> int | None:
     n = _num(value, None)
     return int(n) if n is not None else default
+
+
+def _numd(value: Any, default: float) -> float:
+    """Parse ``value`` to float, falling back to ``default`` only when absent.
+
+    Unlike the ``_num(x, d) or d`` idiom this preserves an explicitly authored
+    ``0.0`` (the ``or`` form silently replaces a falsy 0.0 with the default).
+    """
+    v = _num(value)
+    return default if v is None else v
 
 
 def _str(value: Any) -> str | None:
@@ -176,9 +185,9 @@ def _wide_temporal(wb: Workbook, sheet: str) -> dict[str, dict[int, float]]:
     """
     out: dict[str, dict[int, float]] = {}
     for r in _rows(wb, sheet):
-        if r.get("year") is None:
+        y = _int(r.get("year"))
+        if y is None:
             continue
-        y = int(r["year"])
         for col, val in r.items():
             if col == "year":
                 continue
@@ -379,13 +388,15 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     econ = scenario.economics
 
     # ── Periods / horizon ────────────────────────────────────────────────────
-    years = sorted(int(r["year"]) for r in _rows(workbook, PERIODS))
+    years = sorted(y for r in _rows(workbook, PERIODS) if (y := _int(r.get("year"))) is not None)
     if scenario.horizon.start is not None:
         years = [y for y in years if y >= scenario.horizon.start]
     if scenario.horizon.end is not None:
         years = [y for y in years if y <= scenario.horizon.end]
     duration = {
-        int(r["year"]): _num(r.get("duration_years"), 1.0) or 1.0 for r in _rows(workbook, PERIODS)
+        y: (_num(r.get("duration_years"), 1.0) or 1.0)
+        for r in _rows(workbook, PERIODS)
+        if (y := _int(r.get("year"))) is not None
     }
     periods = [Period(year=y, duration_years=duration.get(y, 1.0)) for y in years]
     base_year = econ.base_year or _int(meta.get("base_year")) or (years[0] if years else 0)
@@ -397,7 +408,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         cid = _str(r.get("commodity_id"))
         if cid is None:
             continue
-        y = int(r["year"])
+        y = _int(r.get("year"))
+        if y is None:
+            continue
         if (p := _num(r.get("price"))) is not None:
             price_traj.setdefault(cid, {})[y] = p
         if (sp := _num(r.get("sale_price"))) is not None:
@@ -465,8 +478,12 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     impact_price_traj: dict[str, dict[int, float]] = {}
     for r in _rows(workbook, IMPACT_PRICES):
         iid = _str(r.get("impact_id"))
-        if iid is not None and (p := _num(r.get("price"))) is not None:
-            impact_price_traj.setdefault(iid, {})[int(r["year"])] = p
+        if (
+            iid is not None
+            and (p := _num(r.get("price"))) is not None
+            and (y := _int(r.get("year"))) is not None
+        ):
+            impact_price_traj.setdefault(iid, {})[y] = p
     impact_price_traj.update(_wide_temporal(workbook, IMPACTS_T_PRICE))
     impacts: dict[str, Impact] = {}
     for r in _rows(workbook, IMPACTS):
@@ -740,9 +757,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 capex=_num(r.get("capex"), 0.0) or 0.0,
                 fixed_opex=_num(r.get("fixed_opex"), 0.0) or 0.0,
                 failure_rate=min(max(_num(r.get("failure_rate"), 0.0) or 0.0, 0.0), 1.0),
-                max_capacity_factor=min(
-                    max(_num(r.get("max_capacity_factor"), 1.0) or 1.0, 0.0), 1.0
-                ),
+                max_capacity_factor=min(max(_numd(r.get("max_capacity_factor"), 1.0), 0.0), 1.0),
                 replaceable=False if fixed else _bool(r.get("replaceable"), True),
                 decommission_year=_int(r.get("decommission_year")),
                 group=_str(r.get("group")) or "",
@@ -1037,7 +1052,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         mid = _str(r.get("market_id"))
         if mid is None:
             continue
-        y = int(r["year"])
+        y = _int(r.get("year"))
+        if y is None:
+            continue
         if (v := _num(r.get("price"))) is not None:
             mkt_price.setdefault(mid, {})[y] = v
         if (v := _num(r.get("sell_price"))) is not None:
