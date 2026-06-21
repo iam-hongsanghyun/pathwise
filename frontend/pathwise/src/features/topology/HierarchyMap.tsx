@@ -276,17 +276,14 @@ export function HierarchyMap({
     return map;
   }, [ortho, edges, placed, boxById, horiz, orientation]);
 
-  // Per-edge render geometry, computed once: the path `d`, plus a label anchor at
-  // EACH end (in the perpendicular-stub gutter, i.e. where the flow starts and
-  // where it connects) so the text never lands on another item's box.
+  // Per-edge render geometry, computed once: the path `d` and the polyline points
+  // (so labels can be placed inline on a clear segment near each end).
   const edgeViews = useMemo(() => {
-    const STUB = 16;
     const out: {
       e: (typeof edges)[number];
       d: string;
       active: boolean;
-      src: { x: number; y: number };
-      dst: { x: number; y: number };
+      poly: { x: number; y: number }[];
     }[] = [];
     for (const e of edges) {
       const a = boxById.get(e.from);
@@ -296,32 +293,29 @@ export function HierarchyMap({
       const p2 = inPt(b);
       const fv = overlay?.flow(e.origFrom, e.origTo, e.commodity);
       const active = fv != null && fv > 1e-6;
-      const mid = (u: { x: number; y: number }, v: { x: number; y: number }) => ({ x: (u.x + v.x) / 2, y: (u.y + v.y) / 2 });
-      let d: string;
-      let src: { x: number; y: number };
-      let dst: { x: number; y: number };
+      let poly: { x: number; y: number }[];
       const routed = ortho ? orthoRoutes.get(edgeKey(e)) : undefined;
       if (routed && routed.length >= 2) {
-        d = routed.map((p, i) => `${i ? "L" : "M"}${p.x},${p.y}`).join(" ");
-        src = mid(routed[0], routed[1]); // source stub
-        dst = mid(routed[routed.length - 2], routed[routed.length - 1]); // target stub
+        poly = routed;
+      } else if (ortho) {
+        const cx = (p1.x + p2.x) / 2;
+        const cy = (p1.y + p2.y) / 2;
+        poly = horiz
+          ? [p1, { x: cx, y: p1.y }, { x: cx, y: p2.y }, p2]
+          : [p1, { x: p1.x, y: cy }, { x: p2.x, y: cy }, p2];
       } else {
-        if (ortho) {
-          const cx = (p1.x + p2.x) / 2;
-          const cy = (p1.y + p2.y) / 2;
-          d = horiz
-            ? `M${p1.x},${p1.y} L${cx},${p1.y} L${cx},${p2.y} L${p2.x},${p2.y}`
-            : `M${p1.x},${p1.y} L${p1.x},${cy} L${p2.x},${cy} L${p2.x},${p2.y}`;
-        } else {
-          const c = Math.max(40, (horiz ? p2.x - p1.x : p2.y - p1.y) / 2);
-          d = horiz
-            ? `M${p1.x},${p1.y} C${p1.x + c},${p1.y} ${p2.x - c},${p2.y} ${p2.x},${p2.y}`
-            : `M${p1.x},${p1.y} C${p1.x},${p1.y + c} ${p2.x},${p2.y - c} ${p2.x},${p2.y}`;
-        }
-        src = horiz ? { x: p1.x + STUB, y: p1.y } : { x: p1.x, y: p1.y + STUB };
-        dst = horiz ? { x: p2.x - STUB, y: p2.y } : { x: p2.x, y: p2.y - STUB };
+        poly = [p1, p2]; // bézier — approximate with the chord for label placement
       }
-      out.push({ e, d, active, src, dst });
+      let d: string;
+      if (!ortho) {
+        const c = Math.max(40, (horiz ? p2.x - p1.x : p2.y - p1.y) / 2);
+        d = horiz
+          ? `M${p1.x},${p1.y} C${p1.x + c},${p1.y} ${p2.x - c},${p2.y} ${p2.x},${p2.y}`
+          : `M${p1.x},${p1.y} C${p1.x},${p1.y + c} ${p2.x},${p2.y - c} ${p2.x},${p2.y}`;
+      } else {
+        d = poly.map((p, i) => `${i ? "L" : "M"}${p.x},${p.y}`).join(" ");
+      }
+      out.push({ e, d, active, poly });
     }
     return out;
   }, [edges, boxById, ortho, orthoRoutes, horiz, overlay]);
@@ -807,33 +801,58 @@ export function HierarchyMap({
           );
         })}
 
-        {/* EDGE LABELS — on TOP of the boxes, at BOTH ends of each flow (where it
-            starts and where it connects), each commodity on its own line over a
-            backing chip so the text is never hidden or written across a box. */}
+        {/* EDGE LABELS — NO backing chip (it would block the flow). Each end's text
+            is placed INLINE beside a clear segment: the stub right at the port if
+            there is room, otherwise the segment just after the first bend. */}
         {(() => {
-          const used = new Map<string, number>(); // stagger labels that share a port cell
-          const LH = 11;
-          const chip = (key: string, at: { x: number; y: number }, lines: string[], active: boolean) => {
-            const cell = `${Math.round(at.x / 36)}|${Math.round(at.y / 28)}`;
-            const rank = used.get(cell) ?? 0;
-            used.set(cell, rank + 1);
+          const LH = 10;
+          const segLen = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
+          const isH = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.abs(b.x - a.x) >= Math.abs(b.y - a.y);
+          // Anchor a label near one end of the polyline: pick the first segment
+          // (from that end) wide enough for the text, else the longest one.
+          const anchor = (poly: { x: number; y: number }[], fromStart: boolean, textW: number) => {
+            if (poly.length === 2) {
+              const a = poly[0];
+              const b = poly[1];
+              const t = fromStart ? 0.32 : 0.68;
+              return { mx: a.x + (b.x - a.x) * t, my: a.y + (b.y - a.y) * t, vert: !isH(a, b) };
+            }
+            const segs: [{ x: number; y: number }, { x: number; y: number }][] = [];
+            for (let i = 0; i < poly.length - 1; i++) segs.push([poly[i], poly[i + 1]]);
+            const ord = fromStart ? segs : segs.slice().reverse();
+            let pick: [{ x: number; y: number }, { x: number; y: number }] | null = null;
+            let longest = ord[0];
+            let longestL = -1;
+            for (const s of ord) {
+              const L = segLen(s[0], s[1]);
+              if (L > longestL) { longestL = L; longest = s; }
+              const need = (isH(s[0], s[1]) ? textW : LH * 2) + 10;
+              if (!pick && L >= need) pick = s;
+            }
+            const s = pick ?? longest;
+            return { mx: (s[0].x + s[1].x) / 2, my: (s[0].y + s[1].y) / 2, vert: !isH(s[0], s[1]) };
+          };
+          const labelAt = (key: string, poly: { x: number; y: number }[], fromStart: boolean, lines: string[], active: boolean) => {
+            const textW = Math.max(...lines.map((l) => l.length)) * 5.4;
+            const { mx, my, vert } = anchor(poly, fromStart, textW);
             const blockH = lines.length * LH;
-            const boxW = Math.max(...lines.map((l) => l.length)) * 5.6 + 10;
-            const topY = at.y - blockH / 2 + LH - 2 + rank * (blockH + 5);
+            // sit BESIDE the line (not on it): above for a horizontal seg, right for vertical.
+            const tx = vert ? mx + 7 : mx;
+            const topY = vert ? my - blockH / 2 + LH - 2 : my - 6 - blockH + LH;
             return (
-              <g key={key} style={{ pointerEvents: "none" }}>
-                <rect x={at.x - boxW / 2} y={topY - LH + 2} width={boxW} height={blockH + 4} rx={3} fill="var(--surface)" opacity={0.92} stroke="var(--border)" strokeWidth={0.5} />
-                <text x={at.x} y={topY} fontSize={9} fill={active ? "var(--text)" : "var(--muted)"} textAnchor="middle">
-                  {lines.map((l, i) => (
-                    <tspan key={i} x={at.x} dy={i ? LH : 0}>{l}</tspan>
-                  ))}
-                </text>
-              </g>
+              <text key={key} x={tx} y={topY} fontSize={9} fill={active ? "var(--text)" : "var(--muted)"} textAnchor={vert ? "start" : "middle"} style={{ pointerEvents: "none" }}>
+                {lines.map((l, i) => (
+                  <tspan key={i} x={tx} dy={i ? LH : 0}>{l}</tspan>
+                ))}
+              </text>
             );
           };
-          return edgeViews.flatMap(({ e, src, dst, active }) => {
+          return edgeViews.flatMap(({ e, poly, active }) => {
             const lines = e.commodities.map((c) => clip(c, 16) + (e.lag ? ` ·${e.lag}y` : ""));
-            return [chip(`ls-${edgeKey(e)}`, src, lines, active), chip(`ld-${edgeKey(e)}`, dst, lines, active)];
+            return [
+              labelAt(`ls-${edgeKey(e)}`, poly, true, lines, active),
+              labelAt(`ld-${edgeKey(e)}`, poly, false, lines, active),
+            ];
           });
         })()}
 
@@ -842,22 +861,25 @@ export function HierarchyMap({
           selEdge != null &&
           edgeViews
             .filter((v) => v.e.rowIndex === selEdge)
-            .map(({ e, src }) => (
-              <g key={`ec-${edgeKey(e)}`}>
-                {onEditConnection && (
-                  <g style={{ cursor: "pointer" }} onClick={(ev) => setForm({ from: e.from, to: e.to, sx: ev.clientX, sy: ev.clientY, editRowIndex: e.rowIndex, commodity: e.commodity, lag: e.lag })}>
-                    <circle cx={src.x} cy={src.y + 16} r={8} fill="var(--brand)" />
-                    <text x={src.x} y={src.y + 17} fontSize={9} fill="#fff" textAnchor="middle" dominantBaseline="middle">✎</text>
-                  </g>
-                )}
-                {onDeleteConnection && (
-                  <g style={{ cursor: "pointer" }} onClick={() => { onDeleteConnection(e.rowIndex); setSelEdge(null); }}>
-                    <circle cx={src.x + 20} cy={src.y + 16} r={8} fill="var(--danger)" />
-                    <text x={src.x + 20} y={src.y + 17} fontSize={10} fill="#fff" textAnchor="middle" dominantBaseline="middle">✕</text>
-                  </g>
-                )}
-              </g>
-            ))}
+            .map(({ e, poly }) => {
+              const m = poly[Math.floor(poly.length / 2)];
+              return (
+                <g key={`ec-${edgeKey(e)}`}>
+                  {onEditConnection && (
+                    <g style={{ cursor: "pointer" }} onClick={(ev) => setForm({ from: e.from, to: e.to, sx: ev.clientX, sy: ev.clientY, editRowIndex: e.rowIndex, commodity: e.commodity, lag: e.lag })}>
+                      <circle cx={m.x - 11} cy={m.y} r={8} fill="var(--brand)" />
+                      <text x={m.x - 11} y={m.y + 1} fontSize={9} fill="#fff" textAnchor="middle" dominantBaseline="middle">✎</text>
+                    </g>
+                  )}
+                  {onDeleteConnection && (
+                    <g style={{ cursor: "pointer" }} onClick={() => { onDeleteConnection(e.rowIndex); setSelEdge(null); }}>
+                      <circle cx={m.x + 11} cy={m.y} r={8} fill="var(--danger)" />
+                      <text x={m.x + 11} y={m.y + 1} fontSize={10} fill="#fff" textAnchor="middle" dominantBaseline="middle">✕</text>
+                    </g>
+                  )}
+                </g>
+              );
+            })}
       </svg>
 
       {/* hover-a-flow popup: what commodities travel along the arrow under the cursor */}

@@ -58,9 +58,10 @@ of which nodes are expanded, choose how the *flows* are aggregated:
 Whatever the level, **all commodities between the same two boxes share one arrow**.
 Its label is written at **both ends** — where the flow leaves the source and where
 it enters the target — never across some other box in the middle; each commodity
-sits on **its own line** over a solid backing chip. **Hover** an arrow for a popup
-of exactly what flows along it. **Click empty canvas** to clear the selection /
-close the inspector.
+sits on **its own line**, drawn inline beside the line (no backing box, so it never
+blocks the flow). When there isn't room right at a port, the text shifts to just
+after the first bend. **Hover** an arrow for a popup of exactly what flows along it.
+**Click empty canvas** to clear the selection / close the inspector.
 
 Boxes are always drawn **in front** of the flow lines (white, lightly translucent),
 so a line passing behind a box reads as dimmed and the boxes stay legible.
