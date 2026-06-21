@@ -452,6 +452,22 @@ th {
   font-size: 0.74rem;
   color: var(--muted);
 }
+.mi-bounds {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-top: 6px;
+}
+.mi-bound-lbl {
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.mi-bound-lbl:not(:first-child) {
+  margin-left: 4px;
+}
 .mi-val {
   font-family: var(--font-mono);
   font-size: 0.96rem;

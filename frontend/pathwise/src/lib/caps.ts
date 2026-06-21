@@ -74,6 +74,18 @@ export const minOutputCap = (wb: Workbook, scope: string, commodity: string): Bo
 export const setMinOutputCap = (wb: Workbook, scope: string, commodity: string, value: Bound | null): Workbook =>
   setCap(wb, "min_production", scope, commodity, value);
 
+// Per-machine intake bounds on a consumed commodity (the consumer-side mirror of
+// the output caps): min = required offtake (a floor), max = maximum purchase.
+export const minConsumptionCap = (wb: Workbook, scope: string, commodity: string): Bound | null =>
+  cap(wb, "min_consumption", scope, commodity);
+export const setMinConsumptionCap = (wb: Workbook, scope: string, commodity: string, value: Bound | null): Workbook =>
+  setCap(wb, "min_consumption", scope, commodity, value);
+
+export const maxConsumptionCap = (wb: Workbook, scope: string, commodity: string): Bound | null =>
+  cap(wb, "max_consumption", scope, commodity);
+export const setMaxConsumptionCap = (wb: Workbook, scope: string, commodity: string, value: Bound | null): Workbook =>
+  setCap(wb, "max_consumption", scope, commodity, value);
+
 // ── Source-stream supply cap (max_purchase) ──────────────────────────────────
 // A static cap is the `max_purchase` column on the commodities row; a temporal
 // cap lives in the WIDE `commodities_t__max_purchase` sheet (one row per year, a

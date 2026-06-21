@@ -6,7 +6,18 @@ import { useMemo, useState } from "react";
 import { SearchableSelect } from "../controls/SearchableSelect";
 import { SearchSelect } from "../controls/SearchSelect";
 import { TemporalValue, type TemporalVal } from "../controls/TemporalValue";
-import { supplyCap } from "../../lib/caps";
+import {
+  commodityUnit,
+  maxConsumptionCap,
+  maxOutputCap,
+  minConsumptionCap,
+  minOutputCap,
+  setMaxConsumptionCap,
+  setMaxOutputCap,
+  setMinConsumptionCap,
+  setMinOutputCap,
+  supplyCap,
+} from "../../lib/caps";
 import type { AvailableTechnology } from "../../lib/api/components";
 import type { Cell, RunResult, Workbook } from "../../types";
 
@@ -43,27 +54,15 @@ export function MachineInspector({
   wb,
   machineId,
   onCapacity,
-  minOutput,
-  onMinOutput,
-  maxOutput,
-  onMaxOutput,
-  unitLabel,
+  onWorkbookChange,
   baseYear = 2025,
   periods,
 }: {
   wb: Workbook;
   machineId: string;
   onCapacity: (v: number) => void;
-  /** Current annual output floor (min_production) — static or by-year, or null. */
-  minOutput?: TemporalVal | null;
-  /** Set / clear (null) this machine's annual output floor. */
-  onMinOutput?: (v: TemporalVal | null) => void;
-  /** Current annual output ceiling (max_production) — static or by-year, or null. */
-  maxOutput?: TemporalVal | null;
-  /** Set / clear (null) this machine's annual output ceiling. */
-  onMaxOutput?: (v: TemporalVal | null) => void;
-  /** The product's UNIT (t, MWh, …) shown as the bound's unit. */
-  unitLabel?: string;
+  /** Persist a new workbook (per-stream min/max edits flow through this). */
+  onWorkbookChange?: (wb: Workbook) => void;
   /** Horizon start — seeds the temporal editor. */
   baseYear?: number;
   /** The model's run periods (years) — the temporal fill materialises onto these. */
@@ -178,12 +177,30 @@ export function MachineInspector({
   const wireRow = (r: Record<string, Cell>, role: "IN" | "OUT") => {
     const c = s(r.target);
     const sub = role === "IN" ? inFrom(c) : { text: outTo(c, !!r.is_product), ok: true };
+    const isOut = role === "OUT";
+    const unit = commodityUnit(wb, c);
+    // OUTPUT streams bound production (min/max_production); INPUT streams bound the
+    // machine's intake (min/max_consumption): min = required offtake, max = max purchase.
+    const minVal = isOut ? minOutputCap(wb, machineId, c) : minConsumptionCap(wb, machineId, c);
+    const maxVal = isOut ? maxOutputCap(wb, machineId, c) : maxConsumptionCap(wb, machineId, c);
+    const setMin = (v: TemporalVal | null) =>
+      onWorkbookChange?.(isOut ? setMinOutputCap(wb, machineId, c, v) : setMinConsumptionCap(wb, machineId, c, v));
+    const setMax = (v: TemporalVal | null) =>
+      onWorkbookChange?.(isOut ? setMaxOutputCap(wb, machineId, c, v) : setMaxConsumptionCap(wb, machineId, c, v));
     return (
       <div className="mi-row" key={`${role}:${c}`}>
-        <span className={`mi-badge ${role === "OUT" ? "mi-out" : ""}`}>{role}</span>
+        <span className={`mi-badge ${isOut ? "mi-out" : ""}`}>{role}</span>
         <div className="mi-stream">
           <div className="mi-name">{c}{r.is_product ? " ★" : ""}</div>
           <div className="mi-sub" style={sub.ok === false ? { color: "var(--danger)" } : undefined}>{sub.text}</div>
+          {onWorkbookChange && (
+            <div className="mi-bounds">
+              <span className="mi-bound-lbl">{isOut ? "min" : "min offtake"}</span>
+              <TemporalValue value={minVal} onChange={setMin} unit={unit} baseYear={baseYear} periods={periods} placeholder={isOut ? "no floor" : "none"} label={`${c} · ${isOut ? "min output" : "required offtake"}`} />
+              <span className="mi-bound-lbl">{isOut ? "max" : "max purchase"}</span>
+              <TemporalValue value={maxVal} onChange={setMax} unit={unit} baseYear={baseYear} periods={periods} placeholder="no cap" label={`${c} · ${isOut ? "max output" : "max purchase"}`} />
+            </div>
+          )}
         </div>
         <div className="mi-val">{fmt(r.coefficient)} <span className="mi-unit">{unitOf(c)}</span></div>
       </div>
@@ -206,8 +223,9 @@ export function MachineInspector({
         {io.length === 0 && <div className="muted" style={{ padding: "8px 0", fontSize: "0.8rem" }}>no recipe</div>}
       </div>
 
-      {/* Output block: capacity + CO₂ intensity on top, min + max output together. */}
-      <div className="mi-section-head"><span>output</span></div>
+      {/* Machine-level: capacity + CO₂ intensity. Per-stream min/max live on the
+          recipe rows above (output → production bounds, input → intake bounds). */}
+      <div className="mi-section-head"><span>capacity</span><span className="muted">the machine's own limit</span></div>
       <div className="mi-cards">
         <div className="mi-card">
           <div className="mi-card-label">capacity</div>
@@ -223,28 +241,8 @@ export function MachineInspector({
           </div>
         )}
       </div>
-      {(onMinOutput || onMaxOutput) && (
-        <div className="mi-cards">
-          {onMinOutput && (
-            <div className="mi-card">
-              <div className="mi-card-label">min output</div>
-              <div className="mi-card-val">
-                <TemporalValue value={minOutput ?? null} onChange={onMinOutput} unit={unitLabel} baseYear={baseYear} periods={periods} placeholder="no floor" label="min output" />
-              </div>
-            </div>
-          )}
-          {onMaxOutput && (
-            <div className="mi-card">
-              <div className="mi-card-label">max output</div>
-              <div className="mi-card-val">
-                <TemporalValue value={maxOutput ?? null} onChange={onMaxOutput} unit={unitLabel} baseYear={baseYear} periods={periods} placeholder="no cap" label="max output" />
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
-      <p className="muted mi-note">Recipe values are edited in the Component tab — shown here for wiring. ★ = a final product (can meet demand).</p>
+      <p className="muted mi-note">Recipe coefficients are edited in the Component tab. Per-stream min/max are limits on this machine's flows (min offtake = required purchase). ★ = a final product (can meet demand).</p>
 
       {otherImpacts.length > 0 && (
         <div className="mi-block">
