@@ -120,6 +120,10 @@ MACHINES = "machines"
 #: Directed commodity flows between sibling nodes (from_node, to_node, commodity_id, …).
 CONNECTIONS = "connections"
 
+#: Long-format per-year connection flow bounds (from_node, to_node, commodity_id,
+#: year, min_flow, max_flow) — the node-space counterpart of ``edges_t``.
+CONNECTIONS_T = "connections_t"
+
 #: Boundary ports exposed by group nodes (node_id, commodity_id, direction, …).
 PORTS = "ports"
 

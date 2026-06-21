@@ -306,6 +306,7 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
         ]
 
     edges = list(workbook.get(EDGES, []))
+    edges_t = list(workbook.get(EDGES_T, []))
     seen_edges: set[tuple[str, str, str]] = set()
     for c in h.connections:
         for s in producers(c.from_node, c.commodity_id):
@@ -323,8 +324,22 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
                 if c.min_flow is not None:
                     edge["min_flow"] = c.min_flow
                 edges.append(edge)
+                # Carry per-year bounds (node-space → process-space): one edges_t
+                # row per year, the connection's series applied to every fanned edge.
+                for yr in sorted({*c.min_flow_by_year, *c.max_flow_by_year}):
+                    et_row: dict[str, Any] = {
+                        "from_process": s,
+                        "to_process": d,
+                        "commodity_id": c.commodity_id,
+                        "year": yr,
+                    }
+                    if yr in c.max_flow_by_year:
+                        et_row["max_flow"] = c.max_flow_by_year[yr]
+                    if yr in c.min_flow_by_year:
+                        et_row["min_flow"] = c.min_flow_by_year[yr]
+                    edges_t.append(et_row)
 
-    return {**workbook, PROCESSES: procs, EDGES: edges}
+    return {**workbook, PROCESSES: procs, EDGES: edges, EDGES_T: edges_t}
 
 
 def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
@@ -727,17 +742,23 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         if c and obj in {m.value for m in ObjectiveMode}:
             company_objective[c] = ObjectiveMode(obj)
 
-    # ── Edges (+ optional per-year capacity: edges_t) ────────────────────────
+    # ── Edges (+ optional per-year bounds: edges_t, min and max) ─────────────
     edge_maxflow_t: dict[tuple[str, str, str], dict[int, float]] = {}
+    edge_minflow_t: dict[tuple[str, str, str], dict[int, float]] = {}
     for r in _rows(workbook, EDGES_T):
         frm, to, cid = (
             _str(r.get("from_process")),
             _str(r.get("to_process")),
             _str(r.get("commodity_id")),
         )
-        yr, mf = _int(r.get("year")), _num(r.get("max_flow"))
-        if frm and to and cid and yr is not None and mf is not None:
-            edge_maxflow_t.setdefault((frm, to, cid), {})[yr] = mf
+        yr = _int(r.get("year"))
+        if not (frm and to and cid) or yr is None:
+            continue
+        ek = (frm, to, cid)
+        if (mf := _num(r.get("max_flow"))) is not None:
+            edge_maxflow_t.setdefault(ek, {})[yr] = mf
+        if (nf := _num(r.get("min_flow"))) is not None:
+            edge_minflow_t.setdefault(ek, {})[yr] = nf
     edges = []
     for r in _rows(workbook, EDGES):
         frm, to, cid = (
@@ -758,6 +779,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                     interpolate(edge_maxflow_t[ek], years) if ek in edge_maxflow_t else {}
                 ),
                 min_flow=_num(r.get("min_flow")),
+                min_flow_by_year=(
+                    interpolate(edge_minflow_t[ek], years) if ek in edge_minflow_t else {}
+                ),
             )
         )
 

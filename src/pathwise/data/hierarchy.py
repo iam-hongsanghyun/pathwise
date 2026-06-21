@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
-from pathwise.data.sheets import CONNECTIONS, MACHINES, NODES, PORTS
+from pathwise.data.sheets import CONNECTIONS, CONNECTIONS_T, MACHINES, NODES, PORTS
 
 Workbook = dict[str, list[dict[str, Any]]]
 
@@ -79,6 +79,9 @@ class Connection:
         lag_years: Time gap on the link [yr] — used when the connection crosses
             an optimisation boundary (becomes a coupling-link lag).
         max_flow: Optional per-period cap.
+        min_flow: Optional per-period floor (a committed offtake).
+        max_flow_by_year: Optional year-varying cap (overrides ``max_flow``).
+        min_flow_by_year: Optional year-varying floor (overrides ``min_flow``).
     """
 
     from_node: str
@@ -87,6 +90,8 @@ class Connection:
     lag_years: int = 0
     max_flow: float | None = None
     min_flow: float | None = None
+    max_flow_by_year: dict[int, float] = field(default_factory=dict)
+    min_flow_by_year: dict[int, float] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -304,6 +309,19 @@ def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
             introduced_year=_int(r.get("introduced_year")),
         )
 
+    # Per-year flow bounds (long format), keyed by the connection's node triple.
+    minflow_t: dict[tuple[str, str, str], dict[int, float]] = {}
+    maxflow_t: dict[tuple[str, str, str], dict[int, float]] = {}
+    for r in workbook.get(CONNECTIONS_T, []):
+        f, t, c = _str(r.get("from_node")), _str(r.get("to_node")), _str(r.get("commodity_id"))
+        yr = _int(r.get("year"))
+        if not (f and t and c) or yr is None:
+            continue
+        if (mn := _num(r.get("min_flow"))) is not None:
+            minflow_t.setdefault((f, t, c), {})[yr] = mn
+        if (mx := _num(r.get("max_flow"))) is not None:
+            maxflow_t.setdefault((f, t, c), {})[yr] = mx
+
     connections: list[Connection] = []
     for r in workbook.get(CONNECTIONS, []):
         f, t, c = _str(r.get("from_node")), _str(r.get("to_node")), _str(r.get("commodity_id"))
@@ -316,6 +334,8 @@ def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
                     lag_years=_int(r.get("lag_years")) or 0,
                     max_flow=_num(r.get("max_flow")),
                     min_flow=_num(r.get("min_flow")),
+                    max_flow_by_year=maxflow_t.get((f, t, c), {}),
+                    min_flow_by_year=minflow_t.get((f, t, c), {}),
                 )
             )
 
