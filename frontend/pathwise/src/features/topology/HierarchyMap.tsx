@@ -448,7 +448,12 @@ export function HierarchyMap({
       return;
     }
     if (groupId) {
-      startNodeDrag(descendantLeaves(groupId), () => onSelect?.(groupId), e);
+      const gid = groupId;
+      startNodeDrag(
+        descendantLeaves(gid),
+        () => (selectedId === gid && onBackgroundClick ? onBackgroundClick() : onSelect?.(gid)),
+        e,
+      );
       return;
     }
     bgPress.current = { x: e.clientX, y: e.clientY, moved: false, groupId: null, toggleId: null };
@@ -478,7 +483,9 @@ export function HierarchyMap({
     // Collapsed groups in the read-only (analytics) map still drill on click; the
     // editable map selects (details) and toggles only via the top-right grip.
     if (!editable && mode === "expandable" && n.collapsed) toggle(n.id);
-    onSelect?.(n.id);
+    // Clicking the already-selected node again closes the inspector.
+    if (selectedId === n.id && onBackgroundClick) onBackgroundClick();
+    else onSelect?.(n.id);
   }
 
   const containers = placed
@@ -680,28 +687,14 @@ export function HierarchyMap({
           });
         })}
 
-        {/* EDGE LINES — drawn BEHIND every box, so a line crossing a box reads as
-            dimmed (the box, white + translucent, sits on top). Labels + controls
-            are a separate pass after the boxes. */}
+        {/* EDGE LINES (visible) — drawn BEHIND every box, so a line crossing a box
+            reads as dimmed (the box, white + translucent, sits on top). The
+            interactive hit-paths are a separate pass ON TOP (after the boxes) so
+            hover still works where a line runs behind a box. */}
         {edgeViews.map(({ e, d, active }) => {
           const sel = editable && e.rowIndex >= 0 && selEdge === e.rowIndex;
-          const onHover = (ev: React.MouseEvent) =>
-            setHover({ x: ev.clientX, y: ev.clientY, from: e.from, to: e.to, commodities: e.commodities, lag: e.lag });
           return (
-            <g key={`el-${edgeKey(e)}`} className="topo-edge">
-              <path d={d} fill="none" stroke={sel ? "#0b5d56" : "#0f766e"} strokeWidth={sel ? 2.6 : active ? 2.2 : 1.3} markerEnd="url(#hm-arrow)" opacity={overlay && !active ? 0.28 : 0.72} />
-              <path
-                d={d}
-                fill="none"
-                stroke="transparent"
-                strokeWidth={14}
-                style={{ cursor: "pointer" }}
-                onMouseEnter={onHover}
-                onMouseMove={onHover}
-                onMouseLeave={() => setHover(null)}
-                onClick={editable && e.rowIndex >= 0 ? () => setSelEdge(sel ? null : e.rowIndex) : undefined}
-              />
-            </g>
+            <path key={`el-${edgeKey(e)}`} className="topo-edge" d={d} fill="none" stroke={sel ? "#0b5d56" : "#0f766e"} strokeWidth={sel ? 2.6 : active ? 2.2 : 1.3} markerEnd="url(#hm-arrow)" opacity={overlay && !active ? 0.28 : 0.72} />
           );
         })}
 
@@ -832,15 +825,27 @@ export function HierarchyMap({
             const s = pick ?? longest;
             return { mx: (s[0].x + s[1].x) / 2, my: (s[0].y + s[1].y) / 2, vert: !isH(s[0], s[1]) };
           };
-          const labelAt = (key: string, poly: { x: number; y: number }[], fromStart: boolean, lines: string[], active: boolean) => {
+          // `out` = the source (product / out-connector) label, placed on one side;
+          // the target (in-connector) label goes on the OPPOSITE side so the two
+          // never collide: vertical segment → out left / in right; horizontal
+          // segment → out above / in below.
+          const labelAt = (key: string, poly: { x: number; y: number }[], out: boolean, lines: string[], active: boolean) => {
             const textW = Math.max(...lines.map((l) => l.length)) * 5.4;
-            const { mx, my, vert } = anchor(poly, fromStart, textW);
-            const blockH = lines.length * LH;
-            // sit BESIDE the line (not on it): above for a horizontal seg, right for vertical.
-            const tx = vert ? mx + 7 : mx;
-            const topY = vert ? my - blockH / 2 + LH - 2 : my - 6 - blockH + LH;
+            const { mx, my, vert } = anchor(poly, out, textW);
+            let tx: number;
+            let topY: number;
+            let ta: "start" | "middle" | "end";
+            if (vert) {
+              tx = out ? mx - 7 : mx + 7;
+              ta = out ? "end" : "start";
+              topY = my - ((lines.length - 1) * LH) / 2 + 1;
+            } else {
+              tx = mx;
+              ta = "middle";
+              topY = out ? my - 6 - (lines.length - 1) * LH : my + 6 + LH;
+            }
             return (
-              <text key={key} x={tx} y={topY} fontSize={9} fill={active ? "var(--text)" : "var(--muted)"} textAnchor={vert ? "start" : "middle"} style={{ pointerEvents: "none" }}>
+              <text key={key} x={tx} y={topY} fontSize={9} fill={active ? "var(--text)" : "var(--muted)"} textAnchor={ta} style={{ pointerEvents: "none" }}>
                 {lines.map((l, i) => (
                   <tspan key={i} x={tx} dy={i ? LH : 0}>{l}</tspan>
                 ))}
@@ -855,6 +860,28 @@ export function HierarchyMap({
             ];
           });
         })()}
+
+        {/* interactive hit-paths ON TOP of the boxes — so hovering a flow line shows
+            its popup even where the line runs behind a box. */}
+        {edgeViews.map(({ e, d }) => {
+          const sel = editable && e.rowIndex >= 0 && selEdge === e.rowIndex;
+          const onHover = (ev: React.MouseEvent) =>
+            setHover({ x: ev.clientX, y: ev.clientY, from: e.from, to: e.to, commodities: e.commodities, lag: e.lag });
+          return (
+            <path
+              key={`eh-${edgeKey(e)}`}
+              d={d}
+              fill="none"
+              stroke="transparent"
+              strokeWidth={14}
+              style={{ cursor: "pointer" }}
+              onMouseEnter={onHover}
+              onMouseMove={onHover}
+              onMouseLeave={() => setHover(null)}
+              onClick={editable && e.rowIndex >= 0 ? () => setSelEdge(sel ? null : e.rowIndex) : undefined}
+            />
+          );
+        })}
 
         {/* edit / delete controls for the selected edge (top layer, clickable) */}
         {editable &&
