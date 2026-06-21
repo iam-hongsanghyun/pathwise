@@ -13,7 +13,6 @@ import { SearchableSelect } from "../controls/SearchableSelect";
 import { buildOverlay, ResultYearBar, type CascadeResult, type YearOverlay } from "../valuechain/panels";
 import { parseNodes } from "../../lib/groupGraph";
 import {
-  applyManualLayout,
   defaultExpanded,
   editEdges,
   layoutFor,
@@ -49,10 +48,6 @@ interface Props {
   onAddConnection?: (from: string, to: string, commodity: string, lag: number) => void;
   onEditConnection?: (rowIndex: number, commodity: string, lag: number) => void;
   onDeleteConnection?: (rowIndex: number) => void;
-  /** Persist manual node positions (upserted into the `node_layout` sheet). */
-  onMoveNodes?: (positions: { id: string; x: number; y: number }[]) => void;
-  /** Clear all manual positions — "reset layout" back to the auto arrangement. */
-  onResetLayout?: () => void;
   /** A no-drag click on empty canvas — clears the selection / closes the inspector. */
   onBackgroundClick?: () => void;
   commodities?: string[];
@@ -67,8 +62,6 @@ export function HierarchyMap({
   onAddConnection,
   onEditConnection,
   onDeleteConnection,
-  onMoveNodes,
-  onResetLayout,
   onBackgroundClick,
   commodities = [],
 }: Props) {
@@ -133,37 +126,13 @@ export function HierarchyMap({
   const [ortho, setOrtho] = useState(false);
   const horiz = orientation === "h";
 
-  // Manual node positions (node_layout) overlaid on the auto-layout. A live drag
-  // updates `dragDraft`; on drop it's committed to node_layout via onMoveNodes.
-  // Manual positions are scoped per orientation: vertical-layout positions are
-  // stored under a `v::` id prefix so the two arrangements never collide (and so
-  // the backend, which keys placement off bare ids, ignores the vertical rows).
-  const positions = useMemo(() => {
-    const m = new Map<string, { x: number; y: number }>();
-    for (const r of workbook.node_layout ?? []) {
-      let id = r.id == null ? "" : String(r.id);
-      const isV = id.startsWith("v::");
-      if (isV !== !horiz) continue; // only this orientation's rows
-      if (isV) id = id.slice(3);
-      const x = Number(r.x);
-      const y = Number(r.y);
-      if (id && Number.isFinite(x) && Number.isFinite(y)) m.set(id, { x, y });
-    }
-    return m;
-  }, [workbook, horiz]);
-  const [dragDraft, setDragDraft] = useState<Map<string, { x: number; y: number }> | null>(null);
-  const dragDraftRef = useRef<Map<string, { x: number; y: number }> | null>(null);
-  // The auto-layout WITHOUT manual positions — its size only changes on a real
-  // structural edit (expand/collapse, orientation, model change), never on a drag.
-  // The viewBox auto-fit keys off this so dragging never yanks the camera.
-  const structural = useMemo(
+  // Pure auto-layout (nodes are not draggable). Re-fits the camera only on a real
+  // structural change (expand/collapse, orientation, model edit).
+  const laid = useMemo(
     () => layoutFor(workbook, mode, expanded, orientation),
     [workbook, mode, expanded, orientation],
   );
-  const laid = useMemo(
-    () => applyManualLayout(structural, dragDraft ?? positions),
-    [structural, positions, dragDraft],
-  );
+  const structural = laid;
 
   // Source streams (consumed but produced by none — raw materials) sit in a band
   // across the top; the hierarchy is shifted down by `bandH` to make room.
@@ -367,67 +336,24 @@ export function HierarchyMap({
       return next;
     });
 
-  // Leaf boxes (machine / collapsed group) under `groupId` — the things a group
-  // drag moves; the group box itself re-fits around them afterwards.
-  const descendantLeaves = (groupId: string): string[] => {
-    const out: string[] = [];
-    for (const n of laid.nodes) {
-      if (n.kind === "group" && !n.collapsed) continue;
-      let cur: string | null = n.id;
-      const seen = new Set<string>();
-      while (cur && !seen.has(cur)) {
-        if (cur === groupId) {
-          if (n.id !== groupId) out.push(n.id);
-          break;
-        }
-        seen.add(cur);
-        cur = parentOf.get(cur) ?? null;
-      }
-    }
-    return out;
-  };
-
-  // Drag `leafIds` (a leaf, or a group's descendant leaves) by the pointer delta;
-  // a real drag commits new positions to node_layout, a no-move tap runs onClick.
-  function startNodeDrag(leafIds: string[], onClick: () => void, e: React.PointerEvent) {
+  // A no-move tap runs `onClick` (select / toggle). Nodes are NOT draggable; a
+  // press-and-drag does nothing here (panning happens from empty canvas).
+  function tap(onClick: () => void, e: React.PointerEvent) {
     if (connect || !editable) {
       onClick();
       return;
     }
     e.stopPropagation();
-    const svg = svgRef.current;
-    const start = toWorld(e.clientX, e.clientY, svg);
-    const starts = new Map<string, { x: number; y: number }>();
-    for (const id of leafIds) {
-      const b = boxById.get(id);
-      // boxById is in PLACED space (y shifted by bandH); positions / dragDraft
-      // live in pre-band laid space, so capture the origin without the band.
-      if (b) starts.set(id, { x: b.x, y: b.y - bandH });
-    }
+    const sx = e.clientX;
+    const sy = e.clientY;
     let moved = false;
     const move = (ev: PointerEvent) => {
-      if (!moved && Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < DRAG_PX) return;
-      moved = true;
-      const now = toWorld(ev.clientX, ev.clientY, svg);
-      const dx = now.x - start.x;
-      const dy = now.y - start.y;
-      const draft = new Map(positions);
-      for (const [id, s0] of starts) draft.set(id, { x: Math.round(s0.x + dx), y: Math.round(s0.y + dy) });
-      dragDraftRef.current = draft;
-      setDragDraft(draft);
+      if (Math.hypot(ev.clientX - sx, ev.clientY - sy) >= DRAG_PX) moved = true;
     };
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
-      if (moved && dragDraftRef.current) {
-        onMoveNodes?.(
-          [...dragDraftRef.current].map(([id, p]) => ({ id: horiz ? id : `v::${id}`, x: p.x, y: p.y })),
-        );
-      } else {
-        onClick();
-      }
-      dragDraftRef.current = null;
-      setDragDraft(null);
+      if (!moved) onClick();
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -441,19 +367,15 @@ export function HierarchyMap({
     // — body, header, label — resolves to the group; the ▾ grip wins via toggle.
     const toggleId = el?.closest?.("[data-toggle]")?.getAttribute("data-toggle") ?? null;
     const groupId = el?.closest?.("[data-group]")?.getAttribute("data-group") ?? null;
-    // The ▾ grip toggles (no drag); a group header drags the whole group (its
-    // descendant leaves) or, on a no-move tap, selects it; the background pans.
+    // The ▾ grip toggles the group; the rest of the box selects it (tap again to
+    // close the inspector); the background pans.
     if (toggleId) {
-      startNodeDrag([], () => toggle(toggleId), e);
+      tap(() => toggle(toggleId), e);
       return;
     }
     if (groupId) {
       const gid = groupId;
-      startNodeDrag(
-        descendantLeaves(gid),
-        () => (selectedId === gid && onBackgroundClick ? onBackgroundClick() : onSelect?.(gid)),
-        e,
-      );
+      tap(() => (selectedId === gid && onBackgroundClick ? onBackgroundClick() : onSelect?.(gid)), e);
       return;
     }
     bgPress.current = { x: e.clientX, y: e.clientY, moved: false, groupId: null, toggleId: null };
@@ -578,21 +500,6 @@ export function HierarchyMap({
               <span style={{ fontSize: "0.95rem" }}>⌐</span>
               <span>Straight lines</span>
             </button>
-            {onResetLayout && (
-              <button
-                className="ghost"
-                style={toolBtn}
-                onClick={() => {
-                  onResetLayout();
-                  const pad = 50;
-                  setVb({ x: -pad, y: -pad, w: Math.max(structural.width, bandW) + 2 * pad, h: bandH + structural.height + 2 * pad });
-                }}
-                title="Reset all moved nodes back to the automatic layout"
-              >
-                <span style={{ fontSize: "0.95rem" }}>↺</span>
-                <span>Reset layout</span>
-              </button>
-            )}
           </>
         )}
         {editable && (
@@ -771,7 +678,7 @@ export function HierarchyMap({
               transform={`translate(${n.x},${n.y})`}
               opacity={idle ? 0.45 : 1}
               style={{ cursor: "pointer" }}
-              onPointerDown={(e) => startNodeDrag([n.id], () => nodeClick(n), e)}
+              onPointerDown={(e) => tap(() => nodeClick(n), e)}
             >
               <rect width={n.w} height={n.h} rx={3} fill={fill} fillOpacity={isSel ? 1 : 0.92} stroke={stroke} strokeWidth={isSel || toTech ? 2.5 : undefined} />
               <text className="topo-kind" x={8} y={14}>{isMachine ? "machine" : !editable && n.collapsed ? "group ▸" : "group"}</text>
@@ -794,50 +701,68 @@ export function HierarchyMap({
           );
         })}
 
-        {/* EDGE LABELS — no backing box (it would block the flow). Placed as CLOSE
-            as possible to each connector, on the stub right at the port. Beside a
-            HORIZONTAL stub the text is horizontal (out above / in below); beside a
-            VERTICAL stub the text is rotated VERTICAL (out left / in right). */}
+        {/* EDGE LABELS — HORIZONTAL text (one commodity per line), placed next to each
+            connector (as close as possible), then DE-OVERLAPPED so no two labels ever
+            touch. No backing box. */}
         {(() => {
-          const LH = 10;
-          const labelFor = (key: string, poly: { x: number; y: number }[], out: boolean, lines: string[], active: boolean) => {
-            const port = out ? poly[0] : poly[poly.length - 1];
-            const nxt = out ? poly[1] : poly[poly.length - 2];
-            const fill = active ? "var(--text)" : "var(--muted)";
-            const horizStub = Math.abs(nxt.x - port.x) >= Math.abs(nxt.y - port.y);
-            if (horizStub) {
-              const dir = Math.sign(nxt.x - port.x) || 1; // +1 line goes right, -1 left
-              const tx = port.x + dir * 6;
-              const ta = dir > 0 ? "start" : "end";
-              const topY = out ? port.y - 6 - (lines.length - 1) * LH : port.y + 6 + LH;
-              return (
-                <text key={key} x={tx} y={topY} fontSize={9} fill={fill} textAnchor={ta} style={{ pointerEvents: "none" }}>
-                  {lines.map((l, i) => (<tspan key={i} x={tx} dy={i ? LH : 0}>{l}</tspan>))}
-                </text>
-              );
-            }
-            // vertical (rotated) text, hugging the port; out → left, in → right.
-            const baseX = out ? port.x - 6 : port.x + 6;
-            const sy = out ? port.y + 6 : port.y - 6;
-            const ta = out ? "start" : "end"; // start extends down from sy, end extends up to sy
-            return (
-              <g key={key} style={{ pointerEvents: "none" }}>
-                {lines.map((l, i) => {
-                  const cx = out ? baseX - i * LH : baseX + i * LH;
-                  return (
-                    <text key={i} x={cx} y={sy} fontSize={9} fill={fill} textAnchor={ta} transform={`rotate(90 ${cx} ${sy})`}>{l}</text>
-                  );
-                })}
-              </g>
-            );
+          const LH = 11;
+          const CW = 5.4; // approx char width at 9px
+          const PAD = 5; // gap from the line
+          const G = 3; // min gap between two labels
+          type Lbl = {
+            key: string; lines: string[]; w: number; h: number;
+            bx: number; by: number; tx: number; ta: "start" | "middle" | "end";
+            dx: number; dy: number; active: boolean;
           };
-          return edgeViews.flatMap(({ e, poly, active }) => {
+          const raw: Lbl[] = [];
+          for (const { e, poly, active } of edgeViews) {
             const lines = e.commodities.map((c) => clip(c, 16) + (e.lag ? ` ·${e.lag}y` : ""));
-            return [
-              labelFor(`ls-${edgeKey(e)}`, poly, true, lines, active),
-              labelFor(`ld-${edgeKey(e)}`, poly, false, lines, active),
-            ];
-          });
+            const w = Math.max(...lines.map((l) => l.length)) * CW;
+            const h = lines.length * LH;
+            for (const out of [true, false]) {
+              const port = out ? poly[0] : poly[poly.length - 1];
+              const nxt = out ? poly[1] : poly[poly.length - 2];
+              const lineH = Math.abs(nxt.x - port.x) >= Math.abs(nxt.y - port.y);
+              const px = port.x + (lineH ? Math.sign(nxt.x - port.x) * 10 : 0);
+              const py = port.y + (lineH ? 0 : Math.sign(nxt.y - port.y) * 10);
+              let bx: number;
+              let by: number;
+              let tx: number;
+              let ta: "start" | "middle" | "end";
+              let dx = 0;
+              let dy = 0;
+              if (lineH) {
+                // horizontal line → text above (out) / below (in)
+                bx = px - w / 2; tx = px; ta = "middle";
+                by = out ? py - PAD - h : py + PAD;
+                dy = out ? -1 : 1;
+              } else {
+                // vertical line → text left (out) / right (in)
+                if (out) { bx = px - PAD - w; tx = px - PAD; ta = "end"; dx = -1; }
+                else { bx = px + PAD; tx = px + PAD; ta = "start"; dx = 1; }
+                by = py - h / 2;
+              }
+              raw.push({ key: `${out ? "ls" : "ld"}-${edgeKey(e)}`, lines, w, h, bx, by, tx, ta, dx, dy, active });
+            }
+          }
+          // De-overlap: push each label away from the line (along dx/dy) until clear.
+          const hit = (a: Lbl, b: Lbl) =>
+            a.bx < b.bx + b.w + G && b.bx < a.bx + a.w + G && a.by < b.by + b.h + G && b.by < a.by + a.h + G;
+          const placed: Lbl[] = [];
+          for (const L of raw) {
+            let guard = 0;
+            while (guard++ < 240 && placed.some((p) => hit(L, p))) {
+              L.bx += L.dx * 4;
+              L.by += L.dy * 4;
+              L.tx += L.dx * 4;
+            }
+            placed.push(L);
+          }
+          return placed.map((L) => (
+            <text key={L.key} x={L.tx} y={L.by + LH - 2} fontSize={9} fill={L.active ? "var(--text)" : "var(--muted)"} textAnchor={L.ta} style={{ pointerEvents: "none" }}>
+              {L.lines.map((l, i) => (<tspan key={i} x={L.tx} dy={i ? LH : 0}>{l}</tspan>))}
+            </text>
+          ));
         })()}
 
         {/* interactive hit-paths ON TOP of the boxes — so hovering a flow line shows

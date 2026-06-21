@@ -57,12 +57,12 @@ of which nodes are expanded, choose how the *flows* are aggregated:
 
 Whatever the level, **all commodities between the same two boxes share one arrow**.
 Its label is written at **both ends** — right at each connector, as close to the
-port as possible — never across some other box; each commodity on **its own line**,
-no backing box (so it never blocks the flow). Beside a horizontal line the text is
-horizontal (out above / in below); beside a vertical line it is rotated **vertical**
-(out left / in right) so it runs along the line. **Hover** an arrow for a popup of
-exactly what flows along it. **Click a box again** (or empty canvas) to close the
-inspector.
+port as possible — never across another box; the text is **horizontal**, one
+commodity per line, with no backing box (so it never blocks the flow). Labels are
+then **de-overlapped**: any that would collide are nudged apart so no two ever
+touch (group boxes are spaced generously to leave room). **Hover** an arrow for a
+popup of exactly what flows along it. **Click a box again** (or empty canvas) to
+close the inspector.
 
 Boxes are always drawn **in front** of the flow lines (white, lightly translucent),
 so a line passing behind a box reads as dimmed and the boxes stay legible.
@@ -70,15 +70,7 @@ so a line passing behind a box reads as dimmed and the boxes stay legible.
 Collapsing a group also aggregates: its internal links fold away and its external
 links route onto the group box.
 
-**Arrange the canvas (drag).** Drag a machine to reposition it; drag **anywhere on
-a group's box** (its body or header — not on a child) to move the whole group, all
-its machines together. The grabbed point stays under the cursor and the camera
-holds still while you drag. Group boxes **re-fit** automatically around their
-children as you move them. Positions persist in the `node_layout` sheet, scoped per
-orientation (a no-move tap still selects / collapses as above).
-
-**Direction, routing, reset (toolbar).** Three more controls sit after *Collapse
-all*:
+**Direction & routing (toolbar).** Two controls sit after *Collapse all*:
 
 - **⇄ Horizontal / ⇳ Vertical** — flip the whole chain between left→right and
   top→bottom flow.
