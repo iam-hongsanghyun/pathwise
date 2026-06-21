@@ -13,6 +13,7 @@ import { SearchableSelect } from "../controls/SearchableSelect";
 import { buildOverlay, ResultYearBar, type CascadeResult, type YearOverlay } from "../valuechain/panels";
 import { parseNodes } from "../../lib/groupGraph";
 import {
+  applyManualLayout,
   defaultExpanded,
   editEdges,
   layoutFor,
@@ -46,6 +47,8 @@ interface Props {
   onAddConnection?: (from: string, to: string, commodity: string, lag: number) => void;
   onEditConnection?: (rowIndex: number, commodity: string, lag: number) => void;
   onDeleteConnection?: (rowIndex: number) => void;
+  /** Persist manual node positions (upserted into the `node_layout` sheet). */
+  onMoveNodes?: (positions: { id: string; x: number; y: number }[]) => void;
   commodities?: string[];
 }
 
@@ -58,6 +61,7 @@ export function HierarchyMap({
   onAddConnection,
   onEditConnection,
   onDeleteConnection,
+  onMoveNodes,
   commodities = [],
 }: Props) {
   const mode: MapMode = "expandable"; // the only layout: an expandable drill-down
@@ -115,7 +119,24 @@ export function HierarchyMap({
   }, [flowLevels, flowLevel]);
   const titleCase = (s: string) => s.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-  const laid = useMemo(() => layoutFor(workbook, mode, expanded), [workbook, mode, expanded]);
+  // Manual node positions (node_layout) overlaid on the auto-layout. A live drag
+  // updates `dragDraft`; on drop it's committed to node_layout via onMoveNodes.
+  const positions = useMemo(() => {
+    const m = new Map<string, { x: number; y: number }>();
+    for (const r of workbook.node_layout ?? []) {
+      const id = r.id == null ? "" : String(r.id);
+      const x = Number(r.x);
+      const y = Number(r.y);
+      if (id && Number.isFinite(x) && Number.isFinite(y)) m.set(id, { x, y });
+    }
+    return m;
+  }, [workbook]);
+  const [dragDraft, setDragDraft] = useState<Map<string, { x: number; y: number }> | null>(null);
+  const dragDraftRef = useRef<Map<string, { x: number; y: number }> | null>(null);
+  const laid = useMemo(
+    () => applyManualLayout(layoutFor(workbook, mode, expanded), dragDraft ?? positions),
+    [workbook, mode, expanded, positions, dragDraft],
+  );
 
   // Source streams (consumed but produced by none — raw materials) sit in a band
   // across the top; the hierarchy is shifted down by `bandH` to make room.
@@ -226,13 +247,85 @@ export function HierarchyMap({
       return next;
     });
 
+  // Leaf boxes (machine / collapsed group) under `groupId` — the things a group
+  // drag moves; the group box itself re-fits around them afterwards.
+  const descendantLeaves = (groupId: string): string[] => {
+    const out: string[] = [];
+    for (const n of laid.nodes) {
+      if (n.kind === "group" && !n.collapsed) continue;
+      let cur: string | null = n.id;
+      const seen = new Set<string>();
+      while (cur && !seen.has(cur)) {
+        if (cur === groupId) {
+          if (n.id !== groupId) out.push(n.id);
+          break;
+        }
+        seen.add(cur);
+        cur = parentOf.get(cur) ?? null;
+      }
+    }
+    return out;
+  };
+
+  // Drag `leafIds` (a leaf, or a group's descendant leaves) by the pointer delta;
+  // a real drag commits new positions to node_layout, a no-move tap runs onClick.
+  function startNodeDrag(leafIds: string[], onClick: () => void, e: React.PointerEvent) {
+    if (connect || !editable) {
+      onClick();
+      return;
+    }
+    e.stopPropagation();
+    const svg = svgRef.current;
+    const start = toWorld(e.clientX, e.clientY, svg);
+    const starts = new Map<string, { x: number; y: number }>();
+    for (const id of leafIds) {
+      const b = boxById.get(id);
+      if (b) starts.set(id, { x: b.x, y: b.y });
+    }
+    let moved = false;
+    const move = (ev: PointerEvent) => {
+      if (!moved && Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < DRAG_PX) return;
+      moved = true;
+      const now = toWorld(ev.clientX, ev.clientY, svg);
+      const dx = now.x - start.x;
+      const dy = now.y - start.y;
+      const draft = new Map(positions);
+      for (const [id, s0] of starts) draft.set(id, { x: Math.round(s0.x + dx), y: Math.round(s0.y + dy) });
+      dragDraftRef.current = draft;
+      setDragDraft(draft);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      if (moved && dragDraftRef.current) {
+        onMoveNodes?.([...dragDraftRef.current].map(([id, p]) => ({ id, x: p.x, y: p.y })));
+      } else {
+        onClick();
+      }
+      dragDraftRef.current = null;
+      setDragDraft(null);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
   function bgDown(e: React.PointerEvent) {
     press.current = null;
     setSelEdge(null);
     const el = e.target as Element;
     const groupId = el?.getAttribute?.("data-group") ?? null;
     const toggleId = el?.getAttribute?.("data-toggle") ?? null;
-    bgPress.current = { x: e.clientX, y: e.clientY, moved: false, groupId, toggleId };
+    // The ▾ grip toggles (no drag); a group header drags the whole group (its
+    // descendant leaves) or, on a no-move tap, selects it; the background pans.
+    if (toggleId) {
+      startNodeDrag([], () => toggle(toggleId), e);
+      return;
+    }
+    if (groupId) {
+      startNodeDrag(descendantLeaves(groupId), () => onSelect?.(groupId), e);
+      return;
+    }
+    bgPress.current = { x: e.clientX, y: e.clientY, moved: false, groupId: null, toggleId: null };
     onPanStart(e);
   }
   function bgMove(e: React.PointerEvent) {
@@ -246,19 +339,10 @@ export function HierarchyMap({
     onPanMove(e);
   }
   function bgUp() {
-    const b = bgPress.current;
+    // Background pan end (group select / toggle / drag are handled in startNodeDrag).
     bgPress.current = null;
-    const wasConnecting = connect != null;
     onPanEnd();
     setConnect(null);
-    // A no-drag click (not a connect release): the top-right grip toggles the
-    // group (collapse/expand); anywhere else on the header selects it (details).
-    // Handled here because the SVG captured the pointer, so the rect's own onClick
-    // can't fire.
-    if (!wasConnecting && b && !b.moved) {
-      if (b.toggleId) toggle(b.toggleId);
-      else if (b.groupId) onSelect?.(b.groupId);
-    }
   }
   function nodeClick(n: LaidNode) {
     // Collapsed groups in the read-only (analytics) map still drill on click; the
@@ -514,15 +598,8 @@ export function HierarchyMap({
               className={`topo-node ${isMachine ? "topo-commodity" : "topo-process"}`}
               transform={`translate(${n.x},${n.y})`}
               opacity={idle ? 0.45 : 1}
-              style={{ cursor: "pointer" }}
-              onPointerDown={(e) => { e.stopPropagation(); press.current = { id: n.id, x: e.clientX, y: e.clientY, moved: false }; }}
-              onPointerUp={(e) => {
-                e.stopPropagation();
-                const p = press.current;
-                press.current = null;
-                if (connect) return; // handled by the in-port
-                if (p && p.id === n.id && !p.moved) nodeClick(n);
-              }}
+              style={{ cursor: editable ? "grab" : "pointer" }}
+              onPointerDown={(e) => startNodeDrag([n.id], () => nodeClick(n), e)}
             >
               <rect width={n.w} height={n.h} rx={3} fill={fill} stroke={stroke} strokeWidth={isSel || toTech ? 2.5 : undefined} />
               <text className="topo-kind" x={8} y={14}>{isMachine ? "machine" : !editable && n.collapsed ? "group ▸" : "group"}</text>

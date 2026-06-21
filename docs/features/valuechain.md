@@ -51,6 +51,11 @@ screen but read the trade as a company- or country-level flow diagram.
 Collapsing a group also aggregates: its internal links fold away and its external
 links route onto the group box.
 
+**Arrange the canvas (drag).** Drag a machine to reposition it; drag a group's
+header to move the whole group (all its machines move together). Group boxes
+**re-fit** automatically around their children as you move them. Positions persist
+in the `node_layout` sheet (a no-move tap still selects / collapses as above).
+
 ## Connections (commodity flows)
 
 A **connection** (`connections` sheet: `from_node`, `to_node`, `commodity_id`,

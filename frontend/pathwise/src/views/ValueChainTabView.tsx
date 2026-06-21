@@ -217,6 +217,16 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   function deleteConnection(rowIndex: number) {
     setWorkbook(setSheet(workbook, "connections", (workbook.connections ?? []).filter((_, i) => i !== rowIndex)));
   }
+  // Persist manual map positions: upsert {id, x, y} into node_layout, leaving any
+  // other rows (e.g. component-placement markers) untouched.
+  function moveNodes(rows: { id: string; x: number; y: number }[]) {
+    const incoming = new Map(rows.map((r) => [r.id, r]));
+    const updated = (workbook.node_layout ?? []).map((r) =>
+      incoming.has(s(r.id)) ? { ...r, ...incoming.get(s(r.id)) } : r,
+    );
+    const have = new Set(updated.map((r) => s(r.id)));
+    setWorkbook(setSheet(workbook, "node_layout", [...updated, ...rows.filter((r) => !have.has(r.id))]));
+  }
 
   // ── Purchasing (markets scoped to a node) ───────────────────────────────────
   function addMarket(nodeId: string, commodity: string, kind: "buy" | "sell") {
@@ -447,6 +457,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 onAddConnection={addConnection}
                 onEditConnection={editConnection}
                 onDeleteConnection={deleteConnection}
+                onMoveNodes={moveNodes}
                 commodities={commodities}
               />
             </div>
