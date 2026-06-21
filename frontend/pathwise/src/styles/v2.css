@@ -500,6 +500,20 @@ th {
   font-size: 0.84rem;
   color: var(--text);
 }
+.mi-prov-avail {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 8px;
+}
+.mi-prov-avail input {
+  width: 46px;
+  padding: 1px 3px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font: inherit;
+  font-size: 0.7rem;
+}
 .mi-val {
   font-family: var(--font-mono);
   font-size: 0.96rem;

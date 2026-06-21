@@ -804,6 +804,8 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 min_flow_by_year=(
                     interpolate(edge_minflow_t[ek], years) if ek in edge_minflow_t else {}
                 ),
+                available_from=_int(r.get("available_from")),
+                available_to=_int(r.get("available_to")),
             )
         )
 

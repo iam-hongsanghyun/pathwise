@@ -8,7 +8,9 @@ import { SearchSelect } from "../controls/SearchSelect";
 import { TemporalValue, type TemporalVal } from "../controls/TemporalValue";
 import {
   commodityUnit,
+  edgeAvailability,
   edgeFlow,
+  setEdgeAvailability,
   maxConsumptionCap,
   maxOutputCap,
   minConsumptionCap,
@@ -259,9 +261,19 @@ export function MachineInspector({
           )}
           {provs.map((p) => {
             const { min, max } = edgeFlow(wb, p.id, machineId, c);
+            const av = edgeAvailability(wb, p.id, machineId, c);
+            const setAvail = (from: number | null, to: number | null) =>
+              onWorkbookChange?.(setEdgeAvailability(wb, p.id, machineId, c, from, to));
             return (
               <Fragment key={`prov:${c}:${p.id}`}>
-                <span className="mi-flow-label mi-flow-prov">← {p.label}{p.via ? <span className="muted"> · {p.via}</span> : null}</span>
+                <span className="mi-flow-label mi-flow-prov">
+                  ← {p.label}{p.via ? <span className="muted"> · {p.via}</span> : null}
+                  <span className="mi-prov-avail" title="years this source is available (blank = always)">
+                    <input type="number" placeholder="from" value={av.from ?? ""} onChange={(e) => setAvail(e.target.value === "" ? null : Number(e.target.value) || 0, av.to)} />
+                    <span className="muted">–</span>
+                    <input type="number" placeholder="to" value={av.to ?? ""} onChange={(e) => setAvail(av.from, e.target.value === "" ? null : Number(e.target.value) || 0)} />
+                  </span>
+                </span>
                 {flowCell(min, (v) => onWorkbookChange?.(setEdgeBounds(wb, p.id, machineId, c, v, max)), `${p.label} → ${c} · min buy`, unit, "none")}
                 {flowCell(max, (v) => onWorkbookChange?.(setEdgeBounds(wb, p.id, machineId, c, min, v)), `${p.label} → ${c} · max buy`, unit, "no cap")}
               </Fragment>

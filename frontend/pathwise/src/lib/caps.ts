@@ -286,16 +286,7 @@ export function setEdgeBounds(
   min: Bound | null,
   max: Bound | null,
 ): Workbook {
-  const otherE = (wb[EDGES] ?? []).filter((r) => !matchesEdge(r, from, to, commodity));
-  const otherT = (wb[EDGES_T] ?? []).filter((r) => !matchesEdge(r, from, to, commodity));
-  if (min == null && max == null) {
-    // Fully cleared → drop the authored edge + its temporal rows (fan-out restores it).
-    const next = { ...wb, [EDGES]: otherE, [EDGES_T]: otherT } as Workbook;
-    if (!otherE.length) delete next[EDGES];
-    if (!otherT.length) delete next[EDGES_T];
-    return next;
-  }
-
+  const existing = (wb[EDGES] ?? []).find((r) => matchesEdge(r, from, to, commodity));
   const byYear = new Map<string, Row>();
   const add = (b: Bound | null, side: FlowSide) => {
     if (b == null || typeof b === "number") return;
@@ -307,10 +298,74 @@ export function setEdgeBounds(
   };
   add(min, "min_flow");
   add(max, "max_flow");
-  const edgeRow: Row = { from_process: from, to_process: to, commodity_id: commodity, min_flow: connStatic(min), max_flow: connStatic(max) };
-  const tRows = [...otherT, ...Array.from(byYear.values())];
-  const next = { ...wb, [EDGES]: [...otherE, edgeRow] } as Workbook;
-  if (tRows.length) next[EDGES_T] = tRows;
+  const otherT = (wb[EDGES_T] ?? []).filter((r) => !matchesEdge(r, from, to, commodity));
+  return writeEdgeRow(
+    wb,
+    from,
+    to,
+    commodity,
+    { ...existing, min_flow: connStatic(min), max_flow: connStatic(max) },
+    [...otherT, ...Array.from(byYear.values())],
+  );
+}
+
+/** Both ends of a link's availability window, or null (open-ended). */
+export const edgeAvailability = (
+  wb: Workbook,
+  from: string,
+  to: string,
+  commodity: string,
+): { from: number | null; to: number | null } => {
+  const r = (wb[EDGES] ?? []).find((x) => matchesEdge(x, from, to, commodity));
+  const av = r?.available_from;
+  const at = r?.available_to;
+  return {
+    from: av == null || String(av).trim() === "" ? null : Number(av),
+    to: at == null || String(at).trim() === "" ? null : Number(at),
+  };
+};
+
+/** Set a link's availability window (years it may carry flow), preserving any bounds. */
+export function setEdgeAvailability(
+  wb: Workbook,
+  from: string,
+  to: string,
+  commodity: string,
+  availFrom: number | null,
+  availTo: number | null,
+): Workbook {
+  const existing = (wb[EDGES] ?? []).find((r) => matchesEdge(r, from, to, commodity)) ?? {};
+  return writeEdgeRow(
+    wb,
+    from,
+    to,
+    commodity,
+    { ...existing, available_from: availFrom ?? "", available_to: availTo ?? "" },
+    [...(wb[EDGES_T] ?? [])],
+  );
+}
+
+/** Upsert (or drop, when empty) the authored edge row + set its `edges_t` rows
+ *  (callers pass the complete new edges_t list). An edge row is kept only while it
+ *  still carries a meaningful field, so clearing everything restores the fan-out. */
+function writeEdgeRow(
+  wb: Workbook,
+  from: string,
+  to: string,
+  commodity: string,
+  fields: Row,
+  edgesT: Row[],
+): Workbook {
+  const otherE = (wb[EDGES] ?? []).filter((r) => !matchesEdge(r, from, to, commodity));
+  const has = (k: string): boolean => fields[k] != null && String(fields[k]).trim() !== "";
+  const meaningful = ["min_flow", "max_flow", "available_from", "available_to"].some(has);
+  const row: Row = { from_process: from, to_process: to, commodity_id: commodity };
+  for (const k of ["min_flow", "max_flow", "available_from", "available_to"]) if (has(k)) row[k] = fields[k];
+  const edges = meaningful ? [...otherE, row] : otherE;
+  const next = { ...wb } as Workbook;
+  if (edges.length) next[EDGES] = edges;
+  else delete next[EDGES];
+  if (edgesT.length) next[EDGES_T] = edgesT;
   else delete next[EDGES_T];
   return next;
 }

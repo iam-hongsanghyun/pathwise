@@ -527,6 +527,16 @@ class Edge:
     max_flow_by_year: dict[int, float] = field(default_factory=dict)
     min_flow: float | None = None
     min_flow_by_year: dict[int, float] = field(default_factory=dict)
+    #: Optional availability window [yr]: outside it this provider→consumer link
+    #: carries zero flow. Different windows on competing links ⇒ alternative supply.
+    available_from: int | None = None
+    available_to: int | None = None
+
+    def available(self, year: int) -> bool:
+        """Whether this link may carry flow in ``year`` (within its window)."""
+        if self.available_from is not None and year < self.available_from:
+            return False
+        return not (self.available_to is not None and year > self.available_to)
 
     def max_flow_at(self, year: int) -> float | None:
         """Edge capacity in ``year`` [commodity unit / yr] (override, else scalar; ``None`` ⇒ ∞)."""

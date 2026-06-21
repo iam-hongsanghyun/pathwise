@@ -1021,9 +1021,13 @@ def _flow_balance(ctx: BuildContext) -> None:
                         _lin_sum(lhs_terms) == _lin_sum(rhs_terms), name=f"bal[{p},{r},{t}]"
                     )
 
-    # ── Edge capacity + floor constraints ─────────────────────────────────────
+    # ── Edge capacity + floor + availability constraints ──────────────────────
     for i, e in enumerate(prob.edges):
         for t in ctx.years:
+            if not e.available(t):
+                # Outside the link's window it carries no flow (overrides min/max).
+                m.add_constraints(ctx.flow.sel(edge=i, period=t) == 0, name=f"eoff[{i},{t}]")
+                continue
             mf = e.max_flow_at(t)
             if mf is not None:
                 m.add_constraints(ctx.flow.sel(edge=i, period=t) <= mf, name=f"emax[{i},{t}]")

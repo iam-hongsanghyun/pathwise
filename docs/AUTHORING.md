@@ -61,7 +61,7 @@ periods, commodities, technologies, processes, demand
 | `machines` | Leaf-machine details (`machine_id`, `baseline_technology`, `capacity`, optional `max_capacity_factor`). |
 | `connections` | Commodity flows between sibling nodes (`from_node`, `to_node`, `commodity_id`, `lag_years`, optional static `min_flow`/`max_flow`). |
 | `connections_t` | Per-year connection flow bounds (`from_node`, `to_node`, `commodity_id`, `year`, `min_flow`, `max_flow`) — node-space counterpart of `edges_t`, fanned onto edges at solve time. |
-| `edges` | Commodity flows between flat processes (`from_process`, `to_process`, `commodity_id`, optional static `min_flow`/`max_flow`). |
+| `edges` | Commodity flows between flat processes (`from_process`, `to_process`, `commodity_id`, optional static `min_flow`/`max_flow`, optional `available_from`/`available_to` window). |
 | `min_production` / `max_production` | Per-machine (or scoped) production floor / ceiling (`company`, `commodity_id`, optional `year`, `amount`). A year-less row holds every year. |
 | `min_consumption` / `max_consumption` | Per-machine (or scoped) intake floor / ceiling — `min` = required offtake, `max` = max purchase (`company`, `commodity_id`, optional `year`, `amount`). Year-less ⇒ all years. |
 

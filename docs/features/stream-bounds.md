@@ -49,9 +49,13 @@ wiring (it routes flow; it carries no limit).
 | **Edge flow** (input, per-provider) | how much flows on **one** provider-machine→consumer-machine link | from_process + to_process + commodity | `edges` (static cols), `edges_t` (long) | per-edge `flow ≥ min_flow` / `≤ max_flow` |
 | **Supply cap** (source stream) | how much of a **bought-in** raw stream may be purchased externally | commodity | `commodities.max_purchase`, `commodities_t__max_purchase` | external `buy ≤ max_purchase` |
 
-Plus the **availability window** (`available_from` / `available_to` on
-`commodities`): the years a source stream may be bought at all (outside the
-window, external `buy = 0`).
+Plus **availability windows** — the years a supply may flow at all:
+- on `commodities` (`available_from` / `available_to`): a source stream's external
+  purchase window (outside it, external `buy = 0`);
+- on an **edge** (`available_from` / `available_to`, set per provider in the popup):
+  the years that provider-machine→consumer link may carry flow (outside it, that
+  edge's flow `= 0`). Two competing providers with **different** windows therefore
+  act as alternative supply over time.
 
 And the machine's own **capacity factor band**: a technology must-run floor
 (`min_capacity_factor`) and a per-machine **utilisation ceiling**
@@ -197,5 +201,3 @@ H₂ instead. See `tests/core/test_consumption_bounds.py` and
   aggregate when a facility / company / country is selected.
 - **Lag + quality change between flows** — e.g. a car returning as lower-grade
   scrap years later (a recycling loop with a time lag and a commodity transform).
-- **Availability windows as alternatives** — multiple sources of one commodity
-  with different availability windows treated as an alternative-supply set.
