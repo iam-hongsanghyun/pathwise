@@ -10,6 +10,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SearchableSelect } from "../controls/SearchableSelect";
+import { TemporalValue, type TemporalVal } from "../controls/TemporalValue";
 import { buildOverlay, ResultYearBar, type CascadeResult, type YearOverlay } from "../valuechain/panels";
 import { parseNodes } from "../../lib/groupGraph";
 import {
@@ -43,10 +44,15 @@ interface Props {
   editable?: boolean;
   selectedId?: string | null;
   onSelect?: (id: string) => void;
-  onAddConnection?: (from: string, to: string, commodity: string, lag: number, minFlow: number | null, maxFlow: number | null) => void;
-  onEditConnection?: (rowIndex: number, commodity: string, lag: number, minFlow: number | null, maxFlow: number | null) => void;
+  onAddConnection?: (from: string, to: string, commodity: string, lag: number, minFlow: TemporalVal | null, maxFlow: TemporalVal | null) => void;
+  onEditConnection?: (rowIndex: number, commodity: string, lag: number, minFlow: TemporalVal | null, maxFlow: TemporalVal | null) => void;
   onDeleteConnection?: (rowIndex: number) => void;
   commodities?: string[];
+  /** Current min/max offtake for a link (static or by-year) — seeds the editor. */
+  flowBoundsOf?: (from: string, to: string, commodity: string) => { min: TemporalVal | null; max: TemporalVal | null };
+  /** Horizon start + run periods — passed to the temporal flow editor. */
+  baseYear?: number;
+  periods?: number[];
 }
 
 export function HierarchyMap({
@@ -59,6 +65,9 @@ export function HierarchyMap({
   onEditConnection,
   onDeleteConnection,
   commodities = [],
+  flowBoundsOf,
+  baseYear = 2025,
+  periods,
 }: Props) {
   const mode: MapMode = "expandable"; // the only layout: an expandable drill-down
   const overlayIdx = useMemo(() => (result ? buildOverlay(result) : null), [result]);
@@ -518,11 +527,14 @@ export function HierarchyMap({
         <ConnectForm
           fromLabel={boxById.get(form.from)?.label ?? form.from}
           toLabel={boxById.get(form.to)?.label ?? form.to}
+          from={form.from}
+          to={form.to}
           commodities={commodities}
           initialCommodity={form.commodity ?? ""}
           initialLag={form.lag ?? 0}
-          initialMin={form.minFlow ?? null}
-          initialMax={form.maxFlow ?? null}
+          flowBoundsOf={flowBoundsOf}
+          baseYear={baseYear}
+          periods={periods}
           editing={form.editRowIndex != null}
           x={form.sx}
           y={form.sy}
@@ -540,42 +552,42 @@ export function HierarchyMap({
 }
 
 function ConnectForm({
-  fromLabel, toLabel, commodities, x, y, onConfirm, onCancel, initialCommodity = "", initialLag = 0,
-  initialMin = null, initialMax = null, editing = false,
+  fromLabel, toLabel, from, to, commodities, x, y, onConfirm, onCancel, initialCommodity = "", initialLag = 0,
+  flowBoundsOf, baseYear = 2025, periods, editing = false,
 }: {
-  fromLabel: string; toLabel: string; commodities: string[]; x: number; y: number;
-  onConfirm: (commodity: string, lag: number, minFlow: number | null, maxFlow: number | null) => void;
+  fromLabel: string; toLabel: string; from: string; to: string; commodities: string[]; x: number; y: number;
+  onConfirm: (commodity: string, lag: number, minFlow: TemporalVal | null, maxFlow: TemporalVal | null) => void;
   onCancel: () => void;
   initialCommodity?: string; initialLag?: number;
-  initialMin?: number | null; initialMax?: number | null; editing?: boolean;
+  flowBoundsOf?: (from: string, to: string, commodity: string) => { min: TemporalVal | null; max: TemporalVal | null };
+  baseYear?: number; periods?: number[]; editing?: boolean;
 }) {
+  const seed = flowBoundsOf && initialCommodity ? flowBoundsOf(from, to, initialCommodity) : { min: null, max: null };
   const [commodity, setCommodity] = useState(initialCommodity);
   const [lag, setLag] = useState(initialLag);
-  const [minFlow, setMinFlow] = useState<string>(initialMin == null ? "" : String(initialMin));
-  const [maxFlow, setMaxFlow] = useState<string>(initialMax == null ? "" : String(initialMax));
-  const numField = { width: 70, padding: "3px 6px", border: "1px solid var(--border-strong)", borderRadius: 4, font: "inherit" } as const;
-  const parse = (v: string): number | null => (v.trim() === "" ? null : Number(v) || 0);
+  const [minFlow, setMinFlow] = useState<TemporalVal | null>(seed.min);
+  const [maxFlow, setMaxFlow] = useState<TemporalVal | null>(seed.max);
   return (
-    <div style={{ position: "fixed", left: Math.min(x, window.innerWidth - 280), top: Math.min(y, window.innerHeight - 220), zIndex: 1000, background: "var(--surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-button)", boxShadow: "0 6px 24px rgba(0,0,0,0.14)", padding: 10, width: 250, fontSize: "0.78rem" }}>
+    <div style={{ position: "fixed", left: Math.min(x, window.innerWidth - 300), top: Math.min(y, window.innerHeight - 240), zIndex: 1000, background: "var(--surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-button)", boxShadow: "0 6px 24px rgba(0,0,0,0.14)", padding: 10, width: 268, fontSize: "0.78rem" }}>
       <div style={{ marginBottom: 6 }}><b>{fromLabel}</b> → <b>{toLabel}</b></div>
       <div style={{ marginBottom: 6 }}>
         <SearchableSelect value={commodity} options={commodities} onChange={setCommodity} onCreate={setCommodity} placeholder="stream / commodity" />
       </div>
       <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
         <span className="muted" style={{ width: 70 }}>lag (yr)</span>
-        <input type="number" value={lag} onChange={(e) => setLag(Number(e.target.value) || 0)} style={numField} />
+        <input type="number" value={lag} onChange={(e) => setLag(Number(e.target.value) || 0)} style={{ width: 70, padding: "3px 6px", border: "1px solid var(--border-strong)", borderRadius: 4, font: "inherit" }} />
       </label>
       <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-        <span className="muted" style={{ width: 70 }}>min / yr</span>
-        <input type="number" min={0} placeholder="no floor" value={minFlow} onChange={(e) => setMinFlow(e.target.value)} style={numField} />
+        <span className="muted" style={{ width: 70 }}>min offtake</span>
+        <TemporalValue value={minFlow} onChange={setMinFlow} baseYear={baseYear} periods={periods} placeholder="no floor" label={`${fromLabel} → ${toLabel} · min offtake`} />
       </label>
       <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-        <span className="muted" style={{ width: 70 }}>max / yr</span>
-        <input type="number" min={0} placeholder="no cap" value={maxFlow} onChange={(e) => setMaxFlow(e.target.value)} style={numField} />
+        <span className="muted" style={{ width: 70 }}>max offtake</span>
+        <TemporalValue value={maxFlow} onChange={setMaxFlow} baseYear={baseYear} periods={periods} placeholder="no cap" label={`${fromLabel} → ${toLabel} · max offtake`} />
       </label>
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
         <button className="ghost" onClick={onCancel}>cancel</button>
-        <button className="run-button" disabled={!commodity} onClick={() => onConfirm(commodity, lag, parse(minFlow), parse(maxFlow))}>{editing ? "✓ update" : "＋ link"}</button>
+        <button className="run-button" disabled={!commodity} onClick={() => onConfirm(commodity, lag, minFlow, maxFlow)}>{editing ? "✓ update" : "＋ link"}</button>
       </div>
     </div>
   );

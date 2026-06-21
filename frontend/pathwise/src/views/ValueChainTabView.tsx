@@ -35,7 +35,8 @@ import {
 } from "../lib/api/components";
 import type { LibraryEntry } from "../lib/api/libraries";
 import { getFullModel, putModel } from "../lib/api/session";
-import { commodityUnit, machineProduct, maxOutputCap, minOutputCap, setMaxOutputCap, setMinOutputCap, setSupplyCap } from "../lib/caps";
+import { commodityUnit, connectionFlow, connStatic, machineProduct, maxOutputCap, minOutputCap, setConnectionTemporal, setMaxOutputCap, setMinOutputCap, setSupplyCap } from "../lib/caps";
+import type { TemporalVal } from "../features/controls/TemporalValue";
 import { parseNodes } from "../lib/groupGraph";
 import type { Cell, Row, Workbook } from "../types";
 
@@ -205,16 +206,28 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   }
 
   // ── Connections ─────────────────────────────────────────────────────────────
-  function addConnection(from: string, to: string, commodity: string, lag: number, minFlow: number | null, maxFlow: number | null) {
+  function addConnection(from: string, to: string, commodity: string, lag: number, minFlow: TemporalVal | null, maxFlow: TemporalVal | null) {
     if (!from || !to || from === to || !commodity) return;
-    setWorkbook(setSheet(workbook, "connections", [...(workbook.connections ?? []), { from_node: from, to_node: to, commodity_id: commodity, lag_years: lag, min_flow: minFlow ?? "", max_flow: maxFlow ?? "" }]));
+    let wb = setSheet(workbook, "connections", [...(workbook.connections ?? []), { from_node: from, to_node: to, commodity_id: commodity, lag_years: lag, min_flow: connStatic(minFlow), max_flow: connStatic(maxFlow) }]);
+    wb = setConnectionTemporal(wb, from, to, commodity, minFlow, maxFlow);
+    setWorkbook(wb);
   }
-  function editConnection(rowIndex: number, commodity: string, lag: number, minFlow: number | null, maxFlow: number | null) {
+  function editConnection(rowIndex: number, commodity: string, lag: number, minFlow: TemporalVal | null, maxFlow: TemporalVal | null) {
     if (!commodity) return;
-    setWorkbook(setSheet(workbook, "connections", (workbook.connections ?? []).map((r, i) => (i === rowIndex ? { ...r, commodity_id: commodity, lag_years: lag, min_flow: minFlow ?? "", max_flow: maxFlow ?? "" } : r))));
+    const old = (workbook.connections ?? [])[rowIndex];
+    const from = s(old?.from_node);
+    const to = s(old?.to_node);
+    const oldCommodity = s(old?.commodity_id);
+    let wb = setSheet(workbook, "connections", (workbook.connections ?? []).map((r, i) => (i === rowIndex ? { ...r, commodity_id: commodity, lag_years: lag, min_flow: connStatic(minFlow), max_flow: connStatic(maxFlow) } : r)));
+    if (oldCommodity && oldCommodity !== commodity) wb = setConnectionTemporal(wb, from, to, oldCommodity, null, null);
+    wb = setConnectionTemporal(wb, from, to, commodity, minFlow, maxFlow);
+    setWorkbook(wb);
   }
   function deleteConnection(rowIndex: number) {
-    setWorkbook(setSheet(workbook, "connections", (workbook.connections ?? []).filter((_, i) => i !== rowIndex)));
+    const old = (workbook.connections ?? [])[rowIndex];
+    let wb = setSheet(workbook, "connections", (workbook.connections ?? []).filter((_, i) => i !== rowIndex));
+    if (old) wb = setConnectionTemporal(wb, s(old.from_node), s(old.to_node), s(old.commodity_id), null, null);
+    setWorkbook(wb);
   }
 
   // ── Purchasing (markets scoped to a node) ───────────────────────────────────
@@ -447,6 +460,9 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 onEditConnection={editConnection}
                 onDeleteConnection={deleteConnection}
                 commodities={commodities}
+                flowBoundsOf={(from, to, commodity) => connectionFlow(workbook, from, to, commodity)}
+                baseYear={baseYear}
+                periods={periods}
               />
             </div>
           )}

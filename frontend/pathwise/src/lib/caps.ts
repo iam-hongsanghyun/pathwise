@@ -133,3 +133,75 @@ export function setSupplyCap(wb: Workbook, commodity: string, value: Bound | nul
   }
   return { ...wb, commodities, [SUPPLY_T]: Array.from(byYearRow.values()) };
 }
+
+// ── Per-connection flow bounds (min / max offtake on one provider→consumer link) ─
+// A static bound is the `min_flow` / `max_flow` column on the connection row; a
+// temporal bound lives in the long `connections_t` sheet (from_node, to_node,
+// commodity_id, year, min_flow, max_flow), which the engine fans onto edges and
+// interpolates. The two stores are kept mutually exclusive per bound.
+
+const CONN_T = "connections_t";
+type FlowSide = "min_flow" | "max_flow";
+
+const matchesConn = (r: Row, from: string, to: string, commodity: string): boolean =>
+  s(r.from_node) === from && s(r.to_node) === to && s(r.commodity_id) === commodity;
+
+/** One side's bound for a connection: a {year: value} map if `connections_t`
+ *  carries it, a number if a static column, else null. */
+function connBound(wb: Workbook, from: string, to: string, commodity: string, side: FlowSide): Bound | null {
+  const by: ByYear = {};
+  for (const r of wb[CONN_T] ?? []) {
+    if (!matchesConn(r, from, to, commodity)) continue;
+    const v = (r as Record<string, Cell>)[side];
+    if (!isYearless(r) && v != null && String(v).trim() !== "")
+      by[String(Math.round(Number(r.year)))] = Number(v) || 0;
+  }
+  if (Object.keys(by).length) return by;
+  const row = (wb.connections ?? []).find((r) => matchesConn(r, from, to, commodity));
+  const v = (row as Record<string, Cell> | undefined)?.[side];
+  return v == null || String(v).trim() === "" ? null : Number(v) || 0;
+}
+
+/** Both bounds for a connection (for the connection editor's initial state). */
+export const connectionFlow = (
+  wb: Workbook,
+  from: string,
+  to: string,
+  commodity: string,
+): { min: Bound | null; max: Bound | null } => ({
+  min: connBound(wb, from, to, commodity, "min_flow"),
+  max: connBound(wb, from, to, commodity, "max_flow"),
+});
+
+/** The scalar to write on a connection row: the number itself, else blank (a
+ *  temporal or absent bound lives in `connections_t`, not the row). */
+export const connStatic = (b: Bound | null): Cell => (typeof b === "number" ? b : "");
+
+/** Rewrite the `connections_t` rows for one connection: drop its existing rows,
+ *  then add a per-year row for each temporal bound (min/max merged per year). */
+export function setConnectionTemporal(
+  wb: Workbook,
+  from: string,
+  to: string,
+  commodity: string,
+  min: Bound | null,
+  max: Bound | null,
+): Workbook {
+  const rows = (wb[CONN_T] ?? []).filter((r) => !matchesConn(r, from, to, commodity));
+  const byYear = new Map<string, Row>();
+  const add = (b: Bound | null, side: FlowSide) => {
+    if (b == null || typeof b === "number") return;
+    for (const [yr, v] of Object.entries(b)) {
+      const key = String(Math.round(Number(yr)));
+      const ex = byYear.get(key) ?? { from_node: from, to_node: to, commodity_id: commodity, year: Number(key) };
+      byYear.set(key, { ...ex, [side]: v });
+    }
+  };
+  add(min, "min_flow");
+  add(max, "max_flow");
+  const merged = [...rows, ...Array.from(byYear.values())];
+  if (merged.length) return { ...wb, [CONN_T]: merged };
+  // Drop the sheet entirely when nothing is left, to keep the workbook tidy.
+  const { [CONN_T]: _drop, ...rest } = wb;
+  return rest;
+}
