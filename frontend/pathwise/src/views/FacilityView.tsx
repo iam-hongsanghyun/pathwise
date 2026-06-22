@@ -516,13 +516,13 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
                     {product && (
                       <>
                         <span className="muted">min output</span>
-                        <TemporalValue value={minOut} unit={unit} baseYear={baseYear} periods={periods} placeholder="no floor" label={`${sel.label} · min output`}
+                        <TemporalValue value={minOut} baseYear={baseYear} periods={periods} variant="text" placeholder="no floor" label={`${sel.label} · min output`}
                           onChange={(v) => setWorkbook(setMinOutputCap(workbook, sel.id, product, v))} />
-                        <span className="field-unit">/yr</span>
+                        <span className="field-unit">{thru}/yr</span>
                         <span className="muted">max output</span>
-                        <TemporalValue value={maxOut} unit={unit} baseYear={baseYear} periods={periods} placeholder="no cap" label={`${sel.label} · max output`}
+                        <TemporalValue value={maxOut} baseYear={baseYear} periods={periods} variant="text" placeholder="no cap" label={`${sel.label} · max output`}
                           onChange={(v) => setWorkbook(setMaxOutputCap(workbook, sel.id, product, v))} />
-                        <span className="field-unit">/yr</span>
+                        <span className="field-unit">{thru}/yr</span>
                       </>
                     )}
                   </div>
