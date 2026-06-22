@@ -202,6 +202,7 @@ export function ComponentTabView({
   const [status, setStatus] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [rightW, setRightW] = useState(340); // resizable right-rail (time series) width
+  const [leftW, setLeftW] = useState(280); // resizable left-rail (tree) width
   const [unitOptions, setUnitOptions] = useState<string[]>([]); // allowed units for the IO unit picker
   const saved = useRef<Map<string, string>>(new Map());
 
@@ -989,7 +990,7 @@ export function ComponentTabView({
     <div className="view-full builder">
       {error && <div className="error error-bar" onClick={() => setError(null)}>{error} <span className="muted">(dismiss)</span></div>}
       <div className="builder-body">
-        <aside className="builder-rail">
+        <aside className="builder-rail" style={{ width: leftW }}>
           {mode === "project" ? (
             <>
               <div className="rail-head-row" style={{ padding: "6px 10px" }}>
@@ -1061,6 +1062,8 @@ export function ComponentTabView({
           )}
           <div className="rail-foot">Right-click for actions</div>
         </aside>
+        {/* Drag to resize the left rail's width. */}
+        <Resizer side="left" width={leftW} setWidth={setLeftW} min={200} max={520} />
         <main className="builder-main">
           <div className="view-head">
             <div className="eyebrow">{mode === "project" ? "project workbench" : scope === "session" ? "project components" : "component library"}</div>
