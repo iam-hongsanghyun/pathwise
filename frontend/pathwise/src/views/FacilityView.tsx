@@ -468,8 +468,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
                 <div className="machine-zone-body">
                   <div className="field-grid">
                     <span className="muted">capacity</span>
-                    <TemporalValue value={instAttr(workbook, "machines", "machine_id", sel.id, "capacity", "processes_t__capacity")} baseYear={baseYear} periods={periods} variant="text" placeholder="0" label={`${sel.label} · capacity`}
-                      onChange={(v) => setWorkbook(setInstAttr(workbook, "machines", "machine_id", sel.id, "capacity", "processes_t__capacity", v))} />
+                    <input className="field-input" type="number" min={0} value={s(r?.capacity)} onChange={(e) => editMachine(sel.id, { capacity: e.target.value === "" ? 0 : Number(e.target.value) })} />
                     <span className="field-unit">{thru}/yr</span>
                     <span className="muted">owner (company)</span>
                     <input className="field-input" value={s(r?.owner)} placeholder="e.g. POSCO" onChange={(e) => editMachine(sel.id, { owner: e.target.value })} />
