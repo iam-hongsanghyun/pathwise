@@ -991,10 +991,16 @@
   overflow: auto;
 }
 .machine-main .field-grid {
-  grid-template-columns: 138px 1fr;
+  grid-template-columns: 132px minmax(0, 1fr) auto; /* label | input | unit */
 }
 .machine-rail .field-grid {
-  grid-template-columns: minmax(0, 1fr) 88px;
+  grid-template-columns: minmax(0, 1fr) minmax(56px, 84px) auto; /* name | input | unit */
+}
+/* Physical-unit suffix shown after a field's input. */
+.field-unit {
+  color: var(--muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
 }
 /* The dismissable error strip every view shows at its top. */
 .error-bar {
