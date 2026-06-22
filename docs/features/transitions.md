@@ -15,9 +15,10 @@ explicit, capex-bearing alternative to running several machines in parallel.
 | `action` | `replace` (default) · `renew` · `continue` |
 | `capex_per_capacity` | one-off switching cost per unit capacity |
 
-Optional levers on the technologies themselves shape *when* a switch may happen:
-`introduction_year` (earliest a target may be adopted) and `phase_out_year`
-(forces leaving a technology after a year).
+Optional levers shape *when* a technology may be used (its market-availability
+window): `introduction_year` (available-from, **inclusive** — earliest it may be
+adopted) and `phase_out_year` (available-to, **exclusive** — unusable *from* that
+year, so `phase_out_year = 2040` means the technology is gone by 2040).
 
 Technology-level fields relevant to lifecycle tracking:
 
@@ -25,13 +26,15 @@ Technology-level fields relevant to lifecycle tracking:
 |---|---|
 | `lifespan` | Asset economic lifetime [yr]; drives end-of-life enforcement and the annuity-convention sum |
 | `renewal_by_year` | Year-keyed renewal cost [currency / unit capacity]; charged when the same technology is rebuilt at end of life |
-| `actions` | Allowed transition actions for this technology (`replace` / `renew` / `continue`) |
+| `actions` | Allowed transition actions for this technology (`replace` / `renew` / `continue`); `renew` here gates whether rebuilds are *possible* at all |
 
-Process-level field:
+Process- / machine-level fields:
 
 | Field | Meaning |
 |---|---|
-| `introduced_year` | Year the baseline technology was installed [yr]; enables lifecycle tracking (see below) |
+| `introduced_year` | **Build year** [yr]; the machine is *off before it*, and it sets the install date for lifecycle ageing |
+| `decommission_year` | **Close year** [yr], **exclusive** — the machine is off *from* this year (runs through `decommission_year − 1`). With the build year it forms the **active window** `[build, close)`, which overrides the technical lifespan |
+| `max_renewals` | Per-machine cap on the **total number of renewals** over the horizon: `0` = no renewal (must replace at end of life), `N` = at most `N` rebuilds then must replace, blank = unlimited |
 
 ## How it solves
 
@@ -54,6 +57,9 @@ a technology may be active only while a *live vintage* covers it.
   than the full `capex_by_year`).
 
 Once the live vintage lapses, the process must **renew**, **replace**, or switch off.
+A machine's **`max_renewals`** caps how many times it may rebuild before it must
+replace (`Σ_t ren ≤ max_renewals`); separately, the **build/close active window**
+forces it off outside `[introduced_year, decommission_year)` regardless of vintage.
 The constraint is:
 
 ```

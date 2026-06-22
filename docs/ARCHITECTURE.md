@@ -1,5 +1,8 @@
 # ARCHITECTURE
 
+> For the end-user view of these layers and tabs, see
+> [USER_MANUAL.md](USER_MANUAL.md). This document is the developer-facing map.
+
 ```
 frontend (React + React Flow)  ──HTTP──▶  api (FastAPI)
                                               │
