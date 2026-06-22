@@ -61,6 +61,29 @@ def test_solves_value_chain_scope() -> None:
     assert res["status"] == "optimal"
 
 
+def test_recycling_loop_returns_scrap_to_the_mill(system_result: dict) -> None:
+    """End-of-life vehicles return as scrap to the steel mill after a use-phase lag.
+
+    The Automaker emits an ``eol_steel`` co-product (the steel embodied in each
+    car) that flows to the Korea Scrap collector with a 10-year delivery lag;
+    the collector turns it into ``scrap`` that the mill consumes as low-emission
+    metallics. This guards the closed steel→cars→scrap→steel loop end to end.
+    """
+    out = system_result["outputs"]
+    eol = [f for f in out["flows"] if f["commodity"] == "eol_steel" and f["value"] > 1.0]
+    scrap_back = [
+        f
+        for f in out["flows"]
+        if f["commodity"] == "scrap" and f["value"] > 1.0 and f["from"].endswith("kr_scrap/yard")
+    ]
+    assert eol, "the automaker must emit end-of-life steel into the recycling loop"
+    assert scrap_back, "recovered scrap must return to (and be consumed by) the steel mill"
+    # The 10-year use phase: scrap from 2025 cars only arrives in 2035 (2025 + 10).
+    assert min(f["period"] for f in scrap_back) >= 2035
+    # Domestic recycled scrap pulls the mill onto the scrap-fed EAF (secondary steel).
+    assert any(t["to_technology"] == "EAF" for t in out["transitions"])
+
+
 def test_cross_border_hydrogen_and_transition(system_result: dict) -> None:
     out = system_result["outputs"]
     # hydrogen reaches Korean steel from all three producing geographies
