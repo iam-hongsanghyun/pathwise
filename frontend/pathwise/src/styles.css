@@ -938,36 +938,43 @@
   font-size: 0.8rem;
 }
 /* ── Machine instance editor (Facility tab): main + recipe rail ─────────── */
-/* Main column (technology top, machine bottom) beside a right rail of recipe
-   streams (inputs top, products/emissions bottom). */
+/* A resizable, independently-scrolling layout: main column (technology top /
+   machine bottom) beside a recipe rail (input streams top / products bottom).
+   The width (main↔rail) and each column's top↔bottom split are drag-adjustable;
+   every zone scrolls on its own. Fills the panel height so the splits can size. */
 .machine-detail {
-  max-width: 900px;
-  container-type: inline-size; /* the editor responds to the PANEL width, not the viewport */
+  max-width: 1100px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .machine-editor {
-  display: grid;
-  grid-template-columns: 1fr; /* narrow panel: main + rail stack */
-  gap: 16px;
-  align-items: start;
+  display: flex; /* main | width-resizer | rail */
+  flex: 1;
+  min-height: 0;
   margin-top: 12px;
 }
-/* Wide enough panel → main (left) beside the recipe rail (right). */
-@container (min-width: 600px) {
-  .machine-editor {
-    grid-template-columns: minmax(0, 1fr) 260px;
-  }
+.machine-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
-.machine-main,
 .machine-rail {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  min-height: 0;
   min-width: 0;
 }
 .machine-zone {
   border: 1px solid var(--border);
   border-radius: var(--radius-button);
-  padding: 10px 12px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* allow the scroll body to shrink */
 }
 .machine-zone-head {
   font-size: 0.72rem;
@@ -975,7 +982,13 @@
   letter-spacing: 0.04em;
   color: var(--muted);
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  flex: 0 0 auto; /* header pinned; only the body scrolls */
+}
+.machine-zone-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 .machine-main .field-grid {
   grid-template-columns: 138px 1fr;
