@@ -369,3 +369,124 @@ function writeEdgeRow(
   else delete next[EDGES_T];
   return next;
 }
+
+// ── Static-or-temporal per-instance attributes (Facility machine editor) ─────
+// Each numeric field is STATIC (a column on a base-sheet row) or TEMPORAL (a wide
+// `_t__` sheet: one row per year, a column named by the id). Mutually exclusive,
+// mirroring setSupplyCap, so the engine reads one source of truth.
+
+/** Read the wide-temporal series for `id` from `tSheet` (column = id), or null. */
+function wideSeries(wb: Workbook, tSheet: string, id: string): ByYear | null {
+  const by: ByYear = {};
+  for (const r of wb[tSheet] ?? []) {
+    const v = (r as Record<string, Cell>)[id];
+    if (r.year != null && String(r.year).trim() !== "" && v != null && String(v).trim() !== "")
+      by[String(Math.round(Number(r.year)))] = Number(v) || 0;
+  }
+  return Object.keys(by).length ? by : null;
+}
+
+/** Drop `id`'s column from every wide row of `tSheet`, then merge `value` (a
+ *  {year: v} map) back in. Empty rows are pruned. Returns the new sheet rows. */
+function wideWrite(wb: Workbook, tSheet: string, id: string, value: ByYear | null): Row[] {
+  const rows = (wb[tSheet] ?? [])
+    .map((r) => { const { [id]: _drop, ...rest } = r as Record<string, Cell>; return rest as Row; })
+    .filter((r) => Object.keys(r).some((k) => k !== "year" && String(r[k] ?? "").trim() !== ""));
+  if (!value) return rows;
+  const byYear = new Map<string, Row>();
+  for (const r of rows) byYear.set(String(Math.round(Number(r.year))), r);
+  for (const [yr, v] of Object.entries(value)) {
+    const key = String(Math.round(Number(yr)));
+    byYear.set(key, { ...(byYear.get(key) ?? { year: Number(key) }), [id]: v });
+  }
+  return Array.from(byYear.values());
+}
+
+/** Bound on a base-sheet column (`col` of the `idCol`=`id` row) OR its wide `tSheet`. */
+export function instAttr(
+  wb: Workbook, baseSheet: string, idCol: string, id: string, col: string, tSheet: string,
+): Bound | null {
+  const series = wideSeries(wb, tSheet, id);
+  if (series) return series;
+  const row = (wb[baseSheet] ?? []).find((r) => s(r[idCol]) === id);
+  const v = row?.[col];
+  return v == null || String(v).trim() === "" ? null : Number(v) || 0;
+}
+
+/** Upsert the attribute: a number sets the static column (clears the wide sheet),
+ *  a {year: v} map writes the wide sheet (clears the column), null clears both. */
+export function setInstAttr(
+  wb: Workbook, baseSheet: string, idCol: string, id: string, col: string, tSheet: string,
+  value: Bound | null,
+): Workbook {
+  const isTemporal = value != null && typeof value !== "number";
+  const base = (wb[baseSheet] ?? []).map((r) =>
+    s(r[idCol]) === id ? { ...r, [col]: typeof value === "number" ? value : "" } : r,
+  );
+  const tRows = wideWrite(wb, tSheet, id, isTemporal ? (value as ByYear) : null);
+  const next = { ...wb, [baseSheet]: base } as Workbook;
+  if (tRows.length) next[tSheet] = tRows;
+  else delete next[tSheet];
+  return next;
+}
+
+// Technology cost (capex / opex / renewal): static column + wide sheet, plus a
+// legacy purge of the long `technologies_prices` sheet (which placement may seed)
+// so a single source of truth remains.
+const TECH_PRICES = "technologies_prices";
+
+export function techCost(wb: Workbook, techId: string, col: string, tSheet: string): Bound | null {
+  const wide = instAttr(wb, "technologies", "technology_id", techId, col, tSheet);
+  if (wide != null && typeof wide !== "number") return wide; // wide temporal wins
+  // long technologies_prices (a `col` cell per tech-year)
+  const by: ByYear = {};
+  for (const r of wb[TECH_PRICES] ?? []) {
+    if (s(r.technology_id) !== techId) continue;
+    const v = (r as Record<string, Cell>)[col];
+    if (r.year != null && String(r.year).trim() !== "" && v != null && String(v).trim() !== "")
+      by[String(Math.round(Number(r.year)))] = Number(v) || 0;
+  }
+  if (Object.keys(by).length) return by;
+  return wide; // static column (or null)
+}
+
+export function setTechCost(wb: Workbook, techId: string, col: string, tSheet: string, value: Bound | null): Workbook {
+  // Purge the long technologies_prices `col` for this tech (drop emptied rows).
+  const long = (wb[TECH_PRICES] ?? [])
+    .map((r) => (s(r.technology_id) === techId ? (() => { const { [col]: _d, ...rest } = r as Record<string, Cell>; return rest as Row; })() : r))
+    .filter((r) => s(r.technology_id) !== techId || Object.keys(r).some((k) => k !== "technology_id" && k !== "year" && String(r[k] ?? "").trim() !== ""));
+  const withLong = { ...wb } as Workbook;
+  if (long.length) withLong[TECH_PRICES] = long;
+  else delete withLong[TECH_PRICES];
+  return setInstAttr(withLong, "technologies", "technology_id", techId, col, tSheet, value);
+}
+
+// Recipe coefficient (an io row): static `coefficient` column OR long `io_t` rows
+// keyed by (technology_id, role, target, year).
+const IO_T = "io_t";
+
+export function ioCoeff(wb: Workbook, techId: string, role: string, target: string): Bound | null {
+  const by: ByYear = {};
+  for (const r of wb[IO_T] ?? []) {
+    if (s(r.technology_id) === techId && s(r.role) === role && s(r.target) === target
+        && r.year != null && String(r.year).trim() !== "" && r.coefficient != null && String(r.coefficient).trim() !== "")
+      by[String(Math.round(Number(r.year)))] = Number(r.coefficient) || 0;
+  }
+  if (Object.keys(by).length) return by;
+  const row = (wb.io ?? []).find((r) => s(r.technology_id) === techId && s(r.role) === role && s(r.target) === target);
+  const c = row?.coefficient;
+  return c == null || String(c).trim() === "" ? null : Number(c) || 0;
+}
+
+export function setIoCoeff(wb: Workbook, techId: string, role: string, target: string, value: Bound | null): Workbook {
+  const match = (r: Row) => s(r.technology_id) === techId && s(r.role) === role && s(r.target) === target;
+  const ioT = (wb[IO_T] ?? []).filter((r) => !match(r));
+  // keep the static io row (defines the stream) — set its coefficient when static, else clear it
+  const io = (wb.io ?? []).map((r) => (match(r) ? { ...r, coefficient: typeof value === "number" ? value : "" } : r));
+  if (value != null && typeof value !== "number")
+    for (const [yr, v] of Object.entries(value)) ioT.push({ technology_id: techId, role, target, year: Number(yr), coefficient: v });
+  const next = { ...wb, io } as Workbook;
+  if (ioT.length) next[IO_T] = ioT;
+  else delete next[IO_T];
+  return next;
+}
