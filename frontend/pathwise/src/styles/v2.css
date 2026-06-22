@@ -621,6 +621,10 @@ th {
   transition: border-color 0.12s, box-shadow 0.12s;
 }
 .comp-card:hover {
+  /* Outline-only highlight. Without re-declaring the background, the global
+     `button:hover` fill (var(--brand-strong)) would flood the card and bury its
+     text — keep the surface, change only the border + shadow. */
+  background: var(--surface);
   border-color: var(--brand);
   box-shadow: var(--shadow);
 }
@@ -753,6 +757,8 @@ th {
   color: var(--muted);
 }
 .mi-add:hover {
+  /* Stay transparent — the global button:hover fill would otherwise flood it. */
+  background: transparent;
   color: var(--brand-strong);
   border-color: var(--brand);
 }
@@ -851,6 +857,8 @@ th {
   transition: border-color 0.12s, box-shadow 0.12s;
 }
 .lib-card-v2:hover {
+  /* Keep the surface fill (see .comp-card:hover) — outline highlight only. */
+  background: var(--surface);
   border-color: var(--brand);
   box-shadow: var(--shadow);
 }

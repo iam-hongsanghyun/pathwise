@@ -1066,10 +1066,12 @@ export function ComponentTabView({
             <div className="eyebrow">{mode === "project" ? "project workbench" : scope === "session" ? "project components" : "component library"}</div>
             <span className="view-status">{status}</span>
           </div>
-          <div style={{ flex: 1, minHeight: 0 }}>{renderDetail()}</div>
-          {/* Notes & references — at the bottom of the main area. */}
+          {/* Detail scrolls on its own so a tall recipe (+ the Applicable MACCs
+              list) can't spill over the notes section pinned beneath it. */}
+          <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>{renderDetail()}</div>
+          {/* Notes & references — its own section, pinned below the detail. */}
           {notes && (
-            <div className="detail-section">
+            <div className="detail-section" style={{ flex: "0 0 auto" }}>
               <div className="eyebrow" style={{ marginBottom: 6 }}>
                 notes &amp; references <span className="eyebrow-soft">· {notes.label}</span>
               </div>
@@ -1078,7 +1080,7 @@ export function ComponentTabView({
                 value={notes.value}
                 onChange={(e) => notes.set(e.target.value)}
                 placeholder="Sources, assumptions, caveats… (free text — the optimiser ignores it)"
-                style={{ width: "100%", minHeight: 80, resize: "vertical", lineHeight: 1.45 }}
+                style={{ width: "100%", minHeight: 72, resize: "vertical", lineHeight: 1.45 }}
               />
             </div>
           )}
