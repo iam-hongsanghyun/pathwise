@@ -937,6 +937,52 @@
   align-items: center;
   font-size: 0.8rem;
 }
+/* ── Machine instance editor (Facility tab): main + recipe rail ─────────── */
+/* Main column (technology top, machine bottom) beside a right rail of recipe
+   streams (inputs top, products/emissions bottom). */
+.machine-detail {
+  max-width: 900px;
+  container-type: inline-size; /* the editor responds to the PANEL width, not the viewport */
+}
+.machine-editor {
+  display: grid;
+  grid-template-columns: 1fr; /* narrow panel: main + rail stack */
+  gap: 16px;
+  align-items: start;
+  margin-top: 12px;
+}
+/* Wide enough panel → main (left) beside the recipe rail (right). */
+@container (min-width: 600px) {
+  .machine-editor {
+    grid-template-columns: minmax(0, 1fr) 260px;
+  }
+}
+.machine-main,
+.machine-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.machine-zone {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  padding: 10px 12px;
+}
+.machine-zone-head {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.machine-main .field-grid {
+  grid-template-columns: 138px 1fr;
+}
+.machine-rail .field-grid {
+  grid-template-columns: minmax(0, 1fr) 88px;
+}
 /* The dismissable error strip every view shows at its top. */
 .error-bar {
   padding: 4px 12px;

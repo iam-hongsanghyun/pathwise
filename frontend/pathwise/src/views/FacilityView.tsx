@@ -372,91 +372,102 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         );
       }
       const tech = s(r.baseline_technology);
+      const techLabel = s(r.source_technology) || tech || "—";
       const techRow = (workbook.technologies ?? []).find((t) => s(t.technology_id) === tech);
       const recipe = (workbook.io ?? []).filter((row) => s(row.technology_id) === tech);
+      const inputs = recipe.filter((row) => s(row.role) === "input");
+      const outputs = recipe.filter((row) => s(row.role) === "output");
+      const impacts = recipe.filter((row) => s(row.role) === "impact");
       const product = machineProduct(workbook, sel.id);
       const unit = product ? commodityUnit(workbook, product) : "";
       const maxOut = product ? maxOutputCap(workbook, sel.id, product) : null;
       const minOut = product ? minOutputCap(workbook, sel.id, product) : null;
+      const coeff = (row: Row, i: number) => (
+        <Fragment key={`${s(row.role)}-${s(row.target)}-${i}`}>
+          <span className="muted">{s(row.target)}</span>
+          <input className="field-input" type="number" value={s(row.coefficient)}
+            onChange={(e) => editIo(tech, s(row.target), s(row.role), e.target.value === "" ? 0 : Number(e.target.value))} />
+        </Fragment>
+      );
       return (
-        <section className="detail-col">
+        <section className="detail-col machine-detail">
           <h2 className="view-title">{sel.label}</h2>
-          <p className="detail-sub muted">machine · {tech || "—"}</p>
-          <div className="field-grid">
-            <span className="muted">capacity</span>
-            <input className="field-input" type="number" value={s(r?.capacity)} onChange={(e) => editMachine(sel.id, { capacity: e.target.value === "" ? 0 : Number(e.target.value) })} />
-            <span className="muted">owner (company)</span>
-            <input className="field-input" value={s(r?.owner)} placeholder="e.g. POSCO" onChange={(e) => editMachine(sel.id, { owner: e.target.value })} />
-            <span className="muted">build year</span>
-            <input className="field-input" type="number" value={s(r?.introduced_year)} onChange={(e) => editMachine(sel.id, { introduced_year: e.target.value === "" ? null : Number(e.target.value) })} />
-            <span className="muted">close year</span>
-            <input className="field-input" type="number" value={s(r?.decommission_year)} onChange={(e) => editMachine(sel.id, { decommission_year: e.target.value === "" ? null : Number(e.target.value) })} />
-            <span className="muted">max cap. factor</span>
-            <input className="field-input" type="number" min={0} max={1} step={0.05} placeholder="1 (no ceiling)" value={s(r?.max_capacity_factor)} onChange={(e) => editMachine(sel.id, { max_capacity_factor: e.target.value === "" ? 1 : Number(e.target.value) })} />
-            <span className="muted">max renewals</span>
-            <input className="field-input" type="number" min={0} step={1} placeholder="∞ (unlimited)" value={s(r?.max_renewals)} onChange={(e) => editMachine(sel.id, { max_renewals: e.target.value === "" ? null : Number(e.target.value) })} />
-            {product && (
-              <>
-                <span className="muted">min output</span>
-                <TemporalValue value={minOut} unit={unit} baseYear={baseYear} periods={periods} placeholder="no floor" label={`${sel.label} · min output`}
-                  onChange={(v) => setWorkbook(setMinOutputCap(workbook, sel.id, product, v))} />
-                <span className="muted">max output</span>
-                <TemporalValue value={maxOut} unit={unit} baseYear={baseYear} periods={periods} placeholder="no cap" label={`${sel.label} · max output`}
-                  onChange={(v) => setWorkbook(setMaxOutputCap(workbook, sel.id, product, v))} />
-              </>
-            )}
-          </div>
-
-          {techRow && (
-            <>
-              <div className="detail-section" style={{ marginTop: 16, fontWeight: 600 }}>
-                technology · {s(r.source_technology) || tech}
-              </div>
-              <p className="detail-note">
-                This machine's own copy of the technology — every value is editable here and
-                does not affect other machines running the same component.
-              </p>
-              <div className="field-grid">
-                <span className="muted">lifespan (yr)</span>
-                <input className="field-input" type="number" min={1} placeholder="20" value={s(techRow.lifespan)} onChange={(e) => editTech(tech, { lifespan: e.target.value === "" ? null : Number(e.target.value) })} />
-                <span className="muted">available from</span>
-                <input className="field-input" type="number" placeholder="any" value={s(techRow.introduction_year)} onChange={(e) => editTech(tech, { introduction_year: e.target.value === "" ? null : Number(e.target.value) })} />
-                <span className="muted">available to</span>
-                <input className="field-input" type="number" placeholder="any (exclusive)" value={s(techRow.phase_out_year)} onChange={(e) => editTech(tech, { phase_out_year: e.target.value === "" ? null : Number(e.target.value) })} />
-                <span className="muted">replace capex /cap</span>
-                <input className="field-input" type="number" min={0} value={s(techRow.capex)} onChange={(e) => editTech(tech, { capex: e.target.value === "" ? 0 : Number(e.target.value) })} />
-                <span className="muted">renewal cost /cap</span>
-                <input className="field-input" type="number" min={0} value={s(techRow.renewal)} onChange={(e) => editTech(tech, { renewal: e.target.value === "" ? 0 : Number(e.target.value) })} />
-                <span className="muted">opex /unit</span>
-                <input className="field-input" type="number" min={0} value={s(techRow.opex)} onChange={(e) => editTech(tech, { opex: e.target.value === "" ? 0 : Number(e.target.value) })} />
-                <span className="muted">min cap. factor</span>
-                <input className="field-input" type="number" min={0} max={1} step={0.05} placeholder="0" value={s(techRow.min_capacity_factor)} onChange={(e) => editTech(tech, { min_capacity_factor: e.target.value === "" ? 0 : Number(e.target.value) })} />
-              </div>
-
-              {recipe.length > 0 && (
-                <>
-                  <div className="detail-section" style={{ marginTop: 16, fontWeight: 600 }}>
-                    recipe · per unit output
-                  </div>
+          <p className="detail-sub muted">machine · {techLabel}</p>
+          <div className="machine-editor">
+            {/* MAIN — technology (top) + machine (bottom) */}
+            <div className="machine-main">
+              {techRow && (
+                <div className="machine-zone">
+                  <div className="machine-zone-head">technology · {techLabel}</div>
+                  <p className="detail-note" style={{ marginBottom: 8 }}>
+                    This machine's own copy — edits here don't affect other machines.
+                  </p>
                   <div className="field-grid">
-                    {recipe.map((row, i) => (
-                      <Fragment key={`${s(row.target)}-${s(row.role)}-${i}`}>
-                        <span className="muted">{s(row.role)} · {s(row.target)}</span>
-                        <input className="field-input" type="number" value={s(row.coefficient)} onChange={(e) => editIo(tech, s(row.target), s(row.role), e.target.value === "" ? 0 : Number(e.target.value))} />
-                      </Fragment>
-                    ))}
+                    <span className="muted">lifespan (yr)</span>
+                    <input className="field-input" type="number" min={1} placeholder="20" value={s(techRow.lifespan)} onChange={(e) => editTech(tech, { lifespan: e.target.value === "" ? null : Number(e.target.value) })} />
+                    <span className="muted">available from</span>
+                    <input className="field-input" type="number" placeholder="any" value={s(techRow.introduction_year)} onChange={(e) => editTech(tech, { introduction_year: e.target.value === "" ? null : Number(e.target.value) })} />
+                    <span className="muted">available to</span>
+                    <input className="field-input" type="number" placeholder="any (excl.)" value={s(techRow.phase_out_year)} onChange={(e) => editTech(tech, { phase_out_year: e.target.value === "" ? null : Number(e.target.value) })} />
+                    <span className="muted">replace capex /cap</span>
+                    <input className="field-input" type="number" min={0} value={s(techRow.capex)} onChange={(e) => editTech(tech, { capex: e.target.value === "" ? 0 : Number(e.target.value) })} />
+                    <span className="muted">renewal cost /cap</span>
+                    <input className="field-input" type="number" min={0} value={s(techRow.renewal)} onChange={(e) => editTech(tech, { renewal: e.target.value === "" ? 0 : Number(e.target.value) })} />
+                    <span className="muted">opex /unit</span>
+                    <input className="field-input" type="number" min={0} value={s(techRow.opex)} onChange={(e) => editTech(tech, { opex: e.target.value === "" ? 0 : Number(e.target.value) })} />
+                    <span className="muted">min cap. factor</span>
+                    <input className="field-input" type="number" min={0} max={1} step={0.05} placeholder="0" value={s(techRow.min_capacity_factor)} onChange={(e) => editTech(tech, { min_capacity_factor: e.target.value === "" ? 0 : Number(e.target.value) })} />
                   </div>
-                </>
+                </div>
               )}
-            </>
-          )}
+              <div className="machine-zone">
+                <div className="machine-zone-head">machine</div>
+                <div className="field-grid">
+                  <span className="muted">capacity</span>
+                  <input className="field-input" type="number" value={s(r?.capacity)} onChange={(e) => editMachine(sel.id, { capacity: e.target.value === "" ? 0 : Number(e.target.value) })} />
+                  <span className="muted">owner (company)</span>
+                  <input className="field-input" value={s(r?.owner)} placeholder="e.g. POSCO" onChange={(e) => editMachine(sel.id, { owner: e.target.value })} />
+                  <span className="muted">build year</span>
+                  <input className="field-input" type="number" value={s(r?.introduced_year)} onChange={(e) => editMachine(sel.id, { introduced_year: e.target.value === "" ? null : Number(e.target.value) })} />
+                  <span className="muted">close year</span>
+                  <input className="field-input" type="number" placeholder="(exclusive)" value={s(r?.decommission_year)} onChange={(e) => editMachine(sel.id, { decommission_year: e.target.value === "" ? null : Number(e.target.value) })} />
+                  <span className="muted">max cap. factor</span>
+                  <input className="field-input" type="number" min={0} max={1} step={0.05} placeholder="1 (no ceiling)" value={s(r?.max_capacity_factor)} onChange={(e) => editMachine(sel.id, { max_capacity_factor: e.target.value === "" ? 1 : Number(e.target.value) })} />
+                  <span className="muted">max renewals</span>
+                  <input className="field-input" type="number" min={0} step={1} placeholder="∞ (unlimited)" value={s(r?.max_renewals)} onChange={(e) => editMachine(sel.id, { max_renewals: e.target.value === "" ? null : Number(e.target.value) })} />
+                </div>
+              </div>
+            </div>
 
-          <p className="detail-note" style={{ marginTop: 12 }}>
-            This is the machine's full per-instance spec — its real-world numbers
-            (capacity, owner, build/close year), an optional annual output floor /
-            ceiling ({product || "product"} in {unit || "its unit"}), and its own
-            technology copy. The Library tab holds the shared template it was stamped from.
-          </p>
+            {/* RIGHT RAIL — input streams (top) + products/emissions (bottom) */}
+            <div className="machine-rail">
+              <div className="machine-zone">
+                <div className="machine-zone-head">input streams · /unit</div>
+                <div className="field-grid">
+                  {inputs.map(coeff)}
+                  {inputs.length === 0 && <span className="muted" style={{ gridColumn: "1 / -1" }}>no inputs</span>}
+                </div>
+              </div>
+              <div className="machine-zone">
+                <div className="machine-zone-head">products &amp; emissions</div>
+                <div className="field-grid">
+                  {outputs.map(coeff)}
+                  {impacts.map(coeff)}
+                  {outputs.length + impacts.length === 0 && <span className="muted" style={{ gridColumn: "1 / -1" }}>no outputs</span>}
+                  {product && (
+                    <>
+                      <span className="muted">min output</span>
+                      <TemporalValue value={minOut} unit={unit} baseYear={baseYear} periods={periods} placeholder="no floor" label={`${sel.label} · min output`}
+                        onChange={(v) => setWorkbook(setMinOutputCap(workbook, sel.id, product, v))} />
+                      <span className="muted">max output</span>
+                      <TemporalValue value={maxOut} unit={unit} baseYear={baseYear} periods={periods} placeholder="no cap" label={`${sel.label} · max output`}
+                        onChange={(v) => setWorkbook(setMaxOutputCap(workbook, sel.id, product, v))} />
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
       );
     }
