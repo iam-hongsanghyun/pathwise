@@ -65,6 +65,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [libExpanded, setLibExpanded] = useState<Set<string>>(new Set());
   const [libH, setLibH] = useState(260); // adjustable height of the bottom library tree
+  const [leftW, setLeftW] = useState(280); // adjustable width of the left (tree) rail
   // Machine editor: adjustable rail width + each column's bottom-zone height.
   const [railW, setRailW] = useState(300);
   const [mainBottomH, setMainBottomH] = useState(240);
@@ -627,7 +628,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     <div className="view-full builder">
       {error && <div className="error error-bar" onClick={() => setError(null)}>{error} <span className="muted">(dismiss)</span></div>}
       <div className="builder-body">
-        <aside className="builder-rail">
+        <aside className="builder-rail" style={{ width: leftW }}>
           {/* TOP: the facility structure (shared node tree). */}
           <div className="rail-head-row">
             <span className="rail-head">Structure</span>
@@ -648,6 +649,8 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
           </div>
           <div className="rail-foot">Right-click a group for actions</div>
         </aside>
+        {/* Drag to resize the left rail's width. */}
+        <Resizer side="left" width={leftW} setWidth={setLeftW} min={200} max={520} />
         <main className="builder-main">
           <div className="view-head">
             <div className="eyebrow">facility</div>
