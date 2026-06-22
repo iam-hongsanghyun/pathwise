@@ -172,5 +172,33 @@ An `override` is a small, typed workbook edit, e.g.
    let users add a use process themselves?
 3. **Override vocabulary** — which `op`s to support first (`set_machine_tech`,
    `toggle_measure`, `set_price` cover most asks).
-4. **Baseline definition** — "as-is" = transitions stripped + measures off. Confirm
-   that matches "current LCA" intent (vs. "let the optimiser pick, then freeze").
+4. **Baseline definition** — P1 uses "as-is" (transitions stripped + measures off).
+   *Direction (confirmed): the optimiser's output is the simulator's input.* See
+   §10 — the canonical baseline is a **frozen optimisation result**, and the
+   simulator gets its **own setup** for perturbing it. P1's "as-is" is just the
+   trivial default until that setup lands.
+
+## 10. TODO — dedicated simulation setup (optimise → simulate handoff)
+
+> Deferred. Captured here so it isn't lost; **not** in P1.
+
+Selecting `simulate` should switch to **its own setup**, distinct from the
+optimisation setup — because a simulation needs a *fixed configuration to
+evaluate*, not a target to optimise toward. The pieces:
+
+- **The optimiser's result IS the simulator's input.** The natural baseline is a
+  **frozen optimisation pathway**: run `linopy`, take its chosen technologies /
+  transitions / measures / flows, and hand that whole plan to `simulate` as the
+  starting configuration. ("Optimise once → freeze → ask what-if.")
+- **Interventions are events on that frozen plan.** The simulation setup lets the
+  user pin changes as **timed events**, e.g. *"replace machine X with tech Y in
+  year T"*, *"this stream switches source / price in year T"*, *"adopt measure M
+  from year T"* — then re-evaluate and diff against the frozen baseline.
+- **A different setup screen.** When the method is `simulate`, the run UI should
+  present this configuration/event editor (and a baseline picker: as-is · a saved
+  optimisation result · a manual config) instead of the optimisation targets/caps
+  setup. The two lenses share the model but not the setup.
+
+This supersedes the simple `variants[]`/`overrides[]` sketch in §5 for the *UI*
+layer; the override vocabulary (§5, open Q3) is the underlying mechanism the event
+editor compiles down to.
