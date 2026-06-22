@@ -6,7 +6,7 @@
 // concern). It never edits the component library: the base Library tree shown at
 // the BOTTOM of the left rail is a READ-ONLY drag source.
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useDialogs } from "../features/controls/Dialog";
 import { Resizer } from "../layout/Resizer";
 import { TemporalValue } from "../features/controls/TemporalValue";
@@ -239,6 +239,15 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   function editMachine(id: string, patch: Record<string, Row[string]>) {
     setWorkbook(setSheet(workbook, "machines", (workbook.machines ?? []).map((r) => (s(r.machine_id) === id ? { ...r, ...patch } : r))));
   }
+  // Edit this machine's OWN technology instance (its private copy in the
+  // `technologies` sheet) — capex / renewal / opex / lifespan / availability.
+  function editTech(techId: string, patch: Record<string, Row[string]>) {
+    setWorkbook(setSheet(workbook, "technologies", (workbook.technologies ?? []).map((r) => (s(r.technology_id) === techId ? { ...r, ...patch } : r))));
+  }
+  // Edit one recipe coefficient (an `io` row) of this machine's instance.
+  function editIo(techId: string, target: string, role: string, coefficient: number) {
+    setWorkbook(setSheet(workbook, "io", (workbook.io ?? []).map((r) => (s(r.technology_id) === techId && s(r.target) === target && s(r.role) === role ? { ...r, coefficient } : r))));
+  }
 
   // ── Trees ────────────────────────────────────────────────────────────────────
   // The facility node tree (top): the shared structure, drop target for the library.
@@ -363,6 +372,8 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         );
       }
       const tech = s(r.baseline_technology);
+      const techRow = (workbook.technologies ?? []).find((t) => s(t.technology_id) === tech);
+      const recipe = (workbook.io ?? []).filter((row) => s(row.technology_id) === tech);
       const product = machineProduct(workbook, sel.id);
       const unit = product ? commodityUnit(workbook, product) : "";
       const maxOut = product ? maxOutputCap(workbook, sel.id, product) : null;
@@ -395,11 +406,56 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
               </>
             )}
           </div>
+
+          {techRow && (
+            <>
+              <div className="detail-section" style={{ marginTop: 16, fontWeight: 600 }}>
+                technology · {s(r.source_technology) || tech}
+              </div>
+              <p className="detail-note">
+                This machine's own copy of the technology — every value is editable here and
+                does not affect other machines running the same component.
+              </p>
+              <div className="field-grid">
+                <span className="muted">lifespan (yr)</span>
+                <input className="field-input" type="number" min={1} placeholder="20" value={s(techRow.lifespan)} onChange={(e) => editTech(tech, { lifespan: e.target.value === "" ? null : Number(e.target.value) })} />
+                <span className="muted">available from</span>
+                <input className="field-input" type="number" placeholder="any" value={s(techRow.introduction_year)} onChange={(e) => editTech(tech, { introduction_year: e.target.value === "" ? null : Number(e.target.value) })} />
+                <span className="muted">available to</span>
+                <input className="field-input" type="number" placeholder="any (exclusive)" value={s(techRow.phase_out_year)} onChange={(e) => editTech(tech, { phase_out_year: e.target.value === "" ? null : Number(e.target.value) })} />
+                <span className="muted">replace capex /cap</span>
+                <input className="field-input" type="number" min={0} value={s(techRow.capex)} onChange={(e) => editTech(tech, { capex: e.target.value === "" ? 0 : Number(e.target.value) })} />
+                <span className="muted">renewal cost /cap</span>
+                <input className="field-input" type="number" min={0} value={s(techRow.renewal)} onChange={(e) => editTech(tech, { renewal: e.target.value === "" ? 0 : Number(e.target.value) })} />
+                <span className="muted">opex /unit</span>
+                <input className="field-input" type="number" min={0} value={s(techRow.opex)} onChange={(e) => editTech(tech, { opex: e.target.value === "" ? 0 : Number(e.target.value) })} />
+                <span className="muted">min cap. factor</span>
+                <input className="field-input" type="number" min={0} max={1} step={0.05} placeholder="0" value={s(techRow.min_capacity_factor)} onChange={(e) => editTech(tech, { min_capacity_factor: e.target.value === "" ? 0 : Number(e.target.value) })} />
+              </div>
+
+              {recipe.length > 0 && (
+                <>
+                  <div className="detail-section" style={{ marginTop: 16, fontWeight: 600 }}>
+                    recipe · per unit output
+                  </div>
+                  <div className="field-grid">
+                    {recipe.map((row, i) => (
+                      <Fragment key={`${s(row.target)}-${s(row.role)}-${i}`}>
+                        <span className="muted">{s(row.role)} · {s(row.target)}</span>
+                        <input className="field-input" type="number" value={s(row.coefficient)} onChange={(e) => editIo(tech, s(row.target), s(row.role), e.target.value === "" ? 0 : Number(e.target.value))} />
+                      </Fragment>
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
           <p className="detail-note" style={{ marginTop: 12 }}>
-            The recipe (inputs/outputs, per-unit costs &amp; efficiency) lives in the
-            component — edit it in the Library tab. Here you set this machine's
-            real-world numbers — capacity, owner, build/close year, and an optional
-            annual output floor / ceiling ({product || "product"} in {unit || "its unit"}).
+            This is the machine's full per-instance spec — its real-world numbers
+            (capacity, owner, build/close year), an optional annual output floor /
+            ceiling ({product || "product"} in {unit || "its unit"}), and its own
+            technology copy. The Library tab holds the shared template it was stamped from.
           </p>
         </section>
       );
