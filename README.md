@@ -1,21 +1,40 @@
 # pathwise
 
-**Process-network cost-optimisation model with a drag-and-drop designer.**
+**Process-network cost-optimisation model with a visual designer.**
 
 `pathwise` finds the least-cost, multi-year transition pathway for a network of
-production **processes** (facilities/machines). Each process consumes **energy,
-material, and indirect resources** to make **products** while emitting multiple
-**environmental impacts** (CO₂, SOₓ, NOₓ, …). The optimiser chooses among:
+production **facilities** (machines). Each machine consumes **energy, material, and
+indirect resources** to make **products** while emitting multiple **environmental
+impacts** (CO₂, SOₓ, NOₓ, …). The optimiser (a MILP, solved with HiGHS) chooses,
+per year, among:
 
-- **Technology transitions** — `replace` / `renew` / `continue`, with up/down-stream
-  consequences (an incompatible replacement forces connected processes to change;
-  reusable kit lets them stay).
+- **Technology lifecycle** — `continue` / `renew` / `replace`, with a build/close
+  active window and market availability windows per technology.
 - **Energy-efficiency MACC**, **emission-reduction MACC**, and **environmental
   measures** — piecewise marginal-cost curves.
-- driven by cost curves plus **carbon price / ETS**, priced per impact.
+- what to **buy and sell** on each market stream,
 
-A **React Flow** web designer lets you build the facility network, MACC curves, and
-transition options visually, two-way synced with editable data tables.
+driven by cost curves plus a **carbon price / ETS**, priced per impact, under
+demand, emission caps, and budgets.
+
+### The three layers
+
+pathwise is built on a strict separation — see
+**[docs/USER_MANUAL.md](docs/USER_MANUAL.md)** for the full guide:
+
+- **Component** — a *technology* template (recipe, intensities, costs, lifespan,
+  availability). Edited in the **Library**.
+- **Facility** — a *machine*: a private, fully-editable copy of a component plus
+  real-world data (capacity, owner, build/close year, output bounds). Edited in the
+  **Facility** tab. Most values are static **or** year-varying (temporal).
+- **Value chain** — the *market*: who supplies which stream to whom, at what price,
+  with per-link flow limits.
+
+> **First time?** Start with **[docs/USER_MANUAL.md](docs/USER_MANUAL.md)** — open
+> a bundled example, run it, and learn the *edit → run → read* loop.
+
+A web designer (React Flow + editable tables) builds the structure, recipes, and
+market wiring visually, two-way synced with the model.
 
 ## Architecture
 
@@ -46,3 +65,14 @@ uv run ruff check . && uv run mypy src/
 ```bash
 ./run.command          # backend (uvicorn) + frontend (Vite); opens the browser
 ```
+
+## Documentation
+
+| Doc | For |
+|---|---|
+| [docs/USER_MANUAL.md](docs/USER_MANUAL.md) | **Start here** — a first-time user's guide to the tabs, the editor, and the *edit → run → read* loop. |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the pieces fit: the Component / Facility / Value-chain layers, storage, the backend-owns-the-model pattern. |
+| [docs/ALGORITHM.md](docs/ALGORITHM.md) | The optimisation model — sets, decision variables, objective, every constraint family. |
+| [docs/AUTHORING.md](docs/AUTHORING.md) | Authoring bundled components, value chains, and example workbooks by hand (the sheet schema). |
+| [docs/API.md](docs/API.md) | The HTTP API surface (`/api/*`). |
+| [docs/HANDBOOK.md](docs/HANDBOOK.md) | Team conventions, code-review checklist, project standards. |
