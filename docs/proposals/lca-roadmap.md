@@ -26,14 +26,25 @@
   objective in `TargetsTabView`, `by_phase`/`uncertainty` cards in `LcaResult`, an
   uncertainty toggle in `SimulateSetup`, and the `frontier` backend in the method picker.
 
-> **Verification note (green_steel):** the frontier *mechanism* is unit-tested monotone
-> (`tests/backends/test_impact_optimisation.py`, on a fixture with an authored `impacts`
-> sheet + an abatement lever). On the bundled **green_steel** chain the curve is flat and
-> caps *below* the baseline still return `optimal` at the baseline — its CO₂ is background /
-> traded emissions with no authored `impacts` sheet, so `impact_caps` on `CO2` don't reach
-> the constrained inventory. This is the **#2 background-factor gap below**, not a frontier
-> bug: foreground elementary-flow `io` rows + background factors must exist for a cap to
-> bite. green_steel is therefore a poor demo model for the frontier until #2 lands.
+> **Frontier on green_steel — fixed.** An earlier note here blamed a flat green_steel
+> frontier on "background/traded CO₂ outside the constrained inventory." That diagnosis was
+> wrong (it read a stripped value-chain view from the `/model` endpoint). The real, merged
+> green_steel model **does** carry an `impacts` sheet, 11 foreground `io` CO₂ factors, and
+> pre-existing **soft** impact caps. The flat curve was a **cap-injection bug**, now fixed:
+> 1. The `frontier` backend *appended* its hard ε-cap to the model's caps; under system-scope
+>    pooling that (a) **summed** with the model's own per-year caps and (b) — because one
+>    pre-existing cap was soft — got **softened** too (penalty cheaper than abating), so every
+>    point collapsed to the baseline. Fix: the backend now **replaces** the swept impact's
+>    caps with its single hard ε-cap (keeping other impacts' caps).
+> 2. Assemble's system-scope pooling computed `any_soft` / `pen_max` **globally**, so one soft
+>    cap on any impact softened *every* impact's pooled cap. Fix: pool soft/penalty **per
+>    impact**.
+>
+> Post-fix green_steel produces a proper monotone frontier (tighter CO₂ cap ⇒ lower emissions,
+> higher cost; a cap below the achievable floor drives total under-production via demand slack
+> — the cost-blowup endpoint, since demand is soft in this model). Regression tests:
+> `test_frontier_binds_despite_preexisting_soft_cap` and
+> `test_system_scope_pools_soft_per_impact_not_globally`.
 
 ## Where we are
 A credible **single-impact (CO₂), boundary-limited** inventory: emissions by
@@ -73,10 +84,11 @@ characterisation step on top.**
 2. **Background / upstream factors for purchased flows.** ⚠️ **PARTIAL** — the
    `commodity_impacts` mechanism + an open background **seed** exist (`data/lcia.py::
    BACKGROUND_SEED`, `load_background_csv`), but the bundled example models don't yet carry
-   a real background dataset, so background-dominated impacts (e.g. green_steel CO₂) aren't
-   in the constrained inventory and **caps/frontier don't bite on them** (see the
-   verification note above). **Still to do:** import a full open dataset (USEEIO / EXIOBASE
-   / IEA) into the example models so the inventory isn't truncated at the model boundary.
+   a real background dataset, so the inventory is truncated at the **upstream** boundary
+   (e.g. grid electricity, ore, transport bought from outside the model carry no impact).
+   This is a *completeness* gap, distinct from the cap-injection bug above — green_steel's
+   *foreground* CO₂ is modelled and now caps correctly. **Still to do:** import a full open
+   dataset (USEEIO / EXIOBASE / IEA) into the example models.
 3. **Allocation rules for co-products & recycling.** Default chosen = **cut-off**; declare
    system-expansion / avoided-burden (and mass vs economic) as an option. Changes the
    recycling-loop and co-product numbers, so decide alongside #2.
@@ -101,10 +113,9 @@ characterisation step on top.**
 - **Allocation:** default **cut-off**, with system-expansion / avoided-burden as an option.
 
 ## Next step
-**#2 — load a real open background dataset into the example models.** It is now the single
-biggest gap: the characterisation engine, the three optimisation modes, the frontend and
-the importer scaffold are all in place, but without background (and authored foreground
-elementary-flow) factors the constrained inventory is truncated, so impact caps and the
-cost-vs-impact frontier don't bite on background-dominated impacts (the green_steel CO₂
-finding above). Authoring a full method's foreground `io` rows for green_steel is the
-companion task (#1's remainder).
+**#2 — load a real open background dataset into the example models, and author a full
+method's CFs.** The engine, the three optimisation modes, the frontend and the importer
+scaffold are all in place and verified (impact caps and the frontier now bind correctly on
+green_steel's foreground CO₂). The remaining gap is *coverage*: bring upstream/background
+factors and a complete EF-3.1 CF set into the bundled models so the inventory spans
+cradle-to-gate and multiple impact categories, not just modelled foreground CO₂.

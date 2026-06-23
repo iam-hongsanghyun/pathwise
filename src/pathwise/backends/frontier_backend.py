@@ -74,7 +74,13 @@ class FrontierBackend:
             return empty_result("invalid", domain.terminology(), rep)
 
         linopy = get_backend("linopy")
-        base_caps = list(model.get("impact_caps", []))
+        # ε-constraint: REPLACE any pre-existing caps on the swept impact with our single
+        # hard cap; keep caps on OTHER impacts. Appending instead would (a) sum with the
+        # model's own caps under system-scope pooling and (b) — if the model carries a soft
+        # cap on this impact — soften ours too, leaving the frontier cap non-binding (every
+        # point collapses to the baseline). Other impacts' soft caps no longer contaminate
+        # this one (assemble pools soft/penalty per impact).
+        other_caps = [c for c in model.get("impact_caps", []) if str(c.get("impact_id")) != impact]
         # Drop the frontier block; the optimiser solves plain least-cost per point.
         run_scenario = {k: v for k, v in (scenario or {}).items() if k != "frontier"}
 
@@ -84,7 +90,7 @@ class FrontierBackend:
                 **model,
                 # A year-less HARD cap applies to every year, system-wide ("all").
                 "impact_caps": [
-                    *base_caps,
+                    *other_caps,
                     {"company": "all", "impact_id": impact, "limit": cap, "soft": 0},
                 ],
             }

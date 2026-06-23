@@ -106,3 +106,46 @@ def test_cost_impact_frontier_is_monotone() -> None:
     assert gwps == sorted(gwps)  # tightest cap achieves the least GWP
     assert by_cap[0]["impact"] <= by_cap[-1]["impact"]
     assert by_cap[0]["cost"] >= by_cap[-1]["cost"]
+
+
+def test_frontier_binds_despite_preexisting_soft_cap() -> None:
+    """Regression: the frontier's hard ε-constraint must bind even when the model
+    already carries a SOFT cap on the swept impact.
+
+    This is the green_steel failure mode. The frontier backend used to *append* its
+    hard cap to the model's caps; under system-scope pooling a single pre-existing
+    soft cap softened the whole set (penalty cheaper than abating), so every frontier
+    point collapsed to the least-cost plan (GWP 200) — the curve was flat. The fix
+    REPLACES the swept impact's caps with the hard ε-constraint, so it binds.
+    """
+    model = _dirty_clean()
+    # A pre-existing SOFT cap on the swept impact, generous (above the uncapped GWP of
+    # 200) and cheap to violate — exactly what defeated the old append-based code.
+    model["impact_caps"] = [
+        {
+            "company": "all",
+            "impact_id": "GWP",
+            "year": 2025,
+            "limit": 300,
+            "soft": True,
+            "penalty": 1,
+        }
+    ]
+    fr = get_backend("frontier").run(
+        model,
+        {
+            **_SCENARIO,
+            "optimisation_scope": "system",
+            "frontier": {"impact": "GWP", "from": 50, "to": 200, "step": 50},
+        },
+    )
+    by_cap = sorted(
+        (p for p in fr["outputs"]["frontier"]["points"] if p.get("status") == "optimal"),
+        key=lambda p: p["cap"],
+    )
+    assert len(by_cap) >= 3
+    # The tightest cap (50) must actually bind → the all-clean plan (GWP 50), NOT the
+    # least-cost GWP of 200 the soft cap would have allowed.
+    assert by_cap[0]["impact"] == pytest.approx(50.0)
+    assert by_cap[-1]["impact"] == pytest.approx(200.0)
+    assert by_cap[0]["cost"] > by_cap[-1]["cost"]  # tighter ⇒ strictly costlier

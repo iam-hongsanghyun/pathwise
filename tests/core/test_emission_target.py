@@ -66,3 +66,64 @@ def test_hard_target_binds_and_forces_underproduction() -> None:
     assert res["objective"] > 1.0e9  # demand shortfall dominates
     slack = {s["key"]: s["value"] for s in res["outputs"]["demand_slack"]}
     np.testing.assert_allclose(slack["C|widget|2025"], 60.0, rtol=1e-6)
+
+
+def test_system_scope_pools_soft_per_impact_not_globally() -> None:
+    """Regression: under system-scope pooling, a SOFT cap on one impact must not
+    soften a HARD cap on a *different* impact.
+
+    Two impacts (CO2 hard, NOx soft); the engine pools caps economy-wide when the
+    scope is ``system``. Previously a single soft cap flipped *every* impact's pooled
+    cap to soft, silently defeating the hard CO2 cap. The per-impact pooling keeps CO2
+    hard (→ it binds: underproduction) while NOx stays soft.
+    """
+    wb = {
+        "periods": [{"year": 2025}],
+        "commodities": [
+            {"commodity_id": "gas", "kind": "energy", "price": 0},
+            {"commodity_id": "widget", "kind": "product"},
+        ],
+        "impacts": [{"impact_id": "CO2"}, {"impact_id": "NOx"}],
+        "technologies": [{"technology_id": "T"}],
+        "processes": [
+            {"process_id": "P", "company": "C", "baseline_technology": "T", "capacity": 100}
+        ],
+        "io": [
+            {"technology_id": "T", "target": "gas", "role": "input", "coefficient": 1},
+            {
+                "technology_id": "T",
+                "target": "widget",
+                "role": "output",
+                "coefficient": 1,
+                "is_product": True,
+            },
+            {"technology_id": "T", "target": "CO2", "role": "impact", "coefficient": 1},
+            {"technology_id": "T", "target": "NOx", "role": "impact", "coefficient": 1},
+        ],
+        "impact_caps": [
+            {"company": "all", "impact_id": "CO2", "year": 2025, "limit": 40, "soft": False},
+            {
+                "company": "all",
+                "impact_id": "NOx",
+                "year": 2025,
+                "limit": 10,
+                "soft": True,
+                "penalty": 5,
+            },
+        ],
+        "demand": [{"company": "C", "commodity_id": "widget", "year": 2025, "amount": 100}],
+    }
+    sc = ScenarioConfig.from_dict(
+        {"economics": {"base_year": 2025, "discount_rate": 0.0}, "optimisation_scope": "system"}
+    )
+    prob = assemble_problem(wb, sc)
+    # The hard CO2 cap stays hard; the soft NOx cap stays soft (and keeps its penalty).
+    assert prob.impact_cap_soft[("all", "CO2")] is False
+    assert prob.impact_cap_soft[("all", "NOx")] is True
+    np.testing.assert_allclose(prob.impact_cap_penalty[("all", "NOx")], 5.0)
+
+    # End-to-end: the hard CO2 cap binds ⇒ underproduction (60 widgets short).
+    res = extract_results(solve(build(prob))).copy()
+    assert res["status"] == "optimal"
+    slack = {s["key"]: s["value"] for s in res["outputs"]["demand_slack"]}
+    np.testing.assert_allclose(slack["C|widget|2025"], 60.0, rtol=1e-6)

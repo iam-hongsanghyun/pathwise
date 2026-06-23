@@ -1216,10 +1216,21 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 else pooled.get(key, 0.0) + limit
             )
         impact_caps = pooled
-        any_soft = (not impact_cap_soft) or any(impact_cap_soft.values())
-        pen_max = max(impact_cap_penalty.values(), default=scenario.slack_penalty)
-        impact_cap_soft = {("all", imp): bool(any_soft) for (_s, imp, _y) in pooled}
-        impact_cap_penalty = {("all", imp): pen_max for (_s, imp, _y) in pooled}
+        # Pool soft/penalty PER IMPACT, not globally: the pooled cap on impact X is
+        # soft iff some source cap on X was soft (none specified → default soft), with
+        # penalty = the max over X's source caps. (Previously a single soft cap on ANY
+        # impact softened EVERY impact's pooled cap, silently defeating a hard cap set
+        # on a different impact — e.g. the frontier backend's ε-constraint.)
+        pooled_imps = {imp for (_s, imp, _y) in pooled}
+        new_soft: dict[tuple[str, str], bool] = {}
+        new_penalty: dict[tuple[str, str], float] = {}
+        for imp in pooled_imps:
+            softs = [v for (_s, i), v in impact_cap_soft.items() if i == imp]
+            pens = [v for (_s, i), v in impact_cap_penalty.items() if i == imp]
+            new_soft[("all", imp)] = (not softs) or any(softs)
+            new_penalty[("all", imp)] = max(pens, default=scenario.slack_penalty)
+        impact_cap_soft = new_soft
+        impact_cap_penalty = new_penalty
         impact_cap_intensity = {("all", imp): imp in intensity_imps for (_s, imp, _y) in pooled}
 
     toggles = CostToggles(**scenario.cost_components.model_dump())
