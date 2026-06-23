@@ -8,6 +8,7 @@ import {
   replaceSheet,
 } from "./lib/api/session";
 import { type LibraryEntry, type LibraryTier, importLibrary, listLibraries } from "./lib/api/libraries";
+import { modelCurrency, setModelCurrency } from "./lib/caps";
 import { ActivityBar, type View } from "./layout/ActivityBar";
 import { useTheme } from "./lib/useTheme";
 import { AnalyticsView } from "./views/AnalyticsView";
@@ -308,6 +309,8 @@ export function App() {
           <SettingsView
             discount={discount}
             onDiscount={setDiscount}
+            currency={modelCurrency(workbook)}
+            onCurrency={(c) => updateWorkbook(setModelCurrency(workbook, c))}
             objScope={objScope}
             onObjScope={setObjScope}
             config={config}

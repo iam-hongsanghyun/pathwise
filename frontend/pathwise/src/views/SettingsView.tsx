@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SearchSelect } from "../features/controls/SearchSelect";
+import { getUnits } from "../lib/api/units";
 import { RailList, type RailItem } from "../layout/RailList";
 import { Resizer } from "../layout/Resizer";
 import type { Density, ThemeName } from "../lib/useTheme";
@@ -17,6 +18,9 @@ type Scope = "system" | "company" | "facility";
 interface Props {
   discount: number;
   onDiscount: (v: number) => void;
+  /** Model accounting/display currency (lives on the model's `meta` sheet). */
+  currency: string;
+  onCurrency: (c: string) => void;
   objScope: Scope;
   onObjScope: (s: Scope) => void;
   config: ConfigBundle | null;
@@ -44,6 +48,8 @@ const METHOD_LABEL: Record<PortfolioMethod, string> = {
 export function SettingsView({
   discount,
   onDiscount,
+  currency,
+  onCurrency,
   objScope,
   onObjScope,
   config,
@@ -59,6 +65,23 @@ export function SettingsView({
   setLeftW,
 }: Props) {
   const [section, setSection] = useState<Section>("appearance");
+  // Currency choices come from the unit system's `currency` dimension (units.yaml),
+  // so the picker can't drift from what the converter knows. Falls back to the
+  // built-in set; always includes the model's current currency.
+  const [currencyOpts, setCurrencyOpts] = useState<string[]>(["USD", "EUR", "KRW"]);
+  useEffect(() => {
+    let alive = true;
+    getUnits()
+      .then((u) => {
+        const allowed = u.config.dimensions?.currency?.allowed;
+        if (alive && allowed?.length) setCurrencyOpts(allowed);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const currencyChoices = currencyOpts.includes(currency) ? currencyOpts : [currency, ...currencyOpts];
   const items: RailItem[] = [
     { id: "appearance", label: "Appearance" },
     { id: "economics", label: "Economics" },
@@ -135,6 +158,17 @@ export function SettingsView({
           {section === "economics" && (
             <section className="card">
               <h3>Economics</h3>
+              <label className="inspector-field">
+                <span>Currency</span>
+                <SearchSelect value={currency} onChange={onCurrency}
+                  options={currencyChoices.map((c) => ({ value: c }))} />
+              </label>
+              <p className="muted">
+                The unit every monetary value — costs, prices, budgets — is shown in (stored on the
+                model). Cross-rates (USD↔EUR↔KRW) live in the unit system; add a currency by defining
+                its factor there. Switching here <strong>relabels</strong> money, it does not reconvert
+                the numbers you entered.
+              </p>
               <label className="inspector-field">
                 <span>Discount rate</span>
                 <input

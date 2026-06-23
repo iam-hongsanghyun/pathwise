@@ -8,7 +8,7 @@
 import { useMemo, useState } from "react";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { TemporalValue, type TemporalVal } from "../features/controls/TemporalValue";
-import { commodityUnit, impactUnit } from "../lib/caps";
+import { commodityUnit, impactUnit, modelCurrency } from "../lib/caps";
 import { impactIds, productIds, scopeOptions } from "../lib/scope";
 import type { Row, Workbook } from "../types";
 
@@ -193,7 +193,7 @@ export function TargetsTabView({
       ? impactUnit(workbook, c.target)
       : c.kind === "production"
         ? commodityUnit(workbook, c.target)
-        : "currency";
+        : modelCurrency(workbook);
   const cell: React.CSSProperties = { padding: "2px 4px" };
   const small = { minWidth: 120 };
 

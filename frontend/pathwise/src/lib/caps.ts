@@ -39,6 +39,24 @@ export function impactUnit(wb: Workbook, impactId: string): string {
   return s(row?.unit) || "unit";
 }
 
+/** The model's accounting / display currency — the `meta` row keyed "currency".
+ *  Defaults to "USD" (the currency dimension's base in units.yaml). This is the
+ *  symbol every monetary value (costs, prices, budgets) is shown in. */
+export function modelCurrency(wb: Workbook): string {
+  const row = (wb.meta ?? []).find((r) => s(r.key) === "currency");
+  return s(row?.value) || "USD";
+}
+
+/** Set the model currency in the `meta` key/value sheet (update in place, else
+ *  insert). The numeric values are NOT reconverted — this sets the unit label. */
+export function setModelCurrency(wb: Workbook, currency: string): Workbook {
+  const meta = [...((wb.meta as Row[]) ?? [])];
+  const i = meta.findIndex((r) => s(r.key) === "currency");
+  if (i >= 0) meta[i] = { ...meta[i], value: currency };
+  else meta.push({ key: "currency", value: currency });
+  return { ...wb, meta };
+}
+
 /** The bound on `commodity` at `scope` in `sheet`: a {year: value} map if there are
  *  per-year rows, a number if a single year-less (static) row, else null. */
 function cap(wb: Workbook, sheet: string, scope: string, commodity: string): Bound | null {

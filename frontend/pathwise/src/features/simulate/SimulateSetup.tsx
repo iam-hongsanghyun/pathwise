@@ -7,7 +7,7 @@
 
 import { useMemo, useState } from "react";
 import { SearchSelect } from "../controls/SearchSelect";
-import { impactUnit } from "../../lib/caps";
+import { impactUnit, modelCurrency } from "../../lib/caps";
 import { impactIds } from "../../lib/scope";
 import type { Row, Workbook } from "../../types";
 
@@ -39,8 +39,11 @@ export function SimulateSetup({
 
   const [sweepOn, setSweepOn] = useState(false);
   const [sweep, setSweep] = useState({ impact: impacts[0] ?? "", from: 0, to: 300, step: 25 });
-  // A carbon-price sweep: from/to/step are prices, i.e. currency per unit of the impact.
-  const priceUnit = useMemo(() => `currency/${impactUnit(workbook, sweep.impact)}`, [workbook, sweep.impact]);
+  // A carbon-price sweep: from/to/step are prices, i.e. the model currency per unit of the impact.
+  const priceUnit = useMemo(
+    () => `${modelCurrency(workbook)}/${impactUnit(workbook, sweep.impact)}`,
+    [workbook, sweep.impact],
+  );
   const [uncOn, setUncOn] = useState(false);
   const [unc, setUnc] = useState({ sigma: 0.1, n: 1000, seed: 42 });
 
