@@ -37,6 +37,8 @@ import {
 } from "../lib/api/components";
 import type { LibraryEntry } from "../lib/api/libraries";
 import { allowedUnits, getUnits } from "../lib/api/units";
+import { projectUnits } from "../lib/unitRegistry";
+import type { Workbook } from "../types";
 
 // A library is addressed as `${scope}/${id}` ("base/power", "session/steel") so
 // base and session libraries with the same id never collide in the tree.
@@ -181,6 +183,7 @@ export function ComponentTabView({
   setActiveProjectId,
   libraries = [],
   onPickLibrary,
+  workbook = {},
 }: {
   sessionId: string | null;
   mode?: "library" | "project";
@@ -189,6 +192,8 @@ export function ComponentTabView({
   /** Importable libraries — the Component view imports the component-bearing ones. */
   libraries?: LibraryEntry[];
   onPickLibrary?: (key: string) => void;
+  /** The active model — its unit registry constrains the unit pickers. */
+  workbook?: Workbook;
 }) {
   const { prompt, confirm, node: dialogNode } = useDialogs();
   const [libs, setLibs] = useState<LibrarySummary[]>([]);
@@ -203,7 +208,11 @@ export function ComponentTabView({
   const [error, setError] = useState<string | null>(null);
   const [rightW, setRightW] = useState(340); // resizable right-rail (time series) width
   const [leftW, setLeftW] = useState(280); // resizable left-rail (tree) width
-  const [unitOptions, setUnitOptions] = useState<string[]>([]); // allowed units for the IO unit picker
+  const [unitOptions, setUnitOptions] = useState<string[]>([]); // global allowed units (fallback)
+  // Unit pickers are limited to the project's registry (the model's `units` sheet);
+  // fall back to the global allowed list when a model has no registry yet.
+  const registryUnits = projectUnits(workbook);
+  const pickerUnits = registryUnits.length ? registryUnits : unitOptions;
   const saved = useRef<Map<string, string>>(new Map());
 
   // The session's projects, and the active one addressed as a session library id.
@@ -819,7 +828,7 @@ export function ComponentTabView({
           <TechnologyEditor
             value={t}
             commodityIds={commodityIds}
-            unitOptions={unitOptions}
+            unitOptions={pickerUnits}
             streamUnitOf={streamUnit}
             onAddCommodity={(id) => editLib(sel.libId, (l) => ({ ...l, commodities: [...l.commodities, { commodity_id: id, kind: "material", unit: "unit" } as CommodityTemplate] }))}
             onChange={setTech}
@@ -846,6 +855,7 @@ export function ComponentTabView({
         <>
           <CommodityEditor
             value={c}
+            unitOptions={pickerUnits}
             onChange={(v) => editLib(sel.libId, (l) => ({ ...l, commodities: l.commodities.map((x) => (x.commodity_id === sel.id ? v : x)) }))}
             onRename={(id) => setSel({ libId: sel.libId, kind: "stream", id })}
           />

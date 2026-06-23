@@ -77,10 +77,14 @@ export function CommodityEditor({
   value,
   onChange,
   onRename,
+  unitOptions = [],
 }: {
   value: CommodityTemplate;
   onChange: (v: CommodityTemplate) => void;
   onRename: (id: string) => void;
+  /** Allowed units (the project's unit registry) — the unit picker is limited to
+   *  these so a stream can't carry an unconvertible/typo'd unit. */
+  unitOptions?: string[];
 }) {
   return (
     <section>
@@ -112,7 +116,12 @@ export function CommodityEditor({
           />
         </Field>
         <Field label="unit" meta="unit">
-          <input style={inputStyle} value={value.unit} onChange={(e) => onChange({ ...value, unit: e.target.value })} />
+          <SearchSelect
+            value={value.unit ?? ""}
+            onChange={(v) => onChange({ ...value, unit: v })}
+            options={[...new Set([value.unit, ...unitOptions].filter(Boolean))].map((u) => ({ value: u }))}
+            placeholder="pick a unit (Project → Units)"
+          />
         </Field>
         <Field label="price (buy)" meta="price">
           <input
@@ -242,9 +251,8 @@ export function TechnologyEditor({
               <td style={{ minWidth: 84 }}>
                 <SearchableSelect
                   value={r.unit ?? ""}
-                  options={unitOptions}
+                  options={[...new Set([r.unit ?? "", ...unitOptions].filter(Boolean))]}
                   onChange={(v) => setIo(i, { unit: v.trim() || null })}
-                  onCreate={(name) => setIo(i, { unit: name.trim() || null })}
                   placeholder={streamUnitOf?.(r.target) || "stream unit"}
                 />
               </td>

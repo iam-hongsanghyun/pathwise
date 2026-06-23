@@ -253,7 +253,7 @@ export function App() {
           />
         )}
         {view === "component" && (
-          <ComponentTabView sessionId={sessionId} mode="library" libraries={libraries} onPickLibrary={onPickLibrary} />
+          <ComponentTabView sessionId={sessionId} mode="library" libraries={libraries} onPickLibrary={onPickLibrary} workbook={workbook} />
         )}
         {view === "facility" && (
           <FacilityView
