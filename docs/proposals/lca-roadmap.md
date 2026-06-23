@@ -20,11 +20,23 @@
 - **LCA rigor** — lifecycle-**phase** rollup (optional `phase` node tag → materials ·
   manufacturing · use · end-of-life) and **Monte-Carlo factor uncertainty** (`simulate.
   uncertainty = {sigma, n, seed}` → per-impact P5–P95) in the simulate inventory.
-- **Open-data importer** — `data/lcia.py`: AR6 GWP100 CFs, EF-3.1-style method scaffold,
-  an open background-factor seed, and `apply_lcia` / CSV loaders.
+- **Multi-category method + background** — `data/lcia.py`: AR6 GWP100 plus an EF-3.1-style
+  multi-category seed (`ef31`: GWP + acidification AP + marine eutrophication + particulate
+  matter PM + photochemical ozone POCP) and a multi-gas open background-factor set, with
+  `apply_lcia` / CSV loaders for swapping in a full published table.
+- **Foreground/background split** — the simulate inventory reports `lca.by_origin`
+  ({foreground, background, background_share} per impact): `by_stage` is the on-site direct
+  inventory, `summary.impacts` also folds the cradle-to-gate `commodity_impacts`, so the
+  remainder is background. `_impact_factors` reads both `io` role=impact and `tech_impacts`.
+- **Steel LCIA example** — `examples/steel_lcia.sqlite` (backend=simulate): a cradle-to-gate
+  steel chain (mining + coking → BF + BOF → 1 t steel) with multi-gas foreground, background
+  on purchased carriers/materials, EF-3.1 characterisation, phase tags, and a green H2-DRI+EAF
+  variant. green_steel + steel backfilled with multi-category reporting (steel also with
+  raw-material background; green_steel foreground-only to protect its optimisation narrative).
 - **Frontend** — `FrontierSetup` cockpit + `FrontierResult` chart, a "Minimise impact"
-  objective in `TargetsTabView`, `by_phase`/`uncertainty` cards in `LcaResult`, an
-  uncertainty toggle in `SimulateSetup`, and the `frontier` backend in the method picker.
+  objective in `TargetsTabView`, `by_phase`/`by_origin`/`uncertainty` cards in `LcaResult`, an
+  uncertainty toggle in `SimulateSetup`, the `frontier` backend in the method picker, and an
+  example's declared `backend` is now applied on load.
 
 > **Frontier on green_steel — fixed.** An earlier note here blamed a flat green_steel
 > frontier on "background/traded CO₂ outside the constrained inventory." That diagnosis was
@@ -78,17 +90,16 @@ characterisation step on top.**
    frontend). A `characterisation` sheet `(flow_impact_id, category_id, factor)` makes each
    category a *derived impact* (`emit[category] = Σ_flow CF·emit[flow]`); pricing / caps /
    ETS / the simulate inventory all treat it like any other impact (verified:
-   `tests/backends/test_characterisation.py`). **Still to do:** ship a *complete* method
-   factor set (EF 3.1 / ReCiPe — `data/lcia.py` has the AR6 GWP100 table + an EF-3.1
-   scaffold) and author the foreground elementary-flow `io` rows the method needs.
-2. **Background / upstream factors for purchased flows.** ⚠️ **PARTIAL** — the
-   `commodity_impacts` mechanism + an open background **seed** exist (`data/lcia.py::
-   BACKGROUND_SEED`, `load_background_csv`), but the bundled example models don't yet carry
-   a real background dataset, so the inventory is truncated at the **upstream** boundary
-   (e.g. grid electricity, ore, transport bought from outside the model carry no impact).
-   This is a *completeness* gap, distinct from the cap-injection bug above — green_steel's
-   *foreground* CO₂ is modelled and now caps correctly. **Still to do:** import a full open
-   dataset (USEEIO / EXIOBASE / IEA) into the example models.
+   `tests/backends/test_characterisation.py`). A representative multi-category **EF-3.1 seed**
+   (`ef31`) now ships and is wired into `steel_lcia` + the backfilled steel/green_steel
+   examples. **Still to do:** swap in the *complete* certified JRC EF 3.1 / ReCiPe CF table
+   (via `load_method_csv`) for a certified study.
+2. **Background / upstream factors for purchased flows.** ✅ **SHIPPED (representative)** — a
+   multi-gas open background set (`data/lcia.py::BACKGROUND_SEED`) is wired into `steel_lcia`
+   (purchased electricity/gas/coal/limestone) and the steel example (raw materials), and the
+   simulate inventory now splits foreground vs background (`lca.by_origin`). **Still to do:**
+   import a *full* open dataset (USEEIO / EXIOBASE / IEA) for production-grade coverage; the
+   `load_background_csv` importer is the entry point.
 3. **Allocation rules for co-products & recycling.** Default chosen = **cut-off**; declare
    system-expansion / avoided-burden (and mass vs economic) as an option. Changes the
    recycling-loop and co-product numbers, so decide alongside #2.
