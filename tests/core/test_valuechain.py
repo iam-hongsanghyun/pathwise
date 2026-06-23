@@ -322,17 +322,15 @@ def test_topological_order_is_upstream_first() -> None:
 
 
 def test_shipped_asset_loads_runs_and_couples() -> None:
-    import json
     from pathlib import Path
 
+    from pathwise.api.workbook_io import parse_sqlite
     from pathwise.config import get_settings
     from pathwise.data.valuechain import load_value_chain
 
     vdir = Path(get_settings().value_chains_dir)
     spec = load_value_chain(vdir / "elec_steel.json")
-    workbooks = {
-        s.id: json.loads((vdir / s.model).read_text(encoding="utf-8")) for s in spec.stages
-    }
+    workbooks = {s.id: parse_sqlite((vdir / s.model).read_bytes()) for s in spec.stages}
     res = run_value_chain(spec, workbooks, SC)
 
     assert res["status"] == "optimal"

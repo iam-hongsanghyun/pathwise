@@ -5,14 +5,14 @@
     {
       "id": "electricity",
       "label": "Electricity (KR)",
-      "model": "models/electricity.json",
+      "model": "models/electricity.sqlite",
       "region": "KR",
       "sector": "electricity"
     },
     {
       "id": "steel",
       "label": "Steel (KR)",
-      "model": "models/steel.json",
+      "model": "models/steel.sqlite",
       "region": "KR",
       "sector": "steel"
     }

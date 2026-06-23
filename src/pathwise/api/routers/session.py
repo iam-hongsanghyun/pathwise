@@ -283,8 +283,17 @@ def load_example(session_id: str, example_id: str) -> dict[str, Any]:
     lib_id = "".join(c for c in example_id if c.isalnum() or c in "-_.") or "scenario"
     shipped = entry.get("library")
     seeds = Path(get_settings().component_seeds_dir)
-    if shipped and (seeds / f"{shipped}.json").exists():
-        lib = load_component_library(seeds / f"{shipped}.json")  # faithful, shipped library
+    # Component seeds ship as SQLite (a legacy .json is still honoured).
+    seed_path = next(
+        (
+            seeds / f"{shipped}{suffix}"
+            for suffix in (".sqlite", ".db", ".json")
+            if shipped and (seeds / f"{shipped}{suffix}").exists()
+        ),
+        None,
+    )
+    if seed_path is not None:
+        lib = load_component_library(seed_path)  # faithful, shipped library
         if not lib.label:
             lib.label = str(entry.get("label") or example_id)
     else:
@@ -380,7 +389,11 @@ def run_chain(name: str, body: ValueChainRun | None = None) -> dict[str, Any]:
             raise HTTPException(
                 status_code=404, detail=f"stage '{stage.id}' model '{stage.model}' not found"
             )
-        workbooks[stage.id] = json.loads(wb_path.read_text(encoding="utf-8"))
+        workbooks[stage.id] = (
+            parse_sqlite(wb_path.read_bytes())
+            if wb_path.suffix in (".sqlite", ".db")
+            else json.loads(wb_path.read_text(encoding="utf-8"))
+        )
     # No scenario ⇒ plain defaults; base_year defers to each stage workbook's
     # first period (don't silently pin a hardcoded calendar year).
     overrides = (body.scenario if body else None) or {}
