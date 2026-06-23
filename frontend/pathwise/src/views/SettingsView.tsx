@@ -69,6 +69,7 @@ export function SettingsView({
   ];
   const backends = config?.backends ?? [{ name: "linopy", label: "linopy + HiGHS" }];
   const isPortfolio = backend === "portfolio";
+  const isSimulate = backend === "simulate";
   const set = (patch: Partial<PortfolioConfig>) => onPortfolio({ ...portfolio, ...patch });
   const byTarget = portfolio.target_return != null;
 
@@ -170,11 +171,20 @@ export function SettingsView({
                 <SearchSelect value={backend} onChange={onBackend}
                   options={backends.map((b) => ({ value: b.name, label: b.label }))} />
               </label>
-              {!isPortfolio ? (
+              {isSimulate ? (
+                <p className="muted">
+                  <strong>Scenario simulator (LCA what-if)</strong> doesn't optimise — it pins the
+                  current configuration and <em>evaluates</em> it, reporting lifecycle emissions by
+                  value-chain stage, cost, and policy sensitivity. Define the baseline, variants
+                  (e.g. switch to green steel) and an optional carbon-price sweep in the{" "}
+                  <strong>Optimisation</strong> tab, then ▶ Run to compare A vs B.
+                </p>
+              ) : !isPortfolio ? (
                 <p className="muted">
                   <strong>linopy + HiGHS</strong> solves the deterministic least-cost transition
                   plan (one technology per facility per period). Pick <strong>Portfolio</strong> to
-                  instead allocate transition capital across candidate switches by risk vs reward.
+                  instead allocate transition capital across candidate switches by risk vs reward,
+                  or <strong>Scenario simulator</strong> for a fixed-configuration LCA what-if.
                 </p>
               ) : (
                 <>

@@ -157,12 +157,22 @@ An `override` is a small, typed workbook edit, e.g.
 
 ## 8. Phasing
 
-| Phase | Scope |
-|---|---|
-| **P1** | `SimulationBackend` registered; evaluate the **baseline (as-is) configuration**; return the per-stage LCA inventory + cost incl. carbon cost; tests. |
-| **P2** | Variants + **A vs B comparison**: abatement (tCO₂), cost delta, $/tCO₂, break-even carbon price. |
-| **P3** | **Policy sweep** (parametric carbon price / cap) + cap-compliance; optional **use-phase** process for full cradle-to-grave. |
-| **P4** | Frontend: a comparison view (side-by-side per-stage LCA bars; policy-sensitivity curve), driven by the existing method picker. |
+| Phase | Scope | Status |
+|---|---|---|
+| **P1** | `SimulationBackend` registered; evaluate the **baseline (as-is) configuration**; return the per-stage LCA inventory + cost incl. carbon cost; tests. | ✅ shipped (#111) |
+| **P2** | Variants + **A vs B comparison**: abatement, cost delta, $/impact-unit, break-even carbon price. Override ops `set_machine_tech` · `set_price` · `set_carbon_price` · `toggle_measure`. | ✅ shipped |
+| **P3** | **Policy sweep** (parametric carbon price) + **cap-compliance** vs `impact_caps`; **use-phase** is an ordinary authored process (no engine change), reported as its own stage. | ✅ shipped |
+| **P4** | Frontend: an LCA results view (per-stage bars, by-impact, A-vs-B comparison, policy-sensitivity curve, cap compliance) + a simulate setup screen (baseline · variants · sweep), driven by the existing method picker. | ✅ shipped |
+
+**Use-phase authoring convention** (P3 decision: *a real `Use` process in the
+model*). To extend a model from cradle-to-gate to cradle-to-grave, add a `Use`
+stage like any other: a company node + machine whose technology **consumes the
+product** (e.g. one car) and **emits** the in-use impact (fuel / grid CO₂ over the
+asset's life), with demand placed on the use-stage output (the service, e.g.
+`mobility`). It then appears in `by_stage` automatically — see
+`tests/backends/test_simulation_backend.py::test_use_phase_process_is_a_lifecycle_stage`.
+The model must supply the per-product use-phase emission factor; the engine does
+not invent it.
 
 ## 9. Open questions (for review)
 

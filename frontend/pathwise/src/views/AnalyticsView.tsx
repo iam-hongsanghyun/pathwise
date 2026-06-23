@@ -2,6 +2,7 @@ import { useState } from "react";
 import { LineChart } from "../features/charts/LineChart";
 import { MaccDesigner } from "../features/macc/MaccDesigner";
 import { MaccResult } from "../features/charts/MaccResult";
+import { LcaResult } from "../features/charts/LcaResult";
 import { PortfolioResult } from "../features/charts/PortfolioResult";
 import { TopologyCanvas } from "../features/topology/TopologyCanvas";
 import { HierarchyMap } from "../features/topology/HierarchyMap";
@@ -64,6 +65,28 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
         <main className="main-area">
           <AnalyticsHead title="Portfolio" />
           <PortfolioResult portfolio={pf} />
+        </main>
+      </div>
+    );
+  }
+
+  // A simulate (LCA what-if) result carries an `lca` block (+ optional variant
+  // comparison / policy sweep / cap compliance); show the dedicated LCA view.
+  const lca = result?.outputs.lca;
+  if (lca) {
+    return (
+      <div className="body-row">
+        <RailList
+          title="Analytics"
+          items={[{ id: "lca", label: "LCA" }]}
+          activeId="lca"
+          onSelect={() => undefined}
+          width={leftW}
+        />
+        <Resizer width={leftW} setWidth={setLeftW} side="left" />
+        <main className="main-area">
+          <AnalyticsHead title="Lifecycle assessment" />
+          <LcaResult result={result} />
         </main>
       </div>
     );

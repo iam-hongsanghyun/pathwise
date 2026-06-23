@@ -16,6 +16,7 @@ import { FacilityView } from "./views/FacilityView";
 import { ProjectView } from "./views/ProjectView";
 import { SettingsView } from "./views/SettingsView";
 import { TargetsTabView } from "./views/TargetsTabView";
+import { SimulateSetup } from "./features/simulate/SimulateSetup";
 import { ValueChainTabView } from "./views/ValueChainTabView";
 import type { ConfigBundle, PortfolioConfig, RunResult, Workbook } from "./types";
 
@@ -270,15 +271,25 @@ export function App() {
             adoptServerModel={adoptServerModel}
           />
         )}
-        {view === "targets" && (
-          <TargetsTabView
-            workbook={workbook}
-            setWorkbook={updateWorkbook}
-            onRun={runOptimisation}
-            running={running}
-            canRun={!!sessionId}
-          />
-        )}
+        {view === "targets" &&
+          (backend === "simulate" ? (
+            // The simulate method needs a fixed configuration + interventions to
+            // evaluate, not optimisation targets — so it gets its own cockpit.
+            <SimulateSetup
+              workbook={workbook}
+              onRun={runOptimisation}
+              running={running}
+              canRun={!!sessionId}
+            />
+          ) : (
+            <TargetsTabView
+              workbook={workbook}
+              setWorkbook={updateWorkbook}
+              onRun={runOptimisation}
+              running={running}
+              canRun={!!sessionId}
+            />
+          ))}
         {view === "analytics" && (
           <AnalyticsView workbook={workbook} result={result} leftW={leftW} setLeftW={setLeftW} />
         )}

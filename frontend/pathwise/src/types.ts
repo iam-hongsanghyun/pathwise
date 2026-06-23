@@ -68,6 +68,11 @@ export interface RunResult {
     demand_slack: { key: string; value: number }[];
     portfolio?: PortfolioResultBlock;
     macc?: MaccResultBlock;
+    lca?: LcaBlock;
+    variants?: VariantBlock[];
+    comparison?: ComparisonRow[];
+    policy_sweep?: PolicySweepRow[];
+    cap_compliance?: CapComplianceRow[];
   };
   summary: {
     periods: { period: number; cost?: number }[];
@@ -149,6 +154,51 @@ export interface MaccResultBlock {
   by_year: MaccYear[];
   options: { option_id: string; label: string; deployed: number }[];
   cumulative_capex: number;
+}
+
+// ── Simulate backend (LCA what-if) ────────────────────────────────────────────
+
+/** A lifecycle inventory: emissions by stage / by impact, normalised per
+ *  functional unit, plus the configuration's cost (incl. its carbon cost). */
+export interface LcaBlock {
+  functional_unit: { commodity: string | null; amount: number };
+  by_impact: { impact: string; total: number; per_unit: number }[];
+  by_stage: { stage: string; impact: string; total: number; per_unit: number }[];
+  cost: { total: number; carbon: number; per_unit: number };
+}
+
+/** One evaluated variant (baseline + overrides). `lca` is null if it failed. */
+export interface VariantBlock {
+  label: string;
+  status: string;
+  lca: LcaBlock | null;
+}
+
+/** Baseline-vs-variant diff: abatement, ex-carbon cost delta, $/impact-unit, and
+ *  the carbon price at which the variant overtakes the baseline. */
+export interface ComparisonRow {
+  label: string;
+  status: string;
+  impact?: string;
+  abatement?: number;
+  cost_delta?: number;
+  abatement_cost_per_unit?: number | null;
+  breakeven_carbon_price?: number | null;
+}
+
+/** One carbon-price point of the policy sweep: every config's cost & emissions. */
+export interface PolicySweepRow {
+  carbon_price: number;
+  impact: string;
+  variants: { label: string; cost: number | null; emissions: number | null }[];
+}
+
+/** A configuration's per-year emissions vs the impact caps. */
+export interface CapComplianceRow {
+  label: string;
+  status: string;
+  compliant?: boolean;
+  by_year?: { impact: string; year: number; emissions: number; cap: number; over: number }[];
 }
 
 export interface JobState {
