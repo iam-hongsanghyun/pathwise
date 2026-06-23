@@ -22,4 +22,10 @@ def test_config_handshake() -> None:
     assert body["schemaVersion"] == "1.0"
     assert body["server"]["solver"] == "highs"
     assert {d["name"] for d in body["domains"]} == {"process"}
-    assert {b["name"] for b in body["backends"]} == {"linopy", "portfolio", "macc", "simulate"}
+    assert {b["name"] for b in body["backends"]} == {
+        "linopy",
+        "portfolio",
+        "macc",
+        "simulate",
+        "frontier",
+    }
