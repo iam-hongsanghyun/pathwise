@@ -17,6 +17,8 @@ interface Props {
   setWorkbook: (wb: Workbook) => void;
   adoptServerModel: (wb: Workbook) => void;
   setError: (e: string | null) => void;
+  /** Switch the run method (e.g. an example that declares `backend: "simulate"`). */
+  onBackend?: (backend: string) => void;
 }
 
 const projectName = (wb: Workbook): string => {
@@ -24,7 +26,14 @@ const projectName = (wb: Workbook): string => {
   return v == null ? "" : String(v);
 };
 
-export function ProjectView({ sessionId, workbook, setWorkbook, adoptServerModel, setError }: Props) {
+export function ProjectView({
+  sessionId,
+  workbook,
+  setWorkbook,
+  adoptServerModel,
+  setError,
+  onBackend,
+}: Props) {
   const { confirm, node: dialogNode } = useDialogs();
   const fileRef = useRef<HTMLInputElement>(null);
   const [projLibs, setProjLibs] = useState<LibrarySummary[]>([]);
@@ -113,6 +122,9 @@ export function ProjectView({ sessionId, workbook, setWorkbook, adoptServerModel
     try {
       const model = await loadExample(sessionId, exampleId);
       adoptServerModel(model);
+      // Honour the example's declared run method (e.g. steel_lcia → simulate,
+      // petrochemical → macc) so it opens ready to run as intended.
+      if (ex?.backend) onBackend?.(ex.backend);
     } catch (e) {
       setError(String(e));
     } finally {

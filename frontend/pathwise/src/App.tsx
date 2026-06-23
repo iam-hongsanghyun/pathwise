@@ -251,6 +251,7 @@ export function App() {
             setWorkbook={updateWorkbook}
             adoptServerModel={adoptServerModel}
             setError={setError}
+            onBackend={setBackend}
           />
         )}
         {view === "component" && (
