@@ -1,5 +1,12 @@
 [
   {
+    "id": "steel_lcia",
+    "label": "Steel LCIA — cradle-to-gate (multi-impact)",
+    "file": "steel_lcia.sqlite",
+    "backend": "simulate",
+    "description": "A focused steel value chain for life-cycle impact assessment (LCIA), run under the Scenario simulator. Mining + coking (materials phase) feed a blast furnace + basic-oxygen furnace (manufacturing phase) to make 1 t of steel. Each process carries multi-gas FOREGROUND emissions (CO2, CH4, N2O, SO2, NOx, PM2.5); the purchased carriers (grid electricity, natural gas, coal, limestone) carry BACKGROUND cradle-to-gate factors, so the inventory spans cradle-to-gate and splits foreground vs background. An EF-3.1-style characterisation rolls the flows up into five impact categories — GWP, acidification (AP), marine eutrophication, particulate matter and photochemical ozone — reported per functional unit and by lifecycle phase. A green what-if variant (H2 direct reduction + electric-arc furnace) is compared against the blast-furnace baseline."
+  },
+  {
     "id": "green_steel_chain",
     "label": "Green steel — AU/Qatar → Korea (cross-border)",
     "file": "green_steel_chain.sqlite",

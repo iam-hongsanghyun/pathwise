@@ -27,21 +27,68 @@ from pathwise.data.workbook import Workbook
 #: fossil value is ~29.8. Authoritative, widely-cited — safe to bundle.
 GWP100_AR6: dict[str, float] = {"CO2": 1.0, "CH4": 27.0, "N2O": 273.0}
 
-#: Bundled methods: ``method_id -> {category_id -> {flow_impact_id -> factor}}``.
-#: Only GWP100 is shipped with real values; a full method (EF 3.1 / ReCiPe) is
-#: imported from its published CF table via :func:`load_method_csv`.
-METHODS: dict[str, dict[str, dict[str, float]]] = {
-    "ipcc_gwp100": {"GWP": GWP100_AR6},
+#: Acidification — EF 3.1 "Accumulated Exceedance" [mol H⁺ eq / kg flow].
+#: Representative midpoint CFs (JRC EF 3.1); replace with the official table via
+#: :func:`load_method_csv` for a certified study.
+ACIDIFICATION_EF31: dict[str, float] = {"SO2": 1.31, "NOx": 0.74, "NH3": 3.02}
+
+#: Eutrophication, freshwater — EF 3.1 [kg P eq / kg flow] (P-limited waters).
+EUTROPHICATION_FW_EF31: dict[str, float] = {"P": 1.0, "PO4": 0.33}
+
+#: Eutrophication, marine — EF 3.1 [kg N eq / kg flow] (N content of the species).
+EUTROPHICATION_MARINE_EF31: dict[str, float] = {"NOx": 0.30, "NH3": 0.82, "N": 1.0}
+
+#: Particulate-matter formation — EF 3.1 [disease incidence / kg flow]. Tiny
+#: absolute magnitudes (a health endpoint), so this category lives on a different
+#: scale from the others — expected, each category is independent.
+PARTICULATE_EF31: dict[str, float] = {
+    "PM25": 6.30e-4,
+    "SO2": 2.90e-5,
+    "NOx": 1.10e-5,
+    "NH3": 2.70e-5,
 }
 
-#: Representative cradle-to-gate CO₂ factors for common purchased carriers — a
-#: *seed* for demos, NOT a substitute for a real background dataset. Keyed by a
-#: generic commodity id (rename to the model's ids, or import a real dataset).
+#: Photochemical ozone formation — EF 3.1 [kg NMVOC eq / kg flow].
+PHOTOCHEM_EF31: dict[str, float] = {"NMVOC": 1.0, "NOx": 1.22, "SO2": 0.0857}
+
+#: Bundled methods: ``method_id -> {category_id -> {flow_impact_id -> factor}}``.
+#: ``ipcc_gwp100`` is GWP only; ``ef31`` is a representative multi-category EF 3.1
+#: seed (GWP + acidification + eutrophication + PM + photochemical ozone). For a
+#: certified study, import the full published CF table via :func:`load_method_csv`.
+METHODS: dict[str, dict[str, dict[str, float]]] = {
+    "ipcc_gwp100": {"GWP": GWP100_AR6},
+    "ef31": {
+        "GWP": GWP100_AR6,
+        "AP": ACIDIFICATION_EF31,
+        "EP_freshwater": EUTROPHICATION_FW_EF31,
+        "EP_marine": EUTROPHICATION_MARINE_EF31,
+        "PM": PARTICULATE_EF31,
+        "POCP": PHOTOCHEM_EF31,
+    },
+}
+
+#: Representative cradle-to-gate background factors for common purchased carriers
+#: and materials — a *seed* for demos, NOT a substitute for a real LCI database.
+#: Each inner map is ``{elementary_flow: factor per unit of the commodity}``; the
+#: flows feed the same characterisation CFs above, so background burdens land in
+#: every category. Sources: IEA/IPCC energy factors + ecoinvent-order-of-magnitude
+#: process emissions. Keyed by a generic commodity id and a generic unit (noted
+#: per row) — rename / rescale to the model's ids, or import a real dataset via
+#: :func:`load_background_csv`.
 BACKGROUND_SEED: dict[str, dict[str, float]] = {
-    "electricity": {"CO2": 0.40},  # kg CO₂ / kWh, world-average grid (order-of-magnitude)
-    "natural_gas": {"CO2": 0.20},  # kg CO₂ / kWh (combustion + upstream)
-    "coal": {"CO2": 0.34},
-    "diesel": {"CO2": 0.27},
+    # per kWh electricity (world-average grid)
+    "electricity": {"CO2": 0.40, "CH4": 7.0e-4, "SO2": 9.0e-4, "NOx": 7.0e-4, "PM25": 4.0e-5},
+    # per kWh of fuel (combustion + upstream)
+    "natural_gas": {"CO2": 0.20, "CH4": 4.0e-4, "NOx": 1.5e-4},
+    "coal": {"CO2": 0.34, "CH4": 1.2e-3, "SO2": 1.1e-3, "NOx": 8.0e-4, "PM25": 6.0e-5},
+    "diesel": {"CO2": 0.27, "SO2": 2.0e-4, "NOx": 1.3e-3, "PM25": 5.0e-5},
+    # per kg material (cradle-to-gate)
+    "iron_ore": {"CO2": 0.03, "SO2": 6.0e-5, "NOx": 1.0e-4, "PM25": 8.0e-5},
+    "scrap": {"CO2": 0.02, "NOx": 4.0e-5},
+    "limestone": {"CO2": 0.02, "PM25": 3.0e-5},
+    "coke": {"CO2": 0.45, "SO2": 1.5e-3, "NOx": 9.0e-4, "CH4": 1.0e-3},
+    # per tonne-km road freight
+    "transport": {"CO2": 0.10, "NOx": 6.0e-4, "PM25": 2.0e-5},
 }
 
 

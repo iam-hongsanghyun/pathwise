@@ -36,6 +36,10 @@ export function LcaResult({ result }: { result: RunResult }) {
   // Monte-Carlo factor-uncertainty band, present only when the scenario ran it.
   const uncertainty = lca.uncertainty ?? [];
 
+  // Foreground (on-site process) vs background (purchased / cradle-to-gate)
+  // contribution split, present when the model carries background factors.
+  const origin = (lca.by_origin ?? []).filter((d) => d.total > 1e-9);
+
   return (
     <div className="view">
       <div className="card">
@@ -91,6 +95,32 @@ export function LcaResult({ result }: { result: RunResult }) {
           <p className="muted" style={{ fontSize: ".74rem", marginTop: ".5rem" }}>
             Stages rolled up by their <code>phase</code> tag (materials · manufacturing · use ·
             end-of-life), the standard cradle-to-grave breakdown.
+          </p>
+        </div>
+      )}
+
+      {origin.length > 0 && (
+        <div className="card">
+          <h3>Foreground vs background contribution</h3>
+          <p className="muted" style={{ fontSize: ".78rem", marginTop: 0 }}>
+            <strong>Foreground</strong> = on-site process emissions; <strong>background</strong> =
+            cradle-to-gate burden of purchased carriers / materials (grid electricity, fuels, ore).
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: ".5rem" }}>
+            {origin.map((d) => (
+              <div key={d.impact} style={{ display: "grid", gridTemplateColumns: "110px 1fr 64px", gap: 8, alignItems: "center" }}>
+                <span style={{ fontSize: ".78rem" }} title={d.impact}>{d.impact}</span>
+                <div style={{ display: "flex", height: 14, borderRadius: 3, overflow: "hidden", background: "var(--border)" }} title={`foreground ${fmt(d.foreground)} · background ${fmt(d.background)}`}>
+                  <div style={{ width: `${(1 - d.background_share) * 100}%`, background: "#0f766e", height: 14 }} />
+                  <div style={{ width: `${d.background_share * 100}%`, background: "#f59e0b", height: 14 }} />
+                </div>
+                <span style={{ fontSize: ".74rem", textAlign: "right" }}>{(d.background_share * 100).toFixed(0)}% bg</span>
+              </div>
+            ))}
+          </div>
+          <p className="muted" style={{ fontSize: ".72rem", marginTop: ".5rem" }}>
+            <span style={{ color: "#0f766e" }}>■</span> foreground&nbsp;&nbsp;
+            <span style={{ color: "#f59e0b" }}>■</span> background — the % is the background share of each impact.
           </p>
         </div>
       )}

@@ -550,11 +550,23 @@ def _phase_map(model: Workbook) -> dict[str, str]:
 
 
 def _impact_factors(model: Workbook) -> dict[str, dict[str, float]]:
-    """``technology_id -> {impact: factor}`` from the static ``io`` impact rows.
+    """``technology_id -> {impact: factor}`` of FOREGROUND (on-site, direct) impacts.
+
+    Direct technology emissions live in two places the engine merges: the legacy
+    ``tech_impacts`` sheet and ``io`` rows with ``role=impact`` (the latter
+    augments/overrides the former — see :mod:`pathwise.data.assemble`). Both are
+    read here so the foreground inventory matches the engine; ``io`` wins on a clash.
 
     (Per-year ``io_t`` factors are ignored in the P1 decomposition; the engine's
     authoritative per-impact totals still come from ``summary.impacts``.)"""
     factors: dict[str, dict[str, float]] = {}
+    # Legacy tech_impacts first ...
+    for r in model.get("tech_impacts", []):
+        tech, imp = str(r.get("technology_id")), str(r.get("impact_id"))
+        coef = float(r.get("factor") or 0.0)
+        if tech and imp and coef:
+            factors.setdefault(tech, {})[imp] = coef
+    # ... then io role=impact overrides.
     for r in model.get("io", []):
         if str(r.get("role")) != "impact":
             continue
@@ -647,6 +659,20 @@ def _lifecycle_inventory(
         if ph:
             by_phase[(ph, imp)] = by_phase.get((ph, imp), 0.0) + v
 
+    # Foreground vs background split. ``by_stage`` is built from the on-site direct
+    # ``io`` impact factors only, so summing it per impact gives the FOREGROUND
+    # total; the engine's authoritative ``by_impact`` also folds the BACKGROUND
+    # (cradle-to-gate ``commodity_impacts`` on purchased carriers), so the remainder
+    # is the background burden. (Tiny negatives from float noise are clamped.)
+    foreground: dict[str, float] = {}
+    for (_stage, imp), v in by_stage.items():
+        foreground[imp] = foreground.get(imp, 0.0) + v
+    by_origin: dict[str, dict[str, float]] = {}
+    for imp, total in by_impact.items():
+        fg = foreground.get(imp, 0.0)
+        bg = max(0.0, total - fg)
+        by_origin[imp] = {"foreground": fg, "background": bg, "total": total}
+
     fu = _functional_unit(model, sim, result)
     unit = fu["amount"] or 1.0
     total_cost = sum(float(p["cost"]) for p in result["summary"]["periods"])
@@ -656,6 +682,17 @@ def _lifecycle_inventory(
         "functional_unit": fu,
         "by_impact": [
             {"impact": i, "total": t, "per_unit": t / unit} for i, t in sorted(by_impact.items())
+        ],
+        "by_origin": [
+            {
+                "impact": i,
+                "foreground": o["foreground"],
+                "background": o["background"],
+                "total": o["total"],
+                "background_share": (o["background"] / o["total"] if o["total"] else 0.0),
+            }
+            for i, o in sorted(by_origin.items())
+            if abs(o["total"]) > 1e-9
         ],
         "by_stage": [
             {"stage": s, "impact": i, "total": t, "per_unit": t / unit}

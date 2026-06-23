@@ -41,6 +41,61 @@ def test_background_rows_default_seed() -> None:
     assert {"commodity_id": "electricity", "impact_id": "CO2", "factor": 0.40} in rows
 
 
+def test_ef31_multi_category_method() -> None:
+    """The bundled EF-3.1 seed spans several categories, each with real flows."""
+    rows = characterisation_rows("ef31")
+    cats = {r["category_id"] for r in rows}
+    assert {"GWP", "AP", "EP_marine", "PM", "POCP"} <= cats
+    cf = {(r["flow_impact_id"], r["category_id"]): r["factor"] for r in rows}
+    assert cf[("CO2", "GWP")] == 1.0  # GWP carried over from AR6
+    assert cf[("SO2", "AP")] == pytest.approx(1.31)  # acidification, mol H+ eq
+    assert cf[("NOx", "EP_marine")] == pytest.approx(0.30)  # marine eutrophication, kg N eq
+
+
+def test_background_splits_foreground_vs_background() -> None:
+    """A purchased commodity carrying a background factor shows up as background,
+    distinct from the on-site (foreground) process emission."""
+    model = {
+        "periods": [{"year": 2025, "duration_years": 1}],
+        "commodities": [
+            {"commodity_id": "grid", "kind": "energy", "unit": "MWh", "price": 50},
+            {"commodity_id": "widget", "kind": "product", "unit": "ea"},
+        ],
+        "impacts": [{"impact_id": "CO2", "unit": "t"}, {"impact_id": "GWP", "unit": "tCO2e"}],
+        "characterisation": [{"flow_impact_id": "CO2", "category_id": "GWP", "factor": 1.0}],
+        # 1 MWh purchased grid per widget; grid carries 0.4 t CO2/MWh background.
+        "commodity_impacts": [{"commodity_id": "grid", "impact_id": "CO2", "factor": 0.4}],
+        "technologies": [{"technology_id": "Plant", "actions": "continue"}],
+        "nodes": [
+            {"node_id": "co", "kind": "group", "level": "company", "label": "Co"},
+            {"node_id": "co/p", "kind": "machine", "level": "machine", "parent_id": "co"},
+        ],
+        "machines": [{"machine_id": "co/p", "baseline_technology": "Plant", "capacity": 1000}],
+        "io": [
+            {"technology_id": "Plant", "target": "grid", "role": "input", "coefficient": 1.0},
+            {
+                "technology_id": "Plant",
+                "target": "widget",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": 1,
+            },
+            # foreground on-site CO2: 2 t/widget.
+            {"technology_id": "Plant", "target": "CO2", "role": "impact", "coefficient": 2.0},
+        ],
+        "demand": [{"company": "co", "commodity_id": "widget", "year": 2025, "amount": 100}],
+    }
+    lca = SimulationBackend().run(model, _SCENARIO)["outputs"]["lca"]
+    origin = {d["impact"]: d for d in lca["by_origin"]}
+    # 100 widgets ⇒ foreground 200 t CO2 (on-site), background 40 t CO2 (grid).
+    assert origin["CO2"]["foreground"] == pytest.approx(200.0)
+    assert origin["CO2"]["background"] == pytest.approx(40.0)
+    assert origin["CO2"]["total"] == pytest.approx(240.0)
+    assert origin["CO2"]["background_share"] == pytest.approx(40.0 / 240.0)
+    # GWP inherits the same split (CF=1 for CO2).
+    assert origin["GWP"]["background"] == pytest.approx(40.0)
+
+
 def test_apply_lcia_then_run_characterises() -> None:
     """A model with CO2+CH4 flows but no CFs → apply the GWP method → GWP appears."""
     model = {
