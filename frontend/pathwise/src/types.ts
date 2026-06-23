@@ -165,6 +165,7 @@ export interface LcaBlock {
   by_impact: { impact: string; total: number; per_unit: number }[];
   by_stage: { stage: string; impact: string; total: number; per_unit: number }[];
   by_phase?: { phase: string; impact: string; total: number; per_unit: number }[];
+  uncertainty?: { impact: string; mean: number; p5: number; p50: number; p95: number; std: number }[];
   cost: { total: number; carbon: number; per_unit: number; sunk?: number };
 }
 

@@ -94,3 +94,17 @@ def test_gwp_cap_compliance() -> None:
     assert row["cap"] == pytest.approx(300.0)
     assert row["over"] == pytest.approx(170.0)
     assert base["compliant"] is False
+
+
+def test_uncertainty_ranges() -> None:
+    """Monte-Carlo over factor uncertainty reports per-impact ranges (median ≈ point)."""
+    res = SimulationBackend().run(
+        _gwp_model(),
+        {**_SCENARIO, "simulate": {"uncertainty": {"sigma": 0.2, "n": 3000, "seed": 1}}},
+    )
+    unc = {d["impact"]: d for d in res["outputs"]["lca"]["uncertainty"]}
+    co2 = unc["CO2"]
+    assert co2["p5"] < co2["p50"] < co2["p95"]  # a genuine spread
+    assert co2["p50"] == pytest.approx(200.0, rel=0.1)  # single lognormal factor ⇒ median ≈ point
+    assert co2["std"] > 0
+    assert "GWP" in unc  # the characterised category gets a distribution too

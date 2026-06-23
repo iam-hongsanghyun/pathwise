@@ -45,6 +45,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
+
 from pathwise.backends.overrides import OverrideError, apply_overrides
 from pathwise.backends.variants import compile_variant, read_model_variants
 from pathwise.core.build import build
@@ -670,4 +672,67 @@ def _lifecycle_inventory(
             "carbon": carbon_cost,
             "per_unit": total_cost / unit,
         },
+        **({"uncertainty": _uncertainty(result, model, sim)} if sim.get("uncertainty") else {}),
     }
+
+
+def _uncertainty(
+    result: dict[str, Any], model: Workbook, sim: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """Monte-Carlo the inventory over **factor uncertainty**, reporting per-impact
+    ranges. Perturbing impact factors / CFs does NOT change the physical solve, so
+    each sample just recomputes the inventory from the fixed throughput — fast.
+
+    ``sim.uncertainty`` = ``{sigma, n, seed}``: each io impact factor and each
+    characterisation factor is multiplied by an independent ``LogNormal(0, sigma)``
+    draw. Reports ``{impact, mean, p5, p50, p95, std}`` (the LCA "with uncertainty"
+    view). Holds the system (and background factors) fixed in v1.
+    """
+    cfg = sim.get("uncertainty") or {}
+    sigma = float(cfg.get("sigma") or 0.1)
+    n = max(1, int(cfg.get("n") or 1000))
+    rng = np.random.default_rng(int(cfg.get("seed") or 42))
+
+    factors = _impact_factors(model)  # {tech: {impact: coef}}
+    throughput: dict[str, float] = {}
+    for row in result["outputs"].get("throughput", []):
+        throughput[str(row["technology"])] = throughput.get(str(row["technology"]), 0.0) + float(
+            row["value"]
+        )
+    char = [
+        (str(r.get("flow_impact_id")), str(r.get("category_id")), float(r["factor"]))
+        for r in model.get("characterisation", [])
+        if r.get("factor") is not None
+    ]
+
+    samples: dict[str, list[float]] = {}
+    for _ in range(n):
+        base: dict[str, float] = {}
+        for tech, imps in factors.items():
+            tv = throughput.get(tech, 0.0)
+            if tv == 0.0:
+                continue
+            for imp, coef in imps.items():
+                base[imp] = base.get(imp, 0.0) + tv * coef * rng.lognormal(0.0, sigma)
+        totals = dict(base)
+        for flow, cat, cf in char:
+            totals[cat] = totals.get(cat, 0.0) + base.get(flow, 0.0) * cf * rng.lognormal(
+                0.0, sigma
+            )
+        for imp, v in totals.items():
+            samples.setdefault(imp, []).append(v)
+
+    out: list[dict[str, Any]] = []
+    for imp, vals in sorted(samples.items()):
+        arr = np.array(vals)
+        out.append(
+            {
+                "impact": imp,
+                "mean": float(arr.mean()),
+                "p5": float(np.percentile(arr, 5)),
+                "p50": float(np.percentile(arr, 50)),
+                "p95": float(np.percentile(arr, 95)),
+                "std": float(arr.std()),
+            }
+        )
+    return out
