@@ -312,14 +312,6 @@ class Technology:
             return traj[year]
         return self.direct_impact.get(impact, 0.0)
 
-    def group_requirement(self, group: str) -> float:
-        """Total input requirement of a blend group [input unit / throughput].
-
-        The group's members reallocate within their share bounds while the sum
-        stays equal to this requirement — i.e. the baseline total intensity.
-        """
-        return sum(self.input_intensity.get(c, 0.0) for c in self.share_groups.get(group, {}))
-
     def group_requirement_at(self, group: str, year: int) -> float:
         """Blend-group requirement in ``year`` (uses year-varying intensities)."""
         return sum(self.input_intensity_at(c, year) for c in self.share_groups.get(group, {}))
@@ -327,14 +319,6 @@ class Technology:
     def grouped_outputs(self) -> set[str]:
         """Output commodities that belong to a slate (output share) group."""
         return {c for members in self.output_share_groups.values() for c in members}
-
-    def output_group_requirement(self, group: str) -> float:
-        """Total production of a slate group [output unit / throughput].
-
-        The slate's members reallocate within their share bounds while the sum
-        stays equal to this requirement — i.e. the baseline total yield.
-        """
-        return sum(self.output_yield.get(c, 0.0) for c in self.output_share_groups.get(group, {}))
 
     def output_group_requirement_at(self, group: str, year: int) -> float:
         """Slate-group requirement in ``year`` (uses year-varying yields)."""
