@@ -10,6 +10,7 @@ from pathwise.backends.macc_backend import MaccBackend
 from pathwise.backends.portfolio_backend import PortfolioBackend
 from pathwise.backends.simulation_backend import SimulationBackend
 from pathwise.data.workbook import Workbook
+from pathwise.progress import ProgressFn
 
 
 class Backend(Protocol):
@@ -21,7 +22,12 @@ class Backend(Protocol):
     def capabilities(self) -> dict[str, Any]: ...
 
     def run(
-        self, model: Workbook, scenario: dict[str, Any], options: dict[str, Any] | None = None
+        self,
+        model: Workbook,
+        scenario: dict[str, Any],
+        options: dict[str, Any] | None = None,
+        *,
+        progress: ProgressFn | None = None,
     ) -> dict[str, Any]: ...
 
 

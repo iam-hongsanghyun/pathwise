@@ -230,9 +230,17 @@ export interface FrontierBlock {
   points: { cap: number; cost?: number; impact?: number; status: string }[];
 }
 
+/** Live progress for a multi-solve run (frontier sweep, portfolio assets, …). */
+export interface RunProgress {
+  done: number;
+  total: number;
+  label?: string;
+}
+
 export interface JobState {
   jobId: string;
   status: "running" | "done" | "error" | "cancelled";
   result?: RunResult;
   error?: string;
+  progress?: RunProgress | null;
 }

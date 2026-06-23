@@ -8,6 +8,17 @@ async function json<T>(resp: Response): Promise<T> {
   return (await resp.json()) as T;
 }
 
+/** Human tick label for a polled job: a live "done / total runs (label)" while a
+ *  multi-solve backend reports progress, else the bare status. */
+function tickLabel(state: JobState): string {
+  const p = state.progress;
+  if (state.status === "running" && p && p.total > 0) {
+    const note = p.label ? ` · ${p.label}` : "";
+    return `${p.done} / ${p.total} runs${note}`;
+  }
+  return state.status;
+}
+
 export async function getConfig(): Promise<ConfigBundle> {
   return json<ConfigBundle>(await fetch("/api/config"));
 }
@@ -48,7 +59,7 @@ export async function runToCompletion(
     }
     const state = await json<JobState>(resp);
     unreachable = 0;
-    onTick?.(state.status);
+    onTick?.(tickLabel(state));
     if (state.status === "done" && state.result) return state.result;
     if (state.status === "error") throw new Error(state.error ?? "run failed");
     if (state.status === "cancelled") throw new Error("run cancelled");

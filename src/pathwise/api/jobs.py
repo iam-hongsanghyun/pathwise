@@ -12,10 +12,13 @@ from collections.abc import Callable
 from typing import Any
 
 from pathwise.logger import get_logger
+from pathwise.progress import ProgressFn
 
 logger = get_logger(__name__)
 
-Job = Callable[[dict[str, Any]], dict[str, Any]]
+#: A job body: ``fn(payload, report)`` where ``report`` is the progress callback
+#: it may call to publish completed / total counts as the run proceeds.
+Job = Callable[[dict[str, Any], ProgressFn], dict[str, Any]]
 
 #: Cap on retained jobs. Terminal (done/error/cancelled) jobs beyond this are
 #: evicted oldest-first on submit so a long-running server doesn't grow without
@@ -46,12 +49,21 @@ class JobStore:
         """Start ``fn(payload)`` on a background thread; return the job id."""
         job_id = uuid.uuid4().hex[:12]
         with self._lock:
-            self._jobs[job_id] = {"jobId": job_id, "status": "running", "result": None}
+            self._jobs[job_id] = {
+                "jobId": job_id,
+                "status": "running",
+                "result": None,
+                "progress": None,
+            }
             self._evict_locked()
+
+        def report(done: int, total: int, label: str = "") -> None:
+            """Publish a completed/total snapshot for this job (best-effort)."""
+            self._set(job_id, progress={"done": done, "total": total, "label": label})
 
         def _work() -> None:
             try:
-                result = fn(payload)
+                result = fn(payload, report)
                 self._set(job_id, status="done", result=result)
             except Exception as exc:
                 logger.exception("job %s failed", job_id)

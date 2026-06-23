@@ -33,6 +33,7 @@ from pathwise.api.session_store import SessionStore
 from pathwise.backends.registry import get_backend
 from pathwise.config import get_settings
 from pathwise.logger import get_logger
+from pathwise.progress import ProgressFn
 
 logger = get_logger(__name__)
 
@@ -50,8 +51,12 @@ app.include_router(units_router)
 _jobs = JobStore()
 
 
-def _solve(payload: dict[str, Any]) -> dict[str, Any]:
-    """Job body: resolve the model (session or inline) and run one case."""
+def _solve(payload: dict[str, Any], report: ProgressFn) -> dict[str, Any]:
+    """Job body: resolve the model (session or inline) and run one case.
+
+    ``report`` is the job's progress callback; multi-solve backends (frontier,
+    portfolio) call it so the client can poll live completed/total counts.
+    """
     options = payload.get("options") or {}
     model = payload.get("model") or {}
     session_id = payload.get("sessionId")
@@ -59,7 +64,7 @@ def _solve(payload: dict[str, Any]) -> dict[str, Any]:
         store = SessionStore(Path(get_settings().data_dir) / "sessions")
         model = store.get_model(session_id)
     backend = get_backend(options.get("backend"))
-    return backend.run(model, payload.get("scenario", {}), options)
+    return backend.run(model, payload.get("scenario", {}), options, progress=report)
 
 
 @app.get("/api/health")

@@ -17,6 +17,7 @@ from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.workbook import Workbook, default_impact
 from pathwise.domains.base import get_domain
 from pathwise.logger import get_logger
+from pathwise.progress import ProgressFn
 
 logger = get_logger(__name__)
 
@@ -41,6 +42,8 @@ class FrontierBackend:
         model: Workbook,
         scenario: dict[str, Any],
         options: dict[str, Any] | None = None,
+        *,
+        progress: ProgressFn | None = None,
     ) -> dict[str, Any]:
         """Sweep a cap on ``scenario.frontier.impact`` and record cost vs impact.
 
@@ -85,7 +88,8 @@ class FrontierBackend:
         run_scenario = {k: v for k, v in (scenario or {}).items() if k != "frontier"}
 
         points: list[dict[str, Any]] = []
-        for cap in caps:
+        n_caps = len(caps)
+        for i, cap in enumerate(caps):
             capped: Workbook = {
                 **model,
                 # A year-less HARD cap applies to every year, system-wide ("all").
@@ -97,13 +101,19 @@ class FrontierBackend:
             res = linopy.run(capped, run_scenario, options)
             if res.get("status") != "optimal":
                 points.append({"cap": cap, "status": res.get("status")})
-                continue
-            achieved = sum(
-                float(r["total"]) for r in res["summary"]["impacts"] if str(r["impact"]) == impact
-            )
-            points.append(
-                {"cap": cap, "cost": res["objective"], "impact": achieved, "status": "optimal"}
-            )
+            else:
+                achieved = sum(
+                    float(r["total"])
+                    for r in res["summary"]["impacts"]
+                    if str(r["impact"]) == impact
+                )
+                points.append(
+                    {"cap": cap, "cost": res["objective"], "impact": achieved, "status": "optimal"}
+                )
+            # One full least-cost solve per cap point: report live completed/total
+            # so the client can show "12 / 40 runs" as the sweep proceeds.
+            if progress is not None:
+                progress(i + 1, n_caps, f"{impact} cap {cap:g}")
 
         logger.info(
             "frontier: %d point(s) on %s, %d feasible",

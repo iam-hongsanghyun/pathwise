@@ -14,6 +14,7 @@ from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.workbook import Workbook
 from pathwise.domains.base import get_domain
 from pathwise.logger import get_logger
+from pathwise.progress import ProgressFn
 
 logger = get_logger(__name__)
 
@@ -45,8 +46,13 @@ class LinopyBackend:
         model: Workbook,
         scenario: dict[str, Any],
         options: dict[str, Any] | None = None,
+        *,
+        progress: ProgressFn | None = None,
     ) -> dict[str, Any]:
         """Validate, build, solve, and extract one case.
+
+        ``progress`` is unused (a single solve); accepted for backend-protocol
+        uniformity so the job dispatcher can pass it to every backend.
 
         Args:
             model: The in-memory workbook.

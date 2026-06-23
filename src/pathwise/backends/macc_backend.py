@@ -52,6 +52,7 @@ from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.workbook import Workbook
 from pathwise.domains.base import get_domain
 from pathwise.logger import get_logger
+from pathwise.progress import ProgressFn
 
 logger = get_logger(__name__)
 
@@ -85,8 +86,13 @@ class MaccBackend:
         model: Workbook,
         scenario: dict[str, Any],
         options: dict[str, Any] | None = None,
+        *,
+        progress: ProgressFn | None = None,
     ) -> dict[str, Any]:
         """Validate, assemble, and greedily deploy measures against the cap.
+
+        ``progress`` is accepted for backend-protocol uniformity (the greedy
+        pass is fast and reports no incremental progress).
 
         Args:
             model: The in-memory workbook (a value-chain model with measures + an

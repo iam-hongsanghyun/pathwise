@@ -49,6 +49,7 @@ import numpy.typing as npt
 from pathwise.core.portfolio import scenarios as sc
 from pathwise.core.portfolio.assets import Asset, Candidate
 from pathwise.core.problem import Problem
+from pathwise.progress import ProgressFn
 
 
 class RewardMode(StrEnum):
@@ -140,6 +141,7 @@ def returns_matrix(
     scenarios: sc.ScenarioSet,
     mode: RewardMode,
     normalize_by_capex: bool = True,
+    progress: ProgressFn | None = None,
 ) -> npt.NDArray[np.float64]:
     """Build the ``(n_scenarios × n_assets)`` reward matrix.
 
@@ -151,13 +153,16 @@ def returns_matrix(
         normalize_by_capex: If ``True`` divide each asset's reward by its total
             switch cost (return-on-capital); falls back to absolute currency for
             zero-capex assets.
+        progress: Optional callback invoked once per asset as its reward column is
+            built, with ``(done, len(assets), asset.label)`` for live UI counts.
 
     Returns:
         Float64 array ``R`` of shape ``(scenarios.n_scenarios, len(assets))``;
         column ``j`` is asset ``j``'s reward across scenarios.
     """
     n = scenarios.n_scenarios
-    matrix = np.zeros((n, len(assets)), dtype=np.float64)
+    n_assets = len(assets)
+    matrix = np.zeros((n, n_assets), dtype=np.float64)
     base_cache: dict[str, _CostBasis] = {}
     for j, asset in enumerate(assets):
         reward = np.zeros(n, dtype=np.float64)
@@ -168,4 +173,6 @@ def returns_matrix(
             if capex > 0.0:
                 reward = reward / capex
         matrix[:, j] = reward
+        if progress is not None:
+            progress(j + 1, n_assets, asset.label)
     return matrix

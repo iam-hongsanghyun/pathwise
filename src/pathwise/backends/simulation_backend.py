@@ -58,6 +58,7 @@ from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.workbook import Workbook, default_impact
 from pathwise.domains.base import get_domain
 from pathwise.logger import get_logger
+from pathwise.progress import ProgressFn
 
 logger = get_logger(__name__)
 
@@ -102,8 +103,13 @@ class SimulationBackend:
         model: Workbook,
         scenario: dict[str, Any],
         options: dict[str, Any] | None = None,
+        *,
+        progress: ProgressFn | None = None,
     ) -> dict[str, Any]:
         """Evaluate the configuration and fold a lifecycle inventory into the result.
+
+        ``progress`` is accepted for backend-protocol uniformity; this backend
+        reports no incremental progress.
 
         Args:
             model: The in-memory workbook.

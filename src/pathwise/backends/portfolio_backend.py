@@ -29,6 +29,7 @@ from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.workbook import Workbook
 from pathwise.domains.base import get_domain
 from pathwise.logger import get_logger
+from pathwise.progress import ProgressFn
 
 logger = get_logger(__name__)
 
@@ -67,6 +68,8 @@ class PortfolioBackend:
         model: Workbook,
         scenario: dict[str, Any],
         options: dict[str, Any] | None = None,
+        *,
+        progress: ProgressFn | None = None,
     ) -> dict[str, Any]:
         """Validate, assemble, sample, and allocate.
 
@@ -74,6 +77,8 @@ class PortfolioBackend:
             model: The in-memory workbook.
             scenario: The run definition (a :class:`ScenarioConfig` as a dict).
             options: ``domain`` override.
+            progress: Optional callback reporting completed/total counts as each
+                asset's reward column is built, then a final allocation step.
 
         Returns:
             pathwise's result dict with an ``outputs.portfolio`` block.
@@ -110,6 +115,7 @@ class PortfolioBackend:
             scenarios,
             RewardMode(pf.reward_mode),
             normalize_by_capex=pf.normalize_by_capex,
+            progress=progress,
         )
         asset_ids = [a.asset_id for a in assets]
         logger.info(
@@ -119,6 +125,9 @@ class PortfolioBackend:
             pf.method,
             pf.reward_mode,
         )
+        # Reward columns are all built; the last step is the allocation solve.
+        if progress is not None:
+            progress(len(assets), len(assets), f"optimising allocation ({pf.method})")
         solution = optimise(
             asset_ids,
             returns,
