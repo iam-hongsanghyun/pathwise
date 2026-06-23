@@ -30,14 +30,15 @@ evaluation so they cannot distort the inventory). The **use phase** needs no
 engine change — it is authored as an ordinary process and shows up as its own
 stage.
 
-Variants may be **model-resident** (the ``variants`` + ``variant_interventions``
-sheets, authored in the value chain) instead of passed in the run definition: a
-``tech`` intervention is a **forced timed switch** (the machine runs its baseline
-before ``forced_year`` and the target technology from it — pinned via
-``Problem.forced_switches``, which the optimiser ignores), booking the
-straight-line **sunk cost** of retiring the incumbent early; ``stream`` /
-``measure`` interventions reuse the override applier. See
-``docs/proposals/simulation-backend.md``.
+Variants are **model-resident** (the ``variants`` + ``variant_interventions``
+sheets, authored in the value chain) and compiled by
+:mod:`pathwise.backends.variants` — shared with the optimiser, which *forces* a
+selected variant. The simulator evaluates **every** variant against the baseline:
+a ``tech`` intervention is a **forced timed switch** (the machine runs its baseline
+before ``forced_year`` and the target technology from it, via
+``Problem.forced_switches``), booking the straight-line **sunk cost** of retiring
+the incumbent early; ``stream`` / ``measure`` interventions reuse the override
+applier. See ``docs/proposals/simulation-backend.md``.
 """
 
 from __future__ import annotations
@@ -45,6 +46,7 @@ from __future__ import annotations
 from typing import Any
 
 from pathwise.backends.overrides import OverrideError, apply_overrides
+from pathwise.backends.variants import compile_variant, read_model_variants
 from pathwise.core.build import build
 from pathwise.core.extract import empty_result, extract_results
 from pathwise.core.run import run_model
@@ -142,7 +144,7 @@ class SimulationBackend:
         # model-resident variants authored in the value chain (variants +
         # variant_interventions sheets). Each = baseline + overrides (+ forced
         # timed tech switches) → evaluate → diff.
-        variants = sim["variants"] if "variants" in sim else _model_variants(model)
+        variants = sim["variants"] if "variants" in sim else read_model_variants(model)
         try:
             evaluated = (
                 _evaluate_variants(model, variants, scenario, domain, report, sim)
@@ -240,8 +242,7 @@ def _evaluate_variants(
     out: list[dict[str, Any]] = []
     for i, v in enumerate(variants):
         label = str(v.get("label") or f"variant {i + 1}")
-        forced: dict[str, tuple[str, int]] = v.get("forced") or {}
-        vmodel = apply_overrides(_as_is(model), v.get("overrides") or [], source=model)
+        vmodel, forced = compile_variant(_as_is(model), v, source=model)
         res = _evaluate_forced(vmodel, scenario, domain, report, forced)
         status = res.get("status")
         if status != "optimal":
@@ -267,49 +268,6 @@ def _evaluate_variants(
             }
         )
     return out
-
-
-def _model_variants(model: Workbook) -> list[dict[str, Any]]:
-    """Compile the model-resident ``variants`` + ``variant_interventions`` sheets
-    into the evaluator's variant shape ``{label, overrides, forced}``.
-
-    A ``tech`` intervention becomes a forced timed switch (default year = the first
-    modelled year, i.e. a whole-horizon swap, when ``forced_year`` is blank); a
-    ``stream`` intervention a ``set_price`` override; a ``measure`` intervention a
-    ``toggle_measure`` override. Returns ``[]`` when the model defines no variants.
-    """
-    interventions = model.get("variant_interventions", [])
-    if not interventions:
-        return []
-    years = sorted(int(p["year"]) for p in model.get("periods", []) if p.get("year") is not None)
-    first_year = years[0] if years else 0
-    labels = {
-        str(v.get("variant_id")): str(v.get("label") or v.get("variant_id"))
-        for v in model.get("variants", [])
-    }
-
-    compiled: dict[str, dict[str, Any]] = {}
-    for r in interventions:
-        vid = str(r.get("variant_id") or "")
-        if not vid:
-            continue
-        slot = compiled.setdefault(vid, {"overrides": [], "forced": {}})
-        kind, target, value = str(r.get("kind") or ""), str(r.get("target") or ""), r.get("value")
-        year = int(r["forced_year"]) if r.get("forced_year") not in (None, "") else first_year
-        if kind == "tech" and target and value not in (None, ""):
-            slot["forced"][target] = (str(value), year)
-        elif kind == "stream" and target and value not in (None, ""):
-            ov = {"op": "set_price", "commodity": target, "price": float(value or 0.0)}
-            if r.get("forced_year") not in (None, ""):
-                ov["year"] = year
-            slot["overrides"].append(ov)
-        elif kind == "measure" and target:
-            on = str(value).strip().lower() not in ("0", "false", "off", "no", "")
-            slot["overrides"].append({"op": "toggle_measure", "measure": target, "on": on})
-    return [
-        {"label": labels.get(vid, vid), "overrides": s["overrides"], "forced": s["forced"]}
-        for vid, s in compiled.items()
-    ]
 
 
 def _sunk_cost(model: Workbook, forced: dict[str, tuple[str, int]]) -> float:

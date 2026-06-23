@@ -190,21 +190,28 @@ not invent it.
 
 ## 10. Model-resident variants & timed events (the value-chain what-if layer)
 
-> **Stage A shipped** (engine + data + backend). Decisions confirmed with the
-> user: optimise and simulate are *separate* (optimise uses facility
-> `available_from`/`available_to` and the solver chooses; it **ignores** variants
-> and forced years); the use phase is a real authored process; `toggle_measure`
-> means *available to the LP*. Sunk cost = **straight-line undepreciated**.
+> **Shipped.** Engine + data + simulate backend (#113), authoring + simulate UI
+> (#114), and **variants in both backends** (this PR). Decisions: use phase is a
+> real authored process; `toggle_measure` means *available to the LP*; sunk cost =
+> **straight-line undepreciated**.
+>
+> **Variants now drive BOTH backends** (revised from the original "optimise
+> ignores variants"): the **optimiser FORCES a selected variant** (pins its
+> changes via `scenario.variant`, optimises the rest); the **simulator compares**
+> the baseline against **every** variant. The shared compiler is
+> `backends/variants.py` (`read_model_variants` / `compile_variant`); both backends
+> set `Problem.forced_switches` through `core/run.py::run_model(forced_switches=…)`.
+> The alternative-technology picker is scoped to the machine's **existing
+> alternatives** (its transition targets — define one first).
 
 A **variant** is a named what-if defined IN the value chain (avoiding the
-"scenario" collision — a scenario is a whole imported model). It is stored in two
-simulate-only sheets the optimiser never reads:
+"scenario" collision — a scenario is a whole imported model), stored in two sheets:
 
 - `variants` — `variant_id, label, description?`;
 - `variant_interventions` — one row per timed edit:
   `variant_id, kind ∈ {tech|stream|measure}, target, value, forced_year`.
 
-The simulate backend compiles each variant and evaluates it:
+Each backend compiles each variant via `backends/variants.py`:
 
 - **`tech` → a forced timed switch.** `Problem.forced_switches[machine] =
   (to_tech, year)` pins the active technology — baseline before `year`, target

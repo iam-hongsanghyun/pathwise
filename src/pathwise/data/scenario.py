@@ -146,6 +146,11 @@ class ScenarioConfig(BaseModel):
     # the ``company_config`` sheet: ``cost`` (minimise discounted cost) or ``profit``
     # (maximise revenue − cost). The Optimisation tab's "goal" selector sets this.
     objective: str = Field(default="cost", pattern="^(cost|profit)$")
+    # Active model-resident variant (its ``variant_id``) to FORCE for an optimise
+    # run: the optimiser pins that variant's interventions (a forced transition,
+    # price/measure change) and optimises everything else. ``None`` ⇒ a plain
+    # free optimisation. The simulator ignores this (it compares every variant).
+    variant: str | None = None
     # Project-level unit-rate overrides, layered over the global ``units.yaml`` when
     # the model is assembled (the project beats the global rates). Same shape as
     # ``units.yaml``'s ``custom_units`` — either the list directly, or a dict

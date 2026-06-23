@@ -580,15 +580,11 @@ def test_sunk_cost_of_an_early_forced_switch() -> None:
     assert lca["cost"]["sunk"] == pytest.approx(5000.0)
 
 
-def test_optimise_ignores_variant_sheets() -> None:
-    """linopy must give the same answer whether or not variant sheets are present."""
-    base = _two_period_green()
-    scenario = {"economics": {"base_year": 2025, "discount_rate": 0.0}}
-    obj_plain = get_backend("linopy").run(base, scenario)["objective"]
-
-    tagged = _two_period_green()
-    tagged["variants"] = [{"variant_id": "g", "label": "g"}]
-    tagged["variant_interventions"] = [
+def _green_variant_model() -> dict:
+    """``_two_period_green`` + a variant forcing the mill to GreenSteelMaker in 2030."""
+    m = _two_period_green()
+    m["variants"] = [{"variant_id": "g", "label": "g"}]
+    m["variant_interventions"] = [
         {
             "variant_id": "g",
             "kind": "tech",
@@ -597,5 +593,41 @@ def test_optimise_ignores_variant_sheets() -> None:
             "forced_year": 2030,
         }
     ]
-    obj_tagged = get_backend("linopy").run(tagged, scenario)["objective"]
+    return m
+
+
+def test_optimise_ignores_unselected_variants() -> None:
+    """With NO variant selected, linopy is identical whether or not the sheets exist."""
+    scenario = {"economics": {"base_year": 2025, "discount_rate": 0.0}}
+    obj_plain = get_backend("linopy").run(_two_period_green(), scenario)["objective"]
+    obj_tagged = get_backend("linopy").run(_green_variant_model(), scenario)["objective"]
     assert obj_tagged == pytest.approx(obj_plain)
+
+
+def test_optimise_forces_a_selected_variant() -> None:
+    """Selecting a variant forces its transition in the optimise run (and costs more).
+
+    With no carbon price, free optimise keeps the (cheaper) baseline mill both
+    periods; forcing the green switch in 2030 must run GreenSteelMaker that year —
+    raising cost by its $5/t opex (100 t = $500).
+    """
+    model = _green_variant_model()
+    scenario = {"economics": {"base_year": 2025, "discount_rate": 0.0}}
+    free = get_backend("linopy").run(model, scenario)
+    forced = get_backend("linopy").run(model, {**scenario, "variant": "g"})
+    assert free["status"] == "optimal" and forced["status"] == "optimal"
+
+    # Free optimise never touches the green route; forcing it strictly costs more.
+    assert forced["objective"] == pytest.approx(free["objective"] + 500.0)
+    # The forced run actually runs GreenSteelMaker at the mill in 2030.
+    assert any(
+        t["technology"] == "GreenSteelMaker"
+        and t["process"] == "steelco/sm"
+        and t["period"] == 2030
+        for t in forced["outputs"]["technology"]
+    )
+    # 2025 still runs the baseline (timed switch, not a year-0 swap).
+    assert any(
+        t["technology"] == "SteelMaker" and t["process"] == "steelco/sm" and t["period"] == 2025
+        for t in forced["outputs"]["technology"]
+    )

@@ -134,6 +134,10 @@ export function TargetsTabView({
   // ── Objective (goal × scope) ────────────────────────────────────────────────
   const [goal, setGoal] = useState<"cost" | "profit">("cost");
   const [perCompany, setPerCompany] = useState(false);
+  // Optional forced variant (authored in the Value chain): the optimiser pins its
+  // changes and optimises the rest. "" = free optimisation.
+  const [variant, setVariant] = useState("");
+  const variants = useMemo(() => (workbook.variants ?? []) as Row[], [workbook]);
 
   // ── Constraints (unified) ───────────────────────────────────────────────────
   const rows = useMemo(() => gather(workbook), [workbook]);
@@ -165,6 +169,7 @@ export function TargetsTabView({
       optimisation_scope: perCompany ? "company" : "system",
       optimisation_mode: perCompany ? "independent" : "joint",
       objective: goal,
+      ...(variant ? { variant } : {}),
     });
   }
 
@@ -211,6 +216,21 @@ export function TargetsTabView({
                 />
               </div>
             </label>
+            {variants.length > 0 && (
+              <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>Force variant</span>
+                <div style={small}>
+                  <SearchSelect
+                    value={variant}
+                    onChange={setVariant}
+                    options={[
+                      { value: "", label: "None (free optimise)" },
+                      ...variants.map((v) => ({ value: s(v.variant_id), label: s(v.label) || s(v.variant_id) })),
+                    ]}
+                  />
+                </div>
+              </label>
+            )}
             <span className="muted" style={{ fontSize: "0.74rem" }}>
               horizon {baseYear}–{endYear}
             </span>

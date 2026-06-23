@@ -37,7 +37,6 @@ export function VariantsPanel({
   const machines = machineId
     ? [machineId, ...ids(workbook.machines, "machine_id").filter((m) => m !== machineId)]
     : ids(workbook.machines, "machine_id");
-  const techs = ids(workbook.technologies, "technology_id");
   const commodities = ids(workbook.commodities, "commodity_id");
   const measures = ids(workbook.measures, "measure_id");
   const years = (workbook.periods ?? [])
@@ -45,6 +44,23 @@ export function VariantsPanel({
     .filter(Number.isFinite)
     .sort((a, b) => a - b);
   const firstYear = years[0] ?? 2025;
+
+  // A tech intervention may only force an EXISTING alternative of the machine —
+  // the transition targets defined for its baseline (added via "Add alternative…"
+  // in the value chain / Facility first). Not the whole technology library.
+  const baselineOf = (m: string): string =>
+    s((workbook.machines ?? []).find((x) => s(x.machine_id) === m)?.baseline_technology);
+  const altsFor = (m: string): string[] => {
+    const base = baselineOf(m);
+    return [
+      ...new Set(
+        (workbook.transitions ?? [])
+          .filter((t) => s(t.from_technology) === base)
+          .map((t) => s(t.to_technology))
+          .filter(Boolean),
+      ),
+    ];
+  };
 
   const [active, setActive] = useState<string>(s(variants[0]?.variant_id));
   const live = active && variants.some((v) => s(v.variant_id) === active) ? active : s(variants[0]?.variant_id);
@@ -73,7 +89,7 @@ export function VariantsPanel({
         variant_id: live,
         kind: "tech",
         target: machineId ?? machines[0] ?? "",
-        value: techs[0] ?? "",
+        value: altsFor(machineId ?? machines[0] ?? "")[0] ?? "",
         forced_year: firstYear,
       },
     ]);
@@ -99,12 +115,28 @@ export function VariantsPanel({
           aria-label="price"
         />
       );
-    const opts = kind === "tech" ? techs : [{ value: "on" }, { value: "off" }].map((o) => o.value);
+    if (kind === "tech") {
+      const opts = altsFor(s(r.target));
+      if (opts.length === 0)
+        return (
+          <span className="muted" style={{ fontSize: ".72rem" }} title="Add an alternative to this machine in the value chain first">
+            add an alternative first
+          </span>
+        );
+      return (
+        <SearchSelect
+          value={s(r.value)}
+          onChange={(v) => patch(i, { value: v })}
+          options={opts.map((o) => ({ value: o }))}
+        />
+      );
+    }
+    // measure
     return (
       <SearchSelect
-        value={s(r.value) || (kind === "measure" ? "on" : "")}
+        value={s(r.value) || "on"}
         onChange={(v) => patch(i, { value: v })}
-        options={opts.map((o) => ({ value: o }))}
+        options={[{ value: "on" }, { value: "off" }]}
       />
     );
   };
@@ -159,16 +191,23 @@ export function VariantsPanel({
                   <td style={cell}>
                     <SearchSelect
                       value={s(r.kind) || "tech"}
-                      onChange={(v) =>
-                        patch(i, { kind: v, target: targetList(v)[0] ?? "", value: v === "stream" ? 0 : v === "measure" ? "on" : techs[0] ?? "" })
-                      }
+                      onChange={(v) => {
+                        const t = targetList(v)[0] ?? "";
+                        patch(i, {
+                          kind: v,
+                          target: t,
+                          value: v === "stream" ? 0 : v === "measure" ? "on" : (altsFor(t)[0] ?? ""),
+                        });
+                      }}
                       options={KIND_OPTS}
                     />
                   </td>
                   <td style={cell}>
                     <SearchSelect
                       value={s(r.target)}
-                      onChange={(v) => patch(i, { target: v })}
+                      onChange={(v) =>
+                        patch(i, s(r.kind) === "tech" ? { target: v, value: altsFor(v)[0] ?? "" } : { target: v })
+                      }
                       options={targetList(s(r.kind) || "tech").map((o) => ({ value: o }))}
                     />
                   </td>

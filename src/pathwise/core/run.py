@@ -29,6 +29,7 @@ def run_model(
     *,
     terminology: dict[str, str] | None = None,
     report: dict[str, list[str]] | None = None,
+    forced_switches: dict[str, tuple[str, int]] | None = None,
 ) -> dict[str, Any]:
     """Solve a model, jointly or partitioned at ``scenario.optimisation_scope``.
 
@@ -36,23 +37,33 @@ def run_model(
     result (``{"status", "stages", "couplings", ...}``) when partitioned.
     ``terminology`` / ``report`` are folded into the joint result (the cascade
     result carries its own per-stage shape).
+
+    ``forced_switches`` pins technology switches (``{machine: (to_tech, year)}`` —
+    a selected variant compiled by :mod:`pathwise.backends.variants`) on every
+    assembled :class:`Problem` before the build, so both the optimiser and the
+    simulator honour them. Applied to the direct-build paths (joint / subset /
+    independent — the only modes the run UIs use); the value-chain *cascade* path
+    does not yet thread them.
     """
     hierarchy = load_hierarchy(workbook)
     level = scenario.optimisation_scope
     targets = scenario.optimisation_targets or None
     opts = options_from_scenario(scenario)
+    forced = forced_switches or {}
+
+    def _solve(wb: Workbook) -> Any:
+        problem = assemble_problem(wb, scenario)
+        if forced:
+            problem.forced_switches = dict(forced)
+        return solve(build(problem), opts)
 
     # Whole-model joint solve (no hierarchy, or the root/system level).
     if hierarchy is None or level == "system":
-        return extract_results(
-            solve(build(assemble_problem(workbook, scenario)), opts), terminology, report
-        )
+        return extract_results(_solve(workbook), terminology, report)
 
     units = [c for c in hierarchy.nodes_at_level(level) if not targets or c in set(targets)]
     if not units:  # nothing matched → fall back to the whole model
-        return extract_results(
-            solve(build(assemble_problem(workbook, scenario)), opts), terminology, report
-        )
+        return extract_results(_solve(workbook), terminology, report)
 
     mode = scenario.optimisation_mode
 
@@ -60,9 +71,7 @@ def run_model(
     # subtrees solved together as one problem.
     if mode == "joint" or not is_partitionable(hierarchy, level, targets):
         sub = subset_workbook(workbook, hierarchy, units)
-        return extract_results(
-            solve(build(assemble_problem(sub, scenario)), opts), terminology, report
-        )
+        return extract_results(_solve(sub), terminology, report)
 
     # INDEPENDENT: each unit solved entirely on its own (no coupling; it trades
     # with the market). Reported in the same per-stage shape as the cascade.
@@ -70,12 +79,7 @@ def run_model(
         stages: dict[str, Any] = {}
         ok = True
         for u in units:
-            r = extract_results(
-                solve(
-                    build(assemble_problem(subset_workbook(workbook, hierarchy, [u]), scenario)),
-                    opts,
-                )
-            )
+            r = extract_results(_solve(subset_workbook(workbook, hierarchy, [u])))
             stages[u] = {"status": r["status"], "objective": r["objective"]}
             ok = ok and r["status"] == "optimal"
         return {

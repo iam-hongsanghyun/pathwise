@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from pathwise.backends.variants import compile_variant, find_variant
 from pathwise.config import get_settings
 from pathwise.core.build import build
 from pathwise.core.extract import empty_result, extract_results
@@ -66,15 +67,36 @@ class LinopyBackend:
             logger.warning("validation failed: %d error(s)", len(report.errors))
             return empty_result("invalid", domain.terminology(), report.as_dict())
 
+        # A selected variant is FORCED: pin its tech switch(es) and apply its
+        # price/measure overrides, then optimise everything else. No variant ⇒
+        # plain free optimisation (the variant sheets are ignored).
+        eval_model: Workbook = model
+        forced: dict[str, tuple[str, int]] = {}
+        if sc.variant:
+            chosen = find_variant(model, sc.variant)
+            if chosen is None:
+                logger.warning("variant %r not found in model — optimising freely", sc.variant)
+            else:
+                eval_model, forced = compile_variant(model, chosen)
+                logger.info("forcing variant %r: %d switch(es)", sc.variant, len(forced))
+
         # A node hierarchy is solved through the unified front door: a joint solve
         # at the root/``system`` level, or a per-level partitioned cascade
         # (``optimisation_scope`` = a designed level). Flat models keep the
         # direct build→solve path below.
-        if model.get("nodes"):
+        if eval_model.get("nodes"):
             logger.info("hierarchy model → run_model(scope=%s)", sc.optimisation_scope)
-            return run_model(model, sc, terminology=domain.terminology(), report=report.as_dict())
+            return run_model(
+                eval_model,
+                sc,
+                terminology=domain.terminology(),
+                report=report.as_dict(),
+                forced_switches=forced,
+            )
 
-        problem = domain.build_problem(model, sc)
+        problem = domain.build_problem(eval_model, sc)
+        if forced:
+            problem.forced_switches = forced
         ctx = build(problem)
         time_limit = min(sc.solver.time_limit_s, float(settings.max_solver_time_limit_s))
         # HiGHS log streams to the server terminal so the optimisation is visible;
