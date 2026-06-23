@@ -97,6 +97,10 @@ class Connection:
     min_flow: float | None = None
     max_flow_by_year: dict[int, float] = field(default_factory=dict)
     min_flow_by_year: dict[int, float] = field(default_factory=dict)
+    #: Optional per-unit transport physics carried onto the synthesized edge(s).
+    cost: float = 0.0
+    co2: float = 0.0
+    energy: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -345,6 +349,9 @@ def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
                     min_flow=_num(r.get("min_flow")),
                     max_flow_by_year=maxflow_t.get((f, t, c), {}),
                     min_flow_by_year=minflow_t.get((f, t, c), {}),
+                    cost=_num(r.get("freight_cost")) or 0.0,
+                    co2=_num(r.get("freight_co2")) or 0.0,
+                    energy=_num(r.get("freight_energy")) or 0.0,
                 )
             )
 

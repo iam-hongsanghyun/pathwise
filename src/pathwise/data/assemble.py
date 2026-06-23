@@ -354,6 +354,13 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
                     edge["min_flow"] = c.min_flow
                 if c.lag_years:
                     edge["lag_years"] = c.lag_years  # delivery lag (recycling / use-phase return)
+                # Per-unit transport physics, carried onto every fanned edge.
+                if c.cost:
+                    edge["freight_cost"] = c.cost
+                if c.co2:
+                    edge["freight_co2"] = c.co2
+                if c.energy:
+                    edge["freight_energy"] = c.energy
                 edges.append(edge)
                 # Carry per-year bounds (node-space → process-space): one edges_t
                 # row per year, the connection's series applied to every fanned edge.
@@ -840,6 +847,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 available_from=_int(r.get("available_from")),
                 available_to=_int(r.get("available_to")),
                 lag_years=_int(r.get("lag_years")) or 0,
+                cost=_num(r.get("freight_cost"), 0.0) or 0.0,
+                co2=_num(r.get("freight_co2"), 0.0) or 0.0,
+                energy=_num(r.get("freight_energy"), 0.0) or 0.0,
             )
         )
 

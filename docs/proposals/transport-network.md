@@ -54,6 +54,21 @@ So Layer 1 is: **give a transported edge a cost + an emission factor + a finite
 capacity that a fleet allocates** — and let the existing objective / impact / LCIA
 machinery carry it the rest of the way.
 
+## Edge-attribute path (also shipped) — opt-in freight per stream
+The lighter encoding (option A below) is now implemented: any `connections` /
+`edges` row may carry optional `freight_cost` [currency/unit], `freight_co2`
+[t CO₂/unit] and `freight_energy` [energy/unit] (`Edge.cost`/`co2`/`energy`).
+Freight cost + the carbon cost of freight CO₂ enter `_objective` (so a tagged
+stream's transport actually drives routing/sourcing); cost·CO₂·energy on each
+tagged flow are reported in `outputs.transport` and reconciled in the per-year
+cost. Untagged streams stay free — opt-in, "not everywhere". This is the right
+fit for *adding physical transport to an existing model's streams* without
+restructuring. (Folding freight CO₂ into the *characterised* LCA inventory and
+the hard impact caps is the next increment — it needs the per-edge emission to
+enter `ctx.emit`, which is process-indexed; today freight CO₂ is priced + reported
+but not capped/characterised.) Tests: `tests/core/test_freight.py` — freight cost
+picks the cheap route; a carbon price flips it to the low-CO₂ route.
+
 ## Two ways to model a leg — recommendation: **transport-as-process**
 There are two clean encodings; pick one and stay on it.
 

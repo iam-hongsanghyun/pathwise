@@ -1653,6 +1653,27 @@ def _objective(ctx: BuildContext) -> None:
 
     obj_terms: list[Any] = []
 
+    # ── Freight: w[t] * (cost_e + carbon_price[t]·co2_e) * flow[e,t] ─────────
+    # Optional per-edge transport physics (the spatial layer). Untagged edges have
+    # cost = co2 = 0, so they contribute nothing (today's free flow). Freight CO2 is
+    # priced at the "CO2" impact's carbon price when present; the emissions + energy
+    # are reported in outputs.transport. (Folding freight emissions into the
+    # characterised inventory + the hard impact caps is the next increment — they
+    # would need to enter ctx.emit, which is process-indexed.)
+    if ctx.flow is not None and any(e.cost or e.co2 for e in prob.edges):
+        co2_price = (
+            {t: prob.impacts["CO2"].price(t) for t in ctx.years} if "CO2" in prob.impacts else {}
+        )
+        freight_arr = np.array(
+            [[e.cost + e.co2 * co2_price.get(t, 0.0) for t in ctx.years] for e in prob.edges]
+        )
+        freight_da = xr.DataArray(
+            freight_arr,
+            coords={"edge": list(range(len(prob.edges))), "period": ctx.years},
+            dims=["edge", "period"],
+        )
+        obj_terms.append((w_da * freight_da * ctx.flow).sum(["edge", "period"]))
+
     # ── Variable opex: w[t] * opex[k,t] * x[p,k,t] ──────────────────────────
     if tog.opex:
         opex_arr = np.array([[prob.technologies[k].opex(t) for t in ctx.years] for k in ctx.techs])

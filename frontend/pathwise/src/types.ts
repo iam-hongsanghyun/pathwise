@@ -47,6 +47,16 @@ export interface RunResult {
       adoption: number;
     }[];
     flows: { from: string; to: string; commodity: string; period: number; value: number }[];
+    transport?: {
+      from: string;
+      to: string;
+      commodity: string;
+      period: number;
+      flow: number;
+      cost: number;
+      co2: number;
+      energy: number;
+    }[];
     trade: { process: string; commodity: string; period: number; kind: string; value: number }[];
     storage: {
       storage: string;

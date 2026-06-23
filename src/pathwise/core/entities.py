@@ -521,6 +521,13 @@ class Edge:
         min_flow: Optional per-period floor [commodity unit / yr] (``None`` ⇒ 0) —
             a take-or-pay off-take on this provider→consumer link.
         min_flow_by_year: Optional year-varying floor; falls back to ``min_flow``.
+        cost: Optional freight cost [currency / commodity unit] charged on the flow —
+            the physical cost of moving the stream over this link (0 ⇒ free, today's
+            default). Enters the objective as ``cost · flow``.
+        co2: Optional freight emission [t CO₂ / commodity unit] of moving the stream —
+            priced at the carbon price in the objective and reported (0 ⇒ none).
+        energy: Optional freight energy intensity [energy unit / commodity unit] of the
+            move — reported (informational; not balanced against a carrier in v1).
     """
 
     from_process: str
@@ -537,6 +544,11 @@ class Edge:
     #: Delivery lag [yr]: flow leaving the producer in year ``t`` arrives at the
     #: consumer in ``t + lag_years`` (a recycling / use-phase return). 0 ⇒ same year.
     lag_years: int = 0
+    #: Optional per-unit transport physics (the spatial-transport layer). Untagged
+    #: links stay free (cost/co2/energy = 0), so this is opt-in per stream.
+    cost: float = 0.0
+    co2: float = 0.0
+    energy: float = 0.0
 
     def available(self, year: int) -> bool:
         """Whether this link may carry flow in ``year`` (within its window)."""

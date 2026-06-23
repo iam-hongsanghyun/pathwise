@@ -38,6 +38,7 @@ def empty_result(
             "renewals": [],
             "measures": [],
             "flows": [],
+            "transport": [],
             "trade": [],
             "consumption": [],
             "storage": [],
@@ -170,6 +171,21 @@ def extract_results(
                     "value": v,
                 }
             )
+            # Transport physics on a tagged edge: freight cost / CO2 / energy borne
+            # by the flow (the spatial-transport layer; untagged edges are skipped).
+            if edge.cost or edge.co2 or edge.energy:
+                out["outputs"]["transport"].append(
+                    {
+                        "from": edge.from_process,
+                        "to": edge.to_process,
+                        "commodity": edge.commodity_id,
+                        "period": int(t),
+                        "flow": v,
+                        "cost": edge.cost * v,
+                        "co2": edge.co2 * v,
+                        "energy": edge.energy * v,
+                    }
+                )
     for (p, r, t), v in _series(ctx.buy).items():
         if v > _EPS:
             out["outputs"]["trade"].append(
@@ -358,6 +374,16 @@ def _period_costs(ctx: Any) -> dict[int, float]:
             cost[int(t)] += imap[mid].price(int(t)) * v
         for (mid, t), v in asell.items():
             cost[int(t)] -= imap[mid].sell_price(int(t)) * v
+    # Freight: per-edge transport cost + the carbon cost of freight CO2 on the flow
+    # (mirrors the objective so the reported per-year cost reconciles).
+    if any(e.cost or e.co2 for e in prob.edges):
+        co2_priced = "CO2" in prob.impacts and tog.impact_price
+        for (e, t), v in _series(ctx.flow).items():
+            edge = prob.edges[int(e)]
+            if edge.cost:
+                cost[int(t)] += edge.cost * v
+            if edge.co2 and co2_priced:
+                cost[int(t)] += prob.impacts["CO2"].price(int(t)) * edge.co2 * v
     if tog.capex:
         for (p, k, t), v in w.items():
             if k != baseline[p] and v > _EPS:

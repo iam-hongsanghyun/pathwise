@@ -127,7 +127,10 @@ NODES = "nodes"
 #: Leaf-machine detail rows (machine_id, baseline_technology, capacity, …).
 MACHINES = "machines"
 
-#: Directed commodity flows between sibling nodes (from_node, to_node, commodity_id, …).
+#: Directed commodity flows between sibling nodes (from_node, to_node, commodity_id,
+#: lag_years, min_flow, max_flow). Optional spatial-transport physics per stream
+#: (opt-in; untagged links stay free): ``freight_cost`` [currency/unit],
+#: ``freight_co2`` [t CO₂/unit] and ``freight_energy`` [energy/unit] on the flow.
 CONNECTIONS = "connections"
 
 #: Long-format per-year connection flow bounds (from_node, to_node, commodity_id,
@@ -142,7 +145,9 @@ NODE_LAYOUT = "node_layout"
 
 # ── Edges (flat-model wiring) ─────────────────────────────────────────────────
 
-#: Directed commodity flows between flat processes (from_process, to_process, …).
+#: Directed commodity flows between flat processes (from_process, to_process,
+#: commodity_id, min_flow, max_flow, lag_years). Optional spatial-transport physics
+#: per edge: ``freight_cost`` / ``freight_co2`` / ``freight_energy`` (see CONNECTIONS).
 EDGES = "edges"
 
 #: Long-format per-year edge capacity (from_process, to_process, commodity_id,
