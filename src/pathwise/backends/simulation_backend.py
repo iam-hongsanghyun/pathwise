@@ -526,6 +526,27 @@ def _stage_map(model: Workbook) -> dict[str, str]:
     }
 
 
+def _phase_map(model: Workbook) -> dict[str, str]:
+    """Map each node to its **lifecycle phase** — the nearest ancestor carrying a
+    ``phase`` tag (``materials`` · ``manufacturing`` · ``use`` · ``end-of-life``),
+    or ``""`` if none on its branch. Keyed by node_id (stages look themselves up)."""
+    nodes = model.get("nodes", [])
+    parent = {
+        str(n.get("node_id")): (str(n["parent_id"]) if n.get("parent_id") else None) for n in nodes
+    }
+    phase = {str(n.get("node_id")): str(n.get("phase") or "") for n in nodes}
+
+    def phase_of(nid: str) -> str:
+        cur: str | None = nid
+        while cur is not None:
+            if phase.get(cur):
+                return phase[cur]
+            cur = parent.get(cur)
+        return ""
+
+    return {str(n.get("node_id")): phase_of(str(n.get("node_id"))) for n in nodes}
+
+
 def _impact_factors(model: Workbook) -> dict[str, dict[str, float]]:
     """``technology_id -> {impact: factor}`` from the static ``io`` impact rows.
 
@@ -614,6 +635,16 @@ def _lifecycle_inventory(
     for row in result["summary"]["impacts"]:
         by_impact[str(row["impact"])] = by_impact.get(str(row["impact"]), 0.0) + float(row["total"])
 
+    # Lifecycle-phase rollup (materials · manufacturing · use · end-of-life) from
+    # an optional `phase` tag on nodes — the ISO interpretation view. Stages without
+    # a phase tag are omitted from by_phase (by_stage still carries them).
+    phase_of = _phase_map(model)
+    by_phase: dict[tuple[str, str], float] = {}
+    for (stage, imp), v in by_stage.items():
+        ph = phase_of.get(stage, "")
+        if ph:
+            by_phase[(ph, imp)] = by_phase.get((ph, imp), 0.0) + v
+
     fu = _functional_unit(model, sim, result)
     unit = fu["amount"] or 1.0
     total_cost = sum(float(p["cost"]) for p in result["summary"]["periods"])
@@ -627,6 +658,11 @@ def _lifecycle_inventory(
         "by_stage": [
             {"stage": s, "impact": i, "total": t, "per_unit": t / unit}
             for (s, i), t in sorted(by_stage.items())
+            if abs(t) > 1e-9
+        ],
+        "by_phase": [
+            {"phase": ph, "impact": i, "total": t, "per_unit": t / unit}
+            for (ph, i), t in sorted(by_phase.items())
             if abs(t) > 1e-9
         ],
         "cost": {

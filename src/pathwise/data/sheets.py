@@ -118,7 +118,10 @@ COMPANY_CONFIG = "company_config"
 
 # ── Node hierarchy (optional — replaces flat processes/edges) ─────────────────
 
-#: Recursive node tree rows (node_id, parent_id, kind, level, label, order).
+#: Recursive node tree rows (node_id, parent_id, kind, level, label, order,
+#: phase?). The optional ``phase`` tag (materials | manufacturing | use |
+#: end-of-life) rolls a node's emissions up by lifecycle phase in the simulate
+#: LCA (inherited by descendants); used by the LCA interpretation view.
 NODES = "nodes"
 
 #: Leaf-machine detail rows (machine_id, baseline_technology, capacity, …).

@@ -631,3 +631,19 @@ def test_optimise_forces_a_selected_variant() -> None:
         t["technology"] == "SteelMaker" and t["process"] == "steelco/sm" and t["period"] == 2025
         for t in forced["outputs"]["technology"]
     )
+
+
+def test_phase_rollup() -> None:
+    """An optional `phase` tag on company nodes rolls emissions up by lifecycle phase."""
+    m = _three_stage_with_use()
+    phases = {"steelco": "materials", "autoco": "manufacturing", "useco": "use"}
+    for n in m["nodes"]:
+        if n["node_id"] in phases:
+            n["phase"] = phases[n["node_id"]]
+    lca = SimulationBackend().run(m, _SCENARIO)["outputs"]["lca"]
+    by_phase = {
+        (d["phase"], d["impact"]): d["total"] for d in lca["by_phase"] if d["impact"] == "CO2"
+    }
+    assert by_phase[("materials", "CO2")] == pytest.approx(200.0)
+    assert by_phase[("manufacturing", "CO2")] == pytest.approx(50.0)
+    assert by_phase[("use", "CO2")] == pytest.approx(2000.0)  # use phase dominates

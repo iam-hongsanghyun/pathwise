@@ -164,6 +164,7 @@ export interface LcaBlock {
   functional_unit: { commodity: string | null; amount: number };
   by_impact: { impact: string; total: number; per_unit: number }[];
   by_stage: { stage: string; impact: string; total: number; per_unit: number }[];
+  by_phase?: { phase: string; impact: string; total: number; per_unit: number }[];
   cost: { total: number; carbon: number; per_unit: number; sunk?: number };
 }
 
