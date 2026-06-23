@@ -44,21 +44,50 @@ def read_model_variants(model: Workbook) -> list[dict[str, Any]]:
             continue
         slot = compiled.setdefault(vid, {"overrides": [], "forced": {}})
         kind, target, value = str(r.get("kind") or ""), str(r.get("target") or ""), r.get("value")
-        year = int(r["forced_year"]) if r.get("forced_year") not in (None, "") else first_year
+        field = str(r.get("field") or "")
+        timed = r.get("forced_year") not in (None, "")
+        year = int(r["forced_year"]) if timed else first_year
+        yr_kw = {"year": year} if timed else {}
+
         if kind == "tech" and target and value not in (None, ""):
             slot["forced"][target] = (str(value), year)
         elif kind == "stream" and target and value not in (None, ""):
-            ov: dict[str, Any] = {
-                "op": "set_price",
-                "commodity": target,
-                "price": float(value or 0.0),
-            }
-            if r.get("forced_year") not in (None, ""):
-                ov["year"] = year
-            slot["overrides"].append(ov)
+            slot["overrides"].append(
+                {"op": "set_price", "commodity": target, "price": float(value or 0.0), **yr_kw}
+            )
         elif kind == "measure" and target:
             on = str(value).strip().lower() not in ("0", "false", "off", "no", "")
             slot["overrides"].append({"op": "toggle_measure", "measure": target, "on": on})
+        elif kind == "tech_cost" and target and value not in (None, ""):
+            slot["overrides"].append(
+                {
+                    "op": "set_tech_cost",
+                    "technology": target,
+                    "field": field or "capex",
+                    "value": float(value or 0.0),
+                    **yr_kw,
+                }
+            )
+        elif kind == "io_coef" and target and field and value not in (None, ""):
+            slot["overrides"].append(
+                {
+                    "op": "set_io_coef",
+                    "technology": target,
+                    "commodity": field,
+                    "value": float(value or 0.0),
+                    **yr_kw,
+                }
+            )
+        elif kind == "stream_cap" and target and value not in (None, ""):
+            slot["overrides"].append(
+                {
+                    "op": "set_stream_cap",
+                    "commodity": target,
+                    "field": field or "max_purchase",
+                    "value": value,
+                    **yr_kw,
+                }
+            )
     return [
         {
             "variant_id": vid,

@@ -292,8 +292,12 @@ IMPACT_CAPS_T_LIMIT = "impact_caps_t__limit"
 VARIANTS = "variants"
 
 #: Timed interventions per variant: one row per edit
-#: (variant_id, kind ∈ {tech|stream|measure}, target, value, forced_year).
+#: (variant_id, kind, target, value, forced_year, field?).
 #: ``tech`` → force ``target`` machine onto technology ``value`` from ``forced_year``;
 #: ``stream`` → set commodity ``target`` price to ``value`` from ``forced_year``;
-#: ``measure`` → toggle measure ``target`` (``value`` truthy = on).
+#: ``measure`` → toggle measure ``target`` (``value`` truthy = on);
+#: ``tech_cost`` → set technology ``target``'s ``field`` (capex|opex) to ``value``;
+#: ``io_coef`` → set technology ``target``'s coefficient for commodity ``field``;
+#: ``stream_cap`` → set commodity ``target``'s ``field`` (max_purchase|
+#: available_from|available_to) to ``value``.
 VARIANT_INTERVENTIONS = "variant_interventions"

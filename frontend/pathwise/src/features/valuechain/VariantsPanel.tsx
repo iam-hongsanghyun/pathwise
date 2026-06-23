@@ -20,7 +20,19 @@ const KIND_OPTS = [
   { value: "tech", label: "Switch technology" },
   { value: "stream", label: "Change price" },
   { value: "measure", label: "Enable measure" },
+  { value: "tech_cost", label: "Change tech cost" },
+  { value: "io_coef", label: "Change I/O rate" },
+  { value: "stream_cap", label: "Change stream cap" },
 ];
+
+//: Kinds whose value is a plain number (the rest pick from a list).
+const NUMERIC_KINDS = new Set(["stream", "tech_cost", "io_coef", "stream_cap"]);
+
+//: The "field" sub-attribute each value-edit kind needs (else none).
+const FIELD_OPTS: Record<string, string[]> = {
+  tech_cost: ["capex", "opex"],
+  stream_cap: ["max_purchase", "available_from", "available_to"],
+};
 
 export function VariantsPanel({
   workbook,
@@ -39,6 +51,10 @@ export function VariantsPanel({
     : ids(workbook.machines, "machine_id");
   const commodities = ids(workbook.commodities, "commodity_id");
   const measures = ids(workbook.measures, "measure_id");
+  const technologies = ids(workbook.technologies, "technology_id");
+  // Commodities a technology actually uses (its io targets) — for io_coef.
+  const ioOf = (tech: string): string[] =>
+    [...new Set((workbook.io ?? []).filter((r) => s(r.technology_id) === tech).map((r) => s(r.target)).filter(Boolean))];
   const years = (workbook.periods ?? [])
     .map((r) => Number(r.year))
     .filter(Number.isFinite)
@@ -99,12 +115,35 @@ export function VariantsPanel({
   // Rows of the live variant, paired with their absolute index for editing.
   const rows = inter.map((r, i) => ({ r, i })).filter((x) => s(x.r.variant_id) === live);
 
-  const targetList = (kind: string) =>
-    kind === "tech" ? machines : kind === "stream" ? commodities : measures;
+  const targetList = (kind: string): string[] => {
+    if (kind === "tech") return machines;
+    if (kind === "stream" || kind === "stream_cap") return commodities;
+    if (kind === "tech_cost" || kind === "io_coef") return technologies;
+    return measures;
+  };
+  // The "field" sub-attribute options for a kind (io_coef uses the tech's io commodities).
+  const fieldList = (kind: string, target: string): string[] =>
+    kind === "io_coef" ? ioOf(target) : (FIELD_OPTS[kind] ?? []);
+
+  const fieldCell = (r: Row, i: number) => {
+    const opts = fieldList(s(r.kind), s(r.target));
+    if (opts.length === 0) return <span className="muted">—</span>;
+    return (
+      <SearchSelect
+        value={s(r.field) || opts[0]}
+        onChange={(v) => patch(i, { field: v })}
+        options={opts.map((o) => ({ value: o }))}
+      />
+    );
+  };
+
+  // The starting value when a row's kind/target changes.
+  const defaultValue = (kind: string, target: string): string | number =>
+    kind === "tech" ? (altsFor(target)[0] ?? "") : kind === "measure" ? "on" : 0;
 
   const valueCell = (r: Row, i: number) => {
     const kind = s(r.kind);
-    if (kind === "stream")
+    if (NUMERIC_KINDS.has(kind))
       return (
         <input
           type="number"
@@ -112,7 +151,7 @@ export function VariantsPanel({
           style={{ width: 90 }}
           value={s(r.value)}
           onChange={(e) => patch(i, { value: e.target.value === "" ? 0 : Number(e.target.value) })}
-          aria-label="price"
+          aria-label="value"
         />
       );
     if (kind === "tech") {
@@ -180,6 +219,7 @@ export function VariantsPanel({
               <tr style={{ textAlign: "left", color: "var(--muted)" }}>
                 <th>do</th>
                 <th>to</th>
+                <th>field</th>
                 <th>value</th>
                 <th>from</th>
                 <th />
@@ -196,7 +236,8 @@ export function VariantsPanel({
                         patch(i, {
                           kind: v,
                           target: t,
-                          value: v === "stream" ? 0 : v === "measure" ? "on" : (altsFor(t)[0] ?? ""),
+                          field: fieldList(v, t)[0] ?? "",
+                          value: defaultValue(v, t),
                         });
                       }}
                       options={KIND_OPTS}
@@ -206,11 +247,16 @@ export function VariantsPanel({
                     <SearchSelect
                       value={s(r.target)}
                       onChange={(v) =>
-                        patch(i, s(r.kind) === "tech" ? { target: v, value: altsFor(v)[0] ?? "" } : { target: v })
+                        patch(i, {
+                          target: v,
+                          field: fieldList(s(r.kind), v)[0] ?? "",
+                          value: defaultValue(s(r.kind) || "tech", v),
+                        })
                       }
                       options={targetList(s(r.kind) || "tech").map((o) => ({ value: o }))}
                     />
                   </td>
+                  <td style={cell}>{fieldCell(r, i)}</td>
                   <td style={cell}>{valueCell(r, i)}</td>
                   <td style={cell}>
                     <input
