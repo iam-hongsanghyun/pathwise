@@ -122,6 +122,13 @@ class Problem:
     # Default goal for companies without a company_config override (the run-level
     # objective set in the Optimisation tab). Falls back to COST.
     default_objective: ObjectiveMode = ObjectiveMode.COST
+    # LCIA-aware objective blend: minimise ``cost_weight·cost +
+    # impact_weight·Σ emit[objective_impact]`` (slack penalties always added). The
+    # defaults (cost_weight 1, impact_weight 0, no objective_impact) reproduce plain
+    # least-cost. A characterised category (e.g. GWP) is a valid ``objective_impact``.
+    objective_impact: str | None = None
+    impact_weight: float = 0.0
+    cost_weight: float = 1.0
     # Vintage timing: when True, a facility may switch (replace) or rebuild (renew)
     # ONLY at end-of-life boundaries — years where ``(year - introduced_year) %
     # lifespan == 0`` — and must continue its current technology in between. Off by

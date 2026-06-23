@@ -146,6 +146,15 @@ class ScenarioConfig(BaseModel):
     # the ``company_config`` sheet: ``cost`` (minimise discounted cost) or ``profit``
     # (maximise revenue − cost). The Optimisation tab's "goal" selector sets this.
     objective: str = Field(default="cost", pattern="^(cost|profit)$")
+    # LCIA-aware objective: minimise ``cost_weight·cost + impact_weight·Σ
+    # emit[objective_impact]``. Defaults reproduce plain least-cost. Set
+    # ``objective_impact`` (an impact/characterised-category id) with a positive
+    # ``impact_weight`` to put a shadow price on that category; set ``cost_weight``
+    # small (e.g. 0 or 1e-6) to minimise the impact directly with cost as a
+    # tie-breaker. A cost-vs-impact Pareto frontier sweeps these (or the cap).
+    objective_impact: str | None = None
+    impact_weight: float = Field(default=0.0, ge=0.0)
+    cost_weight: float = Field(default=1.0, ge=0.0)
     # Active model-resident variant (its ``variant_id``) to FORCE for an optimise
     # run: the optimiser pins that variant's interventions (a forced transition,
     # price/measure change) and optimises everything else. ``None`` ⇒ a plain

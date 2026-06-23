@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
+from pathwise.backends.frontier_backend import FrontierBackend
 from pathwise.backends.linopy_backend import LinopyBackend
 from pathwise.backends.macc_backend import MaccBackend
 from pathwise.backends.portfolio_backend import PortfolioBackend
@@ -46,3 +47,4 @@ register_backend(LinopyBackend())
 register_backend(PortfolioBackend())
 register_backend(MaccBackend())
 register_backend(SimulationBackend())
+register_backend(FrontierBackend())

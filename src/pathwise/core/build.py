@@ -1834,14 +1834,33 @@ def _objective(ctx: BuildContext) -> None:
             if build_cost:
                 obj_terms.append((df0 * build_cost) * ctx.cap_built.sel(store=st.storage_id))
 
-    # ── Slack penalties ───────────────────────────────────────────────────────
+    # ── Slack penalties (always full-weight, never scaled by the objective blend) ─
+    penalty_terms: list[Any] = []
     if ctx.demand_keys:
-        obj_terms.append(prob.slack_penalty * ctx.slk_dem.sum())
+        penalty_terms.append(prob.slack_penalty * ctx.slk_dem.sum())
     if ctx.cap_keys:
         for cap_c, cap_i, cap_y in ctx.cap_keys:
             pen = prob.impact_cap_penalty.get((cap_c, cap_i), prob.slack_penalty)
-            obj_terms.append(pen * ctx.slk_cap.sel(ckey=f"{cap_c}|{cap_i}|{cap_y}"))
+            penalty_terms.append(pen * ctx.slk_cap.sel(ckey=f"{cap_c}|{cap_i}|{cap_y}"))
 
-    obj = _lin_sum(obj_terms)
+    # ── LCIA-aware blend: cost_weight·cost + impact_weight·Σ emit[category] ──────
+    # Defaults (cost_weight 1, impact_weight 0) reproduce plain least-cost. The
+    # impact term is duration-weighted but NOT discounted (a physical emission
+    # total, not a cash flow). Slack penalties are added at full weight on top.
+    cost = _lin_sum(obj_terms)
+    blend: list[Any] = []
+    if cost is not None:
+        blend.append(cost if prob.cost_weight == 1.0 else prob.cost_weight * cost)
+    if prob.objective_impact and prob.impact_weight and prob.objective_impact in ctx.impacts:
+        dur_da = xr.DataArray(
+            np.array([dur[t] for t in ctx.years]),
+            coords={"period": ctx.years},
+            dims=["period"],
+        )
+        emit_cat = ctx.emit.sel(impact=prob.objective_impact)  # (process, period)
+        blend.append((prob.impact_weight * dur_da * emit_cat).sum(["process", "period"]))
+    blend.extend(penalty_terms)
+
+    obj = _lin_sum(blend)
     if obj is not None:
         m.add_objective(obj)
