@@ -284,3 +284,16 @@ DEMAND_T_AMOUNT = "demand_t__amount"
 
 #: Wide temporal impact-cap limits.
 IMPACT_CAPS_T_LIMIT = "impact_caps_t__limit"
+
+# ── Simulate variants (model-resident what-if scenarios) ──────────────────────
+# Consumed ONLY by the ``simulate`` backend; the optimiser ignores both sheets.
+
+#: Named what-if variants (variant_id, label, description?).
+VARIANTS = "variants"
+
+#: Timed interventions per variant: one row per edit
+#: (variant_id, kind ∈ {tech|stream|measure}, target, value, forced_year).
+#: ``tech`` → force ``target`` machine onto technology ``value`` from ``forced_year``;
+#: ``stream`` → set commodity ``target`` price to ``value`` from ``forced_year``;
+#: ``measure`` → toggle measure ``target`` (``value`` truthy = on).
+VARIANT_INTERVENTIONS = "variant_interventions"

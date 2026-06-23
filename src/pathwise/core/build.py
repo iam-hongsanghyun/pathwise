@@ -131,6 +131,19 @@ def _technology(ctx: BuildContext) -> None:
     # Phase-out binds every technology (including the installed baseline) —
     # after it the facility must transition or switch off.
     def _feas(p: str, k: str, t: int) -> float:
+        # Forced switch (simulate only): the machine may run ONLY its baseline
+        # before the forced year and ONLY the target technology from it. With the
+        # one-active-technology constraint this alone pins the timed schedule, and
+        # it overrides the normal availability gating (the switch is a user decree,
+        # not an optimiser choice).
+        forced = prob.forced_switches.get(p)
+        if forced is not None:
+            to_tech, year = forced
+            if k == to_tech:
+                return 1.0 if t >= year else 0.0
+            if k == baseline[p]:
+                return 1.0 if t < year else 0.0
+            return 0.0
         if k not in ctx.feasible[p]:
             return 0.0
         if k != baseline[p]:
@@ -236,6 +249,8 @@ def _technology(ctx: BuildContext) -> None:
     t0 = ctx.years[0]
     base_mask = np.zeros((len(ctx.procs), len(ctx.techs)), dtype=bool)
     for i, p in enumerate(ctx.procs):
+        if p in prob.forced_switches:
+            continue  # forced schedule already sets the t0 technology via feasibility
         j = ctx.techs.index(baseline[p])
         base_mask[i, j] = True
     base_da = xr.DataArray(
@@ -332,7 +347,13 @@ def _lifecycle(ctx: BuildContext) -> None:
     if ctx.ren is None:
         return
     m, prob = ctx.model, ctx.problem
-    tracked = [p for p in prob.processes if p.introduced_year is not None]
+    # Forced (simulate) machines are exempt from end-of-life vintage gating — the
+    # forced switch is a decree, and its stranded-asset cost is booked separately.
+    tracked = [
+        p
+        for p in prob.processes
+        if p.introduced_year is not None and p.process_id not in prob.forced_switches
+    ]
     if not tracked:
         return
     baseline = {p.process_id: p.baseline_technology for p in prob.processes}

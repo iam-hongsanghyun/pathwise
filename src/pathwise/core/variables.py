@@ -128,6 +128,11 @@ def _feasible_techs(problem: Problem) -> dict[str, list[str]]:
         techs = {p.baseline_technology}
         if p.replaceable:
             techs |= by_from.get(p.baseline_technology, set())
+        # A forced switch (simulate) makes its target reachable even with no
+        # transition row, so its recipe is wired into the commodity balance.
+        forced = problem.forced_switches.get(p.process_id)
+        if forced is not None:
+            techs.add(forced[0])
         out[p.process_id] = sorted(t for t in techs if t in problem.technologies)
     return out
 

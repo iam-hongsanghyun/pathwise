@@ -409,3 +409,193 @@ def test_green_steel_as_is_lifecycle_inventory() -> None:
     assert max(co2_stages, key=lambda s: co2_stages[s]).endswith("kr_steel")
     # The stage decomposition reconstructs the engine's CO2 total.
     assert sum(co2_stages.values()) == pytest.approx(co2["total"], rel=1e-6)
+
+
+# ── Model-resident variants: forced timed switch + sunk cost (Stage A) ─────────
+
+
+def _two_period_green() -> dict:
+    """Two-period (2025, 2030) green-steel chain: 100 cars/period.
+
+    Per period the steel mill (SteelMaker, 2 tCO2/t) feeds the car maker (0.5
+    tCO2/car). Baseline emits 250/period ⇒ 500 total; switching the mill to
+    ``GreenSteelMaker`` (0.5 tCO2/t) makes a switched period emit 100.
+    """
+    return {
+        "periods": [
+            {"year": 2025, "duration_years": 1},
+            {"year": 2030, "duration_years": 1},
+        ],
+        "commodities": [
+            {"commodity_id": "ore", "kind": "material", "unit": "t", "price": 10},
+            {"commodity_id": "steel", "kind": "material", "unit": "t"},
+            {"commodity_id": "car", "kind": "product", "unit": "veh"},
+        ],
+        "impacts": [{"impact_id": "CO2", "unit": "tCO2"}],
+        "technologies": [
+            {"technology_id": "SteelMaker", "actions": "continue"},
+            {"technology_id": "CarMaker", "actions": "continue"},
+            {"technology_id": "GreenSteelMaker", "actions": "continue", "opex": 5},
+        ],
+        "nodes": [
+            {"node_id": "steelco", "kind": "group", "level": "company", "label": "Steel"},
+            {
+                "node_id": "steelco/sm",
+                "kind": "machine",
+                "level": "machine",
+                "parent_id": "steelco",
+            },
+            {"node_id": "autoco", "kind": "group", "level": "company", "label": "Auto"},
+            {"node_id": "autoco/cm", "kind": "machine", "level": "machine", "parent_id": "autoco"},
+        ],
+        "machines": [
+            {"machine_id": "steelco/sm", "baseline_technology": "SteelMaker", "capacity": 1000},
+            {"machine_id": "autoco/cm", "baseline_technology": "CarMaker", "capacity": 1000},
+        ],
+        "io": [
+            {"technology_id": "SteelMaker", "target": "ore", "role": "input", "coefficient": 1.0},
+            {
+                "technology_id": "SteelMaker",
+                "target": "steel",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": 1,
+            },
+            {"technology_id": "SteelMaker", "target": "CO2", "role": "impact", "coefficient": 2.0},
+            {
+                "technology_id": "GreenSteelMaker",
+                "target": "ore",
+                "role": "input",
+                "coefficient": 1.0,
+            },
+            {
+                "technology_id": "GreenSteelMaker",
+                "target": "steel",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": 1,
+            },
+            {
+                "technology_id": "GreenSteelMaker",
+                "target": "CO2",
+                "role": "impact",
+                "coefficient": 0.5,
+            },
+            {"technology_id": "CarMaker", "target": "steel", "role": "input", "coefficient": 1.0},
+            {
+                "technology_id": "CarMaker",
+                "target": "car",
+                "role": "output",
+                "coefficient": 1.0,
+                "is_product": 1,
+            },
+            {"technology_id": "CarMaker", "target": "CO2", "role": "impact", "coefficient": 0.5},
+        ],
+        "connections": [{"from_node": "steelco", "to_node": "autoco", "commodity_id": "steel"}],
+        "demand": [
+            {"company": "autoco", "commodity_id": "car", "year": 2025, "amount": 100},
+            {"company": "autoco", "commodity_id": "car", "year": 2030, "amount": 100},
+        ],
+    }
+
+
+def test_model_resident_variant_forces_a_mid_horizon_switch() -> None:
+    """A `variants`/`variant_interventions` pair drives a forced 2030 switch."""
+    model = _two_period_green()
+    model["variants"] = [{"variant_id": "green2030", "label": "Green from 2030"}]
+    model["variant_interventions"] = [
+        {
+            "variant_id": "green2030",
+            "kind": "tech",
+            "target": "steelco/sm",
+            "value": "GreenSteelMaker",
+            "forced_year": 2030,
+        }
+    ]
+    res = SimulationBackend().run(model, _SCENARIO)
+    assert res["status"] == "optimal"
+
+    # Baseline runs SteelMaker both periods: 250 + 250 = 500 tCO2.
+    base = next(d for d in res["outputs"]["lca"]["by_impact"] if d["impact"] == "CO2")
+    assert base["total"] == pytest.approx(500.0)
+
+    # Variant: 2025 still SteelMaker (250), 2030 switched to green (100) ⇒ 350.
+    variant = res["outputs"]["variants"][0]
+    assert variant["label"] == "Green from 2030"
+    assert variant["status"] == "optimal"
+    vco2 = next(d for d in variant["lca"]["by_impact"] if d["impact"] == "CO2")
+    assert vco2["total"] == pytest.approx(350.0)
+
+    comp = res["outputs"]["comparison"][0]
+    assert comp["abatement"] == pytest.approx(150.0)  # 500 − 350, only 2030 abated
+
+
+def test_forced_switch_is_timed_per_period() -> None:
+    """The switch happens *in* the forced year (2030), not before — per-period proof.
+
+    A whole-horizon swap would emit 100+100=200; no switch 250+250=500; the timed
+    2030 switch emits 250 (2025) + 100 (2030). The cap-compliance table exposes the
+    variant's per-year emissions, so we assert the timing directly.
+    """
+    model = _two_period_green()
+    model["impact_caps"] = [
+        {"company": "steelco", "impact_id": "CO2", "year": 2025, "limit": 1e9},
+        {"company": "steelco", "impact_id": "CO2", "year": 2030, "limit": 1e9},
+    ]
+    model["variants"] = [{"variant_id": "g", "label": "g"}]
+    model["variant_interventions"] = [
+        {
+            "variant_id": "g",
+            "kind": "tech",
+            "target": "steelco/sm",
+            "value": "GreenSteelMaker",
+            "forced_year": 2030,
+        }
+    ]
+    compliance = SimulationBackend().run(model, _SCENARIO)["outputs"]["cap_compliance"]
+    variant = next(c for c in compliance if c["label"] == "g")
+    by_year = {r["year"]: r["emissions"] for r in variant["by_year"]}
+    assert by_year[2025] == pytest.approx(250.0)  # still SteelMaker in 2025
+    assert by_year[2030] == pytest.approx(100.0)  # GreenSteelMaker from 2030
+
+
+def test_sunk_cost_of_an_early_forced_switch() -> None:
+    """Forcing a switch before end-of-life strands the incumbent's book value."""
+    model = _two_period_green()
+    # SteelMaker built 2025, $10/unit capex, 10-yr life, 1000 capacity; forced off in 2030.
+    model["technologies"][0].update({"capex": 10, "lifespan": 10})
+    model["machines"][0]["introduced_year"] = 2025
+    model["variants"] = [{"variant_id": "g", "label": "g"}]
+    model["variant_interventions"] = [
+        {
+            "variant_id": "g",
+            "kind": "tech",
+            "target": "steelco/sm",
+            "value": "GreenSteelMaker",
+            "forced_year": 2030,
+        }
+    ]
+    lca = SimulationBackend().run(model, _SCENARIO)["outputs"]["variants"][0]["lca"]
+    # age = 2030 − 2025 = 5 of 10 yr ⇒ 50% undepreciated; 10 × 1000 × 0.5 = 5000.
+    assert lca["cost"]["sunk"] == pytest.approx(5000.0)
+
+
+def test_optimise_ignores_variant_sheets() -> None:
+    """linopy must give the same answer whether or not variant sheets are present."""
+    base = _two_period_green()
+    scenario = {"economics": {"base_year": 2025, "discount_rate": 0.0}}
+    obj_plain = get_backend("linopy").run(base, scenario)["objective"]
+
+    tagged = _two_period_green()
+    tagged["variants"] = [{"variant_id": "g", "label": "g"}]
+    tagged["variant_interventions"] = [
+        {
+            "variant_id": "g",
+            "kind": "tech",
+            "target": "steelco/sm",
+            "value": "GreenSteelMaker",
+            "forced_year": 2030,
+        }
+    ]
+    obj_tagged = get_backend("linopy").run(tagged, scenario)["objective"]
+    assert obj_tagged == pytest.approx(obj_plain)

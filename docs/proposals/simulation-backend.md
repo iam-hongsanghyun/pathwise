@@ -188,22 +188,44 @@ not invent it.
    simulator gets its **own setup** for perturbing it. P1's "as-is" is just the
    trivial default until that setup lands.
 
-## 10. TODO — dedicated simulation setup (optimise → simulate handoff)
+## 10. Model-resident variants & timed events (the value-chain what-if layer)
 
-> Deferred. Captured here so it isn't lost; **not** in P1.
+> **Stage A shipped** (engine + data + backend). Decisions confirmed with the
+> user: optimise and simulate are *separate* (optimise uses facility
+> `available_from`/`available_to` and the solver chooses; it **ignores** variants
+> and forced years); the use phase is a real authored process; `toggle_measure`
+> means *available to the LP*. Sunk cost = **straight-line undepreciated**.
 
-Selecting `simulate` should switch to **its own setup**, distinct from the
-optimisation setup — because a simulation needs a *fixed configuration to
-evaluate*, not a target to optimise toward. The pieces:
+A **variant** is a named what-if defined IN the value chain (avoiding the
+"scenario" collision — a scenario is a whole imported model). It is stored in two
+simulate-only sheets the optimiser never reads:
 
-- **The optimiser's result IS the simulator's input.** The natural baseline is a
-  **frozen optimisation pathway**: run `linopy`, take its chosen technologies /
-  transitions / measures / flows, and hand that whole plan to `simulate` as the
-  starting configuration. ("Optimise once → freeze → ask what-if.")
-- **Interventions are events on that frozen plan.** The simulation setup lets the
-  user pin changes as **timed events**, e.g. *"replace machine X with tech Y in
-  year T"*, *"this stream switches source / price in year T"*, *"adopt measure M
-  from year T"* — then re-evaluate and diff against the frozen baseline.
+- `variants` — `variant_id, label, description?`;
+- `variant_interventions` — one row per timed edit:
+  `variant_id, kind ∈ {tech|stream|measure}, target, value, forced_year`.
+
+The simulate backend compiles each variant and evaluates it:
+
+- **`tech` → a forced timed switch.** `Problem.forced_switches[machine] =
+  (to_tech, year)` pins the active technology — baseline before `year`, target
+  from it — via the feasibility array (`build._feas`), exempt from the t0
+  baseline-lock and end-of-life vintage gating; the switch capex fires as usual.
+  `variables._feasible_techs` adds the forced target so its recipe is wired into
+  the commodity balance even without a `transitions` row.
+- **Sunk cost.** Retiring the incumbent early strands its undepreciated capital:
+  `capex × capacity × max(0, 1 − (year − introduced_year)/lifespan)`, folded into
+  the variant's `lca.cost.sunk` (and `total`).
+- **`stream` / `measure`** reuse the override applier (`set_price`,
+  `toggle_measure`), honouring `forced_year` where the underlying sheet is temporal.
+
+**Still ahead:** Stage B (value-chain UI to author variants — a variant selector +
+per-machine alternative-with-year/key, plus stream/measure interventions); Stage C
+(the simulate run screen becomes a variant *selector*; sunk cost in `LcaResult`).
+
+**Future direction (not yet built):** the canonical baseline could be a **frozen
+optimisation result** — run `linopy`, freeze its chosen plan, and perturb *that*
+with timed events ("optimise once → freeze → ask what-if"). The forced-event
+mechanism above is the substrate that handoff would compile down to.
 - **A different setup screen.** When the method is `simulate`, the run UI should
   present this configuration/event editor (and a baseline picker: as-is · a saved
   optimisation result · a manual config) instead of the optimisation targets/caps

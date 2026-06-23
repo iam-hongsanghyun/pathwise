@@ -121,6 +121,13 @@ class Problem:
     # default (facilities may re-invest in any year); opt-in for fleets that turn
     # over on a fixed vintage schedule (e.g. the steel model).
     vintage_timing: bool = False
+    # Forced technology switches (the ``simulate`` backend only — the optimiser
+    # never sets this). ``{process_id: (to_technology, year)}``: pin the process to
+    # its baseline before ``year`` and to ``to_technology`` from ``year`` on, a
+    # timed what-if intervention. The build fixes the active-technology variable
+    # accordingly, exempts these cells from feasibility/lifecycle gating, and lets
+    # the switch capex fire as usual. Default empty ⇒ no effect on any other run.
+    forced_switches: dict[str, tuple[str, int]] = field(default_factory=dict)
     discount_rate: float = 0.08
     base_year: int = 0
     capex_convention: CapexConvention = CapexConvention.NPV

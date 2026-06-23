@@ -28,7 +28,16 @@ pinned config, re-solved when a measure is on the table), and
 ``impact_caps`` (read from the full model; the caps are stripped before
 evaluation so they cannot distort the inventory). The **use phase** needs no
 engine change — it is authored as an ordinary process and shows up as its own
-stage. See ``docs/proposals/simulation-backend.md``.
+stage.
+
+Variants may be **model-resident** (the ``variants`` + ``variant_interventions``
+sheets, authored in the value chain) instead of passed in the run definition: a
+``tech`` intervention is a **forced timed switch** (the machine runs its baseline
+before ``forced_year`` and the target technology from it — pinned via
+``Problem.forced_switches``, which the optimiser ignores), booking the
+straight-line **sunk cost** of retiring the incumbent early; ``stream`` /
+``measure`` interventions reuse the override applier. See
+``docs/proposals/simulation-backend.md``.
 """
 
 from __future__ import annotations
@@ -36,8 +45,11 @@ from __future__ import annotations
 from typing import Any
 
 from pathwise.backends.overrides import OverrideError, apply_overrides
-from pathwise.core.extract import empty_result
+from pathwise.core.build import build
+from pathwise.core.extract import empty_result, extract_results
 from pathwise.core.run import run_model
+from pathwise.core.solve import options_from_scenario, solve
+from pathwise.data.assemble import assemble_problem
 from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.workbook import Workbook
 from pathwise.domains.base import get_domain
@@ -126,8 +138,11 @@ class SimulationBackend:
             "impacts": result["summary"]["impacts"],
         }
 
-        # Variants (P2): each = baseline + a set of overrides → evaluate → diff.
-        variants = sim.get("variants") or []
+        # Variants: explicit run-form variants win; otherwise read the
+        # model-resident variants authored in the value chain (variants +
+        # variant_interventions sheets). Each = baseline + overrides (+ forced
+        # timed tech switches) → evaluate → diff.
+        variants = sim["variants"] if "variants" in sim else _model_variants(model)
         try:
             evaluated = (
                 _evaluate_variants(model, variants, scenario, domain, report, sim)
@@ -181,6 +196,31 @@ def _evaluate(
     )
 
 
+def _evaluate_forced(
+    eval_model: Workbook,
+    scenario: dict[str, Any],
+    domain: Any,
+    report: Any,
+    forced: dict[str, tuple[str, int]],
+) -> dict[str, Any]:
+    """System-scope evaluation that pins ``forced`` timed technology switches.
+
+    Mirrors :func:`_evaluate`'s joint solve but assembles the :class:`Problem`
+    directly so the forced switches (``{machine: (to_tech, year)}``) can be set on
+    it before the build pins the active-technology schedule. With no forced
+    switches this is identical to :func:`_evaluate`'s system path.
+    """
+    sc = ScenarioConfig.from_dict({**(scenario or {}), "optimisation_scope": "system"})
+    problem = assemble_problem(eval_model, sc)
+    if forced:
+        problem.forced_switches = dict(forced)
+    return extract_results(
+        solve(build(problem), options_from_scenario(sc)),
+        terminology=domain.terminology(),
+        validation=report.as_dict(),
+    )
+
+
 def _evaluate_variants(
     model: Workbook,
     variants: list[dict[str, Any]],
@@ -189,18 +229,20 @@ def _evaluate_variants(
     report: Any,
     sim: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    """Evaluate each variant (baseline + its overrides) and return its LCA.
+    """Evaluate each variant (baseline + its overrides + forced switches) and LCA it.
 
     A variant inherits the baseline's *as-is* pinning (technology switching off);
-    its ``overrides`` then perturb that — swap a machine's technology, change a
-    price, or put a measure back on the table. The full ``model`` is the override
-    *source* so ``toggle_measure on`` can re-introduce a stripped measure.
+    its ``overrides`` then perturb that — change a price, or put a measure back on
+    the table (the full ``model`` is the override *source*) — and its ``forced``
+    timed tech switches pin a machine onto a new technology from a given year,
+    booking the stranded-asset (sunk) cost of retiring the incumbent early.
     """
     out: list[dict[str, Any]] = []
     for i, v in enumerate(variants):
         label = str(v.get("label") or f"variant {i + 1}")
+        forced: dict[str, tuple[str, int]] = v.get("forced") or {}
         vmodel = apply_overrides(_as_is(model), v.get("overrides") or [], source=model)
-        res = _evaluate(vmodel, scenario, domain, report)
+        res = _evaluate_forced(vmodel, scenario, domain, report, forced)
         status = res.get("status")
         if status != "optimal":
             logger.warning("variant %r not optimal: %s", label, status)
@@ -208,16 +250,99 @@ def _evaluate_variants(
                 {"label": label, "status": status, "lca": None, "model": vmodel, "impacts": []}
             )
             continue
+        lca = _lifecycle_inventory(res, vmodel, sim)
+        sunk = _sunk_cost(model, forced)
+        if sunk:
+            unit = lca["functional_unit"]["amount"] or 1.0
+            lca["cost"]["sunk"] = sunk
+            lca["cost"]["total"] = float(lca["cost"]["total"]) + sunk
+            lca["cost"]["per_unit"] = lca["cost"]["total"] / unit
         out.append(
             {
                 "label": label,
                 "status": "optimal",
-                "lca": _lifecycle_inventory(res, vmodel, sim),
+                "lca": lca,
                 "model": vmodel,
                 "impacts": res["summary"]["impacts"],
             }
         )
     return out
+
+
+def _model_variants(model: Workbook) -> list[dict[str, Any]]:
+    """Compile the model-resident ``variants`` + ``variant_interventions`` sheets
+    into the evaluator's variant shape ``{label, overrides, forced}``.
+
+    A ``tech`` intervention becomes a forced timed switch (default year = the first
+    modelled year, i.e. a whole-horizon swap, when ``forced_year`` is blank); a
+    ``stream`` intervention a ``set_price`` override; a ``measure`` intervention a
+    ``toggle_measure`` override. Returns ``[]`` when the model defines no variants.
+    """
+    interventions = model.get("variant_interventions", [])
+    if not interventions:
+        return []
+    years = sorted(int(p["year"]) for p in model.get("periods", []) if p.get("year") is not None)
+    first_year = years[0] if years else 0
+    labels = {
+        str(v.get("variant_id")): str(v.get("label") or v.get("variant_id"))
+        for v in model.get("variants", [])
+    }
+
+    compiled: dict[str, dict[str, Any]] = {}
+    for r in interventions:
+        vid = str(r.get("variant_id") or "")
+        if not vid:
+            continue
+        slot = compiled.setdefault(vid, {"overrides": [], "forced": {}})
+        kind, target, value = str(r.get("kind") or ""), str(r.get("target") or ""), r.get("value")
+        year = int(r["forced_year"]) if r.get("forced_year") not in (None, "") else first_year
+        if kind == "tech" and target and value not in (None, ""):
+            slot["forced"][target] = (str(value), year)
+        elif kind == "stream" and target and value not in (None, ""):
+            ov = {"op": "set_price", "commodity": target, "price": float(value or 0.0)}
+            if r.get("forced_year") not in (None, ""):
+                ov["year"] = year
+            slot["overrides"].append(ov)
+        elif kind == "measure" and target:
+            on = str(value).strip().lower() not in ("0", "false", "off", "no", "")
+            slot["overrides"].append({"op": "toggle_measure", "measure": target, "on": on})
+    return [
+        {"label": labels.get(vid, vid), "overrides": s["overrides"], "forced": s["forced"]}
+        for vid, s in compiled.items()
+    ]
+
+
+def _sunk_cost(model: Workbook, forced: dict[str, tuple[str, int]]) -> float:
+    """Stranded capital of retiring incumbents early to honour forced switches.
+
+    Algorithm:
+        Straight-line undepreciated book value of each machine forced off before
+        end-of-life::
+
+            sunk = Σ_machine  capex_baseline · capacity · max(0, 1 − age / lifespan)
+
+        where ``age = forced_year − introduced_year`` (the machine's build year),
+        ``lifespan`` is the baseline technology's economic life [yr], and
+        ``capex_baseline`` its overnight build cost [currency / unit capacity]. A
+        machine with no build year (no vintage) strands nothing (sunk = 0).
+
+        ASCII: sunk = capex * cap * max(0, 1 - (year-built)/lifespan), summed.
+    """
+    techs = {str(t.get("technology_id")): t for t in model.get("technologies", [])}
+    machines = {str(m.get("machine_id")): m for m in model.get("machines", [])}
+    total = 0.0
+    for machine_id, (_to_tech, year) in forced.items():
+        m = machines.get(machine_id)
+        if m is None or m.get("introduced_year") in (None, ""):
+            continue
+        build_year = int(m["introduced_year"])
+        bt = techs.get(str(m.get("baseline_technology") or ""), {})
+        capex = float(bt.get("capex") or 0.0)
+        lifespan = int(bt.get("lifespan") or 20) or 20
+        capacity = float(m.get("capacity") or 0.0)
+        remaining = max(0.0, 1.0 - (year - build_year) / lifespan)
+        total += capex * capacity * remaining
+    return total
 
 
 def _primary_impact(lca: dict[str, Any]) -> str:
