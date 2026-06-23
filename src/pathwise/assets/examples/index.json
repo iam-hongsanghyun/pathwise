@@ -1,5 +1,11 @@
 [
   {
+    "id": "transport_methanol",
+    "label": "Methanol sourcing — spatial transport (carbon breakeven)",
+    "file": "transport_methanol.sqlite",
+    "description": "A spatial sourcing model (Layer 1a of the transport plan): methanol bought from three places — US Gulf (gas route), EU, and China (coal route) — and shipped to Korea by three transport-leg technologies, each carrying freight as opex, per-tonne transport CO2 as an emission, a per-source production burden, and an annual shipping capacity. The optimiser lands the cheapest methanol to meet Korea's demand. With no carbon price China wins (cheapest landed, but its coal-route methanol is the dirtiest at ~2.5 t CO2/t); a CO2 price above ~17 $/t penalises that production and flips sourcing to the US — the policy breakeven the model is built to surface. Annual resolution; in-transit time ignored. Sell the direction and breakeven, not the absolute cost."
+  },
+  {
     "id": "steel_lcia",
     "label": "Steel LCIA — cradle-to-gate (multi-impact)",
     "file": "steel_lcia.sqlite",

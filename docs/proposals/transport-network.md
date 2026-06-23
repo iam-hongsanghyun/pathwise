@@ -1,9 +1,18 @@
 # Proposal: spatial transport — costed, physical, multi-modal stream movement
 
-> Status: **plan** (build after the LCIA work, which is shipped). Adds *physical
-> transport* to stream movement between locations — shipping / flight / road / rail /
-> pipeline — each with its own cost, capacity and emission factor. Not everywhere:
-> transport is opt-in per connection; an untagged connection stays free (as today).
+> Status: **Layer 1a shipped; rest planned.** Adds *physical transport* to stream
+> movement between locations — shipping / flight / road / rail / pipeline — each with
+> its own cost, capacity and emission factor. Not everywhere: transport is opt-in per
+> connection; an untagged connection stays free (as today).
+>
+> **Layer 1a (shipped):** `examples/transport_methanol.sqlite` — methanol from US Gulf /
+> EU / China shipped to Korea as transport-**process** legs (freight `opex` + per-tonne
+> transport CO₂ `io` impact + per-source production `commodity_impacts` + annual
+> `capacity`). The optimiser lands the cheapest source; a CO₂ price ≳ 17 $/t flips it
+> from China's coal route to the US (regression test `tests/backends/test_transport_example.py`).
+> Confirmed: **no engine change needed** — transport-as-process reuses opex / capacity /
+> io-impacts / the LCIA layer wholesale. Next: 1b finite-fleet MILP, 1c modes + per-leg
+> policy, Layer 2 carrier-facing + competition (below).
 
 ## The one decision that keeps this alive: annual resolution
 No sub-annual time. No ship scheduling, port queueing, dwell time, weather, or
