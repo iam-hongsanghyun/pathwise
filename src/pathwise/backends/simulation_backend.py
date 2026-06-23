@@ -595,6 +595,20 @@ def _lifecycle_inventory(
         for imp, coef in factors.get(tech, {}).items():
             by_stage[(stage, imp)] = by_stage.get((stage, imp), 0.0) + val * coef
 
+    # LCIA characterisation: a category's per-stage emission is Σ_flow CF · flow.
+    cf_of: dict[str, list[tuple[str, float]]] = {}
+    for r in model.get("characterisation", []):
+        flow, cat, fac = str(r.get("flow_impact_id")), str(r.get("category_id")), r.get("factor")
+        if flow and cat and fac is not None:
+            cf_of.setdefault(flow, []).append((cat, float(fac)))
+    if cf_of:
+        characterised: dict[tuple[str, str], float] = {}
+        for (stage, imp), v in by_stage.items():
+            for cat, fac in cf_of.get(imp, []):
+                characterised[(stage, cat)] = characterised.get((stage, cat), 0.0) + v * fac
+        for key, v in characterised.items():
+            by_stage[key] = by_stage.get(key, 0.0) + v
+
     # Engine's authoritative per-impact totals.
     by_impact: dict[str, float] = {}
     for row in result["summary"]["impacts"]:

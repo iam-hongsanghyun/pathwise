@@ -32,6 +32,7 @@ from pathwise.core.problem import CostToggles, Problem
 from pathwise.data.hierarchy import Hierarchy, load_hierarchy
 from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.sheets import (
+    CHARACTERISATION,
     COMMODITIES,
     COMMODITIES_T_MAX_PURCHASE,
     COMMODITIES_T_PRICE,
@@ -651,6 +652,16 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             ci_points.setdefault((c, i), {})[yr] = fac
     commodity_impacts_by_year = {k: interpolate(v, years) for k, v in ci_points.items()}
 
+    # LCIA characterisation: map a base elementary-flow impact to a category with a
+    # factor (e.g. CO2/CH4/N2O → GWP). The engine derives the category emission as
+    # Σ_flow factor · emit[flow]; pricing/caps/inventory then treat it like any impact.
+    characterisation: dict[tuple[str, str], float] = {}
+    for r in _rows(workbook, CHARACTERISATION):
+        flow, cat = _str(r.get("flow_impact_id")), _str(r.get("category_id"))
+        fac = _num(r.get("factor"))
+        if flow and cat and fac is not None:
+            characterisation[(flow, cat)] = fac
+
     # Per-year technology costs. Two input conventions, like commodity prices:
     # the long-format `technologies_prices` sheet (technology_id, year, capex,
     # opex, renewal — what the component library emits), overridden by the
@@ -1227,6 +1238,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         markets=markets,
         commodity_impacts=commodity_impacts,
         commodity_impacts_by_year=commodity_impacts_by_year,
+        characterisation=characterisation,
         demand=demand,
         impact_caps=impact_caps,
         impact_cap_soft=impact_cap_soft,

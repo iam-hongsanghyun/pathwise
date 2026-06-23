@@ -33,11 +33,15 @@ characterisation step on top.**
 
 ## Roadmap (priority order)
 
-1. **LCIA characterisation (biggest gap).** A `characterisation` table (flow → impact
-   category × factor) + a runtime step `category = Σ flow × CF`. Start with multi-gas
-   **GWP→CO₂e** (IPCC GWP100), then a full method (EF 3.1 / ReCiPe / TRACI) for
-   acidification, eutrophication, water, land, PM, resource/fossil depletion. Hook: the
-   existing `impacts` + `io` impact rows.
+1. **LCIA characterisation (biggest gap).** ✅ **ENGINE SHIPPED** — a `characterisation`
+   sheet `(flow_impact_id, category_id, factor)` makes each impact **category** (e.g. GWP)
+   a *derived impact*: the build links `emit[category] = Σ_flow CF·emit[flow]`, so the
+   category rides in `ctx.emit` and pricing / caps / ETS / the simulate inventory all treat
+   it like any other impact (verified: `tests/backends/test_characterisation.py` — GWP in
+   the inventory, a priced GWP in the objective, a GWP cap). **Still to do:** ship a full
+   method's factor set (EF 3.1 / ReCiPe — see #2's importer) and author the foreground
+   elementary-flow `io` rows the method needs. Hook: `impacts` + `io` impact rows +
+   `characterisation`.
 2. **Background / upstream factors for purchased flows.** Cradle-to-gate factors for
    everything bought (grid electricity, fuels, ore, chemicals, transport) via the
    existing `commodity_impacts` mechanism, sourced from an LCI database — otherwise the

@@ -89,6 +89,13 @@ class Problem:
     # carbon intensity can change over the horizon — e.g. a greening grid, or an
     # upstream value-chain stage's pathway). Falls back to the static factor.
     commodity_impacts_by_year: dict[tuple[str, str], dict[int, float]] = field(default_factory=dict)
+    # LCIA characterisation: ``{(flow_impact_id, category_id): factor}``. A category
+    # impact's emission is the linear combination Σ_flow factor · emit[flow] — so an
+    # impact category (GWP, acidification, …) is a *derived impact* and every
+    # downstream mechanism (pricing, caps, ETS, the simulate inventory) treats it
+    # like any other impact. A category id must also appear in ``impacts``. Empty ⇒
+    # no characterisation (raw per-flow inventory only).
+    characterisation: dict[tuple[str, str], float] = field(default_factory=dict)
     demand: dict[tuple[str, str, int], float] = field(default_factory=dict)
     impact_caps: dict[tuple[str, str, int], float] = field(default_factory=dict)
     # Per (company, impact): whether the cap is soft (exceedance allowed at a

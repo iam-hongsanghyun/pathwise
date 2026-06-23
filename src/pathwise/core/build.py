@@ -1183,74 +1183,100 @@ def _impacts(ctx: BuildContext) -> None:
         return  # no impacts declared — constraint family is vacuous
     proc_by = {p.process_id: p for p in prob.processes}
 
-    # ── Precompute impact coefficient array (process, tech, impact, period) ───
+    # LCIA characterisation: an impact CATEGORY (e.g. GWP) is a linear combination
+    # of base elementary flows (CO2, CH4, …) via factors. Base flows come from the
+    # io/commodity factors below; categories are *linked* to them afterwards, so
+    # pricing / caps / ETS / the inventory all see categories like any other impact.
+    category_set = {cat for (_flow, cat) in prob.characterisation}
+    base_impacts = [i for i in ctx.impacts if i not in category_set]
+    categories = [i for i in ctx.impacts if i in category_set]
+
+    # ── Precompute impact coefficient array over BASE impacts (process,tech,i,t) ─
     # impact_coeff[p,k,i,t] = Σ_r factor[r,i,t]*intensity[p,k,r,t]
     #                        + direct_tech[k,i,t] + direct_proc[p,i,t]
-    impact_coeff = np.zeros((len(ctx.procs), len(ctx.techs), len(ctx.impacts), len(ctx.years)))
-    for i_p, p in enumerate(ctx.procs):
-        proc = proc_by[p]
-        for j_k, k in enumerate(ctx.techs):
-            if k not in ctx.feasible[p]:
-                continue
-            tech = prob.technologies[k]
-            for l_i, imp in enumerate(ctx.impacts):
-                for m_t, t in enumerate(ctx.years):
-                    # Commodity-driven term: Σ_r factor[r,i,t] * intensity[p,k,r,t]
-                    val = 0.0
-                    for r in ctx.comms:
-                        factor = prob.commodity_impact(r, imp, t)
-                        if factor == 0.0:
-                            continue
-                        intensity = tech.input_intensity_at(r, t)
-                        if intensity == 0.0:
-                            continue
-                        val += factor * intensity
-                    # Direct technology emission
-                    val += tech.direct_impact_at(imp, t)
-                    # Direct process (facility-level) emission
-                    val += proc.direct_impact_at(imp, t)
-                    impact_coeff[i_p, j_k, l_i, m_t] = val
+    if base_impacts:
+        impact_coeff = np.zeros((len(ctx.procs), len(ctx.techs), len(base_impacts), len(ctx.years)))
+        for i_p, p in enumerate(ctx.procs):
+            proc = proc_by[p]
+            for j_k, k in enumerate(ctx.techs):
+                if k not in ctx.feasible[p]:
+                    continue
+                tech = prob.technologies[k]
+                for l_i, imp in enumerate(base_impacts):
+                    for m_t, t in enumerate(ctx.years):
+                        # Commodity-driven term: Σ_r factor[r,i,t] * intensity[p,k,r,t]
+                        val = 0.0
+                        for r in ctx.comms:
+                            factor = prob.commodity_impact(r, imp, t)
+                            if factor == 0.0:
+                                continue
+                            intensity = tech.input_intensity_at(r, t)
+                            if intensity == 0.0:
+                                continue
+                            val += factor * intensity
+                        # Direct technology emission
+                        val += tech.direct_impact_at(imp, t)
+                        # Direct process (facility-level) emission
+                        val += proc.direct_impact_at(imp, t)
+                        impact_coeff[i_p, j_k, l_i, m_t] = val
 
-    impact_coeff_da = xr.DataArray(
-        impact_coeff,
-        coords={
-            "process": ctx.procs,
-            "tech": ctx.techs,
-            "impact": ctx.impacts,
-            "period": ctx.years,
-        },
-        dims=["process", "tech", "impact", "period"],
-    )
-    # emit_expr[p,i,t] = Σ_k impact_coeff[p,k,i,t] * x[p,k,t]
-    # x is (process,tech,period); impact_coeff broadcasts x over the impact dim.
-    emit_expr = (impact_coeff_da * ctx.x).sum("tech")  # (process, impact, period)
+        impact_coeff_da = xr.DataArray(
+            impact_coeff,
+            coords={
+                "process": ctx.procs,
+                "tech": ctx.techs,
+                "impact": base_impacts,
+                "period": ctx.years,
+            },
+            dims=["process", "tech", "impact", "period"],
+        )
+        # emit_expr[p,i,t] = Σ_k impact_coeff[p,k,i,t] * x[p,k,t]
+        # x is (process,tech,period); impact_coeff broadcasts x over the impact dim.
+        emit_expr = (impact_coeff_da * ctx.x).sum("tech")  # (process, base_impact, period)
 
-    # ── MACC abatement (small scalar loop; typically absent) ──────────────────
-    has_abatement = ctx.z is not None and any(
-        s.measure_type in (MeasureType.EMISSION_REDUCTION, MeasureType.ENVIRONMENTAL)
-        for s in ctx.slots
-    )
+        # ── MACC abatement (small scalar loop; typically absent) ──────────────
+        has_abatement = ctx.z is not None and any(
+            s.measure_type in (MeasureType.EMISSION_REDUCTION, MeasureType.ENVIRONMENTAL)
+            for s in ctx.slots
+        )
 
-    if has_abatement:
-        for p in ctx.procs:
-            for imp in ctx.impacts:
-                for t in ctx.years:
-                    abate = _abatement(ctx, p, imp, t)
-                    if abate is not None:
-                        rhs = emit_expr.sel(process=p, impact=imp, period=t) - abate
-                    else:
-                        rhs = emit_expr.sel(process=p, impact=imp, period=t)
-                    m.add_constraints(
-                        ctx.emit.sel(process=p, impact=imp, period=t) == rhs,
-                        name=f"emit[{p},{imp},{t}]",
-                    )
-    else:
-        # Fully vectorised: emit == emit_expr over all (process, impact, period)
-        m.add_constraints(ctx.emit == emit_expr, name="emit")
+        if has_abatement:
+            for p in ctx.procs:
+                for imp in base_impacts:
+                    for t in ctx.years:
+                        abate = _abatement(ctx, p, imp, t)
+                        if abate is not None:
+                            rhs = emit_expr.sel(process=p, impact=imp, period=t) - abate
+                        else:
+                            rhs = emit_expr.sel(process=p, impact=imp, period=t)
+                        m.add_constraints(
+                            ctx.emit.sel(process=p, impact=imp, period=t) == rhs,
+                            name=f"emit[{p},{imp},{t}]",
+                        )
+        else:
+            # Fully vectorised: emit == emit_expr over all (process, base impact, period)
+            base_idx = pd.Index(base_impacts, name="impact")
+            m.add_constraints(ctx.emit.sel(impact=base_idx) == emit_expr, name="emit")
 
-    # emit >= 0 (enforces non-negative emission — processes cannot generate
-    # negative physical emissions; MACC reductions are capped by the reference).
-    m.add_constraints(ctx.emit >= 0, name="emitpos")
+        # Base emissions are physical → non-negative. (Categories are NOT bounded
+        # here: a characterisation factor may be negative, e.g. an avoided burden.)
+        m.add_constraints(
+            ctx.emit.sel(impact=pd.Index(base_impacts, name="impact")) >= 0, name="emitpos"
+        )
+
+    # ── Characterisation linkage: emit[category] = Σ_flow CF · emit[flow] ──────
+    for cat in categories:
+        terms = [
+            fac * ctx.emit.sel(impact=flow)
+            for (flow, c), fac in prob.characterisation.items()
+            if c == cat and flow in ctx.impacts
+        ]
+        if not terms:
+            continue
+        rhs = terms[0]
+        for term in terms[1:]:
+            rhs = rhs + term
+        m.add_constraints(ctx.emit.sel(impact=cat) == rhs, name=f"char[{cat}]")
 
     # ── Impact caps ───────────────────────────────────────────────────────────
     # Each cap triple (c, i, y) bounds Σ_{p∈scope(c)} emit[p,i,y].

@@ -50,6 +50,13 @@ IMPACTS = "impacts"
 #: Long-format per-year impact price (impact_id, year, price).
 IMPACT_PRICES = "impact_prices"
 
+#: LCIA characterisation: map a base elementary-flow impact to an impact CATEGORY
+#: with a factor (flow_impact_id, category_id, factor). The engine derives the
+#: category's emission as Σ_flow factor · flow — e.g. (CO2, GWP, 1), (CH4, GWP, 27),
+#: (N2O, GWP, 273). A category is any impact_id appearing as a category_id here; it
+#: must also be declared in ``impacts`` (with its unit, e.g. kg CO2e).
+CHARACTERISATION = "characterisation"
+
 # ── Technologies (process recipes) ───────────────────────────────────────────
 
 #: Static technology definitions (capex, opex, lifespan, …).
