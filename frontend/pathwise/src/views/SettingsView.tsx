@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { SearchSelect } from "../features/controls/SearchSelect";
-import { getUnits } from "../lib/api/units";
 import { RailList, type RailItem } from "../layout/RailList";
 import { Resizer } from "../layout/Resizer";
 import type { Density, ThemeName } from "../lib/useTheme";
@@ -12,17 +11,12 @@ import type {
   RewardMode,
 } from "../types";
 
-type Section = "appearance" | "economics" | "method" | "snapshots" | "solver" | "policy";
-type Scope = "system" | "company" | "facility";
+// Settings holds run/appearance parameters only. Project-wide economics
+// (currency, discount, horizon) live in the Project tab; policy/markets are
+// authored in the Value chain.
+type Section = "appearance" | "method" | "solver";
 
 interface Props {
-  discount: number;
-  onDiscount: (v: number) => void;
-  /** Model accounting/display currency (lives on the model's `meta` sheet). */
-  currency: string;
-  onCurrency: (c: string) => void;
-  objScope: Scope;
-  onObjScope: (s: Scope) => void;
   config: ConfigBundle | null;
   backend: string;
   onBackend: (b: string) => void;
@@ -46,12 +40,6 @@ const METHOD_LABEL: Record<PortfolioMethod, string> = {
 /** Settings — its own section rail; scenario/run parameters only (model data is
  *  edited in Data). */
 export function SettingsView({
-  discount,
-  onDiscount,
-  currency,
-  onCurrency,
-  objScope,
-  onObjScope,
   config,
   backend,
   onBackend,
@@ -65,30 +53,10 @@ export function SettingsView({
   setLeftW,
 }: Props) {
   const [section, setSection] = useState<Section>("appearance");
-  // Currency choices come from the unit system's `currency` dimension (units.yaml),
-  // so the picker can't drift from what the converter knows. Falls back to the
-  // built-in set; always includes the model's current currency.
-  const [currencyOpts, setCurrencyOpts] = useState<string[]>(["USD", "EUR", "KRW"]);
-  useEffect(() => {
-    let alive = true;
-    getUnits()
-      .then((u) => {
-        const allowed = u.config.dimensions?.currency?.allowed;
-        if (alive && allowed?.length) setCurrencyOpts(allowed);
-      })
-      .catch(() => undefined);
-    return () => {
-      alive = false;
-    };
-  }, []);
-  const currencyChoices = currencyOpts.includes(currency) ? currencyOpts : [currency, ...currencyOpts];
   const items: RailItem[] = [
     { id: "appearance", label: "Appearance" },
-    { id: "economics", label: "Economics" },
     { id: "method", label: "Optimisation method" },
-    { id: "snapshots", label: "Snapshots" },
     { id: "solver", label: "Solver" },
-    { id: "policy", label: "Policy" },
   ];
   const backends = config?.backends ?? [{ name: "linopy", label: "linopy + HiGHS" }];
   const isPortfolio = backend === "portfolio";
@@ -152,49 +120,6 @@ export function SettingsView({
               <p className="muted">
                 Theme and density are saved to this browser. <strong>Refined</strong> is the default
                 light theme; <strong>Bold Studio</strong> is dark.
-              </p>
-            </section>
-          )}
-          {section === "economics" && (
-            <section className="card">
-              <h3>Economics</h3>
-              <label className="inspector-field">
-                <span>Currency</span>
-                <SearchSelect value={currency} onChange={onCurrency}
-                  options={currencyChoices.map((c) => ({ value: c }))} />
-              </label>
-              <p className="muted">
-                The unit every monetary value — costs, prices, budgets — is shown in (stored on the
-                model). Cross-rates (USD↔EUR↔KRW) live in the unit system; add a currency by defining
-                its factor there. Switching here <strong>relabels</strong> money, it does not reconvert
-                the numbers you entered.
-              </p>
-              <label className="inspector-field">
-                <span>Discount rate</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={discount}
-                  onChange={(e) => onDiscount(Number(e.target.value))}
-                />
-              </label>
-              <label className="inspector-field">
-                <span>Optimise cost for</span>
-                <SearchSelect value={objScope} onChange={(v) => onObjScope(v as Scope)}
-                  options={[
-                    { value: "company", label: "Each company (independent targets)" },
-                    { value: "system", label: "The whole economy (one shared target)" },
-                    { value: "facility", label: "Each facility (independent targets)" },
-                  ]} />
-              </label>
-              <p className="muted">
-                The objective is always to minimise total discounted cost. This sets the level the
-                emission targets bind at: <strong>whole economy</strong> pools every target into one
-                shared cap (companies trade off to the cheapest system-wide outcome);{" "}
-                <strong>each company / facility</strong> keeps targets separate, so the solve
-                decomposes into independent per-company (or per-facility) cost minimisations.
-                Per-company objective (cost / profit), budgets and minimum production are edited per
-                company in the model.
               </p>
             </section>
           )}
@@ -340,36 +265,12 @@ export function SettingsView({
               )}
             </section>
           )}
-          {section === "snapshots" && (
-            <section className="card">
-              <h3>Snapshots (time resolution)</h3>
-              <p className="muted">
-                Runs are <strong>annual</strong> — one snapshot per period. Temporal data already
-                uses the static + wide-temporal split (rows = years, columns = item names), so
-                sub-annual weighted snapshots slot onto the same axis when enabled.
-              </p>
-              <label className="inspector-field">
-                <span>Resolution</span>
-                <SearchSelect disabled value="annual" onChange={() => undefined}
-                  options={[{ value: "annual", label: "Annual (per period)" }]} />
-              </label>
-            </section>
-          )}
           {section === "solver" && (
             <section className="card">
               <h3>Solver</h3>
               <p className="muted">
                 HiGHS via linopy (our engine — not PyPSA). Global scaling on for numerical
                 stability; MIP gap / time limit are server-controlled.
-              </p>
-            </section>
-          )}
-          {section === "policy" && (
-            <section className="card">
-              <h3>Policy</h3>
-              <p className="muted">
-                Carbon price / tradable ETS and energy markets (KEPCO / PPA / JKM) are modelled as
-                Markets — add them in Data or the Model canvas.
               </p>
             </section>
           )}

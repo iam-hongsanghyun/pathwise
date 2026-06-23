@@ -17,7 +17,9 @@ from pathwise.core.entities import CapexConvention
 class Economics(BaseModel):
     """Discounting / capital economics."""
 
-    discount_rate: float = Field(default=0.08, ge=0.0, lt=1.0)
+    # Optional so the model's own `meta.discount_rate` can supply it when a run
+    # doesn't override; assemble resolves None → meta → 0.08.
+    discount_rate: float | None = Field(default=None, ge=0.0, lt=1.0)
     base_year: int | None = None
     # NPV (full discounted lump at the event year) is the engine's long-standing
     # behaviour and stays the default; ANNUITY (capital-recovery annuity over the

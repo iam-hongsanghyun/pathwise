@@ -429,6 +429,13 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     }
     periods = [Period(year=y, duration_years=duration.get(y, 1.0)) for y in years]
     base_year = econ.base_year or _int(meta.get("base_year")) or (years[0] if years else 0)
+    # Discount: an explicit scenario value wins; else the model's own
+    # ``meta.discount_rate`` (the Project-tab setting); else the engine default.
+    discount_rate = (
+        econ.discount_rate
+        if econ.discount_rate is not None
+        else _numd(meta.get("discount_rate"), 0.08)
+    )
 
     # ── Commodities (+ optional price trajectory) ────────────────────────────
     price_traj: dict[str, dict[int, float]] = {}
@@ -1305,7 +1312,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         impact_weight=scenario.impact_weight,
         cost_weight=scenario.cost_weight,
         vintage_timing=vintage_timing,
-        discount_rate=econ.discount_rate,
+        discount_rate=discount_rate,
         base_year=base_year,
         capex_convention=econ.capex_convention,
         slack_penalty=scenario.slack_penalty,

@@ -8,7 +8,6 @@ import {
   replaceSheet,
 } from "./lib/api/session";
 import { type LibraryEntry, type LibraryTier, importLibrary, listLibraries } from "./lib/api/libraries";
-import { modelCurrency, setModelCurrency } from "./lib/caps";
 import { ActivityBar, type View } from "./layout/ActivityBar";
 import { useTheme } from "./lib/useTheme";
 import { AnalyticsView } from "./views/AnalyticsView";
@@ -30,8 +29,6 @@ export function App() {
   // equality against this drives the debounced patch sync below.
   const synced = useRef<Workbook>({});
   const [view, setView] = useState<View>("project");
-  const [discount, setDiscount] = useState(0.08);
-  const [objScope, setObjScope] = useState<"system" | "company" | "facility">("company");
   const [backend, setBackend] = useState("linopy");
   const [portfolio, setPortfolio] = useState<PortfolioConfig>({
     method: "mvo",
@@ -307,12 +304,6 @@ export function App() {
         )}
         {view === "settings" && (
           <SettingsView
-            discount={discount}
-            onDiscount={setDiscount}
-            currency={modelCurrency(workbook)}
-            onCurrency={(c) => updateWorkbook(setModelCurrency(workbook, c))}
-            objScope={objScope}
-            onObjScope={setObjScope}
             config={config}
             backend={backend}
             onBackend={setBackend}

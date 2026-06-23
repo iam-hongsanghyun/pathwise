@@ -7,7 +7,7 @@
 
 import { useMemo, useState } from "react";
 import { SearchSelect } from "../controls/SearchSelect";
-import { impactUnit, modelCurrency } from "../../lib/caps";
+import { impactUnit, modelCurrency, modelDiscount } from "../../lib/caps";
 import { impactIds } from "../../lib/scope";
 import type { Row, Workbook } from "../../types";
 
@@ -63,7 +63,7 @@ export function SimulateSetup({
     }
     // No `variants` key ⇒ the backend evaluates the model-resident variants.
     onRun({
-      economics: { base_year: baseYear },
+      economics: { base_year: baseYear, discount_rate: modelDiscount(workbook) },
       horizon: { start: baseYear, end: endYear },
       simulate,
     });

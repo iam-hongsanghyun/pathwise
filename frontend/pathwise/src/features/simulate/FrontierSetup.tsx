@@ -5,7 +5,7 @@
 
 import { useMemo, useState } from "react";
 import { SearchSelect } from "../controls/SearchSelect";
-import { impactUnit } from "../../lib/caps";
+import { impactUnit, modelDiscount } from "../../lib/caps";
 import { impactIds } from "../../lib/scope";
 import type { Workbook } from "../../types";
 
@@ -35,7 +35,7 @@ export function FrontierSetup({
 
   function run() {
     onRun({
-      economics: { base_year: baseYear },
+      economics: { base_year: baseYear, discount_rate: modelDiscount(workbook) },
       horizon: { start: baseYear, end: endYear },
       optimisation_scope: "system",
       optimisation_mode: "joint",

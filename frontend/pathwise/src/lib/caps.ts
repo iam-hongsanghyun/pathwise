@@ -50,10 +50,28 @@ export function modelCurrency(wb: Workbook): string {
 /** Set the model currency in the `meta` key/value sheet (update in place, else
  *  insert). The numeric values are NOT reconverted — this sets the unit label. */
 export function setModelCurrency(wb: Workbook, currency: string): Workbook {
+  return setMeta(wb, "currency", currency);
+}
+
+/** The model's discount rate (meta key "discount_rate"); 0.08 default. Used for
+ *  NPV — sent into the run so the Project-tab value actually drives the solve. */
+export function modelDiscount(wb: Workbook): number {
+  const row = (wb.meta ?? []).find((r) => s(r.key) === "discount_rate");
+  const v = Number(row?.value);
+  return Number.isFinite(v) ? v : 0.08;
+}
+
+/** Set the model discount rate in the `meta` key/value sheet. */
+export function setModelDiscount(wb: Workbook, rate: number): Workbook {
+  return setMeta(wb, "discount_rate", rate);
+}
+
+/** Upsert a key/value row on the model's `meta` sheet. */
+function setMeta(wb: Workbook, key: string, value: Cell): Workbook {
   const meta = [...((wb.meta as Row[]) ?? [])];
-  const i = meta.findIndex((r) => s(r.key) === "currency");
-  if (i >= 0) meta[i] = { ...meta[i], value: currency };
-  else meta.push({ key: "currency", value: currency });
+  const i = meta.findIndex((r) => s(r.key) === key);
+  if (i >= 0) meta[i] = { ...meta[i], value };
+  else meta.push({ key, value });
   return { ...wb, meta };
 }
 

@@ -9,6 +9,8 @@ import { SearchSelect } from "../features/controls/SearchSelect";
 import { type LibrarySummary, listSessionComponentLibraries } from "../lib/api/components";
 import { PROJECT_BUNDLE_FORMAT, type ProjectBundle, downloadProject, importProject } from "../lib/api/project";
 import { type ExampleModel, listExamples, loadExample } from "../lib/api/session";
+import { getUnits } from "../lib/api/units";
+import { modelCurrency, modelDiscount, setModelCurrency, setModelDiscount } from "../lib/caps";
 import type { Workbook } from "../types";
 
 interface Props {
@@ -61,6 +63,30 @@ export function ProjectView({
   const nodes = workbook.nodes?.length ?? 0;
   const machines = workbook.machines?.length ?? 0;
   const connections = workbook.connections?.length ?? 0;
+
+  // Project-wide economics (stored on the model `meta` sheet, so they travel).
+  const currency = modelCurrency(workbook);
+  const discount = modelDiscount(workbook);
+  const years = (workbook.periods ?? []).map((r) => Number(r.year)).filter(Number.isFinite);
+  const baseYear = years.length ? Math.min(...years) : null;
+  const endYear = years.length ? Math.max(...years) : null;
+  // Currency choices come from the unit system's `currency` dimension (units.yaml),
+  // so they can't drift from the converter. Phase 3 will source this from the
+  // project's own unit registry.
+  const [currencyOpts, setCurrencyOpts] = useState<string[]>(["USD", "EUR", "KRW"]);
+  useEffect(() => {
+    let alive = true;
+    getUnits()
+      .then((u) => {
+        const allowed = u.config.dimensions?.currency?.allowed;
+        if (alive && allowed?.length) setCurrencyOpts(allowed);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const currencyChoices = currencyOpts.includes(currency) ? currencyOpts : [currency, ...currencyOpts];
 
   async function onExport() {
     if (!sessionId) return;
@@ -151,6 +177,38 @@ export function ProjectView({
             placeholder="Untitled project"
             onChange={(e) => setName(e.target.value)}
           />
+        </section>
+
+        <section style={{ marginBottom: 22 }}>
+          <h3 className="section-title">Economics</h3>
+          <p className="detail-note" style={{ marginBottom: 8 }}>
+            Project-wide settings — stored on the model, so they travel with the bundle and drive
+            every run.
+          </p>
+          <div className="field-grid" style={{ maxWidth: 360, alignItems: "center", gap: "8px 12px" }}>
+            <span className="muted">currency</span>
+            <SearchSelect
+              value={currency}
+              onChange={(v) => v && setWorkbook(setModelCurrency(workbook, v))}
+              options={currencyChoices.map((c) => ({ value: c }))}
+            />
+            <span className="muted">discount rate</span>
+            <input
+              className="field-input"
+              type="number"
+              step="0.01"
+              min={0}
+              max={0.99}
+              value={discount}
+              onChange={(e) => setWorkbook(setModelDiscount(workbook, Math.max(0, Number(e.target.value) || 0)))}
+            />
+            <span className="muted">horizon</span>
+            <span>{baseYear != null ? `${baseYear}–${endYear} (annual)` : "set periods in the model"}</span>
+          </div>
+          <p className="muted" style={{ fontSize: ".74rem", marginTop: 8 }}>
+            Currency is the unit every monetary value is shown in (relabels only; cross-rates live in
+            the unit registry). Discount rate sets NPV. Runs are annual — one snapshot per period.
+          </p>
         </section>
 
         <section style={{ marginBottom: 22 }}>

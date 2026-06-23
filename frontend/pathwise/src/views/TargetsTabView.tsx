@@ -8,7 +8,7 @@
 import { useMemo, useState } from "react";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { TemporalValue, type TemporalVal } from "../features/controls/TemporalValue";
-import { commodityUnit, impactUnit, modelCurrency } from "../lib/caps";
+import { commodityUnit, impactUnit, modelCurrency, modelDiscount } from "../lib/caps";
 import { impactIds, productIds, scopeOptions } from "../lib/scope";
 import type { Row, Workbook } from "../types";
 
@@ -170,7 +170,7 @@ export function TargetsTabView({
   function run() {
     const obj = goal === "impact" ? (objImpact || impacts[0] || "") : "";
     onRun({
-      economics: { base_year: baseYear },
+      economics: { base_year: baseYear, discount_rate: modelDiscount(workbook) },
       horizon: { start: baseYear, end: endYear },
       optimisation_scope: perCompany ? "company" : "system",
       optimisation_mode: perCompany ? "independent" : "joint",
