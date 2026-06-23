@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Process-network cost-optimisation model with a drag-and-drop designer."
 readme = "README.md"
 requires-python = ">=3.11"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 dependencies = [
     "linopy>=0.3",
     "highspy>=1.7",
