@@ -5,6 +5,7 @@
 
 import { useMemo, useState } from "react";
 import { SearchSelect } from "../controls/SearchSelect";
+import { impactUnit } from "../../lib/caps";
 import { impactIds } from "../../lib/scope";
 import type { Workbook } from "../../types";
 
@@ -28,6 +29,8 @@ export function FrontierSetup({
   const endYear = years.length ? Math.max(...years) : baseYear;
 
   const [fr, setFr] = useState({ impact: impacts[0] ?? "", from: 0, to: 1000, step: 100 });
+  // The cap range is measured in the swept impact's own unit (t CO2e, mol H+ eq, …).
+  const unit = useMemo(() => impactUnit(workbook, fr.impact), [workbook, fr.impact]);
   const num = { width: 100 } as const;
 
   function run() {
@@ -69,6 +72,7 @@ export function FrontierSetup({
             <label style={{ fontSize: ".8rem" }}>
               step <input type="number" style={num} value={fr.step} onChange={(e) => setFr({ ...fr, step: Number(e.target.value) })} />
             </label>
+            <span className="muted" style={{ fontSize: ".8rem" }} title={`cap range in the units of ${fr.impact || "the impact"}`}>{unit}</span>
           </div>
           <p className="muted" style={{ fontSize: ".74rem", marginTop: 8 }}>
             Caps below the achievable minimum come back infeasible (the frontier's endpoint).
@@ -80,7 +84,7 @@ export function FrontierSetup({
             {running ? `▶ ${running}…` : "▶ Run frontier"}
           </button>
           <span className="muted" style={{ fontSize: ".74rem", marginLeft: 10 }}>
-            Sweeps {fr.impact} {fr.from}–{fr.to} (step {fr.step}), system-wide, over {baseYear}–{endYear}.
+            Sweeps {fr.impact} {fr.from}–{fr.to} {unit} (step {fr.step} {unit}), system-wide, over {baseYear}–{endYear}.
           </span>
         </section>
       </main>

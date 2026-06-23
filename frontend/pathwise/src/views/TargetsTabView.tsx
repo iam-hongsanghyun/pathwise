@@ -8,6 +8,7 @@
 import { useMemo, useState } from "react";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { TemporalValue, type TemporalVal } from "../features/controls/TemporalValue";
+import { commodityUnit, impactUnit } from "../lib/caps";
 import { impactIds, productIds, scopeOptions } from "../lib/scope";
 import type { Row, Workbook } from "../types";
 
@@ -184,6 +185,15 @@ export function TargetsTabView({
   }
 
   const targetOpts = (k: Kind) => (k === "emission" ? impacts : k === "production" ? products : []);
+  // The unit a constraint's value is measured in: a produced commodity's unit, the
+  // capped impact's unit, or "currency" for an investment (capex) budget. Drives the
+  // unit shown in the value cell + editor (TemporalValue appends "/yr").
+  const unitFor = (c: UC): string =>
+    c.kind === "emission"
+      ? impactUnit(workbook, c.target)
+      : c.kind === "production"
+        ? commodityUnit(workbook, c.target)
+        : "currency";
   const cell: React.CSSProperties = { padding: "2px 4px" };
   const small = { minWidth: 120 };
 
@@ -326,6 +336,7 @@ export function TargetsTabView({
                         value={r.value}
                         onChange={(v) => patch(i, { value: v ?? 0 })}
                         label={`${r.kind}${r.target ? ` · ${r.target}` : ""} · ${r.scope}`}
+                        unit={unitFor(r)}
                         baseYear={baseYear}
                         periods={years}
                       />

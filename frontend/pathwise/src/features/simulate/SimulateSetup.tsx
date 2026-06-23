@@ -7,6 +7,7 @@
 
 import { useMemo, useState } from "react";
 import { SearchSelect } from "../controls/SearchSelect";
+import { impactUnit } from "../../lib/caps";
 import { impactIds } from "../../lib/scope";
 import type { Row, Workbook } from "../../types";
 
@@ -38,6 +39,8 @@ export function SimulateSetup({
 
   const [sweepOn, setSweepOn] = useState(false);
   const [sweep, setSweep] = useState({ impact: impacts[0] ?? "", from: 0, to: 300, step: 25 });
+  // A carbon-price sweep: from/to/step are prices, i.e. currency per unit of the impact.
+  const priceUnit = useMemo(() => `currency/${impactUnit(workbook, sweep.impact)}`, [workbook, sweep.impact]);
   const [uncOn, setUncOn] = useState(false);
   const [unc, setUnc] = useState({ sigma: 0.1, n: 1000, seed: 42 });
 
@@ -128,6 +131,7 @@ export function SimulateSetup({
               <label style={{ fontSize: ".78rem" }}>
                 step <input type="number" style={num} value={sweep.step} onChange={(e) => setSweep({ ...sweep, step: Number(e.target.value) })} />
               </label>
+              <span className="muted" style={{ fontSize: ".78rem" }} title={`carbon price in ${priceUnit}`}>{priceUnit}</span>
             </div>
           )}
         </section>
@@ -159,7 +163,7 @@ export function SimulateSetup({
           </button>
           <span className="muted" style={{ fontSize: ".74rem", marginLeft: 10 }}>
             Evaluates the baseline{variants.length ? ` and ${variants.length} variant(s)` : ""}
-            {sweepOn ? `, sweeping ${sweep.impact} ${sweep.from}–${sweep.to}` : ""}
+            {sweepOn ? `, sweeping ${sweep.impact} price ${sweep.from}–${sweep.to} ${priceUnit}` : ""}
             {uncOn ? `, ${unc.n} MC samples (σ=${unc.sigma})` : ""}, over {baseYear}–{endYear}.
           </span>
         </section>

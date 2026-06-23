@@ -32,6 +32,13 @@ export function commodityUnit(wb: Workbook, commodity: string): string {
   return s(row?.unit) || "unit";
 }
 
+/** An impact's declared unit (t, t CO2e, mol H+ eq, …) — what a cap on it is
+ *  measured in. Read from the model's `impacts` sheet; "unit" if undeclared. */
+export function impactUnit(wb: Workbook, impactId: string): string {
+  const row = (wb.impacts ?? []).find((r) => s(r.impact_id) === impactId);
+  return s(row?.unit) || "unit";
+}
+
 /** The bound on `commodity` at `scope` in `sheet`: a {year: value} map if there are
  *  per-year rows, a number if a single year-less (static) row, else null. */
 function cap(wb: Workbook, sheet: string, scope: string, commodity: string): Bound | null {

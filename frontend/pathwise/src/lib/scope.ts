@@ -43,12 +43,46 @@ export function productIds(wb: Workbook): string[] {
   return [...out].filter(Boolean);
 }
 
-/** The impacts that caps / objectives can target — raw elementary flows AND the
- *  characterised LCIA categories (GWP, acidification, …) derived from them. */
+//: Every sheet whose rows carry a plain ``impact_id`` column. Scanning them all
+//: means a user-defined impact surfaces no matter where it was first introduced
+//: — a declaration, a price, a cap, a cradle factor, a per-process factor, or
+//: freight emissions. "Impact" is a general, user-extensible term: the model,
+//: not a prefilled list, is the single source of truth.
+const IMPACT_ID_SHEETS = [
+  "impacts", // canonical declaration (impact_id, unit)
+  "impact_prices",
+  "impacts_t__price",
+  "tech_impacts",
+  "process_impacts",
+  "process_impacts_t",
+  "commodity_impacts",
+  "commodity_impacts_t",
+  "connection_impacts",
+  "edge_impacts",
+  "impact_caps",
+  "impact_caps_t__limit",
+] as const;
+
+/** The unique impacts present anywhere in the model — raw elementary flows AND
+ *  characterised LCIA categories (GWP, acidification, …). Driven entirely by the
+ *  model's own sheets so any user-created impact appears; never a prefilled set.
+ *  The canonical ``impacts`` declaration leads (preserving its authored order);
+ *  impacts seen only in other sheets are appended. */
 export function impactIds(wb: Workbook): string[] {
   const out = new Set<string>();
-  for (const r of wb.impacts ?? []) out.add(s(r.impact_id));
+  for (const sheet of IMPACT_ID_SHEETS) {
+    for (const r of wb[sheet] ?? []) {
+      const id = s(r.impact_id);
+      if (id) out.add(id);
+    }
+  }
+  // An impact also attaches to a technology's recipe as a ``role=impact`` row…
   for (const r of wb.io ?? []) if (s(r.role) === "impact") out.add(s(r.target));
-  for (const r of wb.characterisation ?? []) out.add(s(r.category_id));
+  for (const r of wb.io_t ?? []) if (s(r.role) === "impact") out.add(s(r.target));
+  // …and characterisation references both a raw flow and its derived category.
+  for (const r of wb.characterisation ?? []) {
+    out.add(s(r.flow_impact_id));
+    out.add(s(r.category_id));
+  }
   return [...out].filter(Boolean);
 }
