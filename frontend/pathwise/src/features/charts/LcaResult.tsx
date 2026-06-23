@@ -101,6 +101,10 @@ function ComparisonCard({
   for (const v of variants ?? []) bars.push({ label: v.label, value: v.lca ? impactTotal(v.lca, impact) : 0 });
   const max = Math.max(...bars.map((b) => b.value), 1);
 
+  // Sunk (stranded-asset) cost per variant, keyed by label, from its own LCA.
+  const sunkOf = new Map((variants ?? []).map((v) => [v.label, v.lca?.cost.sunk ?? 0]));
+  const anySunk = [...sunkOf.values()].some((x) => x > 0);
+
   return (
     <div className="card">
       <h3>Baseline vs variants — {impact}</h3>
@@ -112,6 +116,7 @@ function ComparisonCard({
               <th>Variant</th>
               <th>Abatement</th>
               <th>Cost Δ (ex-carbon)</th>
+              {anySunk && <th>of which sunk</th>}
               <th>$ / {impact}</th>
               <th>Break-even carbon price</th>
             </tr>
@@ -124,11 +129,12 @@ function ComparisonCard({
                   <>
                     <td>{fmt(c.abatement ?? 0)}</td>
                     <td>{fmt(c.cost_delta ?? 0, 1)}</td>
+                    {anySunk && <td>{(sunkOf.get(c.label) ?? 0) > 0 ? fmt(sunkOf.get(c.label) ?? 0, 1) : "—"}</td>}
                     <td>{c.abatement_cost_per_unit == null ? "—" : fmt(c.abatement_cost_per_unit, 2)}</td>
                     <td>{c.breakeven_carbon_price == null ? "never" : fmt(c.breakeven_carbon_price, 2)}</td>
                   </>
                 ) : (
-                  <td colSpan={4} className="muted">{c.status}</td>
+                  <td colSpan={anySunk ? 5 : 4} className="muted">{c.status}</td>
                 )}
               </tr>
             ))}
@@ -138,7 +144,7 @@ function ComparisonCard({
       <p className="muted" style={{ fontSize: ".74rem", marginTop: ".5rem" }}>
         Abatement &gt; 0 means the variant emits less. Break-even is the carbon price at which the
         variant's total cost drops below the baseline's; “never” means it emits more, so no price
-        flips the choice.
+        flips the choice.{anySunk ? " Cost Δ includes the sunk cost of retiring an asset before end-of-life." : ""}
       </p>
     </div>
   );

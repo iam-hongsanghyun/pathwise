@@ -1,13 +1,9 @@
-// Simulate setup — the run cockpit shown when the method is `simulate` (an LCA
-// what-if), in place of the optimisation targets/constraints editor. You pin the
-// current configuration (the as-is baseline) and define VARIANTS: each a label
-// plus a list of typed overrides (swap a machine's technology, change a price,
-// set a carbon price, put a measure on the table). Optionally sweep a carbon
-// price. The Run button compiles this into the scenario's `simulate` block.
-//
-// Baseline is fixed to "as-is" here; the optimise→simulate handoff (a frozen
-// optimisation result as baseline, timed events) is the deferred §10 TODO in
-// docs/proposals/simulation-backend.md.
+// Simulate run screen — shown when the method is `simulate` (an LCA what-if), in
+// place of the optimisation targets/constraints editor. Variants are now authored
+// IN the value chain (see VariantsPanel) and live on the model, so this screen is
+// a *selector / summary*: it shows the variants the run will evaluate against the
+// as-is baseline, plus an optional carbon-price sweep, and fires the run. It does
+// NOT pass `simulate.variants`, so the backend reads the model-resident ones.
 
 import { useMemo, useState } from "react";
 import { SearchSelect } from "../controls/SearchSelect";
@@ -15,31 +11,6 @@ import { impactIds } from "../../lib/scope";
 import type { Row, Workbook } from "../../types";
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
-const ids = (rows: Row[] | undefined, col: string): string[] =>
-  [...new Set((rows ?? []).map((r) => s(r[col])).filter(Boolean))];
-
-type OpType = "set_machine_tech" | "set_price" | "set_carbon_price" | "toggle_measure";
-interface Override {
-  op: OpType;
-  machine?: string;
-  technology?: string;
-  commodity?: string;
-  impact?: string;
-  measure?: string;
-  price?: number;
-  on?: boolean;
-}
-interface Variant {
-  label: string;
-  overrides: Override[];
-}
-
-const OP_OPTS: { value: OpType; label: string }[] = [
-  { value: "set_machine_tech", label: "Switch a machine's technology" },
-  { value: "set_price", label: "Change a commodity price" },
-  { value: "set_carbon_price", label: "Set a carbon price" },
-  { value: "toggle_measure", label: "Enable a measure" },
-];
 
 export function SimulateSetup({
   workbook,
@@ -52,19 +23,7 @@ export function SimulateSetup({
   running: string | null;
   canRun: boolean;
 }) {
-  const machines = useMemo(
-    () => [
-      ...new Set([
-        ...ids(workbook.machines, "machine_id"),
-        ...ids((workbook.nodes ?? []).filter((n) => s(n.kind) === "machine"), "node_id"),
-      ]),
-    ],
-    [workbook],
-  );
-  const techs = useMemo(() => ids(workbook.technologies, "technology_id"), [workbook]);
-  const commodities = useMemo(() => ids(workbook.commodities, "commodity_id"), [workbook]);
   const impacts = useMemo(() => impactIds(workbook), [workbook]);
-  const measures = useMemo(() => ids(workbook.measures, "measure_id"), [workbook]);
   const years = useMemo(
     () => (workbook.periods ?? []).map((r) => Number(r.year)).filter(Number.isFinite),
     [workbook],
@@ -72,34 +31,16 @@ export function SimulateSetup({
   const baseYear = years.length ? Math.min(...years) : 2025;
   const endYear = years.length ? Math.max(...years) : baseYear;
 
-  const [variants, setVariants] = useState<Variant[]>([]);
+  // Model-resident variants (authored in the value chain) + their intervention counts.
+  const variants = (workbook.variants ?? []) as Row[];
+  const interventions = (workbook.variant_interventions ?? []) as Row[];
+  const countFor = (vid: string) => interventions.filter((r) => s(r.variant_id) === vid).length;
+
   const [sweepOn, setSweepOn] = useState(false);
   const [sweep, setSweep] = useState({ impact: impacts[0] ?? "CO2", from: 0, to: 300, step: 25 });
 
-  const defaultOverride = (): Override => ({
-    op: "set_machine_tech",
-    machine: machines[0] ?? "",
-    technology: techs[0] ?? "",
-  });
-  const addVariant = () =>
-    setVariants((vs) => [...vs, { label: `variant ${vs.length + 1}`, overrides: [defaultOverride()] }]);
-  const patchVariant = (i: number, p: Partial<Variant>) =>
-    setVariants((vs) => vs.map((v, j) => (j === i ? { ...v, ...p } : v)));
-  const delVariant = (i: number) => setVariants((vs) => vs.filter((_, j) => j !== i));
-  const patchOverride = (vi: number, oi: number, p: Partial<Override>) =>
-    patchVariant(vi, {
-      overrides: variants[vi].overrides.map((o, j) => (j === oi ? { ...o, ...p } : o)),
-    });
-  const addOverride = (vi: number) =>
-    patchVariant(vi, { overrides: [...variants[vi].overrides, defaultOverride()] });
-  const delOverride = (vi: number, oi: number) =>
-    patchVariant(vi, { overrides: variants[vi].overrides.filter((_, j) => j !== oi) });
-
   function run() {
-    const simulate: Record<string, unknown> = {
-      baseline: { plan: "as-is" },
-      variants: variants.map((v) => ({ label: v.label, overrides: v.overrides.map(serialise) })),
-    };
+    const simulate: Record<string, unknown> = { baseline: { plan: "as-is" } };
     if (sweepOn) {
       simulate.policy_sweep = {
         lever: "carbon_price",
@@ -109,6 +50,7 @@ export function SimulateSetup({
         step: sweep.step,
       };
     }
+    // No `variants` key ⇒ the backend evaluates the model-resident variants.
     onRun({
       economics: { base_year: baseYear },
       horizon: { start: baseYear, end: endYear },
@@ -124,57 +66,38 @@ export function SimulateSetup({
         <div className="eyebrow">simulate · LCA what-if</div>
         <h2 className="view-title">Scenario simulator</h2>
         <p className="view-lead">
-          Pin the current configuration (the as-is baseline) and test interventions against it.
-          Each variant is the baseline plus a set of edits; run to compare lifecycle emissions,
-          cost, and policy sensitivity.
+          Evaluate the as-is baseline and compare it against the <strong>variants</strong> you
+          defined in the Value chain (per-machine forced switches, price or measure changes).
+          Optionally sweep a carbon price.
         </p>
 
         <section style={{ marginBottom: 18 }}>
           <h3 className="section-title">Baseline</h3>
           <p className="muted" style={{ fontSize: ".78rem", margin: 0 }}>
             Current configuration — each machine runs its baseline technology, no auto-adopted
-            abatement. (A frozen optimisation result as baseline is coming later.)
+            abatement.
           </p>
         </section>
 
         <section style={{ marginBottom: 18 }}>
           <h3 className="section-title" style={{ marginBottom: 2 }}>Variants</h3>
-          <p className="muted" style={{ fontSize: ".74rem", margin: "0 0 8px" }}>
-            With no variants, the run just reports the baseline inventory. Add a variant to compare.
-          </p>
-          <button className="ghost" style={{ marginBottom: 8 }} onClick={addVariant}>＋ add variant</button>
-
-          {variants.map((v, vi) => (
-            <div key={vi} className="card" style={{ marginBottom: 10 }}>
-              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-                <input
-                  value={v.label}
-                  onChange={(e) => patchVariant(vi, { label: e.target.value })}
-                  style={{ fontWeight: 600, flex: 1 }}
-                  aria-label="variant label"
-                />
-                <button className="ghost" title="remove variant" onClick={() => delVariant(vi)}>✕</button>
-              </div>
-              {v.overrides.map((o, oi) => (
-                <div key={oi} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
-                  <div style={{ minWidth: 220 }}>
-                    <SearchSelect
-                      value={o.op}
-                      onChange={(val) => patchOverride(vi, oi, resetOp(val as OpType, { machines, techs, commodities, impacts, measures }))}
-                      options={OP_OPTS}
-                    />
-                  </div>
-                  <OverrideFields
-                    o={o}
-                    onChange={(p) => patchOverride(vi, oi, p)}
-                    opts={{ machines, techs, commodities, impacts, measures }}
-                  />
-                  <button className="ghost" title="remove edit" onClick={() => delOverride(vi, oi)}>✕</button>
-                </div>
+          {variants.length === 0 ? (
+            <p className="muted" style={{ fontSize: ".78rem", margin: 0 }}>
+              No variants yet. Add them in the <strong>Value chain</strong> view — select a machine,
+              then “Variants (what-if)” in its panel. The run will still report the baseline LCA.
+            </p>
+          ) : (
+            <ul style={{ margin: "4px 0 0", paddingLeft: 18, fontSize: ".82rem" }}>
+              {variants.map((v) => (
+                <li key={s(v.variant_id)}>
+                  <strong>{s(v.label) || s(v.variant_id)}</strong>{" "}
+                  <span className="muted">
+                    — {countFor(s(v.variant_id))} intervention(s)
+                  </span>
+                </li>
               ))}
-              <button className="ghost" style={{ fontSize: ".74rem" }} onClick={() => addOverride(vi)}>＋ add edit</button>
-            </div>
-          ))}
+            </ul>
+          )}
         </section>
 
         <section style={{ marginBottom: 18 }}>
@@ -216,80 +139,4 @@ export function SimulateSetup({
       </main>
     </div>
   );
-}
-
-interface Opts {
-  machines: string[];
-  techs: string[];
-  commodities: string[];
-  impacts: string[];
-  measures: string[];
-}
-
-/** Fields shown for the chosen op (machine+tech, commodity+price, …). */
-function OverrideFields({ o, onChange, opts }: { o: Override; onChange: (p: Partial<Override>) => void; opts: Opts }) {
-  const sel = (value: string, onPick: (v: string) => void, options: string[], min = 140) => (
-    <div style={{ minWidth: min }}>
-      <SearchSelect value={value} onChange={onPick} options={options.map((v) => ({ value: v }))} />
-    </div>
-  );
-  const price = (
-    <input
-      type="number"
-      style={{ width: 110 }}
-      value={o.price ?? 0}
-      onChange={(e) => onChange({ price: Number(e.target.value) })}
-      aria-label="price"
-    />
-  );
-  if (o.op === "set_machine_tech")
-    return (
-      <>
-        {sel(o.machine ?? "", (v) => onChange({ machine: v }), opts.machines, 180)}
-        <span className="muted">→</span>
-        {sel(o.technology ?? "", (v) => onChange({ technology: v }), opts.techs)}
-      </>
-    );
-  if (o.op === "set_price")
-    return (
-      <>
-        {sel(o.commodity ?? "", (v) => onChange({ commodity: v }), opts.commodities)}
-        <span className="muted">=</span>
-        {price}
-      </>
-    );
-  if (o.op === "set_carbon_price")
-    return (
-      <>
-        {sel(o.impact ?? "", (v) => onChange({ impact: v }), opts.impacts)}
-        <span className="muted">=</span>
-        {price}
-      </>
-    );
-  // toggle_measure
-  return (
-    <>
-      {sel(o.measure ?? "", (v) => onChange({ measure: v }), opts.measures, 200)}
-      <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: ".78rem" }}>
-        <input type="checkbox" checked={o.on ?? true} onChange={(e) => onChange({ on: e.target.checked })} /> on
-      </label>
-    </>
-  );
-}
-
-/** Sensible defaults when the op changes (so the new fields aren't empty). */
-function resetOp(op: OpType, opts: Opts): Override {
-  if (op === "set_machine_tech") return { op, machine: opts.machines[0] ?? "", technology: opts.techs[0] ?? "" };
-  if (op === "set_price") return { op, commodity: opts.commodities[0] ?? "", price: 0 };
-  if (op === "set_carbon_price") return { op, impact: opts.impacts[0] ?? "CO2", price: 0 };
-  return { op, measure: opts.measures[0] ?? "", on: true };
-}
-
-/** Drop UI-only undefined fields so the payload is the minimal typed op. */
-function serialise(o: Override): Record<string, unknown> {
-  const out: Record<string, unknown> = { op: o.op };
-  for (const k of ["machine", "technology", "commodity", "impact", "measure", "price", "on"] as const) {
-    if (o[k] !== undefined) out[k] = o[k];
-  }
-  return out;
 }

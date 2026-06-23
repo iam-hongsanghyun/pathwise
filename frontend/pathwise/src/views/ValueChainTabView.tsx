@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import { HierarchyMap } from "../features/topology/HierarchyMap";
 import { sourceStreams } from "../lib/hierarchyLayout";
 import { Alternatives, FlowContext, MachineInspector, PortsPanel, SourceStreamInspector } from "../features/valuechain/panels";
+import { VariantsPanel } from "../features/valuechain/VariantsPanel";
 import { ModelHealth } from "../features/valuechain/ModelHealth";
 import { indexIssues, rollUpBadges, validateModel, type FixDescriptor, type Issue } from "../lib/validate";
 import { useDialogs } from "../features/controls/Dialog";
@@ -496,6 +497,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                   onRemove={(tech) => removeAlt(baseline, tech)}
                 />
                 <FlowContext wb={workbook} nodeId={selId!} />
+                <VariantsPanel workbook={workbook} setWorkbook={setWorkbook} machineId={selId!} />
               </div>
             </FloatingPanel>
           );
