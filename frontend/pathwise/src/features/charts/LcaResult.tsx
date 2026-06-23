@@ -26,6 +26,16 @@ export function LcaResult({ result }: { result: RunResult }) {
     .sort((a, b) => b.total - a.total);
   const stageMax = Math.max(...stageRows.map((d) => d.total), 1);
 
+  // Lifecycle-phase rollup (materials · manufacturing · use · EoL) for the headline
+  // impact, present only when nodes carry a `phase` tag.
+  const phaseRows = (lca.by_phase ?? [])
+    .filter((d) => d.impact === impact)
+    .sort((a, b) => b.total - a.total);
+  const phaseMax = Math.max(...phaseRows.map((d) => d.total), 1);
+
+  // Monte-Carlo factor-uncertainty band, present only when the scenario ran it.
+  const uncertainty = lca.uncertainty ?? [];
+
   return (
     <div className="view">
       <div className="card">
@@ -73,6 +83,51 @@ export function LcaResult({ result }: { result: RunResult }) {
           </tbody>
         </table>
       </div>
+
+      {phaseRows.length > 0 && (
+        <div className="card">
+          <h3>Emissions by lifecycle phase ({impact})</h3>
+          <Bars rows={phaseRows.map((d) => ({ label: d.phase, value: d.total }))} max={phaseMax} />
+          <p className="muted" style={{ fontSize: ".74rem", marginTop: ".5rem" }}>
+            Stages rolled up by their <code>phase</code> tag (materials · manufacturing · use ·
+            end-of-life), the standard cradle-to-grave breakdown.
+          </p>
+        </div>
+      )}
+
+      {uncertainty.length > 0 && (
+        <div className="card">
+          <h3>Factor uncertainty (Monte-Carlo)</h3>
+          <table className="grid-table">
+            <thead>
+              <tr>
+                <th>Impact</th>
+                <th>Mean</th>
+                <th>P5</th>
+                <th>Median</th>
+                <th>P95</th>
+                <th>Std</th>
+              </tr>
+            </thead>
+            <tbody>
+              {uncertainty.map((u) => (
+                <tr key={u.impact}>
+                  <td>{u.impact}</td>
+                  <td>{fmt(u.mean)}</td>
+                  <td>{fmt(u.p5)}</td>
+                  <td>{fmt(u.p50)}</td>
+                  <td>{fmt(u.p95)}</td>
+                  <td>{fmt(u.std)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="muted" style={{ fontSize: ".74rem", marginTop: ".5rem" }}>
+            The inventory recomputed over sampled emission/characterisation factors at fixed
+            throughput. P5–P95 is the 90% band on total impact.
+          </p>
+        </div>
+      )}
 
       {comparison.length > 0 && (
         <ComparisonCard impact={impact} baseline={impactTotal(lca, impact)} variants={variants} comparison={comparison} />

@@ -73,6 +73,7 @@ export interface RunResult {
     comparison?: ComparisonRow[];
     policy_sweep?: PolicySweepRow[];
     cap_compliance?: CapComplianceRow[];
+    frontier?: FrontierBlock;
   };
   summary: {
     periods: { period: number; cost?: number }[];
@@ -201,6 +202,12 @@ export interface CapComplianceRow {
   status: string;
   compliant?: boolean;
   by_year?: { impact: string; year: number; emissions: number; cap: number; over: number }[];
+}
+
+/** Cost–impact Pareto frontier (the `frontier` backend). */
+export interface FrontierBlock {
+  impact: string;
+  points: { cap: number; cost?: number; impact?: number; status: string }[];
 }
 
 export interface JobState {

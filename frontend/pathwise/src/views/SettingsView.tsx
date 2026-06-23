@@ -70,6 +70,7 @@ export function SettingsView({
   const backends = config?.backends ?? [{ name: "linopy", label: "linopy + HiGHS" }];
   const isPortfolio = backend === "portfolio";
   const isSimulate = backend === "simulate";
+  const isFrontier = backend === "frontier";
   const set = (patch: Partial<PortfolioConfig>) => onPortfolio({ ...portfolio, ...patch });
   const byTarget = portfolio.target_return != null;
 
@@ -178,6 +179,14 @@ export function SettingsView({
                   value-chain stage, cost, and policy sensitivity. Define the baseline, variants
                   (e.g. switch to green steel) and an optional carbon-price sweep in the{" "}
                   <strong>Optimisation</strong> tab, then ▶ Run to compare A vs B.
+                </p>
+              ) : isFrontier ? (
+                <p className="muted">
+                  <strong>Cost–impact frontier</strong> traces the trade-off curve: it re-runs the
+                  least-cost optimiser under a tightening cap on an impact category (e.g. GWP) and
+                  records each <em>(cost, achieved impact)</em> point. The curve answers “how much
+                  does each extra tonne avoided cost?”. Pick the category and cap range in the{" "}
+                  <strong>Optimisation</strong> tab, then ▶ Run.
                 </p>
               ) : !isPortfolio ? (
                 <p className="muted">

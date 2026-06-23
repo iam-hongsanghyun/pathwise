@@ -43,10 +43,12 @@ export function productIds(wb: Workbook): string[] {
   return [...out].filter(Boolean);
 }
 
-/** The impacts that emission caps can target. */
+/** The impacts that caps / objectives can target — raw elementary flows AND the
+ *  characterised LCIA categories (GWP, acidification, …) derived from them. */
 export function impactIds(wb: Workbook): string[] {
   const out = new Set<string>();
   for (const r of wb.impacts ?? []) out.add(s(r.impact_id));
   for (const r of wb.io ?? []) if (s(r.role) === "impact") out.add(s(r.target));
+  for (const r of wb.characterisation ?? []) out.add(s(r.category_id));
   return [...out].filter(Boolean);
 }

@@ -38,6 +38,8 @@ export function SimulateSetup({
 
   const [sweepOn, setSweepOn] = useState(false);
   const [sweep, setSweep] = useState({ impact: impacts[0] ?? "CO2", from: 0, to: 300, step: 25 });
+  const [uncOn, setUncOn] = useState(false);
+  const [unc, setUnc] = useState({ sigma: 0.1, n: 1000, seed: 42 });
 
   function run() {
     const simulate: Record<string, unknown> = { baseline: { plan: "as-is" } };
@@ -49,6 +51,9 @@ export function SimulateSetup({
         to: sweep.to,
         step: sweep.step,
       };
+    }
+    if (uncOn) {
+      simulate.uncertainty = { sigma: unc.sigma, n: unc.n, seed: unc.seed };
     }
     // No `variants` key ⇒ the backend evaluates the model-resident variants.
     onRun({
@@ -127,13 +132,35 @@ export function SimulateSetup({
           )}
         </section>
 
+        <section style={{ marginBottom: 18 }}>
+          <h3 className="section-title" style={{ marginBottom: 2 }}>Uncertainty</h3>
+          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: ".8rem" }}>
+            <input type="checkbox" checked={uncOn} onChange={(e) => setUncOn(e.target.checked)} />
+            Monte-Carlo the emission / characterisation factors (per-impact P5–P95 band)
+          </label>
+          {uncOn && (
+            <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 8, flexWrap: "wrap" }}>
+              <label style={{ fontSize: ".78rem" }} title="log-normal σ on each factor">
+                σ <input type="number" step="0.01" style={num} value={unc.sigma} onChange={(e) => setUnc({ ...unc, sigma: Number(e.target.value) })} />
+              </label>
+              <label style={{ fontSize: ".78rem" }}>
+                samples <input type="number" style={num} value={unc.n} onChange={(e) => setUnc({ ...unc, n: Math.max(1, Math.round(Number(e.target.value))) })} />
+              </label>
+              <label style={{ fontSize: ".78rem" }} title="RNG seed (reproducible)">
+                seed <input type="number" style={num} value={unc.seed} onChange={(e) => setUnc({ ...unc, seed: Math.round(Number(e.target.value)) })} />
+              </label>
+            </div>
+          )}
+        </section>
+
         <section style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
           <button className="run-button" onClick={run} disabled={running != null || !canRun}>
             {running ? `▶ ${running}…` : "▶ Run simulation"}
           </button>
           <span className="muted" style={{ fontSize: ".74rem", marginLeft: 10 }}>
             Evaluates the baseline{variants.length ? ` and ${variants.length} variant(s)` : ""}
-            {sweepOn ? `, sweeping ${sweep.impact} ${sweep.from}–${sweep.to}` : ""}, over {baseYear}–{endYear}.
+            {sweepOn ? `, sweeping ${sweep.impact} ${sweep.from}–${sweep.to}` : ""}
+            {uncOn ? `, ${unc.n} MC samples (σ=${unc.sigma})` : ""}, over {baseYear}–{endYear}.
           </span>
         </section>
       </main>

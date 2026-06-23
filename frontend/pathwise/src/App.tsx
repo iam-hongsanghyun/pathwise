@@ -17,6 +17,7 @@ import { ProjectView } from "./views/ProjectView";
 import { SettingsView } from "./views/SettingsView";
 import { TargetsTabView } from "./views/TargetsTabView";
 import { SimulateSetup } from "./features/simulate/SimulateSetup";
+import { FrontierSetup } from "./features/simulate/FrontierSetup";
 import { ValueChainTabView } from "./views/ValueChainTabView";
 import type { ConfigBundle, PortfolioConfig, RunResult, Workbook } from "./types";
 
@@ -276,6 +277,15 @@ export function App() {
             // The simulate method needs a fixed configuration + interventions to
             // evaluate, not optimisation targets — so it gets its own cockpit.
             <SimulateSetup
+              workbook={workbook}
+              onRun={runOptimisation}
+              running={running}
+              canRun={!!sessionId}
+            />
+          ) : backend === "frontier" ? (
+            // The frontier method sweeps a cap over an impact category — it gets a
+            // dedicated cockpit in place of the optimisation constraints editor.
+            <FrontierSetup
               workbook={workbook}
               onRun={runOptimisation}
               running={running}

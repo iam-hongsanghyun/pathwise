@@ -3,6 +3,7 @@ import { LineChart } from "../features/charts/LineChart";
 import { MaccDesigner } from "../features/macc/MaccDesigner";
 import { MaccResult } from "../features/charts/MaccResult";
 import { LcaResult } from "../features/charts/LcaResult";
+import { FrontierResult } from "../features/charts/FrontierResult";
 import { PortfolioResult } from "../features/charts/PortfolioResult";
 import { TopologyCanvas } from "../features/topology/TopologyCanvas";
 import { HierarchyMap } from "../features/topology/HierarchyMap";
@@ -65,6 +66,27 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
         <main className="main-area">
           <AnalyticsHead title="Portfolio" />
           <PortfolioResult portfolio={pf} />
+        </main>
+      </div>
+    );
+  }
+
+  // A frontier run carries the cost–impact Pareto curve.
+  const frontier = result?.outputs.frontier;
+  if (frontier) {
+    return (
+      <div className="body-row">
+        <RailList
+          title="Analytics"
+          items={[{ id: "frontier", label: "Frontier" }]}
+          activeId="frontier"
+          onSelect={() => undefined}
+          width={leftW}
+        />
+        <Resizer width={leftW} setWidth={setLeftW} side="left" />
+        <main className="main-area">
+          <AnalyticsHead title="Cost–impact frontier" />
+          <FrontierResult frontier={frontier} />
         </main>
       </div>
     );

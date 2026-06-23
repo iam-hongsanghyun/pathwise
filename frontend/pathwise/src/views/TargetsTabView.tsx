@@ -132,7 +132,11 @@ export function TargetsTabView({
   const endYear = years.length ? Math.max(...years) : baseYear;
 
   // ── Objective (goal × scope) ────────────────────────────────────────────────
-  const [goal, setGoal] = useState<"cost" | "profit">("cost");
+  // "impact" minimises a (characterised) impact category instead of money; an
+  // optional cost weight λ blends money back in (λ·cost + impact).
+  const [goal, setGoal] = useState<"cost" | "profit" | "impact">("cost");
+  const [objImpact, setObjImpact] = useState("");
+  const [costWeight, setCostWeight] = useState(0);
   const [perCompany, setPerCompany] = useState(false);
   // Optional forced variant (authored in the Value chain): the optimiser pins its
   // changes and optimises the rest. "" = free optimisation.
@@ -163,12 +167,18 @@ export function TargetsTabView({
   }
 
   function run() {
+    const obj = goal === "impact" ? (objImpact || impacts[0] || "") : "";
     onRun({
       economics: { base_year: baseYear },
       horizon: { start: baseYear, end: endYear },
       optimisation_scope: perCompany ? "company" : "system",
       optimisation_mode: perCompany ? "independent" : "joint",
-      objective: goal,
+      // The base objective is always cost/profit; minimise-impact rides on top via
+      // an impact_weight term, with cost_weight as the blend λ (0 ⇒ pure impact).
+      objective: goal === "profit" ? "profit" : "cost",
+      ...(goal === "impact"
+        ? { objective_impact: obj, impact_weight: 1, cost_weight: costWeight }
+        : {}),
       ...(variant ? { variant } : {}),
     });
   }
@@ -195,14 +205,40 @@ export function TargetsTabView({
               <div style={small}>
                 <SearchSelect
                   value={goal}
-                  onChange={(v) => setGoal(v as "cost" | "profit")}
+                  onChange={(v) => setGoal(v as "cost" | "profit" | "impact")}
                   options={[
                     { value: "cost", label: "Minimise cost" },
                     { value: "profit", label: "Maximise profit" },
+                    { value: "impact", label: "Minimise impact" },
                   ]}
                 />
               </div>
             </label>
+            {goal === "impact" && (
+              <>
+                <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>Impact</span>
+                  <div style={small}>
+                    <SearchSelect
+                      value={objImpact || impacts[0] || ""}
+                      onChange={setObjImpact}
+                      options={impacts.map((o) => ({ value: o }))}
+                    />
+                  </div>
+                </label>
+                <label style={{ display: "flex", gap: 6, alignItems: "center" }} title="λ — weight on monetary cost added to the impact objective (0 = pure impact minimisation)">
+                  <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>Cost weight λ</span>
+                  <input
+                    type="number"
+                    step="0.001"
+                    min={0}
+                    style={{ width: 90 }}
+                    value={costWeight}
+                    onChange={(e) => setCostWeight(Math.max(0, Number(e.target.value) || 0))}
+                  />
+                </label>
+              </>
+            )}
             <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>Solve</span>
               <div style={small}>
@@ -310,8 +346,13 @@ export function TargetsTabView({
             {running ? `▶ ${running}…` : "▶ Run"}
           </button>
           <span className="muted" style={{ fontSize: "0.74rem", marginLeft: 10 }}>
-            Solves {goal === "cost" ? "least-cost" : "max-profit"},{" "}
-            {perCompany ? "per company" : "whole system"}, over {baseYear}–{endYear}.
+            Solves{" "}
+            {goal === "cost"
+              ? "least-cost"
+              : goal === "profit"
+                ? "max-profit"
+                : `min-${objImpact || impacts[0] || "impact"}${costWeight ? ` (λ=${costWeight})` : ""}`}
+            , {perCompany ? "per company" : "whole system"}, over {baseYear}–{endYear}.
           </span>
         </section>
       </main>
