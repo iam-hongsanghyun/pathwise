@@ -9,8 +9,14 @@ import { SearchSelect } from "../features/controls/SearchSelect";
 import { type LibrarySummary, listSessionComponentLibraries } from "../lib/api/components";
 import { PROJECT_BUNDLE_FORMAT, type ProjectBundle, downloadProject, importProject } from "../lib/api/project";
 import { type ExampleModel, listExamples, loadExample } from "../lib/api/session";
-import { getUnits } from "../lib/api/units";
+import { type UnitsBundle, getUnits } from "../lib/api/units";
 import { modelCurrency, modelDiscount, setModelCurrency, setModelDiscount } from "../lib/caps";
+import {
+  type UnitRow,
+  projectUnitRows,
+  seedUnitRows,
+  setProjectUnitRows,
+} from "../lib/unitRegistry";
 import type { Workbook } from "../types";
 
 interface Props {
@@ -70,23 +76,35 @@ export function ProjectView({
   const years = (workbook.periods ?? []).map((r) => Number(r.year)).filter(Number.isFinite);
   const baseYear = years.length ? Math.min(...years) : null;
   const endYear = years.length ? Math.max(...years) : null;
-  // Currency choices come from the unit system's `currency` dimension (units.yaml),
-  // so they can't drift from the converter. Phase 3 will source this from the
-  // project's own unit registry.
-  const [currencyOpts, setCurrencyOpts] = useState<string[]>(["USD", "EUR", "KRW"]);
+  // The global unit system (dimensions + bases + per-unit factors) — used to
+  // populate the dimension picker and seed the registry from the model's units.
+  const [units, setUnits] = useState<UnitsBundle | null>(null);
   useEffect(() => {
     let alive = true;
     getUnits()
-      .then((u) => {
-        const allowed = u.config.dimensions?.currency?.allowed;
-        if (alive && allowed?.length) setCurrencyOpts(allowed);
-      })
+      .then((u) => alive && setUnits(u))
       .catch(() => undefined);
     return () => {
       alive = false;
     };
   }, []);
-  const currencyChoices = currencyOpts.includes(currency) ? currencyOpts : [currency, ...currencyOpts];
+  const dimensions = Object.keys(units?.config.dimensions ?? {});
+  const baseOf = (dim: string): string => units?.config.dimensions?.[dim]?.base ?? "";
+  // Registry rows (the model's `units` sheet) + currency choices drawn from it.
+  const unitRows = projectUnitRows(workbook);
+  const registryCurrencies = unitRows.filter((r) => r.dimension === "currency").map((r) => r.unit);
+  const currencyFallback = units?.config.dimensions?.currency?.allowed ?? ["USD", "EUR", "KRW"];
+  const currencyChoices = [
+    ...new Set([currency, ...(registryCurrencies.length ? registryCurrencies : currencyFallback)]),
+  ];
+
+  const setRows = (rows: UnitRow[]) => setWorkbook(setProjectUnitRows(workbook, rows));
+  const patchRow = (i: number, p: Partial<UnitRow>) =>
+    setRows(unitRows.map((r, j) => (j === i ? { ...r, ...p } : r)));
+  const addRow = () =>
+    setRows([...unitRows, { unit: "", dimension: dimensions[0] ?? "", factor_to_base: 1 }]);
+  const removeRow = (i: number) => setRows(unitRows.filter((_, j) => j !== i));
+  const seed = () => setRows(seedUnitRows(workbook, units));
 
   async function onExport() {
     if (!sessionId) return;
@@ -207,8 +225,62 @@ export function ProjectView({
           </div>
           <p className="muted" style={{ fontSize: ".74rem", marginTop: 8 }}>
             Currency is the unit every monetary value is shown in (relabels only; cross-rates live in
-            the unit registry). Discount rate sets NPV. Runs are annual — one snapshot per period.
+            the unit registry below). Discount rate sets NPV. Runs are annual — one snapshot per period.
           </p>
+        </section>
+
+        <section style={{ marginBottom: 22 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 560 }}>
+            <h3 className="section-title" style={{ margin: 0 }}>Units &amp; conversion factors</h3>
+            <button className="ghost" onClick={seed} title="Add every unit the model uses, with its factor">
+              ↻ from model
+            </button>
+          </div>
+          <p className="detail-note" style={{ margin: "6px 0 8px" }}>
+            The project's unit registry — base-anchored: <b>1 unit = factor × base</b>. Currency and
+            physical units both live here; this is the only place units are defined, and every unit
+            picker chooses from it.
+          </p>
+          {unitRows.length === 0 ? (
+            <p className="muted" style={{ fontSize: ".78rem" }}>
+              No units yet — <b>↻ from model</b> seeds them from what the model already uses.
+            </p>
+          ) : (
+            <table className="grid" style={{ width: "100%", maxWidth: 560, fontSize: ".78rem" }}>
+              <thead>
+                <tr style={{ textAlign: "left", color: "var(--muted)" }}>
+                  <th>unit</th>
+                  <th>dimension</th>
+                  <th>factor</th>
+                  <th>base</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {unitRows.map((r, i) => (
+                  <tr key={i}>
+                    <td style={{ padding: "2px 4px" }}>
+                      <input className="field-input" style={{ width: 90 }} value={r.unit}
+                        onChange={(e) => patchRow(i, { unit: e.target.value.trim() })} />
+                    </td>
+                    <td style={{ padding: "2px 4px", minWidth: 120 }}>
+                      <SearchSelect value={r.dimension} onChange={(v) => patchRow(i, { dimension: v })}
+                        options={dimensions.map((d) => ({ value: d }))} />
+                    </td>
+                    <td style={{ padding: "2px 4px" }}>
+                      <input className="field-input" type="number" step="any" style={{ width: 110 }}
+                        value={Number.isFinite(r.factor_to_base) ? r.factor_to_base : ""}
+                        disabled={r.unit !== "" && r.unit === baseOf(r.dimension)}
+                        onChange={(e) => patchRow(i, { factor_to_base: Number(e.target.value) })} />
+                    </td>
+                    <td style={{ padding: "2px 4px" }} className="muted">{baseOf(r.dimension) || "—"}</td>
+                    <td><button className="ghost" title="remove" onClick={() => removeRow(i)}>✕</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <button className="ghost" style={{ marginTop: 8 }} onClick={addRow}>＋ add unit</button>
         </section>
 
         <section style={{ marginBottom: 22 }}>

@@ -105,10 +105,11 @@ from pathwise.data.sheets import (
     TECHNOLOGY_CAPS,
     TRANSITIONS,
     TRANSITIONS_T,
+    UNITS,
 )
 from pathwise.data.trajectory import interpolate
 from pathwise.data.workbook import Workbook
-from pathwise.units import CoefficientConverter
+from pathwise.units import CoefficientConverter, load_units_config
 
 Rows = list[dict[str, Any]]
 
@@ -176,6 +177,37 @@ def _enabled(r: dict[str, Any]) -> bool:
 
 def _meta(wb: Workbook) -> dict[str, Any]:
     return {str(r.get("key")): r.get("value") for r in _rows(wb, META)}
+
+
+def _model_unit_overrides(wb: Workbook, scenario_overrides: Any) -> list[Any]:
+    """Pint ``custom_units`` from the model's ``units`` registry sheet + the scenario.
+
+    Each base-anchored row ``(unit, dimension, factor_to_base)`` becomes a pint
+    definition ``"<unit> = <factor> * <base>"``, where ``<base>`` is the
+    dimension's canonical base from the global ``units.yaml``. Base rows
+    (``unit == base``) are skipped — the base is defined globally. Scenario-level
+    overrides are appended last so they win (``merged_custom_units`` redefines in
+    place). Returns a flat definition list suitable as ``unit_overrides``.
+    """
+    dims = load_units_config().get("dimensions", {})
+    defs: list[str] = []
+    for r in _rows(wb, UNITS):
+        unit, dim = _str(r.get("unit")), _str(r.get("dimension"))
+        factor = _num(r.get("factor_to_base"))
+        if not unit or not dim or factor is None or factor <= 0.0:
+            continue
+        base = dims.get(dim, {}).get("base")
+        if base and unit != str(base):
+            # Exact float repr, but drop a trailing ".0" so whole factors read cleanly.
+            fstr = repr(float(factor))
+            defs.append(f"{unit} = {fstr[:-2] if fstr.endswith('.0') else fstr} * {base}")
+    if isinstance(scenario_overrides, dict):
+        extra = list(scenario_overrides.get("custom_units", []))
+    elif isinstance(scenario_overrides, list):
+        extra = list(scenario_overrides)
+    else:
+        extra = []
+    return defs + extra
 
 
 def _wide_temporal(wb: Workbook, sheet: str) -> dict[str, dict[int, float]]:
@@ -576,7 +608,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         commodity_units={cid: c.unit for cid, c in commodities.items()},
         commodity_props=props_by_commodity,
         impact_units={iid: imp.unit for iid, imp in impacts.items()},
-        unit_overrides=scenario.unit_overrides,
+        unit_overrides=_model_unit_overrides(workbook, scenario.unit_overrides),
     )
     # The unit each static io row declares per (tech, target, role); io_t rows carry
     # no unit of their own and inherit it, so the trajectory never kinks at a unit.

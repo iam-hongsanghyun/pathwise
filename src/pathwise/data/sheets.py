@@ -25,6 +25,16 @@ from __future__ import annotations
 #: Key-value pairs stored at the workbook level (label, sector notes, …).
 META = "meta"
 
+# ── Unit registry (per-project conversion factors) ────────────────────────────
+
+#: The project's conversion-factor registry — one base-anchored row per unit:
+#: ``(unit, dimension, factor_to_base)`` meaning ``1 unit = factor_to_base ×
+#: <dimension base>``. Assembled into pint ``unit_overrides`` so a project can
+#: set its own rates (e.g. ``KRW = 1/1300 USD``); the dimension bases come from
+#: the global ``units.yaml``. Also the closed vocabulary the UI's unit pickers
+#: draw from.
+UNITS = "units"
+
 # ── Time horizon ──────────────────────────────────────────────────────────────
 
 #: One row per modelled year (``year``, ``duration_years``).
