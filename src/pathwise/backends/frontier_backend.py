@@ -14,7 +14,7 @@ from typing import Any
 
 from pathwise.core.extract import empty_result
 from pathwise.data.scenario import ScenarioConfig
-from pathwise.data.workbook import Workbook
+from pathwise.data.workbook import Workbook, default_impact
 from pathwise.domains.base import get_domain
 from pathwise.logger import get_logger
 
@@ -61,7 +61,7 @@ class FrontierBackend:
             return empty_result("invalid", domain.terminology(), report.as_dict())
 
         fr = (scenario or {}).get("frontier") or {}
-        impact = str(fr.get("impact") or "CO2")
+        impact = str(fr.get("impact") or default_impact(model))
         caps = _cap_points(
             float(fr.get("from") or 0.0), float(fr.get("to") or 0.0), float(fr.get("step") or 0.0)
         )

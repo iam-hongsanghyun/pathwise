@@ -24,7 +24,14 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
-from pathwise.data.sheets import CONNECTIONS, CONNECTIONS_T, MACHINES, NODES, PORTS
+from pathwise.data.sheets import (
+    CONNECTION_IMPACTS,
+    CONNECTIONS,
+    CONNECTIONS_T,
+    MACHINES,
+    NODES,
+    PORTS,
+)
 
 Workbook = dict[str, list[dict[str, Any]]]
 
@@ -98,8 +105,9 @@ class Connection:
     max_flow_by_year: dict[int, float] = field(default_factory=dict)
     min_flow_by_year: dict[int, float] = field(default_factory=dict)
     #: Optional per-unit transport physics carried onto the synthesized edge(s).
+    #: ``emissions`` maps any impact id → freight factor (impact-agnostic).
     cost: float = 0.0
-    co2: float = 0.0
+    emissions: dict[str, float] = field(default_factory=dict)
     energy: float = 0.0
 
 
@@ -335,6 +343,14 @@ def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
         if (mx := _num(r.get("max_flow"))) is not None:
             maxflow_t.setdefault((f, t, c), {})[yr] = mx
 
+    # Per-impact freight emissions, keyed by (from, to, commodity) — impact-agnostic.
+    conn_emissions: dict[tuple[str, str, str], dict[str, float]] = {}
+    for r in workbook.get(CONNECTION_IMPACTS, []):
+        f, t, c = _str(r.get("from_node")), _str(r.get("to_node")), _str(r.get("commodity_id"))
+        imp, fac = _str(r.get("impact_id")), _num(r.get("factor"))
+        if f and t and c and imp and fac:
+            conn_emissions.setdefault((f, t, c), {})[imp] = fac
+
     connections: list[Connection] = []
     for r in workbook.get(CONNECTIONS, []):
         f, t, c = _str(r.get("from_node")), _str(r.get("to_node")), _str(r.get("commodity_id"))
@@ -350,7 +366,7 @@ def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
                     max_flow_by_year=maxflow_t.get((f, t, c), {}),
                     min_flow_by_year=minflow_t.get((f, t, c), {}),
                     cost=_num(r.get("freight_cost")) or 0.0,
-                    co2=_num(r.get("freight_co2")) or 0.0,
+                    emissions=conn_emissions.get((f, t, c), {}),
                     energy=_num(r.get("freight_energy")) or 0.0,
                 )
             )

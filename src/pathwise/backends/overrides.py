@@ -35,7 +35,7 @@ import copy
 from typing import Any
 
 from pathwise.data import sheets
-from pathwise.data.workbook import Workbook
+from pathwise.data.workbook import Workbook, default_impact
 from pathwise.logger import get_logger
 
 logger = get_logger(__name__)
@@ -133,7 +133,7 @@ def _set_price(wb: Workbook, ov: dict[str, Any], _src: Workbook) -> None:
 
 
 def _set_carbon_price(wb: Workbook, ov: dict[str, Any], _src: Workbook) -> None:
-    impact, price = str(ov.get("impact") or "CO2"), ov.get("price")
+    impact, price = str(ov.get("impact") or default_impact(wb)), ov.get("price")
     if price is None:
         raise OverrideError("set_carbon_price needs 'price'")
     price = float(price)

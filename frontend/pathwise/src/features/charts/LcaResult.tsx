@@ -257,8 +257,8 @@ function SweepCard({
       <h3>Policy sweep — total cost vs carbon price</h3>
       <LineChart years={prices} series={series} unit="$" />
       <p className="muted" style={{ fontSize: ".74rem", marginTop: ".5rem" }}>
-        Each line is a configuration's total cost as the carbon price rises (x-axis = price on{" "}
-        {sweep[0]?.impact ?? "CO2"}). Where a variant's line crosses the baseline's is its break-even
+        Each line is a configuration's total cost as the impact price rises (x-axis = price on{" "}
+        {sweep[0]?.impact ?? "the impact"}). Where a variant's line crosses the baseline's is its break-even
         price{breakeven.length ? `: ${breakeven.join(", ")}` : ""}.
       </p>
     </div>
@@ -339,10 +339,10 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 const fmt = (v: number, d = 2) => v.toLocaleString(undefined, { maximumFractionDigits: d });
 
-/** The headline impact a view keys on: CO2 if present, else the first. */
+/** The headline impact a view keys on: the backend-stamped primary (model's first
+ *  capped/declared impact), else the first reported. Impact-agnostic — no CO2. */
 function primaryImpact(lca: LcaBlock): string {
-  const impacts = lca.by_impact.map((d) => d.impact);
-  return impacts.includes("CO2") ? "CO2" : (impacts[0] ?? "CO2");
+  return lca.primary_impact || (lca.by_impact[0]?.impact ?? "");
 }
 
 function impactTotal(lca: LcaBlock, impact: string): number {

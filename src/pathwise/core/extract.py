@@ -100,7 +100,7 @@ def macc_result(
     by_year = macc.get("by_year", [])
     out["objective"] = by_year[-1]["cumulative_capex"] if by_year else None
     out["outputs"]["macc"] = macc
-    impact = macc.get("impact_id", "CO2")
+    impact = macc.get("impact_id", "")  # the MACC backend always sets the target impact
     out["summary"]["impacts"] = [
         {"period": r["year"], "impact": impact, "total": r["actual_emissions"]} for r in by_year
     ]
@@ -171,9 +171,10 @@ def extract_results(
                     "value": v,
                 }
             )
-            # Transport physics on a tagged edge: freight cost / CO2 / energy borne
-            # by the flow (the spatial-transport layer; untagged edges are skipped).
-            if edge.cost or edge.co2 or edge.energy:
+            # Transport physics on a tagged edge: freight cost / per-impact emissions
+            # / energy borne by the flow (untagged edges are skipped). Emissions are
+            # impact-agnostic — a {impact_id: amount} map, no privileged impact.
+            if edge.cost or edge.emissions or edge.energy:
                 out["outputs"]["transport"].append(
                     {
                         "from": edge.from_process,
@@ -182,7 +183,7 @@ def extract_results(
                         "period": int(t),
                         "flow": v,
                         "cost": edge.cost * v,
-                        "co2": edge.co2 * v,
+                        "emissions": {i: fac * v for i, fac in edge.emissions.items()},
                         "energy": edge.energy * v,
                     }
                 )
@@ -374,16 +375,17 @@ def _period_costs(ctx: Any) -> dict[int, float]:
             cost[int(t)] += imap[mid].price(int(t)) * v
         for (mid, t), v in asell.items():
             cost[int(t)] -= imap[mid].sell_price(int(t)) * v
-    # Freight: per-edge transport cost + the carbon cost of freight CO2 on the flow
-    # (mirrors the objective so the reported per-year cost reconciles).
-    if any(e.cost or e.co2 for e in prob.edges):
-        co2_priced = "CO2" in prob.impacts and tog.impact_price
+    # Freight: per-edge transport cost + the (per-impact) cost of freight emissions on
+    # the flow, each priced at its own impact (mirrors the objective so the reported
+    # per-year cost reconciles). Impact-agnostic — no hardcoded CO2.
+    if any(e.cost or e.emissions for e in prob.edges):
         for (e, t), v in _series(ctx.flow).items():
             edge = prob.edges[int(e)]
-            if edge.cost:
-                cost[int(t)] += edge.cost * v
-            if edge.co2 and co2_priced:
-                cost[int(t)] += prob.impacts["CO2"].price(int(t)) * edge.co2 * v
+            cost[int(t)] += edge.cost * v
+            if tog.impact_price:
+                for i, fac in edge.emissions.items():
+                    if i in prob.impacts:
+                        cost[int(t)] += prob.impacts[i].price(int(t)) * fac * v
     if tog.capex:
         for (p, k, t), v in w.items():
             if k != baseline[p] and v > _EPS:

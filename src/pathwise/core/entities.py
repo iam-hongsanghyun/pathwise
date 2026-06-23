@@ -524,8 +524,9 @@ class Edge:
         cost: Optional freight cost [currency / commodity unit] charged on the flow —
             the physical cost of moving the stream over this link (0 ⇒ free, today's
             default). Enters the objective as ``cost · flow``.
-        co2: Optional freight emission [t CO₂ / commodity unit] of moving the stream —
-            priced at the carbon price in the objective and reported (0 ⇒ none).
+        emissions: Optional freight emissions ``{impact_id: factor}`` [impact unit /
+            commodity unit] of moving the stream — each priced at *its own* impact's
+            price in the objective and reported (impact-agnostic; any/all impacts).
         energy: Optional freight energy intensity [energy unit / commodity unit] of the
             move — reported (informational; not balanced against a carrier in v1).
     """
@@ -545,9 +546,10 @@ class Edge:
     #: consumer in ``t + lag_years`` (a recycling / use-phase return). 0 ⇒ same year.
     lag_years: int = 0
     #: Optional per-unit transport physics (the spatial-transport layer). Untagged
-    #: links stay free (cost/co2/energy = 0), so this is opt-in per stream.
+    #: links stay free (cost = energy = 0, emissions = {}), so this is opt-in per
+    #: stream. ``emissions`` maps any impact id → factor (no privileged impact).
     cost: float = 0.0
-    co2: float = 0.0
+    emissions: dict[str, float] = field(default_factory=dict)
     energy: float = 0.0
 
     def available(self, year: int) -> bool:

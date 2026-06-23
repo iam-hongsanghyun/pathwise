@@ -55,7 +55,7 @@ from pathwise.core.run import run_model
 from pathwise.core.solve import options_from_scenario, solve
 from pathwise.data.assemble import assemble_problem
 from pathwise.data.scenario import ScenarioConfig
-from pathwise.data.workbook import Workbook
+from pathwise.data.workbook import Workbook, default_impact
 from pathwise.domains.base import get_domain
 from pathwise.logger import get_logger
 
@@ -161,7 +161,9 @@ class SimulationBackend:
 
         configs = [base_record, *evaluated]
         if variants:
-            impact = _primary_impact(base_lca)
+            # Headline impact: the model's policy impact (first capped/declared),
+            # else the first reported impact — never a hardcoded CO2.
+            impact = default_impact(model) or _primary_impact(base_lca)
             result["outputs"]["variants"] = [
                 {"label": v["label"], "status": v["status"], "lca": v["lca"]} for v in evaluated
             ]
@@ -171,7 +173,7 @@ class SimulationBackend:
         sweep = sim.get("policy_sweep")
         if sweep:
             result["outputs"]["policy_sweep"] = _policy_sweep(
-                configs, sweep, scenario, domain, report
+                configs, sweep, scenario, domain, report, default_impact(model)
             )
 
         # Cap compliance (P3): each config's per-year emissions vs the impact caps.
@@ -306,9 +308,11 @@ def _sunk_cost(model: Workbook, forced: dict[str, tuple[str, int]]) -> float:
 
 
 def _primary_impact(lca: dict[str, Any]) -> str:
-    """The impact a comparison is keyed on: ``CO2`` if present, else the first."""
+    """The impact a comparison is keyed on: the first reported impact (impact-
+    agnostic — no privileged ``"CO2"``). Base flows sort before derived categories
+    in ``by_impact``, so this picks an elementary impact when one exists."""
     impacts = [d["impact"] for d in lca.get("by_impact", [])]
-    return "CO2" if "CO2" in impacts else (impacts[0] if impacts else "CO2")
+    return impacts[0] if impacts else ""
 
 
 def _impact_total(lca: dict[str, Any], impact: str) -> float:
@@ -421,6 +425,7 @@ def _policy_sweep(
     scenario: dict[str, Any],
     domain: Any,
     report: Any,
+    fallback_impact: str = "",
 ) -> list[dict[str, Any]]:
     """Cost & emissions of every config across a parametric carbon-price range.
 
@@ -428,7 +433,7 @@ def _policy_sweep(
     as the carbon price rises and read off the **break-even** price where a green
     variant overtakes the baseline. ``lever`` is fixed to ``carbon_price`` in P3.
     """
-    impact = str(sweep.get("impact") or "CO2")
+    impact = str(sweep.get("impact") or fallback_impact)
     prices = _price_points(
         float(sweep.get("from") or 0.0),
         float(sweep.get("to") or 0.0),
@@ -680,6 +685,10 @@ def _lifecycle_inventory(
 
     return {
         "functional_unit": fu,
+        # The model's headline impact (first capped/declared) — so the UI keys its
+        # display on the policy-relevant impact, not an alphabetical accident, and
+        # without privileging CO2. Falls back to the first reported impact.
+        "primary_impact": default_impact(model) or next(iter(sorted(by_impact)), ""),
         "by_impact": [
             {"impact": i, "total": t, "per_unit": t / unit} for i, t in sorted(by_impact.items())
         ],

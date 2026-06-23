@@ -27,7 +27,7 @@ export function FrontierSetup({
   const baseYear = years.length ? Math.min(...years) : 2025;
   const endYear = years.length ? Math.max(...years) : baseYear;
 
-  const [fr, setFr] = useState({ impact: impacts[0] ?? "CO2", from: 0, to: 1000, step: 100 });
+  const [fr, setFr] = useState({ impact: impacts[0] ?? "", from: 0, to: 1000, step: 100 });
   const num = { width: 100 } as const;
 
   function run() {

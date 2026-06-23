@@ -44,6 +44,7 @@ from pathwise.data.sheets import (
     COMPANY_CONFIG,
     DEMAND,
     DEMAND_T_AMOUNT,
+    EDGE_IMPACTS,
     EDGES,
     EDGES_T,
     IMPACT_CAPS,
@@ -327,6 +328,7 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
 
     edges = list(workbook.get(EDGES, []))
     edges_t = list(workbook.get(EDGES_T, []))
+    edge_impacts = list(workbook.get(EDGE_IMPACTS, []))
     # Seed with any pre-authored machine→machine edge (e.g. a per-provider bound set
     # in the machine popup): the fan-out then skips that triple, so the authored row
     # — carrying its bounds — IS the edge, rather than a duplicate parallel channel.
@@ -354,13 +356,22 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
                     edge["min_flow"] = c.min_flow
                 if c.lag_years:
                     edge["lag_years"] = c.lag_years  # delivery lag (recycling / use-phase return)
-                # Per-unit transport physics, carried onto every fanned edge.
+                # Per-unit transport physics, carried onto every fanned edge: scalar
+                # cost/energy as columns, per-impact freight emissions as edge_impacts.
                 if c.cost:
                     edge["freight_cost"] = c.cost
-                if c.co2:
-                    edge["freight_co2"] = c.co2
                 if c.energy:
                     edge["freight_energy"] = c.energy
+                for imp, fac in c.emissions.items():
+                    edge_impacts.append(
+                        {
+                            "from_process": s,
+                            "to_process": d,
+                            "commodity_id": c.commodity_id,
+                            "impact_id": imp,
+                            "factor": fac,
+                        }
+                    )
                 edges.append(edge)
                 # Carry per-year bounds (node-space → process-space): one edges_t
                 # row per year, the connection's series applied to every fanned edge.
@@ -377,7 +388,13 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
                         et_row["min_flow"] = c.min_flow_by_year[yr]
                     edges_t.append(et_row)
 
-    return {**workbook, PROCESSES: procs, EDGES: edges, EDGES_T: edges_t}
+    return {
+        **workbook,
+        PROCESSES: procs,
+        EDGES: edges,
+        EDGES_T: edges_t,
+        EDGE_IMPACTS: edge_impacts,
+    }
 
 
 def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
@@ -821,6 +838,17 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             edge_maxflow_t.setdefault(ek, {})[yr] = mf
         if (nf := _num(r.get("min_flow"))) is not None:
             edge_minflow_t.setdefault(ek, {})[yr] = nf
+    # Per-impact freight emissions per edge (impact-agnostic), keyed by (from,to,comm).
+    edge_emissions: dict[tuple[str, str, str], dict[str, float]] = {}
+    for r in _rows(workbook, EDGE_IMPACTS):
+        frm, to, cid = (
+            _str(r.get("from_process")),
+            _str(r.get("to_process")),
+            _str(r.get("commodity_id")),
+        )
+        imp, fac = _str(r.get("impact_id")), _num(r.get("factor"))
+        if frm and to and cid and imp and fac:
+            edge_emissions.setdefault((frm, to, cid), {})[imp] = fac
     edges = []
     for r in _rows(workbook, EDGES):
         frm, to, cid = (
@@ -848,7 +876,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 available_to=_int(r.get("available_to")),
                 lag_years=_int(r.get("lag_years")) or 0,
                 cost=_num(r.get("freight_cost"), 0.0) or 0.0,
-                co2=_num(r.get("freight_co2"), 0.0) or 0.0,
+                emissions=edge_emissions.get(ek, {}),
                 energy=_num(r.get("freight_energy"), 0.0) or 0.0,
             )
         )

@@ -9,7 +9,9 @@ export function MaccResult({ macc }: { macc: MaccResultBlock }) {
   const rows = macc.by_year;
   const years = rows.map((r) => r.year);
   const last = rows[rows.length - 1];
-  const unit = macc.impact_id === "CO2" ? "Mt" : "";
+  // Impact-agnostic: the MACC values are in the target impact's own units; don't
+  // assume CO2 (or a Mt scale). Label with the impact id itself.
+  const unit = macc.impact_id ?? "";
 
   const emissionSeries = [
     { label: "BAU", values: rows.map((r) => r.bau) },

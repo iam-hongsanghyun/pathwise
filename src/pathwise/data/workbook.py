@@ -19,6 +19,23 @@ import pandas as pd
 Workbook = dict[str, list[dict[str, Any]]]
 
 
+def default_impact(model: Workbook) -> str:
+    """The default target impact for a single-impact operation (MACC, frontier,
+    carbon-price sweep, comparison headline, value-chain signal) when the caller
+    names none: the first *capped* impact, else the first declared impact, else ``""``.
+
+    Deliberately impact-agnostic — never falls back to a hardcoded ``"CO2"``, so a
+    model built around any other impact (SOx, GWP, …) works and no impact is
+    silently privileged or excluded.
+    """
+    for sheet, col in (("impact_caps", "impact_id"), ("impacts", "impact_id")):
+        for row in model.get(sheet, []):
+            value = row.get(col)
+            if value:
+                return str(value)
+    return ""
+
+
 def _clean(value: Any) -> Any:
     """Normalise a cell: NaN/NaT → ``None``; leave everything else."""
     if value is None:

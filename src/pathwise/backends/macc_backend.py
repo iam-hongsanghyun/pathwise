@@ -93,7 +93,8 @@ class MaccBackend:
                 impact cap).
             scenario: The run definition (a :class:`ScenarioConfig` as a dict).
             options: ``domain`` override and ``impact`` (the capped impact to
-                chase; default: the impact that carries a cap, else ``"CO2"``).
+                chase; default: the impact that carries a cap, else the first
+                declared impact — no hardcoded ``"CO2"``).
 
         Returns:
             pathwise's result dict with an ``outputs.macc`` block, or an
@@ -133,10 +134,11 @@ class MaccBackend:
 
 
 def _target_impact(problem: Problem) -> str:
-    """The capped impact to chase (first impact with a cap, else ``"CO2"``)."""
+    """The capped impact to chase: the first impact with a cap, else the first
+    declared impact (impact-agnostic — no hardcoded ``"CO2"``)."""
     for _company, impact, _year in problem.impact_caps:
         return impact
-    return "CO2"
+    return next(iter(problem.impacts), "")
 
 
 def _cap(problem: Problem, impact: str, year: int) -> float | None:

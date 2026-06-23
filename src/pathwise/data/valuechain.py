@@ -62,8 +62,9 @@ class CouplingLink(BaseModel):
         commodity: The shared commodity id the signal is about (e.g.
             ``"electricity"``).
         signals: Which signals transfer — a subset of :data:`SIGNALS`.
-        impact: Which impact the ``carbon_intensity`` signal is about (default
-            ``"CO2"``); ignored by the other signals.
+        impact: Which impact the ``carbon_intensity`` signal is about (impact-
+            agnostic — set it explicitly; empty ⇒ the model's first declared impact
+            is used, never a hardcoded ``"CO2"``). Ignored by the other signals.
         lag_years: Years to shift the signal forward (the time gap between an
             upstream change and its downstream effect).
         feedback: If True, the downstream stage's consumption of ``commodity``
@@ -79,7 +80,7 @@ class CouplingLink(BaseModel):
     to_stage: str
     commodity: str
     signals: list[str] = Field(default_factory=lambda: ["price"])
-    impact: str = "CO2"
+    impact: str = ""
     lag_years: int = Field(default=0, ge=0)
     feedback: bool = False
     alternative_of: str | None = None

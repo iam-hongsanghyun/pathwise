@@ -51,7 +51,7 @@ from pathwise.data.sheets import (
 )
 from pathwise.data.trajectory import interpolate
 from pathwise.data.valuechain import ValueChainSpec
-from pathwise.data.workbook import Workbook
+from pathwise.data.workbook import Workbook, default_impact
 
 _EPS = 1e-9
 _TOL = 1e-3  # relative convergence tolerance for the feedback fixed point
@@ -160,6 +160,20 @@ def sweep_value_chain(
 
 
 def _distribution(spec: ValueChainSpec, runs: list[dict[str, Any]]) -> dict[str, Any]:
+    # The chain's headline impact (impact-agnostic): the first coupling link that
+    # names one, else the first impact any run reports — never a hardcoded CO2.
+    primary = next((lnk.impact for lnk in spec.links if lnk.impact), "")
+    if not primary:
+        primary = next(
+            (
+                str(r["impact"])
+                for run in runs
+                for st in run.get("stages", {}).values()
+                for r in st.get("summary", {}).get("impacts", [])
+                if r.get("impact")
+            ),
+            "",
+        )
     out: dict[str, Any] = {}
     for sid in (s.id for s in spec.stages):
         present = [run for run in runs if sid in run.get("stages", {})]
@@ -167,15 +181,15 @@ def _distribution(spec: ValueChainSpec, runs: list[dict[str, Any]]) -> dict[str,
             sum(float(r["cost"]) for r in run["stages"][sid].get("summary", {}).get("periods", []))
             for run in present
         ]
-        co2 = [
+        emissions = [
             sum(
                 float(r.get("total") or 0.0)
                 for r in run["stages"][sid].get("summary", {}).get("impacts", [])
-                if str(r.get("impact")) == "CO2"
+                if str(r.get("impact")) == primary
             )
             for run in present
         ]
-        out[sid] = {"cost": _stats(costs), "co2": _stats(co2)}
+        out[sid] = {"cost": _stats(costs), "impact": primary, "emissions": _stats(emissions)}
     return out
 
 
@@ -223,14 +237,17 @@ def _forward_pass(
                     _inject_price(wbs[link.to_stage], link.commodity, shifted)
                     couplings.append(_record(sid, link, "price", shifted))
             if "carbon_intensity" in link.signals:
+                # Impact-agnostic: an unset link impact resolves to the upstream
+                # model's first declared impact (never a hardcoded CO2).
+                imp = link.impact or default_impact(wbs[sid])
                 shifted = _shift(
-                    _ci_signal(results[sid], link.commodity, link.impact),
+                    _ci_signal(results[sid], link.commodity, imp),
                     link.lag_years,
                     target_years,
                 )
                 if shifted:
-                    _inject_ci(wbs[link.to_stage], link.commodity, link.impact, shifted)
-                    couplings.append(_record(sid, link, "carbon_intensity", shifted))
+                    _inject_ci(wbs[link.to_stage], link.commodity, imp, shifted)
+                    couplings.append(_record(sid, link, "carbon_intensity", shifted, imp))
             if "volume" in link.signals:
                 shifted = _shift(
                     _volume_signal(results[sid], link.commodity), link.lag_years, target_years
@@ -255,7 +272,9 @@ def _years(wb: Workbook) -> list[int]:
     return sorted(int(r["year"]) for r in wb.get("periods", []) if r.get("year") is not None)
 
 
-def _record(from_stage: str, link: Any, signal: str, by_year: dict[int, float]) -> dict[str, Any]:
+def _record(
+    from_stage: str, link: Any, signal: str, by_year: dict[int, float], impact: str = ""
+) -> dict[str, Any]:
     rec = {
         "from_stage": from_stage,
         "to_stage": link.to_stage,
@@ -265,7 +284,7 @@ def _record(from_stage: str, link: Any, signal: str, by_year: dict[int, float]) 
         "by_year": [{"year": y, "value": v} for y, v in sorted(by_year.items())],
     }
     if signal == "carbon_intensity":
-        rec["impact"] = link.impact
+        rec["impact"] = impact or link.impact
     return rec
 
 

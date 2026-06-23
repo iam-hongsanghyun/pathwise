@@ -54,7 +54,7 @@ export interface RunResult {
       period: number;
       flow: number;
       cost: number;
-      co2: number;
+      emissions: Record<string, number>;
       energy: number;
     }[];
     trade: { process: string; commodity: string; period: number; kind: string; value: number }[];
@@ -173,6 +173,9 @@ export interface MaccResultBlock {
  *  functional unit, plus the configuration's cost (incl. its carbon cost). */
 export interface LcaBlock {
   functional_unit: { commodity: string | null; amount: number };
+  /** Headline impact (model's first capped/declared) the view keys on — set by the
+   *  backend so the UI doesn't privilege or guess CO2. */
+  primary_impact?: string;
   by_impact: { impact: string; total: number; per_unit: number }[];
   by_stage: { stage: string; impact: string; total: number; per_unit: number }[];
   by_phase?: { phase: string; impact: string; total: number; per_unit: number }[];

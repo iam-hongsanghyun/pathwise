@@ -37,7 +37,7 @@ export function SimulateSetup({
   const countFor = (vid: string) => interventions.filter((r) => s(r.variant_id) === vid).length;
 
   const [sweepOn, setSweepOn] = useState(false);
-  const [sweep, setSweep] = useState({ impact: impacts[0] ?? "CO2", from: 0, to: 300, step: 25 });
+  const [sweep, setSweep] = useState({ impact: impacts[0] ?? "", from: 0, to: 300, step: 25 });
   const [uncOn, setUncOn] = useState(false);
   const [unc, setUnc] = useState({ sigma: 0.1, n: 1000, seed: 42 });
 

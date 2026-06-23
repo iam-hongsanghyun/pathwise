@@ -1,13 +1,22 @@
 # Proposal: impact-agnostic everywhere + scoped (per machine/group) impact pricing
 
-> Status: **plan** (no code yet). Two related corrections to keep pathwise honest as a
-> *general multi-impact* tool:
-> 1. **Never hardcode `"CO2"`** — every impact (CO₂, CH₄, SO₂, NOₓ, GWP, AP, …) is a
->    user-defined `(impact_id, unit)`; nothing in the engine may assume one exists or
->    privilege it, or other impacts can't be guaranteed to flow through.
+> Status: **1 (impact-agnostic) SHIPPED; 2 (scoped pricing) planned.** Two related
+> corrections to keep pathwise honest as a *general multi-impact* tool:
+> 1. ✅ **Never hardcode `"CO2"`** — every impact (CO₂, CH₄, SO₂, NOₓ, GWP, AP, …) is a
+>    user-defined `(impact_id, unit)`; nothing in the engine assumes one exists or
+>    privileges it. **Done:** freight emissions are now per-impact (`connection_impacts`
+>    / `edge_impacts` → `Edge.emissions`, each priced at its own impact); the freight
+>    objective + `_period_costs` price all impacts; every single-impact backend
+>    (frontier, MACC, simulate headline + sweep, carbon-price override, value-chain
+>    coupling/distribution) defaults to the model's first capped/declared impact via
+>    `workbook.default_impact`, never a literal `"CO2"`; the frontend headline reads a
+>    backend-stamped `lca.primary_impact`. Only docstrings/data (`lcia.py`, units) now
+>    mention CO₂. Guards: `tests/backends/test_impact_agnostic.py` (a CO₂-free SOx-only
+>    model runs optimise + frontier + simulate end-to-end) and `tests/core/test_freight.py`.
 > 2. **Impact price is policy → it must be scopeable** by machine / group / sector
 >    (and region), not a single global trajectory — so EU vs US vs Korea, or steel vs
->    power, can carry different carbon (or pollutant) prices.
+>    power, can carry different carbon (or pollutant) prices. **Planned** — group-level
+>    settings overriding the global price (the owner's stated next step).
 
 ## How impacts work today (the mental model — confirmed)
 Impacts are generic. An emission attaches to a **stream / activity** in four places, all
