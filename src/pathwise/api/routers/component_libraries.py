@@ -215,8 +215,10 @@ def list_component_libraries() -> list[dict[str, Any]]:
     return out
 
 
-#: The fillable sheets of a component library, in author order (the derived
-#: ``groups`` structure is omitted — it is built as components are placed).
+#: The fillable sheets of a component library, in author order. Components are the
+#: reusable building blocks only — streams, technology recipes, and measures/MACCs.
+#: ``machines`` (placed instances) belong to the Facility layer, and ``groups``
+#: (sector structure) is built as components are placed — both are omitted.
 _LIBRARY_SHEETS = [
     "commodities",
     "technologies",
@@ -224,7 +226,6 @@ _LIBRARY_SHEETS = [
     "measures",
     "measure_blocks",
     "maccs",
-    "machines",
 ]
 
 #: MIME for the .xlsx template downloads.
