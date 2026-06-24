@@ -4,6 +4,7 @@ export type View =
   | "facility"
   | "valuechain"
   | "market"
+  | "fleet"
   | "targets"
   | "analytics"
   | "settings";
@@ -53,6 +54,13 @@ const I = {
       <path d="M8 21h8" />
     </svg>
   ),
+  fleet: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 14l1.5 5a2 2 0 0 0 1.9 1.4h11.2a2 2 0 0 0 1.9-1.4L22 14z" />
+      <path d="M5 14V8a2 2 0 0 1 2-2h6l4 4v4" />
+      <path d="M12 6V3" />
+    </svg>
+  ),
   targets: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="8" />
@@ -82,6 +90,7 @@ const TOP: Entry[] = [
   { id: "facility", label: "Facility — real-world facilities: capacity, owners & build years", icon: I.facility },
   { id: "valuechain", label: "Value chain — assemble the model (subgroups → companies → facilities)", icon: I.valuechain },
   { id: "market", label: "Market & Policy — supply pools, ETS, carbon price (the institutional layer)", icon: I.market },
+  { id: "fleet", label: "Fleet — transport fleets, ports & routes on a map", icon: I.fleet },
   { id: "targets", label: "Targets & constraints — production targets, caps and budgets by scope", icon: I.targets },
   { id: "analytics", label: "Analytics — results & charts", icon: I.analytics },
 ];
