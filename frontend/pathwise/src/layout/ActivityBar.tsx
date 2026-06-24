@@ -3,6 +3,7 @@ export type View =
   | "component"
   | "facility"
   | "valuechain"
+  | "market"
   | "targets"
   | "analytics"
   | "settings";
@@ -43,6 +44,15 @@ const I = {
       <path d="M7.3 6.8 16.7 11M7.3 17.2 16.7 13" />
     </svg>
   ),
+  market: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3v18" />
+      <path d="M5 7h14" />
+      <path d="M5 7 3 12a3 3 0 0 0 6 0z" />
+      <path d="M19 7l2 5a3 3 0 0 1-6 0z" />
+      <path d="M8 21h8" />
+    </svg>
+  ),
   targets: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="8" />
@@ -71,6 +81,7 @@ const TOP: Entry[] = [
   { id: "component", label: "Library — shared, reusable building blocks (base catalogue)", icon: I.component },
   { id: "facility", label: "Facility — real-world facilities: capacity, owners & build years", icon: I.facility },
   { id: "valuechain", label: "Value chain — assemble the model (subgroups → companies → facilities)", icon: I.valuechain },
+  { id: "market", label: "Market & Policy — supply pools, ETS, carbon price (the institutional layer)", icon: I.market },
   { id: "targets", label: "Targets & constraints — production targets, caps and budgets by scope", icon: I.targets },
   { id: "analytics", label: "Analytics — results & charts", icon: I.analytics },
 ];

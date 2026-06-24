@@ -89,6 +89,7 @@ export function TemporalValue({
   onChange,
   label,
   unit,
+  perYear = true,
   baseYear,
   periods,
   placeholder = "set…",
@@ -98,6 +99,9 @@ export function TemporalValue({
   onChange: (v: TemporalVal | null) => void;
   label: string;
   unit?: string;
+  /** Append "/yr" to the unit. True for flows (t/yr, currency/yr); set false for
+   *  a rate that is already per-unit, e.g. a price (currency/t). */
+  perYear?: boolean;
   baseYear: number;
   /** The model's run periods (years). The fill is materialised onto these. */
   periods?: number[];
@@ -106,6 +110,7 @@ export function TemporalValue({
   variant?: "button" | "text";
 }) {
   const [open, setOpen] = useState(false);
+  const per = perYear ? "/yr" : "";
   const text =
     value == null
       ? placeholder
@@ -116,13 +121,14 @@ export function TemporalValue({
     <>
       <button className={`temporal-btn${variant === "text" ? " is-text" : ""}`} title="edit value — static or by-year" onClick={() => setOpen(true)}>
         <span>{text}</span>
-        {unit && value != null ? <span className="muted"> {unit}/yr</span> : null}
+        {unit && value != null ? <span className="muted"> {unit}{per}</span> : null}
       </button>
       {open && (
         <Editor
           initial={value}
           label={label}
           unit={unit}
+          perYear={perYear}
           baseYear={baseYear}
           periods={periods}
           onCancel={() => setOpen(false)}
@@ -140,6 +146,7 @@ function Editor({
   initial,
   label,
   unit,
+  perYear = true,
   baseYear,
   periods,
   onSave,
@@ -148,11 +155,13 @@ function Editor({
   initial: TemporalVal | null;
   label: string;
   unit?: string;
+  perYear?: boolean;
   baseYear: number;
   periods?: number[];
   onSave: (v: TemporalVal | null) => void;
   onCancel: () => void;
 }) {
+  const per = perYear ? "/yr" : "";
   // The model periods, sorted & de-duped; falls back to a single base year.
   const modelYears = useMemo(() => {
     const ys = Array.from(new Set((periods ?? []).filter(Number.isFinite))).sort((a, b) => a - b);
@@ -236,7 +245,7 @@ function Editor({
               onChange={(e) => setStaticV(e.target.value)}
               style={{ width: 150 }}
             />
-            {unit ? <span className="muted">{unit}/yr</span> : null}
+            {unit ? <span className="muted">{unit}{per}</span> : null}
           </label>
         ) : (
           <>
@@ -253,11 +262,11 @@ function Editor({
               </div>
             </div>
 
-            <PreviewChart dense={dense} anchors={anchors} from={fromN} to={toN} unit={unit} />
+            <PreviewChart dense={dense} anchors={anchors} from={fromN} to={toN} unit={unit} perYear={perYear} />
 
             <div style={{ marginTop: 10 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                <strong style={{ fontSize: "0.78rem" }}>anchors {unit ? <span className="muted">({unit}/yr)</span> : null}</strong>
+                <strong style={{ fontSize: "0.78rem" }}>anchors {unit ? <span className="muted">({unit}{per})</span> : null}</strong>
                 <button className="ghost" onClick={addYear}>＋ add year</button>
               </div>
               {drafts.length === 0 ? (
@@ -378,12 +387,14 @@ function PreviewChart({
   from,
   to,
   unit,
+  perYear = true,
 }: {
   dense: ByYear;
   anchors: Pt[];
   from: number;
   to: number;
   unit?: string;
+  perYear?: boolean;
 }) {
   const W = 412;
   const H = 116;
@@ -427,7 +438,7 @@ function PreviewChart({
       })}
       <text x={padL} y={H - 6} fontSize={9} fill="var(--muted)">{from}</text>
       <text x={W - padR} y={H - 6} textAnchor="end" fontSize={9} fill="var(--muted)">{to}</text>
-      {unit && <text x={W / 2} y={H - 6} textAnchor="middle" fontSize={9} fill="var(--muted)">{unit}/yr</text>}
+      {unit && <text x={W / 2} y={H - 6} textAnchor="middle" fontSize={9} fill="var(--muted)">{unit}{perYear ? "/yr" : ""}</text>}
     </svg>
   );
 }

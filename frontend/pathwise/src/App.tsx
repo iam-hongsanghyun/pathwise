@@ -13,6 +13,7 @@ import { useTheme } from "./lib/useTheme";
 import { AnalyticsView } from "./views/AnalyticsView";
 import { ComponentTabView } from "./views/ComponentTabView";
 import { FacilityView } from "./views/FacilityView";
+import { MarketPolicyView } from "./views/MarketPolicyView";
 import { ProjectView } from "./views/ProjectView";
 import { SettingsView } from "./views/SettingsView";
 import { TargetsTabView } from "./views/TargetsTabView";
@@ -271,6 +272,7 @@ export function App() {
             adoptServerModel={adoptServerModel}
           />
         )}
+        {view === "market" && <MarketPolicyView workbook={workbook} setWorkbook={updateWorkbook} />}
         {view === "targets" &&
           (backend === "simulate" ? (
             // The simulate method needs a fixed configuration + interventions to
