@@ -831,6 +831,47 @@
   border-right: none;
   border-left: 1px solid var(--border);
 }
+/* "See in a table" — collapsible editable datatable at the bottom of a main panel. */
+.flat-table {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  min-height: 0;
+}
+.flat-table-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+.flat-table-search {
+  margin-left: 8px;
+  width: 180px;
+  padding: 2px 8px;
+  font-size: 0.74rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+}
+.flat-table-body { flex: 1; overflow: auto; min-height: 0; }
+.flat-col-filter {
+  display: block;
+  width: 100%;
+  margin-top: 2px;
+  padding: 1px 4px;
+  font-size: 0.68rem;
+  font-weight: 400;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--muted);
+}
+.flat-table .grid th { padding: 4px 6px; vertical-align: top; }
 .rail-collapse {
   background: transparent;
   color: var(--muted);

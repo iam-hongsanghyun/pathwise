@@ -31,6 +31,8 @@ import {
   type RouteLeaf,
 } from "../features/fleet/fleetGraph";
 import { routePath } from "../lib/api/routing";
+import { FlatTablePanel } from "../features/table/FlatTablePanel";
+import { flattenFleetGroup } from "../features/table/flatten.fleet";
 import type { Row, Workbook } from "../types";
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
@@ -68,6 +70,9 @@ export function FleetDesignerView({
   const [rightW, setRightW] = useState(260);
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
+  const [tableGroup, setTableGroup] = useState<string | null>(null); // "See in a table" group
+  const [tableOpen, setTableOpen] = useState(true);
+  const [tableH, setTableH] = useState(260);
   const [edit, setEdit] = useState<Edit>(null);
 
   const projection = useMemo(() => makeProjection(), []);
@@ -93,6 +98,9 @@ export function FleetDesignerView({
   const leftTree = useMemo(() => fleetRegistryTree(fleetGroups, fleets), [fleetGroups, fleets]);
   const routesTree = useMemo(() => routeTree(routeLeaves, (id) => nodeById.get(id)?.label ?? id), [routeLeaves, nodeById]);
   const endpoints = useMemo(() => endpointList(connections, (id) => nodeById.get(id)?.label ?? id, coord), [connections, nodeById, coord]);
+  const periods = useMemo(() => [...new Set((workbook.periods ?? []).map((r) => Number(r.year)).filter(Number.isFinite))].sort((a, b) => a - b), [workbook]);
+  const baseYear = periods[0] ?? 2025;
+  const tableResult = useMemo(() => (tableGroup ? flattenFleetGroup(workbook, tableGroup) : null), [tableGroup, workbook]);
 
   const ports = useMemo<MapPort[]>(
     () => [...coord.entries()].map(([id, c]) => ({ id, label: nodeById.get(id)?.label ?? id, ...c })),
@@ -237,7 +245,7 @@ export function FleetDesignerView({
   const leftActions = (n: TreeNode): TreeAction[] =>
     n.kind === "machine"
       ? [{ id: "edit", label: "Edit" }, { id: "dup", label: "Duplicate" }, { id: "dupN", label: "Duplicate ×N…" }, { id: "rename", label: "Rename" }, { id: "delete", label: "Delete", danger: true }]
-      : [{ id: "add-fleet", label: "Add fleet" }, { id: "add-group", label: "Add group inside" }, { id: "rename", label: "Rename", separatorBefore: true }, { id: "delete", label: "Delete", danger: true }];
+      : [{ id: "add-fleet", label: "Add fleet" }, { id: "add-group", label: "Add group inside" }, { id: "see-table", label: "See in a table", separatorBefore: true }, { id: "rename", label: "Rename", separatorBefore: true }, { id: "delete", label: "Delete", danger: true }];
   const onLeftAction = (a: string, n: TreeNode) => {
     if (a === "add-fleet") void addFleet(n.id);
     else if (a === "add-group") void addFleetGroup(n.id);
@@ -246,6 +254,7 @@ export function FleetDesignerView({
     else if (a === "edit") setEdit({ kind: "fleet", id: n.id });
     else if (a === "dup") duplicateFleet(n.id, 1);
     else if (a === "dupN") void (async () => { const x = await prompt({ title: "Duplicate ×N", label: "how many copies", defaultValue: "10" }); const t = Math.max(1, Math.round(Number(x) || 0)); if (t) duplicateFleet(n.id, t); })();
+    else if (a === "see-table") { setTableGroup(n.id); setTableOpen(true); }
   };
   const editRoute = edit?.kind === "route" ? routes.find((r) => s(r.process) === edit.id) : undefined;
 
@@ -287,6 +296,10 @@ export function FleetDesignerView({
               onBackground={() => undefined} />
           </div>
           {ports.length === 0 && <p className="view-lead" style={{ padding: "0 14px" }}>Drag a facility from the right rail onto the map to give it a location. Once both ends of a stream are placed, the stream appears under <b>Routes</b> — set a mode to make it physical (otherwise it teleports).</p>}
+          {tableResult && (
+            <FlatTablePanel result={tableResult} workbook={workbook} setWorkbook={setWorkbook} baseYear={baseYear} periods={periods}
+              height={tableH} setHeight={setTableH} open={tableOpen} onToggle={() => setTableOpen((o) => !o)} onClose={() => setTableGroup(null)} />
+          )}
         </main>
 
         <CollapsibleRail side="right" open={rightOpen} setOpen={setRightOpen} width={rightW} setWidth={setRightW} min={220} max={440}
