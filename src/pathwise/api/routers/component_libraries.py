@@ -140,11 +140,38 @@ def _lib_path(lib_id: str) -> Path:
     return _components_dir() / f"{lib_id}.sqlite"
 
 
-def _summary(lib_id: str, lib: ComponentLibrary, scope: str = "base") -> dict[str, Any]:
+def _starter_ids() -> set[str]:
+    """Ids of the bundled **starter** libraries (shipped with pathwise).
+
+    These are read-only references: a user customises one by duplicating it into a
+    library of their own. Everything else in the catalogue is user-owned.
+    """
+    seeds_dir = Path(get_settings().component_seeds_dir)
+    if not seeds_dir.is_dir():
+        return set()
+    return {p.stem for p in (*seeds_dir.glob("*.json"), *seeds_dir.glob("*.sqlite"))}
+
+
+def _guard_writable(lib_id: str) -> None:
+    """Reject mutating a shipped starter — they are read-only (duplicate to edit)."""
+    if lib_id in _starter_ids():
+        raise HTTPException(
+            status_code=403,
+            detail=f"'{lib_id}' is a read-only starter — duplicate it into your own library",
+        )
+
+
+def _summary(
+    lib_id: str, lib: ComponentLibrary, scope: str = "base", starters: set[str] | None = None
+) -> dict[str, Any]:
+    if starters is None:
+        starters = _starter_ids()
     return {
         "id": lib_id,
         "label": lib.label or lib_id,
         "scope": scope,  # "base" (shared) or "session" (this scenario's own set)
+        # "starter" = a shipped read-only reference; "user" = the user's own library.
+        "origin": "starter" if (scope == "base" and lib_id in starters) else "user",
         "commodities": len(lib.commodities),
         "technologies": len(lib.technologies),
         "measures": len(lib.measures),
@@ -176,9 +203,10 @@ def _resolve_library(session_id: str, library: str, scope: str) -> ComponentLibr
 def list_component_libraries() -> list[dict[str, Any]]:
     """Every writable component library, summarised (id + label + counts)."""
     out: list[dict[str, Any]] = []
+    starters = _starter_ids()
     for f in sorted(_components_dir().glob("*.sqlite")):
         try:
-            out.append(_summary(f.stem, load_component_library(f)))
+            out.append(_summary(f.stem, load_component_library(f), starters=starters))
         except Exception as exc:  # a malformed file should not break the list
             logger.warning("skipping unreadable component library %s: %s", f.name, exc)
     return out
@@ -197,6 +225,7 @@ def get_component_library(lib_id: str) -> dict[str, Any]:
 def save_component_library(lib_id: str, library: ComponentLibrary) -> dict[str, Any]:
     """Create or overwrite a component library (validated server-side)."""
     path = _lib_path(lib_id)
+    _guard_writable(lib_id)
     path.write_bytes(write_sqlite(library_to_workbook(library)))
     logger.info(
         "saved component library %s (%d machines, %d groups)",
@@ -211,6 +240,7 @@ def save_component_library(lib_id: str, library: ComponentLibrary) -> dict[str, 
 def delete_component_library(lib_id: str) -> dict[str, Any]:
     """Delete a component library file."""
     path = _lib_path(lib_id)
+    _guard_writable(lib_id)
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"unknown component library '{lib_id}'")
     path.unlink()

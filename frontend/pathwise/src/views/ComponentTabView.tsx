@@ -203,6 +203,9 @@ export function ComponentTabView({
   // Which catalogue the rail shows: "base" (shared) or "session" (this project's
   // own components — never written to base, but usable by Facility & Value Chain).
   const [scope, setScope] = useState<LibScope>("base");
+  // Within base scope, which group the rail shows: shipped read-only "starter"
+  // libraries vs the user's own "user" libraries (the hard split).
+  const [baseGroup, setBaseGroup] = useState<"starter" | "user">("starter");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -217,6 +220,12 @@ export function ComponentTabView({
 
   // The session's projects, and the active one addressed as a session library id.
   const sessionProjects = libs.filter((l) => l.scope === "session");
+
+  /** Provenance of a keyed library id ("base/steel" → "starter" | "user"). */
+  const originOf = (libId: string): "starter" | "user" =>
+    libs.find((l) => keyOf(l) === libId)?.origin === "starter" ? "starter" : "user";
+  /** The selected library is a shipped, read-only starter. */
+  const selStarter = !!sel && originOf(sel.libId) === "starter";
   const activeLibId = activeProjectId ? `session/${activeProjectId}` : null;
 
   // Base (shared) + this session's own libraries (an imported project's set).
@@ -288,6 +297,12 @@ export function ComponentTabView({
   }, [dirty, openLibs, sessionId]);
 
   function editLib(libId: string, fn: (l: ComponentLibrary) => ComponentLibrary) {
+    // Shipped starters are read-only — every detail edit flows through here, so a
+    // single guard freezes the whole editor (the backend rejects writes too).
+    if (originOf(libId) === "starter") {
+      setError("This is a read-only starter — duplicate it to your libraries to edit.");
+      return;
+    }
     setOpenLibs((prev) => {
       const cur = prev.get(libId);
       if (!cur) return prev;
@@ -400,10 +415,33 @@ export function ComponentTabView({
     const id = (await prompt({ title: "New library", label: "id", placeholder: "letters, digits, -_." }))?.trim();
     if (!id) return;
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id)) return setError(`invalid library id '${id}'`);
-    const libId = `base/${id}`; // new libraries go in the shared base catalogue
+    const libId = `base/${id}`; // new libraries are the user's own (My libraries)
     try {
       await saveComponentLibrary(id, emptyLibrary(id));
       setLibs(await listAllComponentLibraries(sessionId));
+      setBaseGroup("user"); // a fresh library is yours — show it under My libraries
+      setExpanded((p) => new Set(p).add(`lib:${libId}`));
+      await loadLib(libId);
+      setSel({ libId, kind: "library" });
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  /** Copy a shipped starter (or any library) into a new user-owned library. */
+  async function duplicateLibrary(srcKey: string) {
+    const [, srcId] = splitLib(srcKey);
+    const id = (
+      await prompt({ title: "Duplicate to my libraries", label: "new id", placeholder: `${srcId}_copy` })
+    )?.trim();
+    if (!id) return;
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id)) return setError(`invalid library id '${id}'`);
+    try {
+      const src = openLibs.get(srcKey) ?? (await getComponentLibrary(srcId));
+      await saveComponentLibrary(id, { ...src, label: `${src.label || srcId} (copy)` });
+      setLibs(await listAllComponentLibraries(sessionId));
+      setBaseGroup("user");
+      const libId = `base/${id}`;
       setExpanded((p) => new Set(p).add(`lib:${libId}`));
       await loadLib(libId);
       setSel({ libId, kind: "library" });
@@ -667,28 +705,44 @@ export function ComponentTabView({
     // The landing reflects the chosen scope: the shared base catalogue, or this
     // project's own (session-scoped) component libraries.
     const session = scope === "session";
-    const shown = mode === "project" ? sessionProjects : libs.filter((l) => l.scope === scope);
+    const starters = !session && baseGroup === "starter"; // read-only shipped group
+    const shown =
+      mode === "project"
+        ? sessionProjects
+        : libs.filter(
+            (l) =>
+              l.scope === scope &&
+              (scope !== "base" || (l.origin ?? "user") === baseGroup),
+          );
     return (
       <section className="lib-landing">
         <div className="lib-landing-head">
           <div>
-            <h2 className="lib-landing-title">{session ? "Project components" : "All libraries"}</h2>
+            <h2 className="lib-landing-title">
+              {session ? "Project components" : starters ? "Starter libraries" : "My libraries"}
+            </h2>
             <p className="muted lib-landing-sub">
               {session
                 ? "Project-specific component libraries — kept with this project, never written to the base catalogue, and usable in the Facility and Value-Chain views."
-                : "A library is a catalogue of reusable building blocks — technologies, streams & abatement measures — organised by sector. Open one to author its contents."}
+                : starters
+                  ? "Shipped, read-only reference libraries. Browse them, then duplicate one into your own libraries to customise it."
+                  : "Your own reusable libraries — shared across all projects (not tied to one). Build technologies, streams & abatement measures, organised by sector."}
             </p>
           </div>
-          <button className="lib-new" onClick={session ? newProject : newLibrary}>
-            {session ? "+ New project library" : "+ New library"}
-          </button>
+          {!starters && (
+            <button className="lib-new" onClick={session ? newProject : newLibrary}>
+              {session ? "+ New project library" : "+ New library"}
+            </button>
+          )}
         </div>
         {shown.length === 0 ? (
           <p className="muted">
             {session ? (
               <>No project libraries yet — click <b>New project library</b> to start.</>
+            ) : starters ? (
+              <>No starter libraries found.</>
             ) : (
-              <>No libraries yet — click <b>New library</b> to start.</>
+              <>No libraries of your own yet — click <b>New library</b> to start, or duplicate a starter.</>
             )}
           </p>
         ) : (
@@ -697,10 +751,16 @@ export function ComponentTabView({
               <button className="lib-card-v2" key={keyOf(l)} onClick={() => open(l)}>
                 <div className="lib-card-top">
                   <span className="lib-card-name"><span className="lib-dot" /> {l.label || l.id}</span>
-                  <span className="lib-tier">{tier(l.scope)}</span>
+                  <span className="lib-tier">
+                    {l.scope === "session" ? tier(l.scope) : l.origin === "starter" ? "starter" : "mine"}
+                  </span>
                 </div>
                 <div className="lib-card-sub muted">
-                  {l.scope === "session" ? "this project's set" : "shared building blocks"}
+                  {l.scope === "session"
+                    ? "this project's set"
+                    : l.origin === "starter"
+                      ? "shipped · read-only"
+                      : "your library"}
                 </div>
                 <div className="lib-card-stats">
                   <div><b>{l.technologies}</b><span className="muted">tech</span></div>
@@ -969,7 +1029,11 @@ export function ComponentTabView({
   const railNodes =
     mode === "project"
       ? treeNodes.filter((nd) => activeLibId != null && parseId(nd.id).libId === activeLibId)
-      : treeNodes.filter((nd) => splitLib(parseId(nd.id).libId)[0] === scope);
+      : treeNodes.filter((nd) => {
+          const libId = parseId(nd.id).libId;
+          if (splitLib(libId)[0] !== scope) return false;
+          return scope !== "base" || originOf(libId) === baseGroup;
+        });
   const libTree = (nodes: TreeNode[], emptyHint: string) => (
     <TreeExplorer
       nodes={nodes}
@@ -1026,11 +1090,18 @@ export function ComponentTabView({
               <div className="rail-head-row">
                 <div className="seg" role="group" aria-label="Library scope">
                   <button
-                    className={scope === "base" ? "is-active" : ""}
-                    title="Shared base catalogue"
-                    onClick={() => { setScope("base"); setSel(null); }}
+                    className={scope === "base" && baseGroup === "starter" ? "is-active" : ""}
+                    title="Shipped starter libraries (read-only references)"
+                    onClick={() => { setScope("base"); setBaseGroup("starter"); setSel(null); }}
                   >
-                    Base
+                    Starters
+                  </button>
+                  <button
+                    className={scope === "base" && baseGroup === "user" ? "is-active" : ""}
+                    title="Your own reusable libraries (shared across projects)"
+                    onClick={() => { setScope("base"); setBaseGroup("user"); setSel(null); }}
+                  >
+                    Mine
                   </button>
                   <button
                     className={scope === "session" ? "is-active" : ""}
@@ -1040,13 +1111,15 @@ export function ComponentTabView({
                     Project
                   </button>
                 </div>
-                <button
-                  className="rail-add"
-                  title={scope === "session" ? "new project library" : "new base library"}
-                  onClick={scope === "session" ? newProject : newLibrary}
-                >
-                  ＋
-                </button>
+                {!(scope === "base" && baseGroup === "starter") && (
+                  <button
+                    className="rail-add"
+                    title={scope === "session" ? "new project library" : "new library"}
+                    onClick={scope === "session" ? newProject : newLibrary}
+                  >
+                    ＋
+                  </button>
+                )}
               </div>
               {scope === "base" && onPickLibrary && (
                 <div className="rail-import">
@@ -1081,7 +1154,32 @@ export function ComponentTabView({
           </div>
           {/* Detail scrolls on its own so a tall recipe (+ the Applicable MACCs
               list) can't spill over the notes section pinned beneath it. */}
-          <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>{renderDetail()}</div>
+          <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+            {selStarter && (
+              <div
+                className="readonly-bar"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  padding: "6px 12px",
+                  margin: "0 0 10px",
+                  borderRadius: "var(--radius-button)",
+                  background: "var(--surface-2, #f3f4f6)",
+                  fontSize: "0.8rem",
+                }}
+              >
+                <span className="muted">
+                  📦 Shipped <b>starter</b> — read-only reference. Duplicate it to edit.
+                </span>
+                <button className="run-button" onClick={() => duplicateLibrary(sel!.libId)}>
+                  Duplicate to my libraries
+                </button>
+              </div>
+            )}
+            {renderDetail()}
+          </div>
           {/* Notes & references — its own section, pinned below the detail. */}
           {notes && (
             <div className="detail-section" style={{ flex: "0 0 auto" }}>

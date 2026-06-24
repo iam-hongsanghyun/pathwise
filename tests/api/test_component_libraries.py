@@ -33,6 +33,34 @@ def test_seeds_starters_on_first_access() -> None:
     assert libs["steel"]["technologies"] >= 4  # BF_BOF, BF_BOF_FX, H2_DRI_ESF, EAF
 
 
+def test_starters_are_read_only_and_tagged() -> None:
+    # Shipped starters carry origin="starter" and reject writes (hard split).
+    libs = {lib["id"]: lib for lib in client.get("/api/component-libraries").json()}
+    assert libs["steel"]["origin"] == "starter"
+    assert client.put("/api/component-library/steel", json={"label": "hijacked"}).status_code == 403
+    assert client.delete("/api/component-library/steel").status_code == 403
+    # The starter is untouched.
+    assert client.get("/api/component-library/steel").json()["label"] != "hijacked"
+
+
+def test_user_library_is_writable_and_tagged_user() -> None:
+    client.put("/api/component-library/mine", json={"label": "Mine"})
+    libs = {lib["id"]: lib for lib in client.get("/api/component-libraries").json()}
+    assert libs["mine"]["origin"] == "user"
+    assert client.delete("/api/component-library/mine").json()["deleted"] is True
+
+
+def test_duplicate_starter_into_user_library() -> None:
+    # The duplicate flow the UI uses: GET a starter, PUT it under a fresh id.
+    src = client.get("/api/component-library/steel").json()
+    src["label"] = "Steel (copy)"
+    assert client.put("/api/component-library/my_steel", json=src).status_code == 200
+    libs = {lib["id"]: lib for lib in client.get("/api/component-libraries").json()}
+    assert libs["my_steel"]["origin"] == "user"  # the copy is editable
+    assert libs["my_steel"]["technologies"] == libs["steel"]["technologies"]
+    client.delete("/api/component-library/my_steel")
+
+
 def test_get_one_library() -> None:
     steel = client.get("/api/component-library/steel").json()
     techs = {t["technology_id"] for t in steel["technologies"]}

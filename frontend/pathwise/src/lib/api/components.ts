@@ -151,6 +151,9 @@ export interface LibrarySummary {
   id: string;
   label: string;
   scope: LibScope;
+  /** "starter" = a shipped read-only reference; "user" = the user's own library.
+   *  Only set for base-scope libraries (session libraries are always editable). */
+  origin?: "starter" | "user";
   commodities: number;
   technologies: number;
   measures: number;
