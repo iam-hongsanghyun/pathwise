@@ -7,6 +7,8 @@
 
 import { useMemo, useState } from "react";
 import { SearchSelect } from "../features/controls/SearchSelect";
+import { TreeExplorer } from "../features/tree/TreeExplorer";
+import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types";
 import type { Row, Workbook } from "../types";
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
@@ -86,24 +88,79 @@ export function FleetDesignerView({
     return [...set];
   }, [coords, routes]);
 
-  // ── Fleet selection + edits ────────────────────────────────────────────────
-  const [companyFilter, setCompanyFilter] = useState("");
-  const shown = companyFilter ? fleets.filter((f) => s(f.company) === companyFilter) : fleets;
+  // ── Fleet tree (company groups → fleet leaves) + selection ─────────────────
   const [selId, setSelId] = useState<string>("");
-  const sel = fleets.find((f) => fleetId(f) === selId) ?? shown[0];
+  const sel = fleets.find((f) => fleetId(f) === selId) ?? fleets[0];
   const selIndex = sel ? fleets.indexOf(sel) : -1;
+
+  const coKey = (c: string) => `co:${c}`;
+  const treeNodes = useMemo<TreeNode[]>(() => {
+    const out: TreeNode[] = [];
+    const groups = new Set<string>();
+    for (const f of fleets) groups.add(s(f.company));
+    if (groups.size === 0) groups.add("");
+    for (const c of [...groups].sort()) {
+      out.push({
+        id: coKey(c),
+        parentId: null,
+        kind: "group",
+        label: c || "(no company)",
+        level: "company",
+        hasChildren: true,
+        droppable: true,
+        draggable: false,
+      });
+    }
+    for (const f of fleets) {
+      const id = fleetId(f);
+      out.push({
+        id: `fl:${id}`,
+        parentId: coKey(s(f.company)),
+        kind: "leaf",
+        label: id,
+        level: `${s(f.mode) || "—"} · ${s(f.cargo) || "no cargo"} · ${num(f.count)} units`,
+        hasChildren: false,
+        draggable: true,
+      });
+    }
+    return out;
+  }, [fleets]);
+
+  const groupIds = useMemo(() => treeNodes.filter((n) => n.kind === "group").map((n) => n.id), [treeNodes]);
+  const [expanded, setExpanded] = useState<Set<string> | null>(null);
+  const exp = expanded ?? new Set(groupIds); // default: all companies expanded
 
   const patchFleet = (i: number, p: Row) =>
     setSheet("fleet", fleets.map((r, j) => (j === i ? { ...r, ...p } : r)));
-  const addFleet = () => {
+  const addFleet = (company?: string) => {
     const id = `fleet${fleets.length + 1}`;
     setSheet("fleet", [
       ...fleets,
-      { fleet_id: id, company: companyFilter || companies[0] || "", mode: "sea", count: 1 },
+      { fleet_id: id, company: company ?? sel?.company ?? companies[0] ?? "", mode: "sea", count: 1 },
     ]);
     setSelId(id);
   };
   const delFleet = (i: number) => setSheet("fleet", fleets.filter((_, j) => j !== i));
+
+  const fleetActions = (node: TreeNode): TreeAction[] =>
+    node.kind === "group"
+      ? [{ id: "add", label: "＋ Add fleet here" }]
+      : [{ id: "delete", label: "Delete fleet", danger: true }];
+  const onFleetAction = (actionId: string, node: TreeNode) => {
+    if (actionId === "add" && node.kind === "group") addFleet(node.id.slice(3));
+    else if (actionId === "delete" && node.id.startsWith("fl:")) {
+      const i = fleets.findIndex((f) => fleetId(f) === node.id.slice(3));
+      if (i >= 0) delFleet(i);
+    }
+  };
+  // Drag a fleet into another company group → reassign its company.
+  const onFleetMove = (e: TreeMoveEvent) => {
+    if (!e.dragId.startsWith("fl:")) return;
+    const fid = e.dragId.slice(3);
+    const company = (e.targetId ?? "").startsWith("co:") ? e.targetId!.slice(3) : "";
+    const i = fleets.findIndex((f) => fleetId(f) === fid);
+    if (i >= 0) patchFleet(i, { company });
+  };
 
   const patchRoute = (i: number, p: Row) =>
     setSheet("routes", routes.map((r, j) => (j === i ? { ...r, ...p } : r)));
@@ -149,46 +206,30 @@ export function FleetDesignerView({
       >
         <div className="eyebrow">fleet</div>
         <h3 className="section-title" style={{ marginTop: 2 }}>Fleets</h3>
-        {companies.length > 0 && (
-          <div style={{ margin: "6px 0 8px", maxWidth: 220 }}>
-            <SearchSelect
-              value={companyFilter}
-              onChange={setCompanyFilter}
-              options={[{ value: "", label: "All companies" }, ...companies.map((c) => ({ value: c }))]}
-            />
-          </div>
-        )}
-        <button className="ghost" style={{ marginBottom: 8 }} onClick={addFleet}>＋ add fleet</button>
-        {shown.length === 0 ? (
+        <button className="ghost" style={{ margin: "4px 0 8px" }} onClick={() => addFleet()}>＋ add fleet</button>
+        {fleets.length === 0 ? (
           <p className="muted" style={{ fontSize: "0.78rem" }}>No fleets — ＋ add one.</p>
         ) : (
-          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-            {shown.map((f) => {
-              const id = fleetId(f);
-              return (
-                <li key={id}>
-                  <button
-                    className={`rail-item${sel && fleetId(sel) === id ? " is-active" : ""}`}
-                    style={{
-                      width: "100%",
-                      textAlign: "left",
-                      padding: "6px 8px",
-                      borderRadius: 6,
-                      border: "1px solid var(--border)",
-                      background: sel && fleetId(sel) === id ? "var(--surface-2)" : "transparent",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => setSelId(id)}
-                  >
-                    <div style={{ fontWeight: 600, fontSize: "0.82rem" }}>{id}</div>
-                    <div className="muted" style={{ fontSize: "0.7rem" }}>
-                      {s(f.mode) || "—"} · {s(f.cargo) || "no cargo"} · {num(f.count)} units
-                    </div>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          <TreeExplorer
+            nodes={treeNodes}
+            selectedId={sel ? `fl:${fleetId(sel)}` : null}
+            expandedIds={exp}
+            onToggle={(id, e) =>
+              setExpanded(() => {
+                const m = new Set(exp);
+                if (e) m.add(id);
+                else m.delete(id);
+                return m;
+              })
+            }
+            onSelect={(id) => {
+              if (id.startsWith("fl:")) setSelId(id.slice(3));
+            }}
+            actionsFor={fleetActions}
+            onContextAction={onFleetAction}
+            onMove={onFleetMove}
+            canDrop={(dragId, targetId) => dragId.startsWith("fl:") && (targetId ?? "").startsWith("co:")}
+          />
         )}
 
         {/* Selected fleet editor */}
