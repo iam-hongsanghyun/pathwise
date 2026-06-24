@@ -102,7 +102,8 @@ export async function clearCache(): Promise<{ sessionId: string; model: Workbook
   return { sessionId: res.sessionId, model: await getFullModel(res.sessionId) };
 }
 
-/** Upload an .xlsx — parsed SERVER-side; returns the refreshed model. */
+/** Upload a model file (.xlsx or .sqlite) — parsed SERVER-side (format sniffed),
+ *  replaces the session model; returns the refreshed model. */
 export async function uploadWorkbook(sessionId: string, file: File): Promise<Workbook> {
   const form = new FormData();
   form.append("file", file);
@@ -110,9 +111,14 @@ export async function uploadWorkbook(sessionId: string, file: File): Promise<Wor
   return getFullModel(sessionId);
 }
 
-/** Download URL for the session model (.xlsx written server-side). */
+/** Download URL for the session model as a human-readable .xlsx (one sheet per table). */
 export function exportModelUrl(sessionId: string): string {
   return `/api/session/${sessionId}/export`;
+}
+
+/** Download URL for the session model as a single-file SQLite database. */
+export function exportModelSqliteUrl(sessionId: string): string {
+  return `/api/session/${sessionId}/export.sqlite`;
 }
 
 /** Download a run result as .xlsx (flattened server-side). */

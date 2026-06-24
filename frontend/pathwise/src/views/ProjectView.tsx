@@ -8,7 +8,14 @@ import { useDialogs } from "../features/controls/Dialog";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { type LibrarySummary, listSessionComponentLibraries } from "../lib/api/components";
 import { PROJECT_BUNDLE_FORMAT, type ProjectBundle, downloadProject, importProject } from "../lib/api/project";
-import { type ExampleModel, listExamples, loadExample } from "../lib/api/session";
+import {
+  type ExampleModel,
+  exportModelSqliteUrl,
+  exportModelUrl,
+  listExamples,
+  loadExample,
+  uploadWorkbook,
+} from "../lib/api/session";
 import { type UnitsBundle, getUnits } from "../lib/api/units";
 import { modelCurrency, modelDiscount, setModelCurrency, setModelDiscount } from "../lib/caps";
 import {
@@ -34,6 +41,14 @@ const projectName = (wb: Workbook): string => {
   return v == null ? "" : String(v);
 };
 
+/** Trigger a browser download of a server URL (filename comes from the response's
+ *  Content-Disposition header). */
+const triggerDownload = (url: string): void => {
+  const a = document.createElement("a");
+  a.href = url;
+  a.click();
+};
+
 export function ProjectView({
   sessionId,
   workbook,
@@ -44,6 +59,7 @@ export function ProjectView({
 }: Props) {
   const { confirm, node: dialogNode } = useDialogs();
   const fileRef = useRef<HTMLInputElement>(null);
+  const modelFileRef = useRef<HTMLInputElement>(null);
   const [projLibs, setProjLibs] = useState<LibrarySummary[]>([]);
   const [examples, setExamples] = useState<ExampleModel[]>([]);
   const [busy, setBusy] = useState(false);
@@ -144,6 +160,27 @@ export function ProjectView({
     try {
       const res = await importProject(sessionId, bundle);
       adoptServerModel(res.model);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onImportModelFile(file: File) {
+    if (!sessionId) return;
+    const okToReplace = await confirm({
+      title: "Import model file",
+      message: `Replace the working model with “${file.name}”? This overwrites the current model.`,
+      danger: true,
+      confirmLabel: "Import",
+    });
+    if (!okToReplace) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const model = await uploadWorkbook(sessionId, file);
+      adoptServerModel(model);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -325,6 +362,41 @@ export function ProjectView({
                 const f = e.target.files?.[0];
                 e.target.value = "";
                 if (f) void onImportFile(f);
+              }}
+            />
+          </div>
+        </section>
+
+        <section style={{ marginBottom: 22 }}>
+          <h3 className="section-title">Model file (spreadsheet / database)</h3>
+          <p className="detail-note" style={{ marginBottom: 8 }}>
+            Export the model itself as a human-readable <b>.xlsx</b> (one sheet per table,
+            PyPSA-style) or a single-file <b>.sqlite</b>. Import an edited .xlsx or .sqlite to
+            replace the working model — it becomes the project. (The bundle above also carries the
+            component libraries; these are just the model sheets.)
+          </p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button className="run-button" disabled={busy || !sessionId}
+              onClick={() => sessionId && triggerDownload(exportModelUrl(sessionId))}>
+              ↓ Export .xlsx
+            </button>
+            <button className="ghost" disabled={busy || !sessionId}
+              onClick={() => sessionId && triggerDownload(exportModelSqliteUrl(sessionId))}>
+              ↓ Export .sqlite
+            </button>
+            <button className="ghost" disabled={busy || !sessionId}
+              onClick={() => modelFileRef.current?.click()}>
+              ↑ Import .xlsx / .sqlite
+            </button>
+            <input
+              ref={modelFileRef}
+              type="file"
+              accept=".xlsx,.sqlite,.db"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (f) void onImportModelFile(f);
               }}
             />
           </div>

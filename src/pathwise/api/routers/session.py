@@ -22,6 +22,7 @@ from pathwise.api.workbook_io import (
     parse_xlsx,
     result_to_sqlite,
     result_to_xlsx,
+    write_sqlite,
     write_xlsx,
 )
 from pathwise.config import get_settings
@@ -191,16 +192,24 @@ def patch_sheet(session_id: str, name: str, body: PatchOps) -> dict[str, Any]:
     return {"name": name, "total": total}
 
 
+def _parse_model_file(data: bytes) -> dict[str, list[dict[str, Any]]]:
+    """Parse an uploaded model file by sniffing its magic bytes: a SQLite database
+    (``SQLite format 3\\0``) vs an ``.xlsx`` (a zip, ``PK``). Both round-trip to the
+    same ``{sheet: rows[]}`` model."""
+    return parse_sqlite(data) if data[:16] == b"SQLite format 3\x00" else parse_xlsx(data)
+
+
 @router.post("/session/{session_id}/workbook")
 async def upload_workbook(session_id: str, file: UploadFile) -> dict[str, Any]:
-    """Parse an uploaded ``.xlsx`` server-side and replace the session model."""
+    """Parse an uploaded model file (``.xlsx`` or ``.sqlite``) server-side and
+    replace the session model — so an edited spreadsheet becomes the project."""
     store = _store()
     if not store.exists(session_id):
         raise HTTPException(status_code=404, detail=f"unknown session '{session_id}'")
     data = await file.read()
     try:
-        # parse_xlsx is synchronous/CPU-bound (pandas); keep it off the event loop.
-        model = await run_in_threadpool(parse_xlsx, data)
+        # Parsing is synchronous/CPU-bound (pandas); keep it off the event loop.
+        model = await run_in_threadpool(_parse_model_file, data)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"could not parse workbook: {exc}") from exc
     counts = store.put_model(session_id, model)
@@ -209,12 +218,23 @@ async def upload_workbook(session_id: str, file: UploadFile) -> dict[str, Any]:
 
 @router.get("/session/{session_id}/export")
 def export_workbook(session_id: str) -> Response:
-    """Download the session model as ``.xlsx`` (written server-side)."""
+    """Download the session model as a human-readable ``.xlsx`` (one sheet per table)."""
     model = _model_or_404(_store(), session_id)
     return Response(
         content=write_xlsx(model),
         media_type=XLSX_MIME,
         headers={"Content-Disposition": 'attachment; filename="pathwise_model.xlsx"'},
+    )
+
+
+@router.get("/session/{session_id}/export.sqlite")
+def export_workbook_sqlite(session_id: str) -> Response:
+    """Download the session model as a single-file SQLite database (one table per sheet)."""
+    model = _model_or_404(_store(), session_id)
+    return Response(
+        content=write_sqlite(model),
+        media_type="application/x-sqlite3",
+        headers={"Content-Disposition": 'attachment; filename="pathwise_model.sqlite"'},
     )
 
 
