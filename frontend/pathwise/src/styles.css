@@ -826,6 +826,11 @@
   gap: 4px;
   padding: 6px 0;
 }
+/* A right-hand rail's collapsed strip borders on its left edge instead. */
+.rail-collapsed.is-right {
+  border-right: none;
+  border-left: 1px solid var(--border);
+}
 .rail-collapse {
   background: transparent;
   color: var(--muted);

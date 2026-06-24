@@ -20,7 +20,7 @@ import { SearchableSelect } from "../features/controls/SearchableSelect";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
 import { FloatingPanel } from "../layout/FloatingPanel";
-import { Resizer } from "../layout/Resizer";
+import { CollapsibleRail } from "../layout/CollapsibleRail";
 import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types";
 import {
   addAlternative,
@@ -367,37 +367,29 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
 
       <div className="builder-body">
         {/* LEFT: structure rail — collapsed by default; expand to browse/edit the tree */}
-        {railOpen ? (
-          <>
-            <aside className="builder-rail" style={{ width: leftW }}>
-              <div className="rail-head-row">
-                <button className="rail-collapse" title="hide structure" onClick={() => setRailOpen(false)}>‹</button>
-                <span className="rail-head">Structure</span>
-                <button className="rail-add" title="add top-level subgroup" onClick={() => addSubgroup(null)}>＋</button>
-              </div>
-              <div className="rail-scroll">
-                <TreeExplorer
-                  nodes={treeNodes}
-                  selectedId={selId}
-                  expandedIds={expanded}
-                  onToggle={(id, exp) => setExpanded((p) => { const m = new Set(p); if (exp) m.add(id); else m.delete(id); return m; })}
-                  onSelect={(id) => { setShowHealth(false); selectNode(id); }}
-                  actionsFor={actionsFor}
-                  onContextAction={onContextAction}
-                  onMove={onMove}
-                  emptyHint="Empty — click ＋ (or right-click) to add a value chain / sector."
-                />
-              </div>
-              <div className="rail-foot">Right-click an item for actions · drag to move</div>
-            </aside>
-            <Resizer width={leftW} setWidth={setLeftW} side="left" />
-          </>
-        ) : (
-          <div className="rail-collapsed">
-            <button className="rail-collapse" title="show structure" onClick={() => setRailOpen(true)}>›</button>
-            <button className="rail-add" title="add top-level subgroup" onClick={() => addSubgroup(null)}>＋</button>
-          </div>
-        )}
+        <CollapsibleRail
+          side="left"
+          open={railOpen}
+          setOpen={setRailOpen}
+          width={leftW}
+          setWidth={setLeftW}
+          title="Structure"
+          headAction={<button className="rail-add" title="add top-level subgroup" onClick={() => addSubgroup(null)}>＋</button>}
+          collapsedExtras={<button className="rail-add" title="add top-level subgroup" onClick={() => addSubgroup(null)}>＋</button>}
+          foot="Right-click an item for actions · drag to move"
+        >
+          <TreeExplorer
+            nodes={treeNodes}
+            selectedId={selId}
+            expandedIds={expanded}
+            onToggle={(id, exp) => setExpanded((p) => { const m = new Set(p); if (exp) m.add(id); else m.delete(id); return m; })}
+            onSelect={(id) => { setShowHealth(false); selectNode(id); }}
+            actionsFor={actionsFor}
+            onContextAction={onContextAction}
+            onMove={onMove}
+            emptyHint="Empty — click ＋ (or right-click) to add a value chain / sector."
+          />
+        </CollapsibleRail>
 
         {/* CENTER: relationship canvas */}
         <main className="builder-canvas">
