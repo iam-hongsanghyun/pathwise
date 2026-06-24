@@ -26,6 +26,8 @@ import {
   emptyLibrary,
   getComponentLibrary,
   getSessionComponentLibrary,
+  importComponentLibraryFile,
+  importSessionComponentLibraryFile,
   type LibrarySummary,
   type LibScope,
   listAllComponentLibraries,
@@ -217,6 +219,7 @@ export function ComponentTabView({
   const registryUnits = projectUnits(workbook);
   const pickerUnits = registryUnits.length ? registryUnits : unitOptions;
   const saved = useRef<Map<string, string>>(new Map());
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   // The session's projects, and the active one addressed as a session library id.
   const sessionProjects = libs.filter((l) => l.scope === "session");
@@ -442,6 +445,33 @@ export function ComponentTabView({
       setLibs(await listAllComponentLibraries(sessionId));
       setBaseGroup("user");
       const libId = `base/${id}`;
+      setExpanded((p) => new Set(p).add(`lib:${libId}`));
+      await loadLib(libId);
+      setSel({ libId, kind: "library" });
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  /** Import a library from an .xlsx/.sqlite file into the current writable scope
+   *  (My libraries or this project's set). */
+  async function importLibraryFromFile(file: File) {
+    const stem = file.name.replace(/\.[^.]+$/, "");
+    const id = (
+      await prompt({ title: "Import library", label: "new id", placeholder: stem || "library" })
+    )?.trim();
+    if (!id) return;
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id)) return setError(`invalid library id '${id}'`);
+    try {
+      if (scope === "session") {
+        if (!sessionId) return setError("no backend session yet");
+        await importSessionComponentLibraryFile(sessionId, id, file);
+      } else {
+        await importComponentLibraryFile(id, file);
+        setBaseGroup("user");
+      }
+      setLibs(await listAllComponentLibraries(sessionId));
+      const libId = `${scope === "session" ? "session" : "base"}/${id}`;
       setExpanded((p) => new Set(p).add(`lib:${libId}`));
       await loadLib(libId);
       setSel({ libId, kind: "library" });
@@ -1112,13 +1142,33 @@ export function ComponentTabView({
                   </button>
                 </div>
                 {!(scope === "base" && baseGroup === "starter") && (
-                  <button
-                    className="rail-add"
-                    title={scope === "session" ? "new project library" : "new library"}
-                    onClick={scope === "session" ? newProject : newLibrary}
-                  >
-                    ＋
-                  </button>
+                  <span style={{ display: "inline-flex", gap: 4 }}>
+                    <button
+                      className="rail-add"
+                      title="import a library from .xlsx / .sqlite"
+                      onClick={() => importFileRef.current?.click()}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      className="rail-add"
+                      title={scope === "session" ? "new project library" : "new library"}
+                      onClick={scope === "session" ? newProject : newLibrary}
+                    >
+                      ＋
+                    </button>
+                    <input
+                      ref={importFileRef}
+                      type="file"
+                      accept=".xlsx,.sqlite,.db"
+                      style={{ display: "none" }}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        e.target.value = "";
+                        if (f) void importLibraryFromFile(f);
+                      }}
+                    />
+                  </span>
                 )}
               </div>
               {scope === "base" && onPickLibrary && (

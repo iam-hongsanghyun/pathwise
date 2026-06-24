@@ -50,6 +50,66 @@ def test_user_library_is_writable_and_tagged_user() -> None:
     assert client.delete("/api/component-library/mine").json()["deleted"] is True
 
 
+def _lib_workbook() -> dict[str, Any]:
+    return {
+        "commodities": [{"commodity_id": "x", "kind": "product", "unit": "t"}],
+        "technologies": [{"technology_id": "T"}],
+        "io": [
+            {
+                "technology_id": "T",
+                "target": "x",
+                "role": "output",
+                "coefficient": 1,
+                "is_product": True,
+            }
+        ],
+    }
+
+
+def test_import_library_file_into_mine_xlsx_and_sqlite() -> None:
+    from pathwise.api.workbook_io import write_sqlite, write_xlsx
+
+    for ext, data in (
+        ("xlsx", write_xlsx(_lib_workbook())),
+        ("sqlite", write_sqlite(_lib_workbook())),
+    ):
+        lib_id = f"imp_{ext}"
+        r = client.post(
+            f"/api/component-library/{lib_id}/import",
+            files={"file": (f"kit.{ext}", data, "application/octet-stream")},
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["origin"] == "user"
+        assert r.json()["technologies"] == 1
+        libs = {lib["id"]: lib for lib in client.get("/api/component-libraries").json()}
+        assert libs[lib_id]["commodities"] == 1
+        client.delete(f"/api/component-library/{lib_id}")
+
+
+def test_import_library_file_into_project_session() -> None:
+    from pathwise.api.workbook_io import write_xlsx
+
+    sid = client.post("/api/session").json()["sessionId"]
+    r = client.post(
+        f"/api/session/{sid}/component-library/projkit/import",
+        files={"file": ("kit.xlsx", write_xlsx(_lib_workbook()), "application/octet-stream")},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["scope"] == "session"
+    libs = {lib["id"]: lib for lib in client.get(f"/api/session/{sid}/component-libraries").json()}
+    assert libs["projkit"]["technologies"] == 1
+
+
+def test_import_cannot_overwrite_starter() -> None:
+    from pathwise.api.workbook_io import write_xlsx
+
+    r = client.post(
+        "/api/component-library/steel/import",
+        files={"file": ("kit.xlsx", write_xlsx(_lib_workbook()), "application/octet-stream")},
+    )
+    assert r.status_code == 403
+
+
 def test_duplicate_starter_into_user_library() -> None:
     # The duplicate flow the UI uses: GET a starter, PUT it under a fresh id.
     src = client.get("/api/component-library/steel").json()

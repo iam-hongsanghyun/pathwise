@@ -22,12 +22,13 @@ import re
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Response, UploadFile
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 from pathwise.api.routers._deps import session_libs, session_store
 from pathwise.api.session_store import SessionNotFound
-from pathwise.api.workbook_io import write_sqlite
+from pathwise.api.workbook_io import parse_sqlite, parse_xlsx, write_sqlite
 from pathwise.config import get_settings
 from pathwise.data.components import (
     PROJECT_BUNDLE_FORMAT,
@@ -35,6 +36,7 @@ from pathwise.data.components import (
     ProjectBundle,
     add_alternative,
     copy_component_into,
+    extract_library_from_workbook,
     instantiate_into,
     library_to_workbook,
     load_component_library,
@@ -247,6 +249,29 @@ def delete_component_library(lib_id: str) -> dict[str, Any]:
     return {"id": lib_id, "deleted": True}
 
 
+def _parse_library_file(data: bytes, label: str) -> ComponentLibrary:
+    """Parse an uploaded ``.xlsx`` / ``.sqlite`` (format sniffed) into a
+    ComponentLibrary — pulling the component definitions out of whatever sheets it
+    carries, so a library export OR a full model file both import."""
+    wb = parse_sqlite(data) if data[:16] == b"SQLite format 3\x00" else parse_xlsx(data)
+    return extract_library_from_workbook(wb, label=label)
+
+
+@router.post("/component-library/{lib_id}/import")
+async def import_component_library(lib_id: str, file: UploadFile) -> dict[str, Any]:
+    """Import a component library from an uploaded ``.xlsx`` / ``.sqlite`` into the
+    user's own ("My") libraries."""
+    path = _lib_path(lib_id)  # validates the id
+    _guard_writable(lib_id)  # never overwrite a shipped starter
+    data = await file.read()
+    try:
+        lib = await run_in_threadpool(_parse_library_file, data, lib_id)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"could not parse library: {exc}") from exc
+    path.write_bytes(write_sqlite(library_to_workbook(lib)))
+    return _summary(lib_id, lib)
+
+
 # ── Per-session component libraries (a scenario's OWN set) ────────────────────
 # The shared base libraries above are global; these are isolated per session, so
 # an imported scenario's components and a user's edits to them never touch the
@@ -294,6 +319,23 @@ def delete_session_component_library(session_id: str, lib_id: str) -> dict[str, 
     if not _session_libs().delete(session_id, lib_id):
         raise HTTPException(status_code=404, detail=f"unknown session library '{lib_id}'")
     return {"id": lib_id, "deleted": True}
+
+
+@router.post("/session/{session_id}/component-library/{lib_id}/import")
+async def import_session_component_library(
+    session_id: str, lib_id: str, file: UploadFile
+) -> dict[str, Any]:
+    """Import a component library from an uploaded ``.xlsx`` / ``.sqlite`` into this
+    project's own set."""
+    if not _LIB_ID.match(lib_id):
+        raise HTTPException(status_code=422, detail=f"invalid library id '{lib_id}'")
+    data = await file.read()
+    try:
+        lib = await run_in_threadpool(_parse_library_file, data, lib_id)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"could not parse library: {exc}") from exc
+    _session_libs().put(session_id, lib_id, lib)
+    return _summary(lib_id, lib, scope="session")
 
 
 class CopyComponentInsert(BaseModel):

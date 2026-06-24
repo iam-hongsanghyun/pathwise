@@ -233,6 +233,32 @@ export async function deleteSessionComponentLibrary(sessionId: string, id: strin
   );
 }
 
+/** Import a component library from an .xlsx/.sqlite file (format sniffed server-side)
+ *  into "My" libraries under `id`. */
+export async function importComponentLibraryFile(id: string, file: File): Promise<LibrarySummary> {
+  const form = new FormData();
+  form.append("file", file);
+  return json<LibrarySummary>(
+    await fetch(`/api/component-library/${encodeURIComponent(id)}/import`, { method: "POST", body: form }),
+  );
+}
+
+/** Import a component library from a file into this project's (session) set under `id`. */
+export async function importSessionComponentLibraryFile(
+  sessionId: string,
+  id: string,
+  file: File,
+): Promise<LibrarySummary> {
+  const form = new FormData();
+  form.append("file", file);
+  return json<LibrarySummary>(
+    await fetch(`/api/session/${sessionId}/component-library/${encodeURIComponent(id)}/import`, {
+      method: "POST",
+      body: form,
+    }),
+  );
+}
+
 /** Base (shared) + this session's own libraries, session set first. Each summary
  *  carries its `scope`, so callers can route get/save/delete to the right store. */
 export async function listAllComponentLibraries(
