@@ -45,6 +45,12 @@
     "description": "A ship runs one propulsion engine on a blend of marine fuels (IFO380 / bio-diesel / LNG / e-ammonia, each with calorific value and cryogenic-temperature properties and a tank-to-wake CO2 factor). The optimiser picks the mix within share bounds; the dirty-fuel cap declines and e-ammonia unlocks in 2030, so a rising carbon price shifts the blend to cleaner fuels over 2025→2050. Derived from PLANiT-Institute/shipping_operator."
   },
   {
+    "id": "shipping_carrier",
+    "label": "Shipping carrier — fleet transition (KR ↔ AU/US/EU)",
+    "file": "shipping_carrier.sqlite",
+    "description": "A single carrier runs ~100 ships on three trade lanes out of Korea — to Australia, the US and the EU — with a mix of fuels (HFO / LNG) and vintages, each cohort an annual-capacity asset (ships × throughput). From 2030 any cohort can re-engine to ammonia (zero tank-to-wake CO2) via a transition. Each counterpart prices the lane's emissions differently — EU highest (ETS + FuelEU), then US, AU lowest — modelled as region-tagged CO2 impacts priced over 2025→2050. The optimiser shows the policy balloon effect: the carrier decarbonises the high-price EU lane fully (ammonia by 2030), switches only the cheaper-to-convert LNG ships on the US lane, and leaves the lax-policy AU lane fossil. Cross-lane fleet reallocation (a shared pool split by route) is the deferred Layer-1b MILP — here each cohort serves its own lane. Sell the direction and the per-lane breakeven, not absolute cost."
+  },
+  {
     "id": "petrochemical",
     "label": "Petrochemical MACC — ethylene NCC (petrochemical_macc_2025)",
     "file": "petrochemical.sqlite",
