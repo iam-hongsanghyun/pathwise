@@ -39,6 +39,7 @@ def empty_result(
             "technology": [],
             "throughput": [],
             "fleet": [],
+            "fleet_built": [],
             "vessels": [],
             "transitions": [],
             "renewals": [],
@@ -205,6 +206,22 @@ def extract_results(
                             "utilization": util,
                         }
                     )
+    # Fleet acquisition (capex): carriers the optimiser BUILT, per fleet per year.
+    if ctx.built is not None:
+        for (fid, t), v in _series(ctx.built).items():
+            if v <= _EPS:
+                continue
+            fl = prob.fleets.get(fid)
+            out["outputs"]["fleet_built"].append(
+                {
+                    "fleet": fid,
+                    "period": int(t),
+                    "built": round(v),
+                    "capex": fl.capex if fl else 0.0,
+                    "company": fl.company if fl else None,
+                }
+            )
+
     # Connection-fleet (Layer 1c+): the carriers the optimiser CHOSE for each
     # physicalised value-chain connection — which candidate fleet won the lane, the
     # cargo it carried and the fuel it burned. Reported into the same fleet table.

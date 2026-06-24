@@ -466,7 +466,17 @@ def _assemble_fleet(
     Returns ``(fleets, fleet_available, fleet_routes, routes)``; ``inputs`` is mutated
     in place with the fuel coefficients.
     """
-    class_cols = ("company", "mode", "fuel", "cargo", "efficiency", "capacity", "count", "opex")
+    class_cols = (
+        "company",
+        "mode",
+        "fuel",
+        "cargo",
+        "efficiency",
+        "capacity",
+        "count",
+        "opex",
+        "capex",
+    )
     fleets: dict[str, Fleet] = {}
     fleet_traj: dict[str, dict[int, float]] = {}
     for r in _rows(workbook, FLEET):
@@ -494,6 +504,8 @@ def _assemble_fleet(
                 turnaround_days=_numd(r.get("turnaround_days"), 0.0),
                 operating_days=_numd(r.get("operating_days"), 350.0),
                 opex=_numd(r.get("opex"), 0.0),
+                capex=_numd(r.get("capex"), 0.0),
+                max_build=_num(r.get("max_build")),
             )
     fleet_available: dict[tuple[str, int], float] = {
         (fid, y): n for fid, traj in fleet_traj.items() for y, n in interpolate(traj, years).items()

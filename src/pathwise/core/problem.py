@@ -73,6 +73,10 @@ class Fleet:
     turnaround_days: float = 0.0  # load + unload per round trip [days]
     operating_days: float = 350.0  # in-service days per year [days / yr]
     opex: float = 0.0  # per-carrier annual operating cost [currency / unit / yr]
+    capex: float = 0.0  # per-carrier overnight capital cost [currency / unit]; >0 ⇒ the
+    #: optimiser may BUILD carriers (an integer decision), charged via capex_charge over
+    #: the fleet's lifespan. 0 (default) ⇒ the fleet is a fixed pool (today's behaviour).
+    max_build: float | None = None  # optional cap on total carriers built over the horizon
 
     def active(self, year: int) -> bool:
         """Whether the fleet is in service in ``year`` (within its lifecycle)."""

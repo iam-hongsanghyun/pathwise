@@ -1302,7 +1302,10 @@ def _impacts(ctx: BuildContext) -> None:
         total = total_by_period.sel(impact=i, period=y) if total_by_period is not None else None
         # Transport: physicalised routes whose origin is in this scope also count
         # toward the cap (their emissions = fuel · commodity_impacts, never hardcoded).
-        route = _route_emit_terms(ctx, i, y, lambda cr, c=c: c == "all" or c in cr.scope_chain)
+        def _route_in_cap_scope(cr: Any, _c: str = c) -> bool:
+            return _c == "all" or _c in cr.scope_chain
+
+        route = _route_emit_terms(ctx, i, y, _route_in_cap_scope)
         if route is not None:
             total = route if total is None else (total + route)
         key = f"{c}|{i}|{y}"
@@ -1622,6 +1625,31 @@ def _adoption_caps(ctx: BuildContext) -> None:
         m.add_constraints(u_k <= cap, name=f"techcap[{k}]")
 
 
+def _fleet_avail_expr(ctx: BuildContext, fid: str, t: int) -> Any:
+    r"""Carriers a fleet has available in year ``t`` — the RHS of both fleet pools.
+
+    The legacy fixed ``count`` (``Problem.fleet_available``, constant) PLUS, when the
+    fleet has a capex, the integer carriers it has BUILT that are still within their
+    lifespan (``built[fid, t']`` for ``t' ≤ t < t' + lifespan``). Returns ``None`` only
+    when the fleet has no legacy count AND no build var — preserving the old "skip the
+    pool constraint" behaviour. With no capex anywhere ``ctx.built is None`` ⇒ this
+    returns the bare float, byte-identical to before.
+    """
+    prob = ctx.problem
+    avail = prob.fleet_available.get((fid, t))
+    base = 0.0 if avail is None else float(avail)
+    fl = prob.fleets.get(fid)
+    if ctx.built is None or fl is None or not fl.capex:
+        return base if avail is not None else None
+    life = max(int(fl.lifespan or len(ctx.years)), 1)
+    window = _lin_sum(
+        [ctx.built.sel(fleet=fid, period=tp) for tp in ctx.years if tp <= t < tp + life]
+    )
+    if window is None:
+        return base if avail is not None else None
+    return base + window
+
+
 def _fleet(ctx: BuildContext) -> None:
     r"""Layer 1b: a shared pool of ships allocated across routes (integer MILP).
 
@@ -1669,12 +1697,20 @@ def _fleet(ctx: BuildContext) -> None:
         by_fleet.setdefault(prob.fleet_routes[p].fleet_id, []).append(p)
     for a, ps in by_fleet.items():
         for t in ctx.years:
-            avail = prob.fleet_available.get((a, t))
+            avail = _fleet_avail_expr(ctx, a, t)
             if avail is None:
                 continue
             total = _lin_sum([ctx.units.sel(process=p, period=t) for p in ps])
             if total is not None:
                 m.add_constraints(total <= avail, name=f"fleetpool[{a},{t}]")
+    # Optional cap on total carriers built over the horizon, per fleet.
+    if ctx.built is not None:
+        for fid, fl in prob.fleets.items():
+            if fl.capex and fl.max_build is not None:
+                m.add_constraints(
+                    ctx.built.sel(fleet=fid).sum("period") <= fl.max_build,
+                    name=f"fleetbuild[{fid}]",
+                )
 
 
 def _connection_fleet(ctx: BuildContext) -> None:
@@ -1737,10 +1773,11 @@ def _connection_fleet(ctx: BuildContext) -> None:
             )
         for leg in cr.legs:
             pool.setdefault(leg.fleet_id, []).append(leg_key(cr.process, leg.fleet_id))
-    # Shared pool per fleet: carriers across all its connection routes ≤ available.
+    # Shared pool per fleet: carriers across all its connection routes ≤ available
+    # (legacy count + carriers it has built — same expression as the process pool).
     for fid, lks in pool.items():
         for t in ctx.years:
-            avail = prob.fleet_available.get((fid, t))
+            avail = _fleet_avail_expr(ctx, fid, t)
             if avail is None:
                 continue
             total = _lin_sum([ctx.cunits.sel(leg=lk, period=t) for lk in lks])
@@ -1900,6 +1937,27 @@ def _objective(ctx: BuildContext) -> None:
                     opex_arr, coords={"leg": leg_ids, "period": ctx.years}, dims=["leg", "period"]
                 )
                 obj_terms.append((w_da * cop_da * ctx.cunits).sum(["leg", "period"]))
+
+    # ── Fleet acquisition capex: capex_charge(year, lifespan) * capex * built ──
+    # A built carrier's overnight cost is discounted/annuitised over its lifespan via
+    # the shared capex_charge (NPV lump or capital-recovery), exactly like a facility.
+    if tog.capex and ctx.built is not None:
+        bf = [fid for fid, fl in prob.fleets.items() if fl.capex]
+        cap_arr = np.array(
+            [
+                [
+                    prob.capex_charge(t, max(int(prob.fleets[fid].lifespan or len(ctx.years)), 1))
+                    * prob.fleets[fid].capex
+                    for t in ctx.years
+                ]
+                for fid in bf
+            ]
+        )
+        if cap_arr.any():
+            cap_da = xr.DataArray(
+                cap_arr, coords={"fleet": bf, "period": ctx.years}, dims=["fleet", "period"]
+            )
+            obj_terms.append((cap_da * ctx.built).sum(["fleet", "period"]))
 
     # ── Variable opex: w[t] * opex[k,t] * x[p,k,t] ──────────────────────────
     if tog.opex:

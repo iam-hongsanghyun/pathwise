@@ -97,6 +97,7 @@ class BuildContext:
     units: Any = None  # integer ships assigned to a fleet route [process, period]
     cunits: Any = None  # integer carriers of a fleet on a physicalised connection [leg, period]
     legflow: Any = None  # cargo carried by a fleet on a physicalised connection [leg, period]
+    built: Any = None  # integer carriers BUILT by the optimiser (fleet acquisition) [fleet, period]
     w: Any = None  # transition (replace) event [process, tech, period]
     ren: Any = None  # renewal (rebuild same tech, reset life) event [process, tech, period]
     cap_built: Any = None  # storage capacity built [store]
@@ -280,6 +281,16 @@ def build_context(model: Model, problem: Problem) -> BuildContext:
             lower=0.0, integer=True, coords=[lg_idx, t_idx], name="cunits"
         )
         ctx.legflow = model.add_variables(lower=0.0, coords=[lg_idx, t_idx], name="legflow")
+
+    # Fleet acquisition (capex): integer carriers the optimiser BUILDS, per capex-bearing
+    # fleet, per year — its pool then grows by the still-living built carriers. Gated so a
+    # model with no fleet capex is byte-identical (no variable, no constraint, no term).
+    build_fleets = [fid for fid, fl in problem.fleets.items() if fl.capex]
+    if build_fleets:
+        bf_idx = pd.Index(build_fleets, name="fleet")
+        ctx.built = model.add_variables(
+            lower=0.0, integer=True, coords=[bf_idx, t_idx], name="built"
+        )
 
     if slots:
         s_idx = pd.Index([s.key for s in slots], name="slot")
