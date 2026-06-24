@@ -19,10 +19,9 @@ import { parseNodes } from "../lib/groupGraph";
 import { MODES, makeProjection } from "../features/fleet/basemap";
 import { FleetMap, type MapPort, type MapRoute } from "../features/fleet/FleetMap";
 import {
-  NODE_DRAG_TYPE,
   buildCoordMap,
   buildRouteLeaves,
-  endpointList,
+  facilityTree,
   fleetId,
   fleetRegistryTree,
   parseConnections,
@@ -66,6 +65,7 @@ export function FleetDesignerView({
   const [selId, setSelId] = useState<string | null>(null);
   const [expL, setExpL] = useState<Set<string>>(new Set());
   const [expR, setExpR] = useState<Set<string>>(new Set());
+  const [expF, setExpF] = useState<Set<string>>(new Set());
   const [leftW, setLeftW] = useState(240);
   const [rightW, setRightW] = useState(260);
   const [leftOpen, setLeftOpen] = useState(true);
@@ -97,7 +97,7 @@ export function FleetDesignerView({
   const leafByProc = useMemo(() => new Map(routeLeaves.map((l) => [l.proc, l])), [routeLeaves]);
   const leftTree = useMemo(() => fleetRegistryTree(fleetGroups, fleets), [fleetGroups, fleets]);
   const routesTree = useMemo(() => routeTree(routeLeaves, (id) => nodeById.get(id)?.label ?? id), [routeLeaves, nodeById]);
-  const endpoints = useMemo(() => endpointList(connections, (id) => nodeById.get(id)?.label ?? id, coord), [connections, nodeById, coord]);
+  const facilityNodes = useMemo(() => facilityTree(nodes, coord), [nodes, coord]);
   const periods = useMemo(() => [...new Set((workbook.periods ?? []).map((r) => Number(r.year)).filter(Number.isFinite))].sort((a, b) => a - b), [workbook]);
   const baseYear = periods[0] ?? 2025;
   const tableResult = useMemo(() => (tableGroup ? flattenFleetGroup(workbook, tableGroup) : null), [tableGroup, workbook]);
@@ -314,27 +314,16 @@ export function FleetDesignerView({
           </div>
           <div className="rail-head-row is-divided">
             <span className="rail-head">Facility</span>
-            <span className="rail-foot" style={{ padding: "0 10px" }}>{endpoints.filter((e) => e.located).length}/{endpoints.length} placed</span>
+            <span className="rail-foot" style={{ padding: "0 10px" }}>{[...coord.keys()].length} placed</span>
           </div>
           <div className="rail-scroll" style={{ flex: "2 1 0", minHeight: 70 }}>
-            {endpoints.length === 0 ? (
-              <p className="rail-empty">No stream endpoints — connect machines in the Value chain first.</p>
-            ) : (
-              <div className="fleet-eplist">
-                {endpoints.map((ep) => (
-                  <div key={ep.id} className={`fleet-ep${ep.located ? " is-located" : ""}${selId === ep.id ? " is-selected" : ""}`}
-                    draggable
-                    onDragStart={(e) => { e.dataTransfer.setData(NODE_DRAG_TYPE, ep.id); e.dataTransfer.effectAllowed = "copy"; }}
-                    onClick={() => { setSelId(ep.id); setEdit({ kind: "node", id: ep.id }); }}
-                    title={ep.located ? "placed — drag the marker on the map to move it" : "drag onto the map to place it"}>
-                    <span className="fleet-ep-label">{ep.label}</span>
-                    <span className="fleet-ep-tag">{ep.located ? "placed" : "drag →"}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+            <TreeExplorer nodes={facilityNodes} selectedId={selId} expandedIds={expF}
+              onToggle={(id, e) => setExpF((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
+              onSelect={(id) => { setSelId(id); setEdit({ kind: "node", id }); }}
+              actionsFor={() => []} onContextAction={() => undefined} onMove={() => undefined} canDrop={() => false}
+              emptyHint="The facility / value-chain structure — drag a node onto the map to place it." />
           </div>
-          <div className="rail-foot">Drag an endpoint onto the map to give it a location.</div>
+          <div className="rail-foot">Drag a facility node onto the map to give it a location.</div>
         </CollapsibleRail>
       </div>
 

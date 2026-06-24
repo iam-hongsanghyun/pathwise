@@ -753,24 +753,16 @@
 .fleet-port-dot { fill: var(--brand); stroke: var(--surface); stroke-width: 1.6; }
 .fleet-port.is-selected .fleet-port-dot { stroke: var(--brand); stroke-width: 2.4; }
 .fleet-port-label { font-size: 11px; fill: var(--text); pointer-events: none; }
-/* Right-rail Facility endpoint list — drag a row onto the map to give it a location. */
-.fleet-eplist { display: flex; flex-direction: column; }
+/* A single fleet row (route editor's "Candidate fleets" list). */
 .fleet-ep {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 5px 10px;
-  cursor: grab;
   font-size: 0.8rem;
   border-bottom: 1px solid var(--border);
 }
-.fleet-ep:hover,
-.fleet-ep.is-selected { background: var(--bg-hover); }
-.fleet-ep:active { cursor: grabbing; }
 .fleet-ep-label { flex: 1; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fleet-ep.is-located .fleet-ep-label { color: var(--text); }
-.fleet-ep-tag { font-size: 0.68rem; color: var(--muted); flex-shrink: 0; }
-.fleet-ep.is-located .fleet-ep-tag { color: var(--brand); }
 /* Route-analytics hover tooltip (per-route ships/cargo/fuel/emissions). */
 .route-tip {
   position: absolute;
@@ -1099,52 +1091,93 @@
   display: flex;
   flex-direction: column;
 }
-.machine-editor {
-  display: flex; /* main | width-resizer | rail */
+/* One flowing panel: every attribute is a name-on-top / value-below cell, laid
+   out in an auto-filling grid so they wrap horizontally; the only separators are
+   the grid lines (cell borders) and the inline section bands. No boxed sections. */
+.machine-fields {
   flex: 1;
   min-height: 0;
   margin-top: 12px;
-}
-.machine-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-.machine-rail {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  min-width: 0;
-}
-.machine-zone {
+  overflow: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  align-content: start;
   border: 1px solid var(--border);
   border-radius: var(--radius-button);
-  padding: 8px 10px;
+  background: var(--surface);
+  /* The right/bottom 1px of each cell paints the grid lines; the panel border
+     closes the open edges so we don't get a double line on the right/bottom. */
+  border-right: 0;
+  border-bottom: 0;
+}
+.mf-cell {
   display: flex;
   flex-direction: column;
-  min-height: 0; /* allow the scroll body to shrink */
+  gap: 3px;
+  padding: 7px 10px;
+  min-width: 0;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
-.machine-zone-head {
+.mf-name {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mf-val {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  font-size: 0.84rem;
+}
+.mf-val .field-input {
+  width: 100%;
+  min-width: 0;
+}
+.mf-val .temporal-btn {
+  min-width: 0;
+  text-align: left;
+}
+.mf-unit {
+  color: var(--muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+/* A full-width band that opens each group inside the one panel (a line, not a box). */
+.mf-sec {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 10px;
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--muted);
   font-weight: 600;
-  margin-bottom: 6px;
-  flex: 0 0 auto; /* header pinned; only the body scrolls */
+  color: var(--muted);
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border);
 }
-.machine-zone-body {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
+.mf-sec:not(:first-child) {
+  border-top: 1px solid var(--border);
 }
-.machine-main .field-grid {
-  grid-template-columns: 132px minmax(0, 1fr) auto; /* label | input | unit */
+.mf-sec-note {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+  font-size: 0.72rem;
+  opacity: 0.85;
 }
-.machine-rail .field-grid {
-  grid-template-columns: minmax(0, 1fr) minmax(56px, 84px) auto; /* name | input | unit */
+.mf-empty {
+  grid-column: 1 / -1;
+  padding: 7px 10px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  border-bottom: 1px solid var(--border);
 }
 /* Physical-unit suffix shown after a field's input. */
 .field-unit {

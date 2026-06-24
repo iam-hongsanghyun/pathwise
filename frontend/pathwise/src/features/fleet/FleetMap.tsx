@@ -165,10 +165,14 @@ export function FleetMap({
         onPointerDown={onPointerDownBg}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onDragOver={(e) => { if (onDropNode && e.dataTransfer.types.includes(NODE_DRAG_TYPE)) e.preventDefault(); }}
+        onDragOver={(e) => {
+          // Accept our own chip drag OR a TreeExplorer row drag (text/plain = node id).
+          if (onDropNode && (e.dataTransfer.types.includes(NODE_DRAG_TYPE) || e.dataTransfer.types.includes("text/plain")))
+            e.preventDefault();
+        }}
         onDrop={(e) => {
           if (!onDropNode) return;
-          const id = e.dataTransfer.getData(NODE_DRAG_TYPE);
+          const id = e.dataTransfer.getData(NODE_DRAG_TYPE) || e.dataTransfer.getData("text/plain");
           if (!id) return;
           e.preventDefault();
           const ll = toLonLat(e.clientX, e.clientY);

@@ -6,7 +6,7 @@
 // concern). It never edits the component library: the base Library tree shown at
 // the BOTTOM of the left rail is a READ-ONLY drag source.
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDialogs } from "../features/controls/Dialog";
 import { Resizer } from "../layout/Resizer";
 import { CollapsibleRail } from "../layout/CollapsibleRail";
@@ -74,9 +74,6 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   const [tableOpen, setTableOpen] = useState(true);
   const [tableH, setTableH] = useState(260);
   // Machine editor: adjustable rail width + each column's bottom-zone height.
-  const [railW, setRailW] = useState(300);
-  const [mainBottomH, setMainBottomH] = useState(240);
-  const [railBottomH, setRailBottomH] = useState(220);
   const [error, setError] = useState<string | null>(null);
 
   // The shared node tree (same workbook the Value Chain edits).
@@ -448,135 +445,89 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
       // coefficient is "<stream unit> per <throughput unit>".
       const thru = unit || "unit";
       const impactUnit = (iid: string) => s((workbook.impacts ?? []).find((x) => s(x.impact_id) === iid)?.unit) || "";
-      const coeff = (row: Row, i: number) => {
+      // One attribute = a cell with the name on top and its value (+ unit) below.
+      // Every cell lives in ONE flowing panel, separated only by grid lines.
+      const cell = (key: string, label: string, node: React.ReactNode, unit?: string) => (
+        <div className="mf-cell" key={key}>
+          <div className="mf-name">{label}</div>
+          <div className="mf-val">{node}{unit ? <span className="mf-unit">{unit}</span> : null}</div>
+        </div>
+      );
+      const coeffCell = (row: Row, i: number) => {
         const role = s(row.role);
         const target = s(row.target);
         const u = role === "impact" ? impactUnit(target) : commodityUnit(workbook, target);
-        return (
-          <Fragment key={`${role}-${target}-${i}`}>
-            <span className="muted">{target}</span>
-            <TemporalValue value={ioCoeff(workbook, tech, role, target)} baseYear={baseYear} periods={periods}
-              variant="text" placeholder="0" label={`${target} · per ${thru}`}
-              onChange={(v) => setWorkbook(setIoCoeff(workbook, tech, role, target, v))} />
-            <span className="field-unit">{u ? `${u}/${thru}` : ""}</span>
-          </Fragment>
-        );
+        return cell(`${role}-${target}-${i}`, target,
+          <TemporalValue value={ioCoeff(workbook, tech, role, target)} baseYear={baseYear} periods={periods}
+            variant="text" placeholder="0" label={`${target} · per ${thru}`}
+            onChange={(v) => setWorkbook(setIoCoeff(workbook, tech, role, target, v))} />,
+          u ? `${u}/${thru}` : undefined);
       };
       return (
         <section className="detail-col machine-detail">
           <h2 className="view-title">{sel.label}</h2>
           <p className="detail-sub muted">machine · {techLabel}</p>
-          <div className="machine-editor">
-            {/* MAIN — technology (top) + machine (bottom); drag the divider to
-                resize the split, each zone scrolls on its own. */}
-            <div className="machine-main">
-              <div className="machine-zone" style={{ flex: 1, minHeight: 60 }}>
-                <div className="machine-zone-head">technology · {techLabel}</div>
-                <div className="machine-zone-body">
-                  {techRow ? (
-                    <>
-                      <p className="detail-note" style={{ marginBottom: 8 }}>
-                        This machine's own copy — edits here don't affect other machines.
-                      </p>
-                      <div className="field-grid">
-                        <span className="muted">lifespan</span>
-                        <input className="field-input" type="number" min={1} placeholder="20" value={s(techRow.lifespan)} onChange={(e) => editTech(tech, { lifespan: e.target.value === "" ? null : Number(e.target.value) })} />
-                        <span className="field-unit">yr</span>
-                        <span className="muted">available from</span>
-                        <input className="field-input" type="number" placeholder="any" value={s(techRow.introduction_year)} onChange={(e) => editTech(tech, { introduction_year: e.target.value === "" ? null : Number(e.target.value) })} />
-                        <span className="field-unit">year</span>
-                        <span className="muted">available to</span>
-                        <input className="field-input" type="number" placeholder="any (excl.)" value={s(techRow.phase_out_year)} onChange={(e) => editTech(tech, { phase_out_year: e.target.value === "" ? null : Number(e.target.value) })} />
-                        <span className="field-unit">year</span>
-                        <span className="muted">replace capex</span>
-                        <TemporalValue value={techCost(workbook, tech, "capex", "technologies_t__capex")} baseYear={baseYear} periods={periods} variant="text" placeholder="0" label={`${techLabel} · replace capex`}
-                          onChange={(v) => setWorkbook(setTechCost(workbook, tech, "capex", "technologies_t__capex", v))} />
-                        <span className="field-unit">/({thru}/yr)</span>
-                        <span className="muted">renewal cost</span>
-                        <TemporalValue value={techCost(workbook, tech, "renewal", "technologies_t__renewal")} baseYear={baseYear} periods={periods} variant="text" placeholder="0" label={`${techLabel} · renewal cost`}
-                          onChange={(v) => setWorkbook(setTechCost(workbook, tech, "renewal", "technologies_t__renewal", v))} />
-                        <span className="field-unit">/({thru}/yr)</span>
-                        <span className="muted">opex</span>
-                        <TemporalValue value={techCost(workbook, tech, "opex", "technologies_t__opex")} baseYear={baseYear} periods={periods} variant="text" placeholder="0" label={`${techLabel} · opex`}
-                          onChange={(v) => setWorkbook(setTechCost(workbook, tech, "opex", "technologies_t__opex", v))} />
-                        <span className="field-unit">/{thru}</span>
-                        <span className="muted">min cap. factor</span>
-                        <TemporalValue value={instAttr(workbook, "technologies", "technology_id", tech, "min_capacity_factor", "technologies_t__min_capacity_factor")} baseYear={baseYear} periods={periods} variant="text" placeholder="0" label={`${techLabel} · min capacity factor`}
-                          onChange={(v) => setWorkbook(setInstAttr(workbook, "technologies", "technology_id", tech, "min_capacity_factor", "technologies_t__min_capacity_factor", v))} />
-                        <span className="field-unit">×cap</span>
-                      </div>
-                    </>
-                  ) : (
-                    <p className="detail-note">No technology instance for this machine.</p>
-                  )}
-                </div>
-              </div>
-              <Resizer side="top" width={mainBottomH} setWidth={setMainBottomH} min={80} max={640} />
-              <div className="machine-zone" style={{ flex: `0 0 ${mainBottomH}px`, minHeight: 60 }}>
-                <div className="machine-zone-head">machine</div>
-                <div className="machine-zone-body">
-                  <div className="field-grid">
-                    <span className="muted">capacity</span>
-                    <input className="field-input" type="number" min={0} value={s(r?.capacity)} onChange={(e) => editMachine(sel.id, { capacity: e.target.value === "" ? 0 : Number(e.target.value) })} />
-                    <span className="field-unit">{thru}/yr</span>
-                    <span className="muted">owner (company)</span>
-                    <input className="field-input" value={s(r?.owner)} placeholder="e.g. POSCO" onChange={(e) => editMachine(sel.id, { owner: e.target.value })} />
-                    <span className="field-unit" />
-                    <span className="muted">build year</span>
-                    <input className="field-input" type="number" value={s(r?.introduced_year)} onChange={(e) => editMachine(sel.id, { introduced_year: e.target.value === "" ? null : Number(e.target.value) })} />
-                    <span className="field-unit">year</span>
-                    <span className="muted">close year</span>
-                    <input className="field-input" type="number" placeholder="(exclusive)" value={s(r?.decommission_year)} onChange={(e) => editMachine(sel.id, { decommission_year: e.target.value === "" ? null : Number(e.target.value) })} />
-                    <span className="field-unit">year</span>
-                    <span className="muted">max cap. factor</span>
-                    <TemporalValue value={instAttr(workbook, "machines", "machine_id", sel.id, "max_capacity_factor", "processes_t__max_capacity_factor")} baseYear={baseYear} periods={periods} variant="text" placeholder="1 (no ceiling)" label={`${sel.label} · max capacity factor`}
-                      onChange={(v) => setWorkbook(setInstAttr(workbook, "machines", "machine_id", sel.id, "max_capacity_factor", "processes_t__max_capacity_factor", v))} />
-                    <span className="field-unit">×cap</span>
-                    <span className="muted">max renewals</span>
-                    <input className="field-input" type="number" min={0} step={1} placeholder="∞ (unlimited)" value={s(r?.max_renewals)} onChange={(e) => editMachine(sel.id, { max_renewals: e.target.value === "" ? null : Number(e.target.value) })} />
-                    <span className="field-unit" />
-                  </div>
-                </div>
-              </div>
-            </div>
+          {/* One panel — every attribute is a name-on-top / value-below cell,
+              separated only by grid lines; the four groups are inline bands. */}
+          <div className="machine-fields">
+            <div className="mf-sec">technology · {techLabel}<span className="mf-sec-note">this machine's own copy — edits here don't affect other machines</span></div>
+            {techRow ? (
+              <>
+                {cell("lifespan", "lifespan",
+                  <input className="field-input" type="number" min={1} placeholder="20" value={s(techRow.lifespan)} onChange={(e) => editTech(tech, { lifespan: e.target.value === "" ? null : Number(e.target.value) })} />, "yr")}
+                {cell("intro", "available from",
+                  <input className="field-input" type="number" placeholder="any" value={s(techRow.introduction_year)} onChange={(e) => editTech(tech, { introduction_year: e.target.value === "" ? null : Number(e.target.value) })} />, "year")}
+                {cell("phaseout", "available to",
+                  <input className="field-input" type="number" placeholder="any (excl.)" value={s(techRow.phase_out_year)} onChange={(e) => editTech(tech, { phase_out_year: e.target.value === "" ? null : Number(e.target.value) })} />, "year")}
+                {cell("capex", "replace capex",
+                  <TemporalValue value={techCost(workbook, tech, "capex", "technologies_t__capex")} baseYear={baseYear} periods={periods} variant="text" placeholder="0" label={`${techLabel} · replace capex`}
+                    onChange={(v) => setWorkbook(setTechCost(workbook, tech, "capex", "technologies_t__capex", v))} />, `/(${thru}/yr)`)}
+                {cell("renewal", "renewal cost",
+                  <TemporalValue value={techCost(workbook, tech, "renewal", "technologies_t__renewal")} baseYear={baseYear} periods={periods} variant="text" placeholder="0" label={`${techLabel} · renewal cost`}
+                    onChange={(v) => setWorkbook(setTechCost(workbook, tech, "renewal", "technologies_t__renewal", v))} />, `/(${thru}/yr)`)}
+                {cell("opex", "opex",
+                  <TemporalValue value={techCost(workbook, tech, "opex", "technologies_t__opex")} baseYear={baseYear} periods={periods} variant="text" placeholder="0" label={`${techLabel} · opex`}
+                    onChange={(v) => setWorkbook(setTechCost(workbook, tech, "opex", "technologies_t__opex", v))} />, `/${thru}`)}
+                {cell("mincf", "min cap. factor",
+                  <TemporalValue value={instAttr(workbook, "technologies", "technology_id", tech, "min_capacity_factor", "technologies_t__min_capacity_factor")} baseYear={baseYear} periods={periods} variant="text" placeholder="0" label={`${techLabel} · min capacity factor`}
+                    onChange={(v) => setWorkbook(setInstAttr(workbook, "technologies", "technology_id", tech, "min_capacity_factor", "technologies_t__min_capacity_factor", v))} />, "×cap")}
+              </>
+            ) : (
+              <div className="mf-empty">No technology instance for this machine.</div>
+            )}
 
-            <Resizer side="right" width={railW} setWidth={setRailW} min={220} max={560} />
+            <div className="mf-sec">machine</div>
+            {cell("capacity", "capacity",
+              <input className="field-input" type="number" min={0} value={s(r?.capacity)} onChange={(e) => editMachine(sel.id, { capacity: e.target.value === "" ? 0 : Number(e.target.value) })} />, `${thru}/yr`)}
+            {cell("owner", "owner (company)",
+              <input className="field-input" value={s(r?.owner)} placeholder="e.g. POSCO" onChange={(e) => editMachine(sel.id, { owner: e.target.value })} />)}
+            {cell("build", "build year",
+              <input className="field-input" type="number" value={s(r?.introduced_year)} onChange={(e) => editMachine(sel.id, { introduced_year: e.target.value === "" ? null : Number(e.target.value) })} />, "year")}
+            {cell("close", "close year",
+              <input className="field-input" type="number" placeholder="(exclusive)" value={s(r?.decommission_year)} onChange={(e) => editMachine(sel.id, { decommission_year: e.target.value === "" ? null : Number(e.target.value) })} />, "year")}
+            {cell("maxcf", "max cap. factor",
+              <TemporalValue value={instAttr(workbook, "machines", "machine_id", sel.id, "max_capacity_factor", "processes_t__max_capacity_factor")} baseYear={baseYear} periods={periods} variant="text" placeholder="1 (no ceiling)" label={`${sel.label} · max capacity factor`}
+                onChange={(v) => setWorkbook(setInstAttr(workbook, "machines", "machine_id", sel.id, "max_capacity_factor", "processes_t__max_capacity_factor", v))} />, "×cap")}
+            {cell("maxren", "max renewals",
+              <input className="field-input" type="number" min={0} step={1} placeholder="∞ (unlimited)" value={s(r?.max_renewals)} onChange={(e) => editMachine(sel.id, { max_renewals: e.target.value === "" ? null : Number(e.target.value) })} />)}
 
-            {/* RIGHT RAIL — input streams (top) + products/emissions (bottom) */}
-            <div className="machine-rail" style={{ flex: `0 0 ${railW}px` }}>
-              <div className="machine-zone" style={{ flex: 1, minHeight: 60 }}>
-                <div className="machine-zone-head">input streams · per {thru}</div>
-                <div className="machine-zone-body">
-                  <div className="field-grid">
-                    {inputs.map(coeff)}
-                    {inputs.length === 0 && <span className="muted" style={{ gridColumn: "1 / -1" }}>no inputs</span>}
-                  </div>
-                </div>
-              </div>
-              <Resizer side="top" width={railBottomH} setWidth={setRailBottomH} min={80} max={640} />
-              <div className="machine-zone" style={{ flex: `0 0 ${railBottomH}px`, minHeight: 60 }}>
-                <div className="machine-zone-head">products &amp; emissions</div>
-                <div className="machine-zone-body">
-                  <div className="field-grid">
-                    {outputs.map(coeff)}
-                    {impacts.map(coeff)}
-                    {outputs.length + impacts.length === 0 && <span className="muted" style={{ gridColumn: "1 / -1" }}>no outputs</span>}
-                    {product && (
-                      <>
-                        <span className="muted">min output</span>
-                        <TemporalValue value={minOut} baseYear={baseYear} periods={periods} variant="text" placeholder="no floor" label={`${sel.label} · min output`}
-                          onChange={(v) => setWorkbook(setMinOutputCap(workbook, sel.id, product, v))} />
-                        <span className="field-unit">{thru}/yr</span>
-                        <span className="muted">max output</span>
-                        <TemporalValue value={maxOut} baseYear={baseYear} periods={periods} variant="text" placeholder="no cap" label={`${sel.label} · max output`}
-                          onChange={(v) => setWorkbook(setMaxOutputCap(workbook, sel.id, product, v))} />
-                        <span className="field-unit">{thru}/yr</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <div className="mf-sec">input streams · per {thru}</div>
+            {inputs.length === 0 ? <div className="mf-empty">no inputs</div> : inputs.map(coeffCell)}
+
+            <div className="mf-sec">products &amp; emissions</div>
+            {outputs.map(coeffCell)}
+            {impacts.map(coeffCell)}
+            {outputs.length + impacts.length === 0 && <div className="mf-empty">no outputs</div>}
+            {product && (
+              <>
+                {cell("minout", "min output",
+                  <TemporalValue value={minOut} baseYear={baseYear} periods={periods} variant="text" placeholder="no floor" label={`${sel.label} · min output`}
+                    onChange={(v) => setWorkbook(setMinOutputCap(workbook, sel.id, product, v))} />, `${thru}/yr`)}
+                {cell("maxout", "max output",
+                  <TemporalValue value={maxOut} baseYear={baseYear} periods={periods} variant="text" placeholder="no cap" label={`${sel.label} · max output`}
+                    onChange={(v) => setWorkbook(setMaxOutputCap(workbook, sel.id, product, v))} />, `${thru}/yr`)}
+              </>
+            )}
           </div>
         </section>
       );
