@@ -7,6 +7,7 @@
 import { useRef } from "react";
 import type { GeoProjection } from "d3-geo";
 import { GRATICULE, LAND, MAP_H, MAP_W, geoPath } from "./basemap";
+import { NODE_DRAG_TYPE } from "./fleetGraph";
 
 export interface MapPort {
   id: string;
@@ -32,6 +33,7 @@ export function FleetMap({
   pendingFrom,
   onMovePort,
   onClickPort,
+  onDropNode,
   onSelectRoute,
   onBackground,
 }: {
@@ -42,6 +44,8 @@ export function FleetMap({
   pendingFrom: string | null;
   onMovePort: (id: string, lon: number, lat: number) => void;
   onClickPort: (id: string) => void;
+  /** A Facility endpoint dragged from the rail was dropped here — give it a location. */
+  onDropNode?: (id: string, lon: number, lat: number) => void;
   onSelectRoute: (proc: string) => void;
   onBackground: () => void;
 }) {
@@ -51,16 +55,22 @@ export function FleetMap({
   const path = geoPath(projection);
   const d = (obj: Parameters<typeof path>[0]) => path(obj) ?? undefined;
 
+  // client px → (lon, lat). The SVG is width:100%, so px ≠ viewBox units.
+  const toLonLat = (clientX: number, clientY: number): [number, number] | null => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    const vx = ((clientX - rect.left) / rect.width) * MAP_W;
+    const vy = ((clientY - rect.top) / rect.height) * MAP_H;
+    const ll = projection.invert?.([vx, vy]);
+    if (!ll || !Number.isFinite(ll[0]) || !Number.isFinite(ll[1])) return null;
+    return [Math.round(ll[0] * 100) / 100, Math.round(ll[1] * 100) / 100];
+  };
+
   const onPointerMove = (e: React.PointerEvent) => {
     if (!drag.current) return;
     drag.current.moved = true;
-    const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const vx = ((e.clientX - rect.left) / rect.width) * MAP_W;
-    const vy = ((e.clientY - rect.top) / rect.height) * MAP_H;
-    const ll = projection.invert?.([vx, vy]);
-    if (!ll || !Number.isFinite(ll[0]) || !Number.isFinite(ll[1])) return;
-    onMovePort(drag.current.id, Math.round(ll[0] * 100) / 100, Math.round(ll[1] * 100) / 100);
+    const ll = toLonLat(e.clientX, e.clientY);
+    if (ll) onMovePort(drag.current.id, ll[0], ll[1]);
   };
   const onPointerUp = (e: React.PointerEvent) => {
     if (drag.current?.moved) suppressClick.current = true;
@@ -75,6 +85,15 @@ export function FleetMap({
       className={`fleet-map${pendingFrom ? " is-connecting" : ""}`}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onDragOver={(e) => { if (onDropNode && e.dataTransfer.types.includes(NODE_DRAG_TYPE)) e.preventDefault(); }}
+      onDrop={(e) => {
+        if (!onDropNode) return;
+        const id = e.dataTransfer.getData(NODE_DRAG_TYPE);
+        if (!id) return;
+        e.preventDefault();
+        const ll = toLonLat(e.clientX, e.clientY);
+        if (ll) onDropNode(id, ll[0], ll[1]);
+      }}
       onClick={() => { if (suppressClick.current) { suppressClick.current = false; return; } onBackground(); }}
     >
       <path className="fleet-ocean" d={d({ type: "Sphere" })} />

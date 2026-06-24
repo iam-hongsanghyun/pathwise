@@ -712,6 +712,24 @@
 .fleet-port-dot { fill: var(--brand); stroke: var(--surface); stroke-width: 1.6; }
 .fleet-port.is-selected .fleet-port-dot { stroke: var(--brand); stroke-width: 2.4; }
 .fleet-port-label { font-size: 11px; fill: var(--text); pointer-events: none; }
+/* Right-rail Facility endpoint list — drag a row onto the map to give it a location. */
+.fleet-eplist { display: flex; flex-direction: column; }
+.fleet-ep {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  cursor: grab;
+  font-size: 0.8rem;
+  border-bottom: 1px solid var(--border);
+}
+.fleet-ep:hover,
+.fleet-ep.is-selected { background: var(--bg-hover); }
+.fleet-ep:active { cursor: grabbing; }
+.fleet-ep-label { flex: 1; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fleet-ep.is-located .fleet-ep-label { color: var(--text); }
+.fleet-ep-tag { font-size: 0.68rem; color: var(--muted); flex-shrink: 0; }
+.fleet-ep.is-located .fleet-ep-tag { color: var(--brand); }
 /* Centered empty-state inside a canvas panel. */
 .vc-empty {
   flex: 1;

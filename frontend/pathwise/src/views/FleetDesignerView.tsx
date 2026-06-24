@@ -1,9 +1,11 @@
 // Fleet designer — a NEW transport layer, SEPARATE from facility / value chain.
 // LEFT rail = the fleet registry (its own alliance→company→fleet tree in
 // `fleet_groups` + `fleet`; never `nodes`). CENTER = the world map. RIGHT rail =
-// the facility `nodes`, a reference to pull ports/machines onto the map. Fleets are
-// CANDIDATES for routes — the optimiser chooses unless a route pins one. Pop-ups
-// (FloatingPanel) edit a fleet / port / route. Reuses the `builder` rail CSS.
+// TOP "Routes" (value-chain stream connections whose two endpoints are located —
+// grouped by stream) + BOTTOM "Facility" (drag an endpoint onto the map to give it
+// a location). A connection is "teleportation" until it is located AND given a mode;
+// then it is a physical route a fleet can serve. Fleets are CANDIDATES — the optimiser
+// chooses unless a route pins one. Pop-ups (FloatingPanel) edit a fleet / port / route.
 
 import { useEffect, useMemo, useState } from "react";
 import { useDialogs } from "../features/controls/Dialog";
@@ -16,7 +18,18 @@ import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types
 import { parseNodes } from "../lib/groupGraph";
 import { MODES, makeProjection } from "../features/fleet/basemap";
 import { FleetMap, type MapPort, type MapRoute } from "../features/fleet/FleetMap";
-import { buildCoordMap, facilityTree, fleetId, fleetRegistryTree, parseFleetGroups } from "../features/fleet/fleetGraph";
+import {
+  NODE_DRAG_TYPE,
+  buildCoordMap,
+  buildRouteLeaves,
+  endpointList,
+  fleetId,
+  fleetRegistryTree,
+  parseConnections,
+  parseFleetGroups,
+  routeTree,
+  type RouteLeaf,
+} from "../features/fleet/fleetGraph";
 import { routePath } from "../lib/api/routing";
 import type { Row, Workbook } from "../types";
 
@@ -41,10 +54,8 @@ export function FleetDesignerView({
   const [expL, setExpL] = useState<Set<string>>(new Set());
   const [expR, setExpR] = useState<Set<string>>(new Set());
   const [leftW, setLeftW] = useState(240);
-  const [rightW, setRightW] = useState(240);
+  const [rightW, setRightW] = useState(260);
   const [edit, setEdit] = useState<Edit>(null);
-  const [pendingFrom, setPendingFrom] = useState<string | null>(null);
-  const [newMode, setNewMode] = useState("sea");
 
   const projection = useMemo(() => makeProjection(), []);
   const nodes = useMemo(() => parseNodes(workbook), [workbook]);
@@ -58,8 +69,12 @@ export function FleetDesignerView({
   const coord = useMemo(() => buildCoordMap(workbook), [workbook]);
   const fleetByNode = useMemo(() => new Map(fleets.map((f) => [fleetId(f), f])), [fleets]);
 
+  const connections = useMemo(() => parseConnections(workbook), [workbook]);
+  const routeLeaves = useMemo(() => buildRouteLeaves(connections, routes, coord), [connections, routes, coord]);
+  const leafByProc = useMemo(() => new Map(routeLeaves.map((l) => [l.proc, l])), [routeLeaves]);
   const leftTree = useMemo(() => fleetRegistryTree(fleetGroups, fleets), [fleetGroups, fleets]);
-  const rightTree = useMemo(() => facilityTree(nodes, coord), [nodes, coord]);
+  const routesTree = useMemo(() => routeTree(routeLeaves, (id) => nodeById.get(id)?.label ?? id), [routeLeaves, nodeById]);
+  const endpoints = useMemo(() => endpointList(connections, (id) => nodeById.get(id)?.label ?? id, coord), [connections, nodeById, coord]);
 
   const ports = useMemo<MapPort[]>(
     () => [...coord.entries()].map(([id, c]) => ({ id, label: nodeById.get(id)?.label ?? id, ...c })),
@@ -101,12 +116,6 @@ export function FleetDesignerView({
     }, 250);
     return () => clearTimeout(t);
   }, [drawRoutes, paths]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPendingFrom(null); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
 
   // ── writes ───────────────────────────────────────────────────────────────────
   const setSheet = (wb: Workbook, sheet: string, rows: Row[]): Workbook => ({ ...wb, [sheet]: rows });
@@ -178,62 +187,20 @@ export function FleetDesignerView({
     else patchFleetGroup(e.dragId, { parent_id: newParent ?? "" });
   }
 
-  // ── RIGHT: facility nodes (the port/machine reference) ───────────────────────
-  function nodeDescendants(id: string): Set<string> {
-    const out = new Set<string>([id]);
-    let added = true;
-    while (added) { added = false; for (const nd of nodes) if (nd.parentId && out.has(nd.parentId) && !out.has(nd.id)) { out.add(nd.id); added = true; } }
-    return out;
+  // ── RIGHT: physicalise a stream connection + locate its endpoints ────────────
+  // Selecting a route leaf opens its panel. A candidate (a located connection with
+  // no `routes` row yet) is physicalised on select — a row is created so it can carry
+  // a mode/fleet; "Remove route" in the panel sends it back to teleportation.
+  function selectRoute(leaf: RouteLeaf) {
+    if (!leaf.physical && !routes.some((r) => s(r.process) === leaf.proc))
+      setWorkbook(setSheet(workbook, "routes", [...routes, { process: leaf.proc, from_node: leaf.from, to_node: leaf.to, commodity: leaf.commodity, mode: "sea" }]));
+    setSelId(leaf.proc);
+    setEdit({ kind: "route", id: leaf.proc });
   }
-  async function addFacilityGroup(parentId: string | null) {
-    const label = (await prompt({ title: "Add group", label: "name", placeholder: "e.g. Korea, Ports" }))?.trim();
-    if (!label) return;
-    const id = genId("n");
-    setWorkbook(setSheet(workbook, "nodes", [...(workbook.nodes ?? []), { node_id: id, parent_id: parentId, kind: "group", level: "", label }]));
-    if (parentId) setExpR((p) => new Set(p).add(parentId));
-  }
-  async function addPort(parentId: string | null) {
-    const label = (await prompt({ title: "Add port", label: "name", placeholder: "e.g. Busan, Rotterdam" }))?.trim();
-    if (!label) return;
-    const id = genId("port");
-    setWorkbook(setSheet(workbook, "nodes", [...(workbook.nodes ?? []), { node_id: id, parent_id: parentId, kind: "group", level: "port", label, lon: 0, lat: 20 }]));
-    if (parentId) setExpR((p) => new Set(p).add(parentId));
+  // A Facility endpoint dropped on the map (or its marker dragged) → set its location.
+  function locateNode(id: string, lon: number, lat: number) {
+    patchNode(id, { lon, lat });
     setSelId(id);
-    setEdit({ kind: "node", id });
-  }
-  async function renameNode(id: string) {
-    const next = (await prompt({ title: "Rename", label: "name", defaultValue: nodeById.get(id)?.label ?? id }))?.trim();
-    if (next) patchNode(id, { label: next });
-  }
-  async function deleteNode(id: string) {
-    if (!(await confirm({ title: "Delete", message: `Delete '${nodeById.get(id)?.label ?? id}' and everything under it?`, danger: true, confirmLabel: "Delete" }))) return;
-    const doomed = nodeDescendants(id);
-    const keptRoutes = routes.filter((r) => !doomed.has(s(r.from_node)) && !doomed.has(s(r.to_node)));
-    const keptProcs = new Set(keptRoutes.map((r) => s(r.process)));
-    let wb = setSheet(workbook, "nodes", (workbook.nodes ?? []).filter((r) => !doomed.has(s(r.node_id))));
-    wb = setSheet(wb, "routes", keptRoutes);
-    wb = setSheet(wb, "fleet_routes", fleetRoutes.filter((r) => keptProcs.has(s(r.process))));
-    setWorkbook(wb);
-    if (selId && doomed.has(selId)) { setSelId(null); setEdit(null); }
-  }
-  function onMoveRight(e: TreeMoveEvent) {
-    const newParent = e.position === "inside" ? e.targetId : nodeById.get(e.beforeSiblingId ?? "")?.parentId ?? null;
-    if (e.dragId === newParent) return;
-    patchNode(e.dragId, { parent_id: newParent ?? "" });
-  }
-
-  // ── map: connect two ports into a route ──────────────────────────────────────
-  function connect(from: string, to: string) {
-    if (from === to) return;
-    const proc = `${from}__${to}`;
-    if (!routes.some((r) => s(r.process) === proc))
-      setWorkbook(setSheet(workbook, "routes", [...routes, { process: proc, from_node: from, to_node: to, mode: newMode }]));
-    setSelId(proc);
-    setEdit({ kind: "route", id: proc });
-  }
-  function onClickPort(id: string) {
-    if (pendingFrom && pendingFrom !== id) { connect(pendingFrom, id); setPendingFrom(null); }
-    else { setPendingFrom(id); setSelId(id); setEdit({ kind: "node", id }); }
   }
   function toggleBlock(proc: string, on: boolean) {
     let wb = workbook;
@@ -264,18 +231,6 @@ export function FleetDesignerView({
     else if (a === "dup") duplicateFleet(n.id, 1);
     else if (a === "dupN") void (async () => { const x = await prompt({ title: "Duplicate ×N", label: "how many copies", defaultValue: "10" }); const t = Math.max(1, Math.round(Number(x) || 0)); if (t) duplicateFleet(n.id, t); })();
   };
-  const rightActions = (n: TreeNode): TreeAction[] =>
-    n.kind === "machine"
-      ? [{ id: "edit", label: "Edit" }, { id: "rename", label: "Rename" }, { id: "delete", label: "Delete", danger: true }]
-      : [{ id: "add-port", label: "Add port" }, { id: "add-group", label: "Add group inside" }, { id: "rename", label: "Rename", separatorBefore: true }, { id: "delete", label: "Delete", danger: true }];
-  const onRightAction = (a: string, n: TreeNode) => {
-    if (a === "add-port") void addPort(n.id);
-    else if (a === "add-group") void addFacilityGroup(n.id);
-    else if (a === "rename") void renameNode(n.id);
-    else if (a === "delete") void deleteNode(n.id);
-    else if (a === "edit") setEdit({ kind: "node", id: n.id });
-  };
-
   const editRoute = edit?.kind === "route" ? routes.find((r) => s(r.process) === edit.id) : undefined;
 
   return (
@@ -300,37 +255,55 @@ export function FleetDesignerView({
         <main className="builder-canvas">
           <div className="view-head">
             <div className="eyebrow">fleet</div>
-            <span className="view-status">{pendingFrom ? "click a destination port to connect (Esc cancels)" : "click two ports to lay a route · drag a port to move it"}</span>
-            <span style={{ flex: 1 }} />
-            <label className="muted" style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.74rem" }}>
-              new route
-              <div style={{ width: 130 }}><SearchSelect value={newMode} onChange={setNewMode} options={MODES} /></div>
-            </label>
+            <span className="view-status">drag a facility onto the map to place it · drag a marker to move it · click a route to edit</span>
           </div>
           <div style={{ flex: 1, minHeight: 0, display: "flex", padding: "10px 14px" }}>
-            <FleetMap projection={projection} ports={ports} routes={mapRoutes} selId={selId} pendingFrom={pendingFrom}
+            <FleetMap projection={projection} ports={ports} routes={mapRoutes} selId={selId} pendingFrom={null}
               onMovePort={(id, lon, lat) => patchNode(id, { lon, lat })}
-              onClickPort={onClickPort}
+              onClickPort={(id) => { setSelId(id); setEdit({ kind: "node", id }); }}
+              onDropNode={locateNode}
               onSelectRoute={(proc) => { setSelId(proc); setEdit({ kind: "route", id: proc }); }}
-              onBackground={() => setPendingFrom(null)} />
+              onBackground={() => undefined} />
           </div>
-          {ports.length === 0 && <p className="view-lead" style={{ padding: "0 14px" }}>No ports yet — right-click a group in the <b>Facilities</b> rail → Add port, then drag it onto its place.</p>}
+          {ports.length === 0 && <p className="view-lead" style={{ padding: "0 14px" }}>Drag a facility from the right rail onto the map to give it a location. Once both ends of a stream are placed, the stream appears under <b>Routes</b> — set a mode to make it physical (otherwise it teleports).</p>}
         </main>
 
-        <Resizer side="right" width={rightW} setWidth={setRightW} min={200} max={420} />
-        <aside className="builder-rail is-right" style={{ width: rightW }}>
+        <Resizer side="right" width={rightW} setWidth={setRightW} min={220} max={440} />
+        <aside className="builder-rail is-right" style={{ width: rightW, overflow: "hidden" }}>
           <div className="rail-head-row">
-            <span className="rail-head">Facilities</span>
-            <button className="rail-add" title="add a facility group" onClick={() => void addFacilityGroup(null)}>＋</button>
+            <span className="rail-head">Routes</span>
+            <span className="rail-foot" style={{ padding: "0 10px" }}>stream → route</span>
           </div>
-          <div className="rail-scroll">
-            <TreeExplorer nodes={rightTree} selectedId={selId} expandedIds={expR}
+          <div className="rail-scroll" style={{ flex: "3 1 0", minHeight: 80 }}>
+            <TreeExplorer nodes={routesTree} selectedId={selId} expandedIds={expR}
               onToggle={(id, e) => setExpR((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
-              onSelect={(id) => { setSelId(id); setEdit({ kind: "node", id }); }}
-              actionsFor={rightActions} onContextAction={onRightAction} onMove={onMoveRight}
-              emptyHint="The facility / value-chain structure — add ports to place on the map." />
+              onSelect={(id) => { const leaf = leafByProc.get(id); if (leaf) selectRoute(leaf); else setExpR((p) => { const m = new Set(p); m.has(id) ? m.delete(id) : m.add(id); return m; }); }}
+              actionsFor={() => []} onContextAction={() => undefined} onMove={() => undefined}
+              emptyHint="Place both ends of a value-chain stream to see it here as a route." />
           </div>
-          <div className="rail-foot">Ports &amp; machines to connect to fleets · drag a port on the map to place it</div>
+          <div className="rail-head-row is-divided">
+            <span className="rail-head">Facility</span>
+            <span className="rail-foot" style={{ padding: "0 10px" }}>{endpoints.filter((e) => e.located).length}/{endpoints.length} placed</span>
+          </div>
+          <div className="rail-scroll" style={{ flex: "2 1 0", minHeight: 70 }}>
+            {endpoints.length === 0 ? (
+              <p className="rail-empty">No stream endpoints — connect machines in the Value chain first.</p>
+            ) : (
+              <div className="fleet-eplist">
+                {endpoints.map((ep) => (
+                  <div key={ep.id} className={`fleet-ep${ep.located ? " is-located" : ""}${selId === ep.id ? " is-selected" : ""}`}
+                    draggable
+                    onDragStart={(e) => { e.dataTransfer.setData(NODE_DRAG_TYPE, ep.id); e.dataTransfer.effectAllowed = "copy"; }}
+                    onClick={() => { setSelId(ep.id); setEdit({ kind: "node", id: ep.id }); }}
+                    title={ep.located ? "placed — drag the marker on the map to move it" : "drag onto the map to place it"}>
+                    <span className="fleet-ep-label">{ep.label}</span>
+                    <span className="fleet-ep-tag">{ep.located ? "placed" : "drag →"}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="rail-foot">Drag an endpoint onto the map to give it a location.</div>
         </aside>
       </div>
 
@@ -343,7 +316,7 @@ export function FleetDesignerView({
           onRename={(v) => patchNode(edit.id, { label: v })} onLevel={(v) => patchNode(edit.id, { level: v })} onCoord={(p) => patchNode(edit.id, p)} onClose={() => setEdit(null)} />
       )}
       {editRoute && (
-        <RoutePanel route={editRoute} routes={routes} ports={ports} fleets={fleets} fleetRoutes={fleetRoutes}
+        <RoutePanel route={editRoute} routes={routes} fleets={fleets} fleetRoutes={fleetRoutes}
           labelOf={(id) => nodeById.get(id)?.label ?? id} fleetLabel={(fid) => s(fleetByNode.get(fid)?.label) || fid}
           onChange={(p) => patchRoute(edit!.id, p)} onToggleBlock={(on) => toggleBlock(edit!.id, on)}
           setFleetRoutes={(rows) => setWorkbook(setSheet(workbook, "fleet_routes", rows))}
@@ -417,15 +390,15 @@ function NodePanel({ id, label, level, coord, onRename, onLevel, onCoord, onClos
           <span className="muted">latitude</span>
           <input className="field-input" style={{ flex: 1 }} type="number" value={coord ? coord.lat : ""} onChange={(e) => onCoord({ lat: blank(e.target.value) })} placeholder="—" />
         </label>
-        <p className="rail-empty" style={{ marginTop: 8 }}>{isPort ? "Drag the marker on the map, or click it then another port to lay a route." : "Give this a longitude/latitude to place it on the map as a port."}</p>
+        <p className="rail-empty" style={{ marginTop: 8 }}>{isPort ? "Drag the marker on the map to move it. Once both ends of a stream are placed it appears under Routes." : "Drag this onto the map (or set a longitude/latitude) to place it."}</p>
         <input type="hidden" value={id} readOnly />
       </div>
     </FloatingPanel>
   );
 }
 
-function RoutePanel({ route, routes, ports, fleets, fleetRoutes, labelOf, fleetLabel, onChange, onToggleBlock, setFleetRoutes, onDelete, onClose }: {
-  route: Row; routes: Row[]; ports: MapPort[]; fleets: Row[]; fleetRoutes: Row[]; labelOf: (id: string) => string; fleetLabel: (id: string) => string;
+function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, onChange, onToggleBlock, setFleetRoutes, onDelete, onClose }: {
+  route: Row; routes: Row[]; fleets: Row[]; fleetRoutes: Row[]; labelOf: (id: string) => string; fleetLabel: (id: string) => string;
   onChange: (p: Row) => void; onToggleBlock: (on: boolean) => void; setFleetRoutes: (rows: Row[]) => void; onDelete: () => void; onClose: () => void;
 }) {
   const proc = s(route.process);
@@ -433,6 +406,7 @@ function RoutePanel({ route, routes, ports, fleets, fleetRoutes, labelOf, fleetL
   const others = routes.filter((r) => s(r.process) !== proc);
   const assign = fleetRoutes.find((r) => s(r.process) === proc);
   const cur = assign ? fleetId(assign) : "";
+  const commodity = s(route.commodity);
   const fixed = !!assign && num(assign.min_units) > 0 && has(assign.max_units) && num(assign.min_units) === num(assign.max_units);
   const setFleet = (fid: string) => setFleetRoutes(fid ? [...fleetRoutes.filter((r) => s(r.process) !== proc), { process: proc, fleet_id: fid }] : fleetRoutes.filter((r) => s(r.process) !== proc));
   const setFix = (mode: string) => assign && setFleetRoutes(fleetRoutes.map((r) => (s(r.process) === proc ? (mode === "fixed" ? { ...r, min_units: num(r.max_units) || 1, max_units: num(r.max_units) || 1 } : { ...r, min_units: "", max_units: "" }) : r)));
@@ -440,9 +414,10 @@ function RoutePanel({ route, routes, ports, fleets, fleetRoutes, labelOf, fleetL
   return (
     <FloatingPanel title="route" width={360} onClose={onClose}>
       <div style={{ padding: "12px 14px" }}>
-        <div style={{ fontWeight: 600, fontSize: "0.9rem", marginBottom: 4 }}>{labelOf(s(route.from_node))} → {labelOf(s(route.to_node))}</div>
-        {row("from", <SearchSelect value={s(route.from_node)} onChange={(v) => onChange({ from_node: v })} options={ports.map((p) => ({ value: p.id, label: p.label }))} />)}
-        {row("to", <SearchSelect value={s(route.to_node)} onChange={(v) => onChange({ to_node: v })} options={ports.map((p) => ({ value: p.id, label: p.label }))} />)}
+        <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>{labelOf(s(route.from_node))} → {labelOf(s(route.to_node))}</div>
+        <div className="muted" style={{ fontSize: "0.74rem", marginBottom: 6 }}>
+          {commodity ? <>stream <b style={{ color: "var(--text)" }}>{commodity}</b> · made physical (otherwise it teleports)</> : "direct transport process"}
+        </div>
         {row("mode", <SearchSelect value={s(route.mode) || "sea"} onChange={(v) => onChange({ mode: v })} options={MODES} />, "Sea follows real sea lanes (searoute, via Suez/Panama); road/rail use great-circle × a detour factor. Sets the route's distance basis.")}
         {row("distance", <input className="field-input" style={{ width: "100%" }} type="number" placeholder="auto · from the ports" value={s(route.distance)} onChange={(e) => onChange({ distance: blank(e.target.value) })} />, "Leave blank to derive it from the two ports (sea = searoute length; land = great-circle × factor). Override to pin a known distance.")}
         {row("alternative of", <SearchSelect value={s(route.alternative_of)} onChange={(v) => onChange({ alternative_of: v })} options={[{ value: "", label: "— (primary)" }, ...others.map((r) => ({ value: s(r.process), label: `${labelOf(s(r.from_node))}→${labelOf(s(r.to_node))}` }))]} />, "Mark this as an alternative to another route (drawn dotted) — e.g. a Cape route standing in for a Suez one.")}
@@ -459,7 +434,7 @@ function RoutePanel({ route, routes, ports, fleets, fleetRoutes, labelOf, fleetL
           </div>
         )}
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
-          <button className="ghost" style={{ color: "var(--danger)" }} onClick={onDelete}>Delete route</button>
+          <button className="ghost" style={{ color: "var(--danger)" }} onClick={onDelete}>{commodity ? "Remove route (back to teleport)" : "Delete route"}</button>
         </div>
       </div>
     </FloatingPanel>

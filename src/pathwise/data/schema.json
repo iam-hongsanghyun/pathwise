@@ -765,6 +765,7 @@
         },
         "from_node": {"label": "From", "type": "string", "desc": "Origin node (carries lon/lat)."},
         "to_node": {"label": "To", "type": "string", "desc": "Destination node (carries lon/lat)."},
+        "commodity": {"label": "Stream", "type": "string", "desc": "Value-chain stream this route physicalises (the connection's commodity); blank ⇒ a direct transport process."},
         "mode": {"label": "Mode", "type": "string", "desc": "sea (searoute) / road / rail (great-circle × factor)."},
         "distance": {
           "label": "Distance",
