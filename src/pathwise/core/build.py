@@ -1144,6 +1144,10 @@ def _purchase_caps(ctx: BuildContext) -> None:
                 )
             else:
                 total = _lin_sum([ctx.buy.sel(process=p, commodity=r, period=t) for p in ctx.procs])
+            # Fleet fuel drawn through this stream counts against its supply cap too.
+            fuel_d = _conn_fuel_demand(ctx, r, t)
+            if fuel_d is not None:
+                total = fuel_d if total is None else (total + fuel_d)
             if total is not None:
                 m.add_constraints(total <= cap, name=f"buycap[{r},{t}]")
 
@@ -1300,6 +1304,7 @@ def _impacts(ctx: BuildContext) -> None:
 
         total_by_period = scope_impact_sum[cache_key]
         total = total_by_period.sel(impact=i, period=y) if total_by_period is not None else None
+
         # Transport: physicalised routes whose origin is in this scope also count
         # toward the cap (their emissions = fuel · commodity_impacts, never hardcoded).
         def _route_in_cap_scope(cr: Any, _c: str = c) -> bool:
@@ -1470,6 +1475,11 @@ def _markets(ctx: BuildContext) -> None:
                 )
             else:
                 target = _lin_sum([ctx.buy.sel(process=p, commodity=r, period=t) for p in procs])
+            # A fleet burning this market commodity draws on it too (bunkering): the
+            # market (producer msell / external mbuy) must clear the fleet's demand.
+            fuel_d = _conn_fuel_demand(ctx, r, t)
+            if fuel_d is not None:
+                target = fuel_d if target is None else (target + fuel_d)
             rhs = target if target is not None else 0.0
             m.add_constraints(net == rhs, name=f"mclear[{r},{t}]")
         for mk in mkts:
@@ -1830,6 +1840,32 @@ def _route_emit_terms(
     return _lin_sum(terms)
 
 
+def _conn_fuel_demand(ctx: BuildContext, fuel: str, t: int) -> Any:
+    r"""Connection-route fleet demand for ``fuel`` in year ``t`` (a linopy expr or None).
+
+    ``Σ legflow · efficiency · distance`` over every candidate leg burning ``fuel``.
+    Added to the fuel commodity's market clearing + purchase cap so a bunkering
+    producer / supply limit must actually source the fleet's fuel (the "fuel from a
+    producer" model) instead of it being unlimited at a flat price.
+    """
+    prob = ctx.problem
+    if ctx.legflow is None:
+        return None
+    terms: list[Any] = []
+    for cr in prob.connection_routes:
+        if cr.blocked:
+            continue
+        for leg in cr.legs:
+            fl = prob.fleets.get(leg.fleet_id)
+            if fl is None or fl.fuel != fuel or fl.efficiency <= 0 or cr.distance <= 0:
+                continue
+            terms.append(
+                (fl.efficiency * cr.distance)
+                * ctx.legflow.sel(leg=leg_key(cr.process, leg.fleet_id), period=t)
+            )
+    return _lin_sum(terms)
+
+
 def _objective(ctx: BuildContext) -> None:
     """Discounted total system cost + slack penalties (minimise).
 
@@ -1909,7 +1945,16 @@ def _objective(ctx: BuildContext) -> None:
             if fl is None or not fl.fuel or fl.efficiency <= 0 or cr.distance <= 0:
                 return 0.0
             per_cargo = fl.efficiency * cr.distance  # fuel burned per unit cargo
-            fuel_price = prob.commodities[fl.fuel].price(t) if fl.fuel in prob.commodities else 0.0
+            # Bunkering: when the fuel clears through a commodity market, the market
+            # mbuy already pays for it — don't also charge the bare price here (the
+            # combustion emissions below stay with the fleet regardless of source).
+            fuel_price = (
+                0.0
+                if fl.fuel in market_comms
+                else prob.commodities[fl.fuel].price(t)
+                if fl.fuel in prob.commodities
+                else 0.0
+            )
             emit_price = sum(
                 prob.commodity_impact(fl.fuel, i, t) * prob.impacts[i].price(t)
                 for i in prob.impacts

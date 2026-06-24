@@ -282,6 +282,21 @@ def test_blocked_corridor_reroutes_the_far_lane() -> None:
     assert abs(blocked["rt_au"] - base["rt_au"]) < 1.0  # the near lane is unaffected
 
 
+def test_bunkering_fuel_supply_cap_limits_the_fleet() -> None:
+    # Tie the fuel to a supply limit (max_purchase): the fleet's fuel use
+    # (Σ legflow·eff·dist) must fit under the cap, so a tight cap throttles delivery.
+    wb = _wb(co2_price=0.0, candidates=("dirty",))
+    # dirty: eff 0.003, dist 8000 ⇒ full 1000 kt needs 0.003·8000·1000 = 24000 t hfo.
+    for c in wb["commodities"]:
+        if c["commodity_id"] == "hfo":
+            c["max_purchase"] = 12000.0  # only half the fuel ⇒ ~half the cargo
+    res = _solve(wb)
+    assert res["status"] == "optimal"
+    # fuel burned = eff·dist·delivered ≤ cap ⇒ delivered ≤ 12000/(0.003·8000)=500
+    assert _delivered(res) <= 500.0 + 1e-6
+    assert _delivered(res) > 0.0  # some cargo still moves on the available fuel
+
+
 def test_single_candidate_is_forced() -> None:
     # Only the clean fleet may run the lane → it is used even with no carbon price.
     res = _solve(_wb(co2_price=0.0, candidates=("clean",)))
