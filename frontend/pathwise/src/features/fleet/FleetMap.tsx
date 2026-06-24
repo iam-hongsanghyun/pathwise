@@ -20,6 +20,8 @@ export interface MapRoute {
   to: { lon: number; lat: number };
   blocked: boolean;
   alt: boolean;
+  /** The real sea/land polyline ([lon,lat]…). Absent ⇒ straight fallback. */
+  path?: [number, number][];
 }
 
 export function FleetMap({
@@ -82,7 +84,8 @@ export function FleetMap({
       ))}
 
       {routes.map((r) => {
-        const dd = d({ type: "LineString", coordinates: [[r.from.lon, r.from.lat], [r.to.lon, r.to.lat]] });
+        const line = r.path && r.path.length > 1 ? r.path : [[r.from.lon, r.from.lat], [r.to.lon, r.to.lat]];
+        const dd = d({ type: "LineString", coordinates: line });
         if (!dd) return null;
         const cls = `fleet-route${selId === r.process ? " is-selected" : ""}${r.blocked ? " is-blocked" : r.alt ? " is-alt" : ""}`;
         return (

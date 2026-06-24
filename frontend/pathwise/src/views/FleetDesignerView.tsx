@@ -16,6 +16,7 @@ import { parseNodes } from "../lib/groupGraph";
 import { MODES, makeProjection } from "../features/fleet/basemap";
 import { FleetMap, type MapPort, type MapRoute } from "../features/fleet/FleetMap";
 import { buildCoordMap, facilityTree, fleetId, fleetRegistryTree, parseFleetGroups } from "../features/fleet/fleetGraph";
+import { routePath } from "../lib/api/routing";
 import type { Row, Workbook } from "../types";
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
@@ -63,17 +64,42 @@ export function FleetDesignerView({
     () => [...coord.entries()].map(([id, c]) => ({ id, label: nodeById.get(id)?.label ?? id, ...c })),
     [coord, nodeById],
   );
-  const mapRoutes = useMemo<MapRoute[]>(
+  // Each map route carries a cache key (rounded endpoints + mode) so a port's sea
+  // polyline is fetched once and re-used; the polyline itself lives in `paths`.
+  const [paths, setPaths] = useState<Map<string, [number, number][]>>(new Map());
+  const drawRoutes = useMemo(
     () =>
       routes
         .map((r) => {
           const from = coord.get(s(r.from_node));
           const to = coord.get(s(r.to_node));
-          return from && to ? { process: s(r.process), from, to, blocked: s(r.blocked) === "true", alt: has(r.alternative_of) } : null;
+          if (!from || !to) return null;
+          const mode = s(r.mode) || "sea";
+          const key = `${from.lon.toFixed(2)},${from.lat.toFixed(2)}|${to.lon.toFixed(2)},${to.lat.toFixed(2)}|${mode}`;
+          return { process: s(r.process), from, to, mode, key, blocked: s(r.blocked) === "true", alt: has(r.alternative_of) };
         })
-        .filter((r): r is MapRoute => r !== null),
+        .filter((r): r is { process: string; from: { lon: number; lat: number }; to: { lon: number; lat: number }; mode: string; key: string; blocked: boolean; alt: boolean } => r !== null),
     [routes, coord],
   );
+  const mapRoutes = useMemo<MapRoute[]>(
+    () => drawRoutes.map((r) => ({ ...r, path: paths.get(r.key) })),
+    [drawRoutes, paths],
+  );
+  // Fetch any missing route polylines (debounced, so dragging a port doesn't spam).
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const missing = drawRoutes.filter((r) => !paths.has(r.key));
+      if (missing.length === 0) return;
+      void Promise.all(
+        missing.map((r) =>
+          routePath(r.from, r.to, r.mode).then((coords) => [r.key, coords] as const).catch(() => null)),
+      ).then((pairs) => {
+        const ok = pairs.filter((p): p is readonly [string, [number, number][]] => p !== null);
+        if (ok.length) setPaths((prev) => { const m = new Map(prev); for (const [k, v] of ok) m.set(k, v); return m; });
+      });
+    }, 250);
+    return () => clearTimeout(t);
+  }, [drawRoutes, paths]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPendingFrom(null); };

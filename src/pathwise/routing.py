@@ -73,3 +73,19 @@ def route_distance_km(a: Point, b: Point, mode: str) -> float:
     if (mode or "").lower() == "sea":
         return sea_distance_km(a, b)
     return great_circle_km(a, b) * DETOUR_FACTOR.get((mode or "").lower(), 1.0)
+
+
+def route_path(a: Point, b: Point, mode: str) -> tuple[list[Point], float]:
+    """The drawable polyline + distance [km] for a ``(from, to, mode)`` route.
+
+    ``sea`` returns the actual marine path (searoute follows coasts + canals, so a
+    sea route never cuts across land); other modes return the straight segment with
+    the mode's great-circle × factor distance.
+    """
+    if (mode or "").lower() == "sea":
+        import searoute as sr
+
+        route = sr.searoute(list(a), list(b), units="km")
+        coords = [(float(lon), float(lat)) for lon, lat in route["geometry"]["coordinates"]]
+        return coords, float(route["properties"]["length"])
+    return [a, b], route_distance_km(a, b, mode)

@@ -28,6 +28,7 @@ from pathwise.api.jobs import JobStore
 from pathwise.api.models import RunPayload
 from pathwise.api.routers.component_libraries import router as component_libraries_router
 from pathwise.api.routers.session import router as session_router
+from pathwise.api.routers.routing import router as routing_router
 from pathwise.api.routers.units import router as units_router
 from pathwise.api.session_store import SessionStore
 from pathwise.backends.registry import get_backend
@@ -47,6 +48,7 @@ app.add_middleware(
 app.include_router(session_router)
 app.include_router(component_libraries_router)
 app.include_router(units_router)
+app.include_router(routing_router)
 
 _jobs = JobStore()
 
