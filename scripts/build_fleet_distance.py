@@ -31,6 +31,9 @@ SPEED = 700.0  # km / day
 TURNAROUND = 4.0  # days / round trip (load + unload)
 OPERATING_DAYS = 330.0  # in-service days / yr
 DEMAND_KT = 1200.0  # identical demand on every lane [kt / yr]
+EFFICIENCY = 0.003  # bunker burned per kt cargo per km [t / kt / km]
+BUNKER_PRICE = 550.0  # $/t
+BUNKER_CO2 = 3.10  # t CO2 / t bunker
 
 # Ports: (lon, lat). Busan is the loading hub; the rest are destination markets.
 BUSAN = (129.04, 35.10)
@@ -49,7 +52,10 @@ def _capacity(distance: float) -> float:
 def build() -> dict[str, list[dict[str, Any]]]:
     commodities: list[dict[str, Any]] = [
         {"commodity_id": "cargo_kr", "kind": "material", "unit": "kt", "price": 0.0},
+        {"commodity_id": "bunker", "kind": "energy", "unit": "t", "price": BUNKER_PRICE},
     ]
+    impacts = [{"impact_id": "co2", "unit": "t"}]
+    commodity_impacts = [{"commodity_id": "bunker", "impact_id": "co2", "factor": BUNKER_CO2}]
     technologies: list[dict[str, Any]] = []
     io: list[dict[str, Any]] = []
     for r in MARKETS:
@@ -125,6 +131,8 @@ def build() -> dict[str, list[dict[str, Any]]]:
             "company": "carrier",
             "mode": "sea",
             "cargo": "cargo_kr",
+            "fuel": "bunker",
+            "efficiency": EFFICIENCY,
             "ship_size": SHIP_SIZE,
             "speed": SPEED,
             "turnaround_days": TURNAROUND,
@@ -146,6 +154,8 @@ def build() -> dict[str, list[dict[str, Any]]]:
         ],
         "periods": [{"year": 2025}],
         "commodities": commodities,
+        "impacts": impacts,
+        "commodity_impacts": commodity_impacts,
         "technologies": technologies,
         "io": io,
         "nodes": nodes,

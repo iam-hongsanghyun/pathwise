@@ -435,6 +435,120 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
     }
 
 
+def _assemble_fleet(
+    workbook: Workbook, years: list[int], inputs: dict[str, dict[str, float]]
+) -> tuple[dict[str, Fleet], dict[tuple[str, int], float], dict[str, FleetRoute], dict[str, Route]]:
+    """Assemble fleets + physical routes and inject distance-driven fuel use.
+
+    A fleet (Layer 1b) is a carrier asset class (cargo, capacity, lifecycle); a
+    class is one row with ``count`` + lifecycle (legacy per-year ``available`` rows
+    still accepted). A route (Layer 1c) gives a transport process its endpoints/mode/
+    length; distance is authored or derived from the endpoints' lon/lat via the
+    routing providers. Distance then drives two things, both passed back through the
+    normal pipeline:
+
+    * per-carrier capacity (``share``) — a longer route ⇒ fewer round trips ⇒ more
+      carriers for the same demand,
+    * fuel use — the fleet burns ``efficiency × distance`` of its fuel per unit cargo,
+      injected into the transport process's recipe (``inputs``) so the fuel's price
+      (cost) and ``commodity_impacts`` (emissions) apply with no privileged fuel or
+      impact.
+
+    Returns ``(fleets, fleet_available, fleet_routes, routes)``; ``inputs`` is mutated
+    in place with the fuel coefficients.
+    """
+    class_cols = ("company", "mode", "fuel", "cargo", "efficiency", "capacity", "count")
+    fleets: dict[str, Fleet] = {}
+    fleet_traj: dict[str, dict[int, float]] = {}
+    for r in _rows(workbook, FLEET):
+        fid = _str(r.get("fleet_id")) or _str(r.get("archetype"))
+        if fid is None:
+            continue
+        yr, avail = _int(r.get("year")), _num(r.get("available"))
+        if yr is not None and avail is not None:  # legacy per-year availability row
+            fleet_traj.setdefault(fid, {})[yr] = avail
+        if r.get("count") is not None or any(r.get(c) is not None for c in class_cols):
+            fleets[fid] = Fleet(
+                fleet_id=fid,
+                company=_str(r.get("company")) or "all",
+                mode=_str(r.get("mode")) or "",
+                fuel=_str(r.get("fuel")) or "",
+                cargo=_str(r.get("cargo")) or "",
+                efficiency=_numd(r.get("efficiency"), 0.0),
+                capacity=_numd(r.get("capacity"), 0.0),
+                count=_numd(r.get("count"), 0.0),
+                build_year=_int(r.get("build_year")),
+                close_year=_int(r.get("close_year")),
+                lifespan=_int(r.get("lifespan")),
+                ship_size=_numd(r.get("ship_size"), 0.0),
+                speed=_numd(r.get("speed"), 0.0),
+                turnaround_days=_numd(r.get("turnaround_days"), 0.0),
+                operating_days=_numd(r.get("operating_days"), 350.0),
+            )
+    fleet_available: dict[tuple[str, int], float] = {
+        (fid, y): n for fid, traj in fleet_traj.items() for y, n in interpolate(traj, years).items()
+    }
+    for fid, fl in fleets.items():  # lifecycle pool: count while in service, else 0
+        for y in years:
+            fleet_available[(fid, y)] = fl.available_at(y)
+
+    coords: dict[str, Point] = {}
+    for sheet, idcol in ((NODES, "node_id"), (MACHINES, "machine_id"), (PROCESSES, "process_id")):
+        for r in _rows(workbook, sheet):
+            nid = _str(r.get(idcol))
+            lon, lat = _num(r.get("lon")), _num(r.get("lat"))
+            if nid is not None and lon is not None and lat is not None:
+                coords[nid] = (lon, lat)
+    routes: dict[str, Route] = {}
+    for r in _rows(workbook, ROUTES):
+        rproc = _str(r.get("process"))
+        if rproc is None:
+            continue
+        rfrom, rto = _str(r.get("from_node")) or "", _str(r.get("to_node")) or ""
+        rmode = _str(r.get("mode")) or ""
+        rdist = _num(r.get("distance"))
+        if rdist is None and rfrom in coords and rto in coords:
+            rdist = route_distance_km(coords[rfrom], coords[rto], rmode)
+        routes[rproc] = Route(
+            process=rproc, from_node=rfrom, to_node=rto, mode=rmode, distance=rdist or 0.0
+        )
+
+    fleet_routes: dict[str, FleetRoute] = {}
+    for r in _rows(workbook, FLEET_ROUTES):
+        rproc = _str(r.get("process"))
+        fid = _str(r.get("fleet_id")) or _str(r.get("archetype"))
+        if rproc is None or fid is None:
+            continue
+        # Per-carrier throughput: explicit ``share`` wins; else the fleet's distance-
+        # derived capacity on this route; else its flat capacity (resolved in build).
+        rshare = _num(r.get("share"))
+        if rshare is None:
+            rgeo, rfleet = routes.get(rproc), fleets.get(fid)
+            if rgeo is not None and rfleet is not None:
+                rshare = rfleet.capacity_on(rgeo.distance)
+        fleet_routes[rproc] = FleetRoute(
+            process=rproc,
+            fleet_id=fid,
+            share=rshare,
+            min_units=_numd(r.get("min_units"), 0.0),
+            max_units=_num(r.get("max_units")),
+        )
+
+    # Inject distance × efficiency fuel into each transport process's recipe.
+    ptech: dict[str, str] = {}
+    for r in _rows(workbook, PROCESSES):
+        pid, btech = _str(r.get("process_id")), _str(r.get("baseline_technology"))
+        if pid is not None and btech is not None:
+            ptech[pid] = btech
+    for fproc, fr in fleet_routes.items():
+        ffleet, rgeo, tech = fleets.get(fr.fleet_id), routes.get(fproc), ptech.get(fproc)
+        if ffleet and rgeo and tech and ffleet.fuel and ffleet.efficiency > 0 and rgeo.distance > 0:
+            recipe = inputs.setdefault(tech, {})
+            recipe[ffleet.fuel] = recipe.get(ffleet.fuel, 0.0) + ffleet.efficiency * rgeo.distance
+
+    return fleets, fleet_available, fleet_routes, routes
+
+
 def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     """Build a :class:`Problem` from a workbook and a validated scenario.
 
@@ -759,6 +873,12 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     ) -> dict[int, float]:
         return interpolate(wide[name], years) if name in wide else dict.fromkeys(years, base)
 
+    # Fleet + physical routes (Layer 1b/1c). Isolated in a helper so its locals don't
+    # collide with the rest of assembly; it also injects each fleet's distance×
+    # efficiency fuel into the transport process's recipe (so fuel cost + emissions
+    # flow through the normal pipeline — no privileged fuel/impact).
+    fleets, fleet_available, fleet_routes, routes = _assemble_fleet(workbook, years, inputs)
+
     technologies: dict[str, Technology] = {}
     for r in _rows(workbook, TECHNOLOGIES):
         k = _str(r.get("technology_id"))
@@ -1073,91 +1193,6 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         tid, cap = _str(r.get("technology_id")), _int(r.get("max_count"))
         if tid is not None and cap is not None:
             technology_caps[tid] = cap
-
-    # Fleet (Layer 1b): a carrier asset class (cargo, capacity, lifecycle) and the
-    # routes (transport processes) it serves. A class is one row with ``count`` +
-    # lifecycle; the legacy per-year form (one row per (id, year, available)) is
-    # still accepted. ``fleet_id`` is canonical; ``archetype`` is its old alias.
-    _CLASS_COLS = ("company", "mode", "fuel", "cargo", "efficiency", "capacity", "count")
-    fleets: dict[str, Fleet] = {}
-    fleet_traj: dict[str, dict[int, float]] = {}
-    for r in _rows(workbook, FLEET):
-        fid = _str(r.get("fleet_id")) or _str(r.get("archetype"))
-        if fid is None:
-            continue
-        y, avail = _int(r.get("year")), _num(r.get("available"))
-        if y is not None and avail is not None:  # legacy per-year availability row
-            fleet_traj.setdefault(fid, {})[y] = avail
-        if r.get("count") is not None or any(r.get(c) is not None for c in _CLASS_COLS):
-            fleets[fid] = Fleet(
-                fleet_id=fid,
-                company=_str(r.get("company")) or "all",
-                mode=_str(r.get("mode")) or "",
-                fuel=_str(r.get("fuel")) or "",
-                cargo=_str(r.get("cargo")) or "",
-                efficiency=_numd(r.get("efficiency"), 0.0),
-                capacity=_numd(r.get("capacity"), 0.0),
-                count=_numd(r.get("count"), 0.0),
-                build_year=_int(r.get("build_year")),
-                close_year=_int(r.get("close_year")),
-                lifespan=_int(r.get("lifespan")),
-                ship_size=_numd(r.get("ship_size"), 0.0),
-                speed=_numd(r.get("speed"), 0.0),
-                turnaround_days=_numd(r.get("turnaround_days"), 0.0),
-                operating_days=_numd(r.get("operating_days"), 350.0),
-            )
-    fleet_available: dict[tuple[str, int], float] = {
-        (fid, y): n for fid, traj in fleet_traj.items() for y, n in interpolate(traj, years).items()
-    }
-    # Lifecycle pool: a class fleet is available at its ``count`` while in service.
-    for fid, fl in fleets.items():
-        for y in years:
-            fleet_available[(fid, y)] = fl.available_at(y)
-
-    # Physical routes (Layer 1c): a transport process's endpoints/mode/length. Any
-    # node may carry lon/lat; a route's distance is authored or derived from the
-    # endpoints via the routing providers (sea = searoute, land = great-circle).
-    coords: dict[str, Point] = {}
-    for sheet, idcol in ((NODES, "node_id"), (MACHINES, "machine_id"), (PROCESSES, "process_id")):
-        for r in _rows(workbook, sheet):
-            nid = _str(r.get(idcol))
-            lon, lat = _num(r.get("lon")), _num(r.get("lat"))
-            if nid is not None and lon is not None and lat is not None:
-                coords[nid] = (lon, lat)
-    routes: dict[str, Route] = {}
-    for r in _rows(workbook, ROUTES):
-        rt_proc = _str(r.get("process"))
-        if rt_proc is None:
-            continue
-        frm, to = _str(r.get("from_node")) or "", _str(r.get("to_node")) or ""
-        mode = _str(r.get("mode")) or ""
-        dist = _num(r.get("distance"))
-        if dist is None and frm in coords and to in coords:
-            dist = route_distance_km(coords[frm], coords[to], mode)
-        routes[rt_proc] = Route(
-            process=rt_proc, from_node=frm, to_node=to, mode=mode, distance=dist or 0.0
-        )
-
-    fleet_routes: dict[str, FleetRoute] = {}
-    for r in _rows(workbook, FLEET_ROUTES):
-        route_proc = _str(r.get("process"))
-        fid = _str(r.get("fleet_id")) or _str(r.get("archetype"))
-        if route_proc is None or fid is None:
-            continue
-        # Per-carrier throughput: explicit ``share`` wins; else the fleet's
-        # distance-derived capacity on this route; else its flat capacity (in build).
-        share = _num(r.get("share"))
-        if share is None:
-            rt_geo, rt_fleet = routes.get(route_proc), fleets.get(fid)
-            if rt_geo is not None and rt_fleet is not None:
-                share = rt_fleet.capacity_on(rt_geo.distance)
-        fleet_routes[route_proc] = FleetRoute(
-            process=route_proc,
-            fleet_id=fid,
-            share=share,
-            min_units=_numd(r.get("min_units"), 0.0),
-            max_units=_num(r.get("max_units")),
-        )
 
     # Optional year-varying transition capex (long format: from_technology,
     # to_technology, year, capex_per_capacity).

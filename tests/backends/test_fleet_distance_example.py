@@ -30,6 +30,10 @@ def _ships(res: dict[str, Any]) -> dict[str, int]:
     return {str(r["process"]): int(r["ships"]) for r in res["outputs"]["fleet"]}
 
 
+def _fuel_used(res: dict[str, Any]) -> dict[str, float]:
+    return {str(r["process"]): float(r.get("fuel_used", 0.0)) for r in res["outputs"]["fleet"]}
+
+
 def test_far_lane_needs_more_ships_than_near() -> None:
     res = get_backend("linopy").run(_model(), _SC, {})
     assert res["status"] == "optimal"
@@ -39,3 +43,13 @@ def test_far_lane_needs_more_ships_than_near() -> None:
     # Both demands are met (1,200 kt each).
     delivered = sum(float(r["value"]) for r in res["outputs"]["throughput"])
     assert abs(delivered - 2400.0) < 1e-6
+
+
+def test_far_lane_burns_more_fuel() -> None:
+    res = get_backend("linopy").run(_model(), _SC, {})
+    fuel = _fuel_used(res)
+    # Same 1,200 kt delivered both ways, but fuel = efficiency × distance × cargo, so
+    # the longer Rotterdam lane burns strictly more (and emits more) than Sydney.
+    assert fuel["p_eu"] > fuel["p_au"] > 0.0
+    co2 = sum(float(r["total"]) for r in res["summary"]["impacts"] if r["impact"] == "co2")
+    assert co2 > 0.0

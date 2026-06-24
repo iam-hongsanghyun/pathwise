@@ -134,11 +134,41 @@ def extract_results(
             out["outputs"]["throughput"].append(
                 {"process": p, "technology": k, "period": int(t), "value": v}
             )
-    # Fleet (Layer 1b): integer ships assigned to each route, by year.
+    # Fleet (Layer 1b/1c): carriers assigned to each route, by year, enriched with
+    # the route's geography (from/to/mode/distance), the fleet + its fuel, and the
+    # fuel burned on it (efficiency × distance × throughput) — "ship operation + fuel
+    # by route by company". Fuel/emissions themselves stay plain trade/impact outputs.
     if ctx.units is not None:
+        company_of = {p.process_id: p.company for p in prob.processes}
+        thru: dict[tuple[str, int], float] = {}
+        for (p, _k, t), v in _series(ctx.x).items():
+            thru[(p, int(t))] = thru.get((p, int(t)), 0.0) + v
         for (p, t), v in _series(ctx.units).items():
-            if v > _EPS:
-                out["outputs"]["fleet"].append({"process": p, "period": int(t), "ships": round(v)})
+            if v <= _EPS:
+                continue
+            t = int(t)
+            fr = prob.fleet_routes.get(p)
+            rt = prob.routes.get(p)
+            fl = prob.fleets.get(fr.fleet_id) if fr else None
+            row: dict[str, Any] = {
+                "process": p,
+                "period": t,
+                "ships": round(v),
+                "company": company_of.get(p),
+                "throughput": thru.get((p, t), 0.0),
+            }
+            if fr:
+                row["fleet"] = fr.fleet_id
+            if fl and fl.fuel:
+                row["fuel"] = fl.fuel
+            if rt:
+                row["from"] = rt.from_node
+                row["to"] = rt.to_node
+                row["mode"] = rt.mode
+                row["distance"] = rt.distance
+                if fl and fl.efficiency > 0:
+                    row["fuel_used"] = fl.efficiency * rt.distance * thru.get((p, t), 0.0)
+            out["outputs"]["fleet"].append(row)
     # A real transition is a switch INTO a non-baseline technology; the event
     # variable on a facility's own baseline carries no cost, so the solver may
     # leave it at 1 — exclude those.
