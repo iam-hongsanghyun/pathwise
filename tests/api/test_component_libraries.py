@@ -100,6 +100,34 @@ def test_import_library_file_into_project_session() -> None:
     assert libs["projkit"]["technologies"] == 1
 
 
+def test_library_template_has_fillable_sheets_with_headers() -> None:
+    import io
+
+    import pandas as pd
+
+    r = client.get("/api/component-library/template.xlsx")
+    assert r.status_code == 200
+    frames = pd.read_excel(io.BytesIO(r.content), sheet_name=None)
+    for sheet in ["commodities", "technologies", "io", "measures", "maccs", "machines"]:
+        assert sheet in frames, f"template missing {sheet} tab"
+    # Header row matches the schema; no rows to fill from.
+    assert "coefficient" in frames["io"].columns
+    assert len(frames["technologies"].index) == 0
+    # A filled-in template imports back (round-trip through extract_library).
+    data = io.BytesIO()
+    with pd.ExcelWriter(data, engine="openpyxl") as xw:
+        pd.DataFrame([{"commodity_id": "x", "kind": "product", "unit": "t"}]).to_excel(
+            xw, sheet_name="commodities", index=False
+        )
+    resp = client.post(
+        "/api/component-library/from_template/import",
+        files={"file": ("filled.xlsx", data.getvalue(), "application/octet-stream")},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["commodities"] == 1
+    client.delete("/api/component-library/from_template")
+
+
 def test_import_cannot_overwrite_starter() -> None:
     from pathwise.api.workbook_io import write_xlsx
 

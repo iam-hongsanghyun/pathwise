@@ -233,6 +233,11 @@ export async function deleteSessionComponentLibrary(sessionId: string, id: strin
   );
 }
 
+/** Download URL for a blank component-library template (.xlsx, one sheet per kind). */
+export function libraryTemplateUrl(): string {
+  return "/api/component-library/template.xlsx";
+}
+
 /** Import a component library from an .xlsx/.sqlite file (format sniffed server-side)
  *  into "My" libraries under `id`. */
 export async function importComponentLibraryFile(id: string, file: File): Promise<LibrarySummary> {

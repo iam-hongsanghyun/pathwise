@@ -28,6 +28,7 @@ import {
   getSessionComponentLibrary,
   importComponentLibraryFile,
   importSessionComponentLibraryFile,
+  libraryTemplateUrl,
   type LibrarySummary,
   type LibScope,
   listAllComponentLibraries,
@@ -49,6 +50,13 @@ const splitLib = (libId: string): [LibScope, string] => {
   return i < 0 ? ["base", libId] : [libId.slice(0, i) as LibScope, libId.slice(i + 1)];
 };
 const keyOf = (l: LibrarySummary): string => `${l.scope}/${l.id}`;
+
+/** Trigger a browser download of a server URL (filename from Content-Disposition). */
+const triggerDownload = (url: string): void => {
+  const a = document.createElement("a");
+  a.href = url;
+  a.click();
+};
 const getLib = (libId: string, sid: string | null): Promise<ComponentLibrary> => {
   const [scope, id] = splitLib(libId);
   return scope === "session" && sid ? getSessionComponentLibrary(sid, id) : getComponentLibrary(id);
@@ -760,9 +768,28 @@ export function ComponentTabView({
             </p>
           </div>
           {!starters && (
-            <button className="lib-new" onClick={session ? newProject : newLibrary}>
-              {session ? "+ New project library" : "+ New library"}
-            </button>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <button className="lib-new" onClick={session ? newProject : newLibrary}>
+                {session ? "+ New project library" : "+ New library"}
+              </button>
+              <button className="ghost" onClick={() => importFileRef.current?.click()}>
+                ↑ Import .xlsx / .sqlite
+              </button>
+              <button className="ghost" onClick={() => triggerDownload(libraryTemplateUrl())}>
+                ↓ Template
+              </button>
+              <input
+                ref={importFileRef}
+                type="file"
+                accept=".xlsx,.sqlite,.db"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (f) void importLibraryFromFile(f);
+                }}
+              />
+            </div>
           )}
         </div>
         {shown.length === 0 ? (
@@ -1142,33 +1169,13 @@ export function ComponentTabView({
                   </button>
                 </div>
                 {!(scope === "base" && baseGroup === "starter") && (
-                  <span style={{ display: "inline-flex", gap: 4 }}>
-                    <button
-                      className="rail-add"
-                      title="import a library from .xlsx / .sqlite"
-                      onClick={() => importFileRef.current?.click()}
-                    >
-                      ↑
-                    </button>
-                    <button
-                      className="rail-add"
-                      title={scope === "session" ? "new project library" : "new library"}
-                      onClick={scope === "session" ? newProject : newLibrary}
-                    >
-                      ＋
-                    </button>
-                    <input
-                      ref={importFileRef}
-                      type="file"
-                      accept=".xlsx,.sqlite,.db"
-                      style={{ display: "none" }}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        e.target.value = "";
-                        if (f) void importLibraryFromFile(f);
-                      }}
-                    />
-                  </span>
+                  <button
+                    className="rail-add"
+                    title={scope === "session" ? "new project library" : "new library"}
+                    onClick={scope === "session" ? newProject : newLibrary}
+                  >
+                    ＋
+                  </button>
                 )}
               </div>
               {scope === "base" && onPickLibrary && (

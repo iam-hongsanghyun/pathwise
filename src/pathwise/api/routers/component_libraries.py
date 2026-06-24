@@ -28,7 +28,7 @@ from starlette.concurrency import run_in_threadpool
 
 from pathwise.api.routers._deps import session_libs, session_store
 from pathwise.api.session_store import SessionNotFound
-from pathwise.api.workbook_io import parse_sqlite, parse_xlsx, write_sqlite
+from pathwise.api.workbook_io import parse_sqlite, parse_xlsx, write_sqlite, write_template_xlsx
 from pathwise.config import get_settings
 from pathwise.data.components import (
     PROJECT_BUNDLE_FORMAT,
@@ -44,6 +44,7 @@ from pathwise.data.components import (
     referenced_technology_ids,
     slice_library_to_technologies,
 )
+from pathwise.data.schema import template_columns
 from pathwise.logger import get_logger
 
 logger = get_logger(__name__)
@@ -212,6 +213,38 @@ def list_component_libraries() -> list[dict[str, Any]]:
         except Exception as exc:  # a malformed file should not break the list
             logger.warning("skipping unreadable component library %s: %s", f.name, exc)
     return out
+
+
+#: The fillable sheets of a component library, in author order (the derived
+#: ``groups`` structure is omitted — it is built as components are placed).
+_LIBRARY_SHEETS = [
+    "commodities",
+    "technologies",
+    "io",
+    "measures",
+    "measure_blocks",
+    "maccs",
+    "machines",
+]
+
+#: MIME for the .xlsx template downloads.
+_XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+def _library_template_columns() -> dict[str, list[str]]:
+    cols = template_columns()
+    return {s: cols[s] for s in _LIBRARY_SHEETS if cols.get(s)}
+
+
+@router.get("/component-library/template.xlsx")
+def download_library_template() -> Response:
+    """A blank component-library template: one sheet per kind (streams,
+    technologies, io, measures, …) with column headers, to fill in and import."""
+    return Response(
+        content=write_template_xlsx(_library_template_columns()),
+        media_type=_XLSX_MIME,
+        headers={"Content-Disposition": 'attachment; filename="pathwise_library_template.xlsx"'},
+    )
 
 
 @router.get("/component-library/{lib_id}")
