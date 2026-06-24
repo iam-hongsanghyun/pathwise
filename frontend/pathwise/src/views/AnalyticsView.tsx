@@ -7,15 +7,17 @@ import { FrontierResult } from "../features/charts/FrontierResult";
 import { PortfolioResult } from "../features/charts/PortfolioResult";
 import { TopologyCanvas } from "../features/topology/TopologyCanvas";
 import { HierarchyMap } from "../features/topology/HierarchyMap";
+import { RouteAnalytics } from "../features/fleet/RouteAnalytics";
 import { RailList, type RailItem } from "../layout/RailList";
 import { Resizer } from "../layout/Resizer";
 import type { RunResult, Workbook } from "../types";
 
-type Cat = "overview" | "map" | "consumption" | "cost" | "impacts" | "transitions" | "measures" | "macc";
+type Cat = "overview" | "map" | "routes" | "consumption" | "cost" | "impacts" | "transitions" | "measures" | "macc";
 
 const CAT_LABEL: Record<Cat, string> = {
   overview: "Overview",
   map: "Process map",
+  routes: "Transport routes",
   consumption: "Commodity consumption",
   cost: "Cost over time",
   impacts: "Impacts",
@@ -135,9 +137,12 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
     );
   }
 
+  // Surface the transport-routes map only when the solve produced physical routes.
+  const hasRoutes = (result?.outputs.fleet?.length ?? 0) > 0;
   const items: RailItem[] = [
     { id: "overview", label: "Overview" },
     { id: "map", label: "Process map (by year)" },
+    ...(hasRoutes ? [{ id: "routes", label: "Transport routes (map)" }] : []),
     { id: "consumption", label: "Commodity consumption" },
     { id: "cost", label: "Cost over time" },
     { id: "impacts", label: "Impacts" },
@@ -160,6 +165,8 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
           <div className="view">
             <p className="muted">Run the model (▶ top-left) to populate analytics.</p>
           </div>
+        ) : cat === "routes" ? (
+          <RouteAnalytics workbook={workbook} result={result} />
         ) : cat === "map" ? (
           (workbook.nodes?.length ?? 0) > 0 ? (
             // Hierarchical model → the multi-level map (its own top toolbar:

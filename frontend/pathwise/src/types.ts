@@ -47,6 +47,20 @@ export interface RunResult {
       adoption: number;
     }[];
     flows: { from: string; to: string; commodity: string; period: number; value: number }[];
+    fleet?: {
+      process: string;
+      period: number;
+      ships: number;
+      fleet?: string;
+      commodity?: string;
+      throughput?: number;
+      distance?: number;
+      fuel?: string;
+      fuel_used?: number;
+      from?: string;
+      to?: string;
+      mode?: string;
+    }[];
     transport?: {
       from: string;
       to: string;

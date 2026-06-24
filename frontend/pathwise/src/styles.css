@@ -771,6 +771,23 @@
 .fleet-ep.is-located .fleet-ep-label { color: var(--text); }
 .fleet-ep-tag { font-size: 0.68rem; color: var(--muted); flex-shrink: 0; }
 .fleet-ep.is-located .fleet-ep-tag { color: var(--brand); }
+/* Route-analytics hover tooltip (per-route ships/cargo/fuel/emissions). */
+.route-tip {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 6px 9px;
+  font-size: 0.76rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  max-width: 240px;
+}
+.route-tip-tbl { border-collapse: collapse; margin-top: 2px; }
+.route-tip-tbl td { padding: 1px 0; }
+.route-tip-tbl td:first-child { color: var(--muted); padding-right: 12px; }
+.route-tip-tbl td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
 /* Centered empty-state inside a canvas panel. */
 .vc-empty {
   flex: 1;
