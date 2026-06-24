@@ -28,7 +28,7 @@ from pathwise.core.entities import (
     Transition,
     TransitionAction,
 )
-from pathwise.core.problem import CostToggles, Fleet, FleetRoute, Problem
+from pathwise.core.problem import CostToggles, Fleet, FleetRoute, Problem, Route
 from pathwise.data.hierarchy import Hierarchy, load_hierarchy
 from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.sheets import (
@@ -60,6 +60,7 @@ from pathwise.data.sheets import (
     IO_T,
     MACC_LINKS,
     MACCS,
+    MACHINES,
     MARKET_PRICES,
     MARKETS,
     MARKETS_T_ALLOCATION,
@@ -81,6 +82,7 @@ from pathwise.data.sheets import (
     MIN_PRODUCTION,
     MIN_PRODUCTION_T_AMOUNT,
     NODE_LAYOUT,
+    NODES,
     PERIODS,
     PROCESS_IMPACTS,
     PROCESS_IMPACTS_T,
@@ -91,6 +93,7 @@ from pathwise.data.sheets import (
     PROCESSES_T_FAILURE_RATE,
     PROCESSES_T_FIXED_OPEX,
     PROCESSES_T_MAX_CF,
+    ROUTES,
     STORAGE,
     STORAGE_T_CAPEX,
     STORAGE_T_CHARGE_EFFICIENCY,
@@ -111,6 +114,7 @@ from pathwise.data.sheets import (
 )
 from pathwise.data.trajectory import interpolate
 from pathwise.data.workbook import Workbook
+from pathwise.routing import Point, route_distance_km
 from pathwise.units import CoefficientConverter, load_units_config
 
 Rows = list[dict[str, Any]]
@@ -1097,6 +1101,10 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 build_year=_int(r.get("build_year")),
                 close_year=_int(r.get("close_year")),
                 lifespan=_int(r.get("lifespan")),
+                ship_size=_numd(r.get("ship_size"), 0.0),
+                speed=_numd(r.get("speed"), 0.0),
+                turnaround_days=_numd(r.get("turnaround_days"), 0.0),
+                operating_days=_numd(r.get("operating_days"), 350.0),
             )
     fleet_available: dict[tuple[str, int], float] = {
         (fid, y): n for fid, traj in fleet_traj.items() for y, n in interpolate(traj, years).items()
@@ -1105,16 +1113,48 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     for fid, fl in fleets.items():
         for y in years:
             fleet_available[(fid, y)] = fl.available_at(y)
+
+    # Physical routes (Layer 1c): a transport process's endpoints/mode/length. Any
+    # node may carry lon/lat; a route's distance is authored or derived from the
+    # endpoints via the routing providers (sea = searoute, land = great-circle).
+    coords: dict[str, Point] = {}
+    for sheet, idcol in ((NODES, "node_id"), (MACHINES, "machine_id"), (PROCESSES, "process_id")):
+        for r in _rows(workbook, sheet):
+            nid = _str(r.get(idcol))
+            lon, lat = _num(r.get("lon")), _num(r.get("lat"))
+            if nid is not None and lon is not None and lat is not None:
+                coords[nid] = (lon, lat)
+    routes: dict[str, Route] = {}
+    for r in _rows(workbook, ROUTES):
+        rt_proc = _str(r.get("process"))
+        if rt_proc is None:
+            continue
+        frm, to = _str(r.get("from_node")) or "", _str(r.get("to_node")) or ""
+        mode = _str(r.get("mode")) or ""
+        dist = _num(r.get("distance"))
+        if dist is None and frm in coords and to in coords:
+            dist = route_distance_km(coords[frm], coords[to], mode)
+        routes[rt_proc] = Route(
+            process=rt_proc, from_node=frm, to_node=to, mode=mode, distance=dist or 0.0
+        )
+
     fleet_routes: dict[str, FleetRoute] = {}
     for r in _rows(workbook, FLEET_ROUTES):
         route_proc = _str(r.get("process"))
         fid = _str(r.get("fleet_id")) or _str(r.get("archetype"))
         if route_proc is None or fid is None:
             continue
+        # Per-carrier throughput: explicit ``share`` wins; else the fleet's
+        # distance-derived capacity on this route; else its flat capacity (in build).
+        share = _num(r.get("share"))
+        if share is None:
+            rt_geo, rt_fleet = routes.get(route_proc), fleets.get(fid)
+            if rt_geo is not None and rt_fleet is not None:
+                share = rt_fleet.capacity_on(rt_geo.distance)
         fleet_routes[route_proc] = FleetRoute(
             process=route_proc,
             fleet_id=fid,
-            share=_num(r.get("share")),  # None ⇒ fall back to the fleet's capacity
+            share=share,
             min_units=_numd(r.get("min_units"), 0.0),
             max_units=_num(r.get("max_units")),
         )
@@ -1392,6 +1432,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         fleets=fleets,
         fleet_available=fleet_available,
         fleet_routes=fleet_routes,
+        routes=routes,
         company_objective=company_objective,
         default_objective=ObjectiveMode(scenario.objective),
         objective_impact=scenario.objective_impact,

@@ -131,6 +131,12 @@ FLEET = "fleet"
 #: draw on the fleet's shared lifecycle pool.
 FLEET_ROUTES = "fleet_routes"
 
+#: Physical route geography (Layer 1c): (process, from_node, to_node, mode,
+#: distance). Distance drives per-carrier capacity; blank distance is derived from
+#: the endpoints' lon/lat via :mod:`pathwise.routing` (sea = searoute, land =
+#: great-circle × mode factor).
+ROUTES = "routes"
+
 #: Long-format per-year transition capex (from_technology, to_technology, year,
 #: capex_per_capacity).
 TRANSITIONS_T = "transitions_t"

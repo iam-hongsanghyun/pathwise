@@ -723,7 +723,7 @@
         "capacity": {
           "label": "Capacity / unit",
           "type": "number",
-          "desc": "Cargo one unit delivers per year (default per-route share)."
+          "desc": "Cargo one unit delivers per year (flat default; overridden by distance + ship size/speed)."
         },
         "count": {
           "label": "Units",
@@ -732,7 +732,34 @@
         },
         "build_year": {"label": "Build year", "type": "integer"},
         "close_year": {"label": "Close year", "type": "integer"},
-        "lifespan": {"label": "Lifespan (yr)", "type": "integer"}
+        "lifespan": {"label": "Lifespan (yr)", "type": "integer"},
+        "ship_size": {
+          "label": "Cargo / voyage",
+          "type": "number",
+          "desc": "Cargo one unit carries per voyage; with speed, derives capacity from a route's distance."
+        },
+        "speed": {"label": "Speed (dist/day)", "type": "number", "desc": "Travel speed in distance units per day."},
+        "turnaround_days": {"label": "Turnaround (days)", "type": "number", "desc": "Load + unload time per round trip."},
+        "operating_days": {"label": "Operating days/yr", "type": "number", "desc": "In-service days per year (default 350)."}
+      }
+    },
+    "routes": {
+      "label": "Routes (physical)",
+      "columns": {
+        "process": {
+          "label": "Route (process)",
+          "type": "string",
+          "required": true,
+          "desc": "Transport process this route's geography belongs to."
+        },
+        "from_node": {"label": "From", "type": "string", "desc": "Origin node (carries lon/lat)."},
+        "to_node": {"label": "To", "type": "string", "desc": "Destination node (carries lon/lat)."},
+        "mode": {"label": "Mode", "type": "string", "desc": "sea (searoute) / road / rail (great-circle × factor)."},
+        "distance": {
+          "label": "Distance",
+          "type": "number",
+          "desc": "Route length; blank ⇒ derived from the endpoints' coordinates by mode."
+        }
       }
     },
     "fleet_routes": {
@@ -931,7 +958,9 @@
         "order": {
           "label": "Order",
           "type": "number"
-        }
+        },
+        "lon": {"label": "Longitude", "type": "number", "desc": "Geographic longitude (for the map + route distances)."},
+        "lat": {"label": "Latitude", "type": "number", "desc": "Geographic latitude (for the map + route distances)."}
       }
     },
     "machines": {
@@ -955,7 +984,9 @@
         "introduced_year": {
           "label": "Installed",
           "type": "integer"
-        }
+        },
+        "lon": {"label": "Longitude", "type": "number", "desc": "Geographic longitude (for the map + route distances)."},
+        "lat": {"label": "Latitude", "type": "number", "desc": "Geographic latitude (for the map + route distances)."}
       }
     },
     "connections": {

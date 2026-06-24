@@ -65,6 +65,13 @@ class Fleet:
     build_year: int | None = None
     close_year: int | None = None
     lifespan: int | None = None
+    #: Optional physical ship params for distance-derived capacity (Layer 1c). When
+    #: ``ship_size`` and ``speed`` are set, a route's per-carrier throughput is the
+    #: round-trip model below; otherwise the flat ``capacity`` is used.
+    ship_size: float = 0.0  # cargo carried per voyage [cargo unit]
+    speed: float = 0.0  # travel speed [distance unit / day]
+    turnaround_days: float = 0.0  # load + unload per round trip [days]
+    operating_days: float = 350.0  # in-service days per year [days / yr]
 
     def active(self, year: int) -> bool:
         """Whether the fleet is in service in ``year`` (within its lifecycle)."""
@@ -78,6 +85,25 @@ class Fleet:
     def available_at(self, year: int) -> float:
         """Units available in ``year`` — ``count`` while in service, else 0."""
         return self.count if self.active(year) else 0.0
+
+    def capacity_on(self, distance: float) -> float | None:
+        r"""Per-carrier annual throughput on a route of length ``distance`` [cargo/yr].
+
+        A longer route means fewer round trips per year, so each carrier delivers
+        less — the reason a longer route needs more carriers for the same demand::
+
+            round_trip_days = 2·distance / speed + turnaround_days
+            capacity        = ship_size · operating_days / round_trip_days
+
+        Returns ``None`` when the physical params are unset (caller falls back to the
+        flat ``capacity``).
+        """
+        if self.ship_size <= 0 or self.speed <= 0 or distance <= 0:
+            return None
+        round_trip_days = 2.0 * distance / self.speed + self.turnaround_days
+        if round_trip_days <= 0:
+            return None
+        return self.ship_size * self.operating_days / round_trip_days
 
 
 @dataclass(slots=True, frozen=True)
@@ -100,6 +126,31 @@ class FleetRoute:
     share: float | None = None
     min_units: float = 0.0
     max_units: float | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class Route:
+    """The physical geography of a transport process (Layer 1c).
+
+    A route gives a transport process its endpoints, mode and length. The optimiser
+    only consumes ``distance`` (it drives per-carrier capacity and, later, fuel/
+    emissions); ``from_node``/``to_node``/``mode`` are for distance computation
+    (:mod:`pathwise.routing`) and the map. ``distance`` is the authored value, or one
+    derived from the endpoints' coordinates when left blank.
+
+    Attributes:
+        process: The transport process this route describes.
+        from_node: Origin node id (carries lon/lat).
+        to_node: Destination node id (carries lon/lat).
+        mode: Transport mode (``sea`` / ``road`` / ``rail`` / …).
+        distance: Route length [distance unit, e.g. km].
+    """
+
+    process: str
+    from_node: str = ""
+    to_node: str = ""
+    mode: str = ""
+    distance: float = 0.0
 
 
 @dataclass(slots=True)
@@ -204,6 +255,10 @@ class Problem:
     fleets: dict[str, Fleet] = field(default_factory=dict)
     fleet_available: dict[tuple[str, int], float] = field(default_factory=dict)
     fleet_routes: dict[str, FleetRoute] = field(default_factory=dict)
+    # ``routes[process]`` = a transport process's physical geography (endpoints,
+    # mode, distance). Distance drives per-carrier capacity (Layer 1c); the rest is
+    # for distance computation + the map. Inert unless transport routes are present.
+    routes: dict[str, Route] = field(default_factory=dict)
     company_objective: dict[str, ObjectiveMode] = field(default_factory=dict)
     # Default goal for companies without a company_config override (the run-level
     # objective set in the Optimisation tab). Falls back to COST.

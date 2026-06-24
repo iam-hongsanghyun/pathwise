@@ -57,6 +57,12 @@
     "description": "The Layer-1b demonstration: a carrier owns ONE shared pool of 85 interchangeable ships and decides each year how many to put on three lanes out of Korea (→ Australia, US, EU). The fleet is a TABLE — a pool count, not a box per vessel — and the optimiser reallocates ships across lanes as demand shifts. Total demand stays flat at 8 500 kt/yr but migrates from EU to AU over 2025→2050, so ships steam off the shrinking EU lane (35→15) and onto the growing AU lane (20→40) while the US lane holds at 30; the pool binds at 85 every year. Mechanism: an integer units[lane, year] with capacity-from-fleet (Σ throughput ≤ share·units, one ship = 100 kt/yr) and shared-pool conservation (Σ_lane units ≤ available). Per-lane CO2 is region-tagged and priced (EU > US > AU) for reporting; with one fuel and no abatement the prices don't change dispatch — the story is the reallocation. For the policy balloon effect and re-engining, see shipping_carrier."
   },
   {
+    "id": "fleet_distance",
+    "label": "Fleet distance — ships scale with route length (KR→AU/EU)",
+    "file": "fleet_distance.sqlite",
+    "description": "The Layer-1c demonstration: a carrier delivers the SAME 1,200 kt from Busan to a near market (Sydney) and a far market (Rotterdam, routed via Suez). Sea distances come from the searoute provider (Sydney ≈8,600 km, Rotterdam ≈20,200 km) and a ship's annual capacity falls with distance — fewer round trips — so the far lane needs twice the ships (8 vs 4) for identical demand. Any node carries lon/lat; a routes row gives each lane its endpoints + mode (sea via searoute, land via great-circle × a mode factor); capacity/ship = ship_size · operating_days / (2·distance/speed + turnaround). This is the physical-transport cost the value-chain optimiser sees — longer route ⇒ more carriers ⇒ more cost."
+  },
+  {
     "id": "petrochemical",
     "label": "Petrochemical MACC — ethylene NCC (petrochemical_macc_2025)",
     "file": "petrochemical.sqlite",

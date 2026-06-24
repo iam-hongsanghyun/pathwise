@@ -158,6 +158,69 @@ def _delivered_in(res: dict[str, Any], year: int) -> float:
     return sum(float(r["value"]) for r in res["outputs"]["throughput"] if int(r["period"]) == year)
 
 
+def _wb_distance(distance: float) -> dict[str, Any]:
+    """ONE ship on a route of length ``distance`` (size 50 kt, 600 km/day, 300 days).
+
+    Per-ship yearly capacity = 50·300 / (2·distance/600), so a longer route lets the
+    single ship deliver less of the 600 kt demand — the "longer ⇒ more ships needed"
+    effect, made visible through the delivered shortfall with a pinned 1-ship pool.
+    """
+    return {
+        "periods": [{"year": 2025}],
+        "commodities": [
+            {"commodity_id": "cargo_kr", "kind": "material", "unit": "kt", "price": 0.0},
+            {"commodity_id": "cargo_a", "kind": "product", "unit": "kt"},
+        ],
+        "technologies": [{"technology_id": "route_a", "opex": 1}],
+        "io": [
+            {"technology_id": "route_a", "target": "cargo_kr", "role": "input", "coefficient": 1},
+            {
+                "technology_id": "route_a",
+                "target": "cargo_a",
+                "role": "output",
+                "coefficient": 1,
+                "is_product": True,
+            },
+        ],
+        "processes": [
+            {
+                "process_id": "pA",
+                "company": "carrier",
+                "baseline_technology": "route_a",
+                "capacity": 1e6,
+            },
+        ],
+        "fleet": [
+            {
+                "fleet_id": "ship",
+                "company": "carrier",
+                "cargo": "cargo_kr",
+                "ship_size": 50.0,  # kt/voyage
+                "speed": 600.0,  # km/day
+                "operating_days": 300.0,
+                "count": 1.0,  # a single ship → its distance-derived capacity binds
+            }
+        ],
+        # Distance is explicit here (no coordinates needed); capacity is derived from it.
+        "routes": [{"process": "pA", "mode": "sea", "distance": distance}],
+        "fleet_routes": [{"process": "pA", "fleet_id": "ship"}],
+        "demand": [
+            {"company": "carrier", "commodity_id": "cargo_a", "year": 2025, "amount": 600.0}
+        ],
+    }
+
+
+def test_longer_route_delivers_less_per_ship() -> None:
+    # One ship, 600 kt demand. Near (3000 km): 10-day round trip → 30 trips → 1500 kt
+    # capacity, covers the 600. Far (9000 km): 30-day round trip → 10 trips → 500 kt,
+    # so the same single ship falls short — longer route ⇒ less delivered ⇒ more ships.
+    near = _delivered(_solve(_wb_distance(distance=3000.0)))
+    far = _delivered(_solve(_wb_distance(distance=9000.0)))
+    assert abs(near - 600.0) < 1e-6  # near route fully served by one ship
+    assert abs(far - 500.0) < 1e-6  # far route capped at 500 kt by the longer trip
+    assert far < near
+
+
 def test_fleet_lifecycle_gates_availability() -> None:
     # The fleet is only built in 2030, so 2025 has no carriers and delivers nothing;
     # 2030 has the 5-ship pool and serves the 250 kt demand.
