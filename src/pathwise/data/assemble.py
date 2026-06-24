@@ -50,6 +50,7 @@ from pathwise.data.sheets import (
     COMMODITY_PRICES,
     COMMODITY_PROPERTIES,
     COMPANY_CONFIG,
+    CORRIDORS,
     DEMAND,
     DEMAND_T_AMOUNT,
     EDGE_IMPACTS,
@@ -122,7 +123,7 @@ from pathwise.data.sheets import (
 )
 from pathwise.data.trajectory import interpolate
 from pathwise.data.workbook import Workbook
-from pathwise.routing import Point, route_distance_km
+from pathwise.routing import Point, great_circle_km, route_distance_km
 from pathwise.units import CoefficientConverter, load_units_config
 
 Rows = list[dict[str, Any]]
@@ -508,6 +509,22 @@ def _assemble_fleet(
             lon, lat = _num(r.get("lon")), _num(r.get("lat"))
             if nid is not None and lon is not None and lat is not None:
                 coords[nid] = (lon, lat)
+    # Blocked maritime corridors (a disruption what-if): every sea route is forced
+    # to avoid them, so a derived distance reroutes (longer) — Hormuz/Suez closure.
+    avoid = tuple(
+        c
+        for r in _rows(workbook, CORRIDORS)
+        if _bool(r.get("blocked"), False) and (c := _str(r.get("corridor")))
+    )
+
+    def _derived_distance(a: Point, b: Point, mode: str) -> float:
+        """Route distance honouring blocked corridors; on an unroutable reroute fall
+        back to a heavy great-circle multiple so the lane is strongly penalised."""
+        try:
+            return route_distance_km(a, b, mode, avoid)
+        except Exception:
+            return great_circle_km(a, b) * 4.0
+
     routes: dict[str, Route] = {}
     for r in _rows(workbook, ROUTES):
         rproc = _str(r.get("process"))
@@ -516,8 +533,10 @@ def _assemble_fleet(
         rfrom, rto = _str(r.get("from_node")) or "", _str(r.get("to_node")) or ""
         rmode = _str(r.get("mode")) or ""
         rdist = _num(r.get("distance"))
-        if rdist is None and rfrom in coords and rto in coords:
-            rdist = route_distance_km(coords[rfrom], coords[rto], rmode)
+        # An AUTHORED distance wins UNLESS a corridor is blocked — then we always
+        # re-derive so the disruption reroutes even hand-set lanes.
+        if (rdist is None or avoid) and rfrom in coords and rto in coords:
+            rdist = _derived_distance(coords[rfrom], coords[rto], rmode)
         routes[rproc] = Route(
             process=rproc, from_node=rfrom, to_node=rto, mode=rmode, distance=rdist or 0.0
         )

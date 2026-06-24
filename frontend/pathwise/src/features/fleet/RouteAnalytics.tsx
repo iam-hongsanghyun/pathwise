@@ -64,6 +64,11 @@ export function RouteAnalytics({ workbook, result }: { workbook: Workbook; resul
     return m;
   }, [workbook, coord]);
 
+  // Blocked corridors (so the drawn lanes reroute to match the solved distances).
+  const avoid = useMemo(
+    () => (workbook.corridors ?? []).filter((r) => r.blocked === true || s(r.blocked) === "true").map((r) => s(r.corridor)).filter(Boolean),
+    [workbook],
+  );
   const fleetRows = useMemo(() => (result.outputs.fleet ?? []) as Row[], [result]);
   const years = useMemo(
     () => [...new Set(fleetRows.map((r) => n(r.period)))].sort((a, b) => a - b),
@@ -121,23 +126,23 @@ export function RouteAnalytics({ workbook, result }: { workbook: Workbook; resul
     () =>
       routes.map((r) => ({
         ...r,
-        key: `${r.from.lon.toFixed(2)},${r.from.lat.toFixed(2)}|${r.to.lon.toFixed(2)},${r.to.lat.toFixed(2)}`,
+        key: `${r.from.lon.toFixed(2)},${r.from.lat.toFixed(2)}|${r.to.lon.toFixed(2)},${r.to.lat.toFixed(2)}|${avoid.join(",")}`,
       })),
-    [routes],
+    [routes, avoid],
   );
   useEffect(() => {
     const miss = keyed.filter((r) => !paths.has(r.key));
     if (!miss.length) return;
     const t = setTimeout(() => {
       void Promise.all(
-        miss.map((r) => routePath(r.from, r.to, "sea").then((c) => [r.key, c] as const).catch(() => null)),
+        miss.map((r) => routePath(r.from, r.to, "sea", avoid).then((c) => [r.key, c] as const).catch(() => null)),
       ).then((ps) => {
         const ok = ps.filter((p): p is readonly [string, [number, number][]] => p !== null);
         if (ok.length) setPaths((prev) => { const m = new Map(prev); for (const [k, v] of ok) m.set(k, v); return m; });
       });
     }, 200);
     return () => clearTimeout(t);
-  }, [keyed, paths]);
+  }, [keyed, paths, avoid]);
 
   const valOf = (r: RouteAgg): number =>
     metric === "cargo" ? r.cargo : metric === "ships" ? r.ships : metric === "fuel" ? r.fuelUsed : r.co2;

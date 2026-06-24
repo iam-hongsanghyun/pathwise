@@ -39,7 +39,19 @@ const has = (v: unknown): boolean => v != null && v !== "";
 let _ctr = 0;
 const genId = (p: string): string => `${p}_${Date.now().toString(36)}${(_ctr++).toString(36)}`;
 
-type Edit = { kind: "fleet" | "node" | "route"; id: string } | null;
+type Edit = { kind: "fleet" | "node" | "route" | "corridors"; id: string } | null;
+
+// Major maritime chokepoints (searoute passage ids → friendly labels) a user can close.
+const CORRIDORS: [string, string][] = [
+  ["suez", "Suez Canal"],
+  ["ormuz", "Strait of Hormuz"],
+  ["panama", "Panama Canal"],
+  ["malacca", "Strait of Malacca"],
+  ["babalmandab", "Bab-el-Mandeb"],
+  ["gibraltar", "Strait of Gibraltar"],
+  ["bosporus", "Bosporus"],
+  ["sunda", "Sunda Strait"],
+];
 
 export function FleetDesignerView({
   workbook,
@@ -67,6 +79,11 @@ export function FleetDesignerView({
   const commodities = useMemo(() => (workbook.commodities ?? []).map((r) => s(r.commodity_id)).filter(Boolean), [workbook]);
   const coord = useMemo(() => buildCoordMap(workbook), [workbook]);
   const fleetByNode = useMemo(() => new Map(fleets.map((f) => [fleetId(f), f])), [fleets]);
+  // Blocked maritime corridors (the disruption what-if): sea routes reroute around them.
+  const blockedCorridors = useMemo(
+    () => (workbook.corridors ?? []).filter((r) => r.blocked === true || s(r.blocked) === "true").map((r) => s(r.corridor)).filter(Boolean),
+    [workbook],
+  );
 
   const connections = useMemo(() => parseConnections(workbook), [workbook]);
   const routeLeaves = useMemo(() => buildRouteLeaves(connections, routes, coord), [connections, routes, coord]);
@@ -90,11 +107,11 @@ export function FleetDesignerView({
           const to = coord.get(s(r.to_node));
           if (!from || !to) return null;
           const mode = s(r.mode) || "sea";
-          const key = `${from.lon.toFixed(2)},${from.lat.toFixed(2)}|${to.lon.toFixed(2)},${to.lat.toFixed(2)}|${mode}`;
+          const key = `${from.lon.toFixed(2)},${from.lat.toFixed(2)}|${to.lon.toFixed(2)},${to.lat.toFixed(2)}|${mode}|${blockedCorridors.join(",")}`;
           return { process: s(r.process), from, to, mode, key, blocked: s(r.blocked) === "true", alt: has(r.alternative_of) };
         })
         .filter((r): r is { process: string; from: { lon: number; lat: number }; to: { lon: number; lat: number }; mode: string; key: string; blocked: boolean; alt: boolean } => r !== null),
-    [routes, coord],
+    [routes, coord, blockedCorridors],
   );
   const mapRoutes = useMemo<MapRoute[]>(
     () => drawRoutes.map((r) => ({ ...r, path: paths.get(r.key) })),
@@ -107,14 +124,14 @@ export function FleetDesignerView({
       if (missing.length === 0) return;
       void Promise.all(
         missing.map((r) =>
-          routePath(r.from, r.to, r.mode).then((coords) => [r.key, coords] as const).catch(() => null)),
+          routePath(r.from, r.to, r.mode, blockedCorridors).then((coords) => [r.key, coords] as const).catch(() => null)),
       ).then((pairs) => {
         const ok = pairs.filter((p): p is readonly [string, [number, number][]] => p !== null);
         if (ok.length) setPaths((prev) => { const m = new Map(prev); for (const [k, v] of ok) m.set(k, v); return m; });
       });
     }, 250);
     return () => clearTimeout(t);
-  }, [drawRoutes, paths]);
+  }, [drawRoutes, paths, blockedCorridors]);
 
   // ── writes ───────────────────────────────────────────────────────────────────
   const setSheet = (wb: Workbook, sheet: string, rows: Row[]): Workbook => ({ ...wb, [sheet]: rows });
@@ -201,6 +218,12 @@ export function FleetDesignerView({
     patchNode(id, { lon, lat });
     setSelId(id);
   }
+  // Open/close a maritime corridor (the disruption what-if). Blocking writes the
+  // `corridors` sheet; the engine then reroutes every sea route through it on re-run.
+  function setCorridor(name: string, on: boolean) {
+    const rows = (workbook.corridors ?? []).filter((r) => s(r.corridor) !== name);
+    setWorkbook(setSheet(workbook, "corridors", on ? [...rows, { corridor: name, blocked: true }] : rows));
+  }
   // Block/unblock a corridor (scenario). The engine forces a blocked route's flow
   // to 0; candidate fleets stay attached (inert while blocked), so unblocking just
   // clears the flag — no stashing needed.
@@ -247,6 +270,15 @@ export function FleetDesignerView({
           <div className="view-head">
             <div className="eyebrow">fleet</div>
             <span className="view-status">drag a facility onto the map to place it · drag a marker to move it · click a route to edit</span>
+            <span style={{ flex: 1 }} />
+            <button
+              className="ghost"
+              style={{ fontSize: "0.74rem", color: blockedCorridors.length ? "var(--danger)" : "var(--muted)" }}
+              title="Close maritime chokepoints (Suez / Hormuz / …) — sea routes reroute around them"
+              onClick={() => setEdit({ kind: "corridors", id: "" })}
+            >
+              ⚠ Corridors{blockedCorridors.length ? ` (${blockedCorridors.length} closed)` : ""}
+            </button>
           </div>
           <div style={{ flex: 1, minHeight: 0, display: "flex", padding: "10px 14px" }}>
             <FleetMap projection={projection} ports={ports} routes={mapRoutes} selId={selId} pendingFrom={null}
@@ -314,8 +346,29 @@ export function FleetDesignerView({
           onDelete={() => { setWorkbook(setSheet(setSheet(workbook, "routes", routes.filter((r) => s(r.process) !== edit!.id)), "fleet_routes", fleetRoutes.filter((r) => s(r.process) !== edit!.id))); setEdit(null); }}
           onClose={() => setEdit(null)} />
       )}
+      {edit?.kind === "corridors" && (
+        <CorridorsPanel blocked={new Set(blockedCorridors)} onToggle={setCorridor} onClose={() => setEdit(null)} />
+      )}
       {dialogNode}
     </div>
+  );
+}
+
+function CorridorsPanel({ blocked, onToggle, onClose }: { blocked: Set<string>; onToggle: (name: string, on: boolean) => void; onClose: () => void }) {
+  return (
+    <FloatingPanel title="corridors" width={320} onClose={onClose}>
+      <div style={{ padding: "12px 14px" }}>
+        <p className="rail-empty" style={{ margin: "0 0 8px" }}>
+          Close a maritime chokepoint to test a disruption. Every sea route through it reroutes (longer ⇒ more carriers, fuel + emissions) on the next run — or goes undelivered if there's no way around.
+        </p>
+        {CORRIDORS.map(([id, label]) => (
+          <label key={id} className="field-row" style={{ marginTop: 4 }}>
+            <input type="checkbox" checked={blocked.has(id)} onChange={(e) => onToggle(id, e.target.checked)} />
+            <span style={{ color: blocked.has(id) ? "var(--danger)" : "var(--text)" }}>{label}</span>
+          </label>
+        ))}
+      </div>
+    </FloatingPanel>
   );
 }
 

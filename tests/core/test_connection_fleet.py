@@ -262,6 +262,26 @@ def test_lcia_objective_minimises_transport_emissions() -> None:
     assert "clean" in chosen and "dirty" not in chosen
 
 
+def test_blocked_corridor_reroutes_the_far_lane() -> None:
+    # Loading the shipped multi-fleet example: closing Suez reroutes the EU lane
+    # (longer) but leaves the AU lane (which never uses Suez) untouched — geographic
+    # corridor blocking, not a per-lane on/off.
+    from pathlib import Path
+
+    from pathwise.api.workbook_io import parse_sqlite
+
+    wb = parse_sqlite(Path("src/pathwise/assets/examples/fleet_candidates.sqlite").read_bytes())
+    base = {cr.process: cr.distance for cr in assemble_problem(wb, _SC).connection_routes}
+    blocked = {
+        cr.process: cr.distance
+        for cr in assemble_problem(
+            {**wb, "corridors": [{"corridor": "suez", "blocked": True}]}, _SC
+        ).connection_routes
+    }
+    assert blocked["rt_eu"] > base["rt_eu"] + 1000.0  # the far lane reroutes around Suez
+    assert abs(blocked["rt_au"] - base["rt_au"]) < 1.0  # the near lane is unaffected
+
+
 def test_single_candidate_is_forced() -> None:
     # Only the clean fleet may run the lane → it is used even with no carbon price.
     res = _solve(_wb(co2_price=0.0, candidates=("clean",)))

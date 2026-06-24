@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from pathwise.routing import DETOUR_FACTOR, great_circle_km, route_distance_km, route_path
+from pathwise.routing import (
+    DETOUR_FACTOR,
+    great_circle_km,
+    route_distance_km,
+    route_passages,
+    route_path,
+)
 
 # (lon, lat) points.
 _BUSAN = (129.04, 35.10)
@@ -44,6 +50,25 @@ def test_route_path_land_is_a_straight_segment() -> None:
     coords, dist = route_path(_BUSAN, _SYDNEY, "road")
     assert coords == [_BUSAN, _SYDNEY]
     assert dist == pytest.approx(great_circle_km(_BUSAN, _SYDNEY) * DETOUR_FACTOR["road"])
+
+
+_ROTTERDAM = (4.48, 51.95)
+
+
+def test_blocking_a_corridor_forces_a_longer_reroute() -> None:
+    # The normal Busan→Rotterdam lane runs through Suez; closing Suez forces a
+    # longer way round (Panama / Cape), so the avoided distance must exceed the base.
+    base = route_distance_km(_BUSAN, _ROTTERDAM, "sea")
+    via_block = route_distance_km(_BUSAN, _ROTTERDAM, "sea", ("suez",))
+    assert via_block > base
+    # Closing Panama as well pushes it further still (around Africa).
+    assert route_distance_km(_BUSAN, _ROTTERDAM, "sea", ("suez", "panama")) > via_block
+
+
+def test_route_passages_lists_the_chokepoints_used() -> None:
+    # The KR→EU sea route depends on the Suez corridor (so a Suez block would hit it).
+    passages = route_passages(_BUSAN, _ROTTERDAM)
+    assert "suez" in passages
 
 
 def test_sea_route_is_longer_than_great_circle() -> None:

@@ -8,6 +8,7 @@ export async function routePath(
   from: { lon: number; lat: number },
   to: { lon: number; lat: number },
   mode: string,
+  avoid: string[] = [],
 ): Promise<LonLat[]> {
   const resp = await fetch("/api/route-path", {
     method: "POST",
@@ -18,6 +19,7 @@ export async function routePath(
       to_lon: to.lon,
       to_lat: to.lat,
       mode,
+      avoid,
     }),
   });
   if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);

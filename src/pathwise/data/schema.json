@@ -775,6 +775,13 @@
         }
       }
     },
+    "corridors": {
+      "label": "Corridors (chokepoints)",
+      "columns": {
+        "corridor": {"label": "Corridor", "type": "string", "required": true, "desc": "Maritime chokepoint id: suez / ormuz (Hormuz) / panama / malacca / bab_el_mandeb (babalmandab) / gibraltar / bosporus / sunda / south_africa."},
+        "blocked": {"label": "Blocked", "type": "boolean", "desc": "Close this passage — every sea route through it reroutes (longer) or becomes infeasible."}
+      }
+    },
     "fleet_routes": {
       "label": "Fleet → route assignment",
       "columns": {

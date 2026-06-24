@@ -142,6 +142,12 @@ FLEET_GROUPS = "fleet_groups"
 #: great-circle × mode factor).
 ROUTES = "routes"
 
+#: Geographic corridor what-ifs (Layer 1c+): (corridor, blocked). A blocked maritime
+#: chokepoint (suez / ormuz=Hormuz / panama / malacca / …) closes that passage, so
+#: every sea route forced through it reroutes (longer, costlier, more fuel/emissions)
+#: or becomes infeasible — a disruption scenario, not a per-lane on/off switch.
+CORRIDORS = "corridors"
+
 #: Long-format per-year transition capex (from_technology, to_technology, year,
 #: capex_per_capacity).
 TRANSITIONS_T = "transitions_t"

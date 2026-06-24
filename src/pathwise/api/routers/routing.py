@@ -24,6 +24,8 @@ class RoutePathRequest(BaseModel):
     to_lon: float
     to_lat: float
     mode: str = "sea"
+    #: Closed maritime corridors to route around (suez / ormuz / panama / …).
+    avoid: list[str] = []
 
 
 class RoutePathResponse(BaseModel):
@@ -33,6 +35,9 @@ class RoutePathResponse(BaseModel):
 
 @router.post("/route-path")
 def get_route_path(req: RoutePathRequest) -> RoutePathResponse:
-    """The polyline + distance for one route (sea follows the marine network)."""
-    coords, dist = route_path((req.from_lon, req.from_lat), (req.to_lon, req.to_lat), req.mode)
+    """The polyline + distance for one route (sea follows the marine network), routed
+    around any closed corridors in ``avoid``."""
+    coords, dist = route_path(
+        (req.from_lon, req.from_lat), (req.to_lon, req.to_lat), req.mode, tuple(req.avoid)
+    )
     return RoutePathResponse(coordinates=[[lon, lat] for lon, lat in coords], distance_km=dist)
