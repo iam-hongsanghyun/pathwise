@@ -1,8 +1,9 @@
-// Fleet designer — map-first, sharing the Value-chain's `nodes` tree (interlinked).
-// THREE panes: LEFT rail = fleets only (a flexible alliance→company→fleet tree),
-// CENTER = the world map (ports + routes), RIGHT rail = the facility structure
-// (ports/facilities). Editing is via FloatingPanel pop-ups (the value-chain
-// approach). It reuses the `builder` rail layout + app tokens — no bespoke design.
+// Fleet designer — a NEW transport layer, SEPARATE from facility / value chain.
+// LEFT rail = the fleet registry (its own alliance→company→fleet tree in
+// `fleet_groups` + `fleet`; never `nodes`). CENTER = the world map. RIGHT rail =
+// the facility `nodes`, a reference to pull ports/machines onto the map. Fleets are
+// CANDIDATES for routes — the optimiser chooses unless a route pins one. Pop-ups
+// (FloatingPanel) edit a fleet / port / route. Reuses the `builder` rail CSS.
 
 import { useEffect, useMemo, useState } from "react";
 import { useDialogs } from "../features/controls/Dialog";
@@ -14,7 +15,7 @@ import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types
 import { parseNodes } from "../lib/groupGraph";
 import { MODES, makeProjection } from "../features/fleet/basemap";
 import { FleetMap, type MapPort, type MapRoute } from "../features/fleet/FleetMap";
-import { buildCoordMap, facilityTreeNodes, fleetId, fleetTreeNodes } from "../features/fleet/fleetGraph";
+import { buildCoordMap, facilityTree, fleetId, fleetRegistryTree, parseFleetGroups } from "../features/fleet/fleetGraph";
 import type { Row, Workbook } from "../types";
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
@@ -47,15 +48,16 @@ export function FleetDesignerView({
   const nodes = useMemo(() => parseNodes(workbook), [workbook]);
   const nodeById = useMemo(() => new Map(nodes.map((nd) => [nd.id, nd])), [nodes]);
   const fleets = useMemo(() => (workbook.fleet ?? []) as Row[], [workbook]);
+  const fleetGroups = useMemo(() => parseFleetGroups(workbook), [workbook]);
+  const fgById = useMemo(() => new Map(fleetGroups.map((g) => [g.id, g])), [fleetGroups]);
   const routes = useMemo(() => (workbook.routes ?? []) as Row[], [workbook]);
   const fleetRoutes = useMemo(() => (workbook.fleet_routes ?? []) as Row[], [workbook]);
   const commodities = useMemo(() => (workbook.commodities ?? []).map((r) => s(r.commodity_id)).filter(Boolean), [workbook]);
   const coord = useMemo(() => buildCoordMap(workbook), [workbook]);
   const fleetByNode = useMemo(() => new Map(fleets.map((f) => [fleetId(f), f])), [fleets]);
-  const fleetIds = useMemo(() => new Set(fleetByNode.keys()), [fleetByNode]);
 
-  const leftTree = useMemo(() => fleetTreeNodes(nodes, fleetIds, fleetByNode), [nodes, fleetIds, fleetByNode]);
-  const rightTree = useMemo(() => facilityTreeNodes(nodes, fleetIds, coord), [nodes, fleetIds, coord]);
+  const leftTree = useMemo(() => fleetRegistryTree(fleetGroups, fleets), [fleetGroups, fleets]);
+  const rightTree = useMemo(() => facilityTree(nodes, coord), [nodes, coord]);
 
   const ports = useMemo<MapPort[]>(
     () => [...coord.entries()].map(([id, c]) => ({ id, label: nodeById.get(id)?.label ?? id, ...c })),
@@ -73,48 +75,88 @@ export function FleetDesignerView({
     [routes, coord],
   );
 
-  // Esc clears a pending connect.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPendingFrom(null); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // ── workbook writes ──────────────────────────────────────────────────────────
+  // ── writes ───────────────────────────────────────────────────────────────────
   const setSheet = (wb: Workbook, sheet: string, rows: Row[]): Workbook => ({ ...wb, [sheet]: rows });
-  const patchNode = (id: string, p: Row) => setWorkbook(setSheet(workbook, "nodes", (workbook.nodes ?? []).map((r) => (s(r.node_id) === id ? { ...r, ...p } : r))));
   const patchFleet = (id: string, p: Row) => setWorkbook(setSheet(workbook, "fleet", fleets.map((r) => (fleetId(r) === id ? { ...r, ...p } : r))));
+  const patchFleetGroup = (id: string, p: Row) => setWorkbook(setSheet(workbook, "fleet_groups", (workbook.fleet_groups ?? []).map((r) => (s(r.group_id) === id ? { ...r, ...p } : r))));
+  const patchNode = (id: string, p: Row) => setWorkbook(setSheet(workbook, "nodes", (workbook.nodes ?? []).map((r) => (s(r.node_id) === id ? { ...r, ...p } : r))));
   const patchRoute = (proc: string, p: Row) => setWorkbook(setSheet(workbook, "routes", routes.map((r) => (s(r.process) === proc ? { ...r, ...p } : r))));
 
-  const descendantsOf = (id: string): Set<string> => {
+  // ── LEFT: fleet registry (fleet_groups + fleet — NEVER nodes) ────────────────
+  async function addFleetGroup(parentId: string | null) {
+    const label = (await prompt({ title: "Add group", label: "name", placeholder: "e.g. Alliance, Carrier Co." }))?.trim();
+    if (!label) return;
+    const level = (await prompt({ title: "Level", label: "level", defaultValue: parentId ? "company" : "alliance", placeholder: "alliance / company / … (your own)" }))?.trim() || "";
+    const id = genId("fg");
+    setWorkbook(setSheet(workbook, "fleet_groups", [...(workbook.fleet_groups ?? []), { group_id: id, parent_id: parentId, label, level }]));
+    if (parentId) setExpL((p) => new Set(p).add(parentId));
+  }
+  async function addFleet(parentId: string | null) {
+    const label = (await prompt({ title: "Add fleet", label: "name", placeholder: "e.g. Panamax bulkers" }))?.trim();
+    if (!label) return;
+    const id = genId("flt");
+    setWorkbook(setSheet(workbook, "fleet", [...fleets, { fleet_id: id, label, group: parentId ?? "", company: parentId ?? "", mode: "sea", count: 1 }]));
+    if (parentId) setExpL((p) => new Set(p).add(parentId));
+    setSelId(id);
+    setEdit({ kind: "fleet", id });
+  }
+  function duplicateFleet(id: string, times: number) {
+    const src = fleetByNode.get(id);
+    if (!src) return;
+    const baseLabel = s(src.label) || id;
+    const copies: Row[] = [];
+    for (let i = 1; i <= times; i++)
+      copies.push({ ...src, fleet_id: genId("flt"), archetype: "", label: times === 1 ? `${baseLabel} copy` : `${baseLabel} #${i}` });
+    setWorkbook(setSheet(workbook, "fleet", [...fleets, ...copies]));
+  }
+  function fleetGroupDescendants(id: string): Set<string> {
+    const out = new Set<string>([id]);
+    let added = true;
+    while (added) { added = false; for (const g of fleetGroups) if (g.parentId && out.has(g.parentId) && !out.has(g.id)) { out.add(g.id); added = true; } }
+    return out;
+  }
+  async function deleteLeft(id: string) {
+    if (fleetByNode.has(id)) {
+      setWorkbook(setSheet(setSheet(workbook, "fleet", fleets.filter((r) => fleetId(r) !== id)), "fleet_routes", fleetRoutes.filter((r) => fleetId(r) !== id)));
+      if (selId === id) { setSelId(null); setEdit(null); }
+      return;
+    }
+    if (!(await confirm({ title: "Delete", message: `Delete '${fgById.get(id)?.label ?? id}' and the fleets under it?`, danger: true, confirmLabel: "Delete" }))) return;
+    const doomedG = fleetGroupDescendants(id);
+    const doomedF = new Set(fleets.filter((f) => doomedG.has(s(f.group))).map(fleetId));
+    let wb = setSheet(workbook, "fleet_groups", (workbook.fleet_groups ?? []).filter((r) => !doomedG.has(s(r.group_id))));
+    wb = setSheet(wb, "fleet", fleets.filter((r) => !doomedF.has(fleetId(r))));
+    wb = setSheet(wb, "fleet_routes", fleetRoutes.filter((r) => !doomedF.has(fleetId(r))));
+    setWorkbook(wb);
+    if (selId && (doomedG.has(selId) || doomedF.has(selId))) { setSelId(null); setEdit(null); }
+  }
+  async function renameLeft(id: string) {
+    const isFleet = fleetByNode.has(id);
+    const cur = isFleet ? s(fleetByNode.get(id)?.label) || id : fgById.get(id)?.label ?? id;
+    const next = (await prompt({ title: "Rename", label: "name", defaultValue: cur }))?.trim();
+    if (!next) return;
+    if (isFleet) patchFleet(id, { label: next });
+    else patchFleetGroup(id, { label: next });
+  }
+  function onMoveLeft(e: TreeMoveEvent) {
+    const newParent = e.position === "inside" ? e.targetId : fgById.get(e.beforeSiblingId ?? "")?.parentId ?? null;
+    if (e.dragId === newParent) return;
+    if (fleetByNode.has(e.dragId)) patchFleet(e.dragId, { group: newParent ?? "", company: newParent ?? "" });
+    else patchFleetGroup(e.dragId, { parent_id: newParent ?? "" });
+  }
+
+  // ── RIGHT: facility nodes (the port/machine reference) ───────────────────────
+  function nodeDescendants(id: string): Set<string> {
     const out = new Set<string>([id]);
     let added = true;
     while (added) { added = false; for (const nd of nodes) if (nd.parentId && out.has(nd.parentId) && !out.has(nd.id)) { out.add(nd.id); added = true; } }
     return out;
-  };
-
-  // ── structure mutations (shared `nodes`/`fleet` sheets) ──────────────────────
-  async function addGroup(parentId: string | null) {
-    const label = (await prompt({ title: "Add group", label: "name", placeholder: "e.g. Alliance, Carrier Co." }))?.trim();
-    if (!label) return;
-    const level = (await prompt({ title: "Level", label: "level", defaultValue: parentId ? "company" : "alliance", placeholder: "alliance / company / … (your own)" }))?.trim() || "";
-    const id = genId("n");
-    setWorkbook(setSheet(workbook, "nodes", [...(workbook.nodes ?? []), { node_id: id, parent_id: parentId, kind: "group", level, label }]));
-    if (parentId) setExpL((p) => new Set(p).add(parentId));
-  }
-  async function addFleet(parentId: string) {
-    const label = (await prompt({ title: "Add fleet", label: "name", placeholder: "e.g. Panamax bulkers" }))?.trim();
-    if (!label) return;
-    const id = genId("flt");
-    // A fleet node is kind=group (a benign container) so the hierarchy validator
-    // doesn't demand a machines row; the fleet tree renders it as a leaf via its
-    // `fleet` row, not its node kind.
-    let wb = setSheet(workbook, "nodes", [...(workbook.nodes ?? []), { node_id: id, parent_id: parentId, kind: "group", level: "fleet", label }]);
-    wb = setSheet(wb, "fleet", [...fleets, { fleet_id: id, company: parentId, mode: "sea", count: 1 }]);
-    setWorkbook(wb);
-    setExpL((p) => new Set(p).add(parentId));
-    setSelId(id);
-    setEdit({ kind: "fleet", id });
   }
   async function addFacilityGroup(parentId: string | null) {
     const label = (await prompt({ title: "Add group", label: "name", placeholder: "e.g. Korea, Ports" }))?.trim();
@@ -127,7 +169,7 @@ export function FleetDesignerView({
     const label = (await prompt({ title: "Add port", label: "name", placeholder: "e.g. Busan, Rotterdam" }))?.trim();
     if (!label) return;
     const id = genId("port");
-    setWorkbook(setSheet(workbook, "nodes", [...(workbook.nodes ?? []), { node_id: id, parent_id: parentId, kind: "machine", level: "port", label, lon: 0, lat: 20 }]));
+    setWorkbook(setSheet(workbook, "nodes", [...(workbook.nodes ?? []), { node_id: id, parent_id: parentId, kind: "group", level: "port", label, lon: 0, lat: 20 }]));
     if (parentId) setExpR((p) => new Set(p).add(parentId));
     setSelId(id);
     setEdit({ kind: "node", id });
@@ -136,39 +178,21 @@ export function FleetDesignerView({
     const next = (await prompt({ title: "Rename", label: "name", defaultValue: nodeById.get(id)?.label ?? id }))?.trim();
     if (next) patchNode(id, { label: next });
   }
-  async function duplicateFleet(id: string, times: number) {
-    const src = fleetByNode.get(id);
-    const nd = nodeById.get(id);
-    if (!src || !nd) return;
-    const newNodes: Row[] = [];
-    const newFleets: Row[] = [];
-    for (let i = 1; i <= times; i++) {
-      const nid = genId("flt");
-      newNodes.push({ node_id: nid, parent_id: nd.parentId, kind: "group", level: "fleet", label: times === 1 ? `${nd.label} copy` : `${nd.label} #${i}` });
-      newFleets.push({ ...src, fleet_id: nid, archetype: "" });
-    }
-    let wb = setSheet(workbook, "nodes", [...(workbook.nodes ?? []), ...newNodes]);
-    wb = setSheet(wb, "fleet", [...fleets, ...newFleets]);
-    setWorkbook(wb);
-  }
   async function deleteNode(id: string) {
-    const doomed = descendantsOf(id);
     if (!(await confirm({ title: "Delete", message: `Delete '${nodeById.get(id)?.label ?? id}' and everything under it?`, danger: true, confirmLabel: "Delete" }))) return;
+    const doomed = nodeDescendants(id);
     const keptRoutes = routes.filter((r) => !doomed.has(s(r.from_node)) && !doomed.has(s(r.to_node)));
     const keptProcs = new Set(keptRoutes.map((r) => s(r.process)));
     let wb = setSheet(workbook, "nodes", (workbook.nodes ?? []).filter((r) => !doomed.has(s(r.node_id))));
-    wb = setSheet(wb, "fleet", fleets.filter((r) => !doomed.has(fleetId(r))));
     wb = setSheet(wb, "routes", keptRoutes);
-    wb = setSheet(wb, "fleet_routes", fleetRoutes.filter((r) => keptProcs.has(s(r.process)) && !doomed.has(fleetId(r))));
+    wb = setSheet(wb, "fleet_routes", fleetRoutes.filter((r) => keptProcs.has(s(r.process))));
     setWorkbook(wb);
     if (selId && doomed.has(selId)) { setSelId(null); setEdit(null); }
   }
-  function onMove(e: TreeMoveEvent) {
+  function onMoveRight(e: TreeMoveEvent) {
     const newParent = e.position === "inside" ? e.targetId : nodeById.get(e.beforeSiblingId ?? "")?.parentId ?? null;
     if (e.dragId === newParent) return;
-    let wb = setSheet(workbook, "nodes", (workbook.nodes ?? []).map((r) => (s(r.node_id) === e.dragId ? { ...r, parent_id: newParent } : r)));
-    if (fleetByNode.has(e.dragId)) wb = setSheet(wb, "fleet", fleets.map((r) => (fleetId(r) === e.dragId ? { ...r, company: newParent ?? "" } : r)));
-    setWorkbook(wb);
+    patchNode(e.dragId, { parent_id: newParent ?? "" });
   }
 
   // ── map: connect two ports into a route ──────────────────────────────────────
@@ -184,9 +208,6 @@ export function FleetDesignerView({
     if (pendingFrom && pendingFrom !== id) { connect(pendingFrom, id); setPendingFrom(null); }
     else { setPendingFrom(id); setSelId(id); setEdit({ kind: "node", id }); }
   }
-
-  // Block a corridor: detach its single fleet assignment (stash to restore) so the
-  // optimiser genuinely cannot use it; `blocked` alone is inert backend-side.
   function toggleBlock(proc: string, on: boolean) {
     let wb = workbook;
     if (on) {
@@ -209,11 +230,11 @@ export function FleetDesignerView({
       : [{ id: "add-fleet", label: "Add fleet" }, { id: "add-group", label: "Add group inside" }, { id: "rename", label: "Rename", separatorBefore: true }, { id: "delete", label: "Delete", danger: true }];
   const onLeftAction = (a: string, n: TreeNode) => {
     if (a === "add-fleet") void addFleet(n.id);
-    else if (a === "add-group") void addGroup(n.id);
-    else if (a === "rename") void renameNode(n.id);
-    else if (a === "delete") void deleteNode(n.id);
+    else if (a === "add-group") void addFleetGroup(n.id);
+    else if (a === "rename") void renameLeft(n.id);
+    else if (a === "delete") void deleteLeft(n.id);
     else if (a === "edit") setEdit({ kind: "fleet", id: n.id });
-    else if (a === "dup") void duplicateFleet(n.id, 1);
+    else if (a === "dup") duplicateFleet(n.id, 1);
     else if (a === "dupN") void (async () => { const x = await prompt({ title: "Duplicate ×N", label: "how many copies", defaultValue: "10" }); const t = Math.max(1, Math.round(Number(x) || 0)); if (t) duplicateFleet(n.id, t); })();
   };
   const rightActions = (n: TreeNode): TreeAction[] =>
@@ -236,16 +257,16 @@ export function FleetDesignerView({
         <aside className="builder-rail" style={{ width: leftW }}>
           <div className="rail-head-row">
             <span className="rail-head">Fleets</span>
-            <button className="rail-add" title="add an alliance / company group" onClick={() => void addGroup(null)}>＋</button>
+            <button className="rail-add" title="add an alliance / company group" onClick={() => void addFleetGroup(null)}>＋</button>
           </div>
           <div className="rail-scroll">
             <TreeExplorer nodes={leftTree} selectedId={selId} expandedIds={expL}
               onToggle={(id, e) => setExpL((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
-              onSelect={(id) => { setSelId(id); if (fleetIds.has(id)) setEdit({ kind: "fleet", id }); }}
-              actionsFor={leftActions} onContextAction={onLeftAction} onMove={onMove}
+              onSelect={(id) => { setSelId(id); if (fleetByNode.has(id)) setEdit({ kind: "fleet", id }); }}
+              actionsFor={leftActions} onContextAction={onLeftAction} onMove={onMoveLeft}
               emptyHint="Empty — ＋ to add an alliance / company, then add fleets inside." />
           </div>
-          <div className="rail-foot">Right-click a group to add a company or fleet · drag to re-org</div>
+          <div className="rail-foot">A separate transport layer · right-click a group to add a company or fleet</div>
         </aside>
         <Resizer side="left" width={leftW} setWidth={setLeftW} min={200} max={420} />
 
@@ -279,16 +300,16 @@ export function FleetDesignerView({
             <TreeExplorer nodes={rightTree} selectedId={selId} expandedIds={expR}
               onToggle={(id, e) => setExpR((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
               onSelect={(id) => { setSelId(id); setEdit({ kind: "node", id }); }}
-              actionsFor={rightActions} onContextAction={onRightAction} onMove={onMove}
-              emptyHint="Empty — ＋ to add a facility group, then a port." />
+              actionsFor={rightActions} onContextAction={onRightAction} onMove={onMoveRight}
+              emptyHint="The facility / value-chain structure — add ports to place on the map." />
           </div>
-          <div className="rail-foot">Ports &amp; facilities — drag a port on the map to place it</div>
+          <div className="rail-foot">Ports &amp; machines to connect to fleets · drag a port on the map to place it</div>
         </aside>
       </div>
 
       {edit?.kind === "fleet" && fleetByNode.get(edit.id) && (
-        <FleetPanel fleet={fleetByNode.get(edit.id)!} label={nodeById.get(edit.id)?.label ?? edit.id} commodities={commodities}
-          onRename={(v) => patchNode(edit.id, { label: v })} onChange={(p) => patchFleet(edit.id, p)} onClose={() => setEdit(null)} />
+        <FleetPanel fleet={fleetByNode.get(edit.id)!} commodities={commodities}
+          onRename={(v) => patchFleet(edit.id, { label: v })} onChange={(p) => patchFleet(edit.id, p)} onClose={() => setEdit(null)} />
       )}
       {edit?.kind === "node" && nodeById.get(edit.id) && (
         <NodePanel id={edit.id} label={nodeById.get(edit.id)!.label} level={nodeById.get(edit.id)!.level} coord={coord.get(edit.id)}
@@ -296,7 +317,7 @@ export function FleetDesignerView({
       )}
       {editRoute && (
         <RoutePanel route={editRoute} routes={routes} ports={ports} fleets={fleets} fleetRoutes={fleetRoutes}
-          labelOf={(id) => nodeById.get(id)?.label ?? id}
+          labelOf={(id) => nodeById.get(id)?.label ?? id} fleetLabel={(fid) => s(fleetByNode.get(fid)?.label) || fid}
           onChange={(p) => patchRoute(edit!.id, p)} onToggleBlock={(on) => toggleBlock(edit!.id, on)}
           setFleetRoutes={(rows) => setWorkbook(setSheet(workbook, "fleet_routes", rows))}
           onDelete={() => { setWorkbook(setSheet(setSheet(workbook, "routes", routes.filter((r) => s(r.process) !== edit!.id)), "fleet_routes", fleetRoutes.filter((r) => s(r.process) !== edit!.id))); setEdit(null); }}
@@ -307,18 +328,18 @@ export function FleetDesignerView({
   );
 }
 
-// ── Pop-up editors (FloatingPanel — the value-chain approach) ─────────────────
+// ── Pop-up editors (FloatingPanel) ────────────────────────────────────────────
 const FIELDS: [string, string][] = [
   ["mode", "mode"], ["cargo", "cargo (stream)"], ["fuel", "fuel (stream)"], ["efficiency", "efficiency (fuel/cargo/dist)"],
   ["count", "units"], ["ship_size", "cargo / voyage"], ["speed", "speed (dist/day)"], ["turnaround_days", "turnaround (days)"],
   ["operating_days", "operating days/yr"], ["capacity", "flat capacity/unit"], ["build_year", "build year"], ["close_year", "close year"], ["lifespan", "lifespan (yr)"],
 ];
 
-function FleetPanel({ fleet, label, commodities, onRename, onChange, onClose }: { fleet: Row; label: string; commodities: string[]; onRename: (v: string) => void; onChange: (p: Row) => void; onClose: () => void }) {
+function FleetPanel({ fleet, commodities, onRename, onChange, onClose }: { fleet: Row; commodities: string[]; onRename: (v: string) => void; onChange: (p: Row) => void; onClose: () => void }) {
   return (
     <FloatingPanel title="fleet" width={360} onClose={onClose}>
       <div style={{ padding: "12px 14px" }}>
-        <input className="title-input" value={label} onChange={(e) => onRename(e.target.value)} />
+        <input className="title-input" value={s(fleet.label) || fleetId(fleet)} onChange={(e) => onRename(e.target.value)} />
         {FIELDS.map(([key, lbl]) => (
           <label className="field-row" key={key} style={{ marginTop: 6 }}>
             <span className="muted">{lbl}</span>
@@ -354,15 +375,15 @@ function NodePanel({ id, label, level, coord, onRename, onLevel, onCoord, onClos
           <span className="muted">latitude</span>
           <input className="field-input" style={{ flex: 1 }} type="number" value={coord ? coord.lat : ""} onChange={(e) => onCoord({ lat: blank(e.target.value) })} placeholder="—" />
         </label>
-        <p className="rail-empty" style={{ marginTop: 8 }}>{isPort ? "Drag the marker on the map, or click it then another port to lay a route." : "Give this node a longitude/latitude to place it on the map as a port."}</p>
+        <p className="rail-empty" style={{ marginTop: 8 }}>{isPort ? "Drag the marker on the map, or click it then another port to lay a route." : "Give this a longitude/latitude to place it on the map as a port."}</p>
         <input type="hidden" value={id} readOnly />
       </div>
     </FloatingPanel>
   );
 }
 
-function RoutePanel({ route, routes, ports, fleets, fleetRoutes, labelOf, onChange, onToggleBlock, setFleetRoutes, onDelete, onClose }: {
-  route: Row; routes: Row[]; ports: MapPort[]; fleets: Row[]; fleetRoutes: Row[]; labelOf: (id: string) => string;
+function RoutePanel({ route, routes, ports, fleets, fleetRoutes, labelOf, fleetLabel, onChange, onToggleBlock, setFleetRoutes, onDelete, onClose }: {
+  route: Row; routes: Row[]; ports: MapPort[]; fleets: Row[]; fleetRoutes: Row[]; labelOf: (id: string) => string; fleetLabel: (id: string) => string;
   onChange: (p: Row) => void; onToggleBlock: (on: boolean) => void; setFleetRoutes: (rows: Row[]) => void; onDelete: () => void; onClose: () => void;
 }) {
   const proc = s(route.process);
@@ -390,7 +411,8 @@ function RoutePanel({ route, routes, ports, fleets, fleetRoutes, labelOf, onChan
         {!blocked && (
           <div className="rail-section" style={{ marginTop: 8 }}>
             <div className="rail-head">Fleet on this route</div>
-            {row("fleet", <SearchSelect value={cur} onChange={setFleet} options={[{ value: "", label: "— none" }, ...fleets.map((f) => ({ value: fleetId(f), label: labelOf(fleetId(f)) }))]} />)}
+            <p className="rail-empty" style={{ margin: "2px 0 4px" }}>Leave as “— optimiser chooses” to let the solve assign a fleet; pin one to fix it.</p>
+            {row("fleet", <SearchSelect value={cur} onChange={setFleet} options={[{ value: "", label: "— optimiser chooses" }, ...fleets.map((f) => ({ value: fleetId(f), label: fleetLabel(fleetId(f)) }))]} />)}
             {assign && row("assignment", <SearchSelect value={fixed ? "fixed" : "flexible"} onChange={setFix} options={[{ value: "flexible", label: "Flexible (poolable)" }, { value: "fixed", label: "Fixed (locked here)" }]} />)}
           </div>
         )}

@@ -123,24 +123,19 @@ def build() -> dict[str, list[dict[str, Any]]]:
         dist = route_distance_km(BUSAN, (lon, lat), "sea")
         total_ships += ceil(DEMAND_KT / _capacity(dist))
 
-    # The fleet is also a node under the carrier (kind=machine, level=fleet) so it
-    # shows in the Fleet designer's left tree; the engine reads it from the `fleet`
-    # sheet by id (it carries no machines-sheet row, so it is not an extra process).
-    nodes.append(
-        {
-            "node_id": "ship",
-            "parent_id": "carrier",
-            "kind": "group",
-            "level": "fleet",
-            "label": "Ships",
-        }
-    )
+    # Fleets are a SEPARATE transport layer (their own registry, not facility nodes):
+    # a fleet_groups ownership tree + fleet rows that point at a group via `group`.
+    fleet_groups = [
+        {"group_id": "carrier_co", "parent_id": "", "label": "Carrier", "level": "company"}
+    ]
 
     # One fleet class; the pool is sized to exactly cover both lanes, so the split is
     # forced and the longer lane's larger ship count is unambiguous in the output.
     fleet = [
         {
             "fleet_id": "ship",
+            "label": "Ships",
+            "group": "carrier_co",
             "company": "carrier",
             "mode": "sea",
             "cargo": "cargo_kr",
@@ -174,6 +169,7 @@ def build() -> dict[str, list[dict[str, Any]]]:
         "nodes": nodes,
         "machines": machines,
         "routes": routes,
+        "fleet_groups": fleet_groups,
         "fleet": fleet,
         "fleet_routes": fleet_routes,
         "demand": demand,

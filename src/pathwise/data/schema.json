@@ -686,6 +686,15 @@
         }
       }
     },
+    "fleet_groups": {
+      "label": "Fleet groups",
+      "columns": {
+        "group_id": {"label": "Group", "type": "string", "required": true, "desc": "A fleet-ownership group (alliance / company …) — the transport layer's own tree."},
+        "parent_id": {"label": "Parent", "type": "string", "desc": "Parent group id; blank ⇒ top level."},
+        "label": {"label": "Name", "type": "string"},
+        "level": {"label": "Level", "type": "string", "desc": "Free text: alliance / company / …"}
+      }
+    },
     "fleet": {
       "label": "Fleet",
       "columns": {
@@ -695,6 +704,8 @@
           "required": true,
           "desc": "Carrier asset class — a pool of interchangeable units (ships, trucks…)."
         },
+        "label": {"label": "Name", "type": "string", "desc": "Display name (the id stays stable)."},
+        "group": {"label": "Fleet group", "type": "string", "desc": "Owning fleet group (see fleet_groups); separate from the facility tree."},
         "company": {
           "label": "Company",
           "type": "string",

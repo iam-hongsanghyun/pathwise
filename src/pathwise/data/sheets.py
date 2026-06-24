@@ -131,6 +131,11 @@ FLEET = "fleet"
 #: draw on the fleet's shared lifecycle pool.
 FLEET_ROUTES = "fleet_routes"
 
+#: Fleet ownership hierarchy (the transport layer's OWN tree, separate from the
+#: facility `nodes`): (group_id, parent_id, label, level). A fleet's ``group`` points
+#: here. UI/serialization only — the engine reads fleets from `fleet` by id.
+FLEET_GROUPS = "fleet_groups"
+
 #: Physical route geography (Layer 1c): (process, from_node, to_node, mode,
 #: distance). Distance drives per-carrier capacity; blank distance is derived from
 #: the endpoints' lon/lat via :mod:`pathwise.routing` (sea = searoute, land =
