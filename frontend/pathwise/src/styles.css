@@ -690,6 +690,12 @@
 }
 
 /* Fleet designer — world map (d3-geo basemap; existing tokens only). */
+.fleet-map-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
 .fleet-map {
   width: 100%;
   height: 100%;
@@ -699,8 +705,43 @@
   background: var(--surface);
   user-select: none;
   touch-action: none;
+  cursor: grab;
 }
+.fleet-map:active { cursor: grabbing; }
 .fleet-map.is-connecting { cursor: crosshair; }
+/* Keep strokes crisp at any zoom (the viewBox scales geometry, not line widths). */
+.fleet-ocean,
+.fleet-land,
+.fleet-graticule,
+.fleet-route,
+.fleet-port-dot { vector-effect: non-scaling-stroke; }
+/* Zoom controls overlaid on the map (＋ / 100% reset / －). */
+.fleet-zoom {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 2;
+}
+.fleet-zoom button {
+  width: 30px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+.fleet-zoom button:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+.fleet-zoom button:disabled { opacity: 0.45; cursor: default; }
+.fleet-zoom .fleet-zoom-reset { height: 24px; font-size: 0.6rem; letter-spacing: 0.02em; }
 .fleet-ocean { fill: var(--bg-hover); stroke: var(--border); stroke-width: 0.5; }
 .fleet-land { fill: var(--surface); stroke: var(--border); stroke-width: 0.6; }
 .fleet-graticule { fill: none; stroke: var(--border); stroke-width: 0.4; opacity: 0.55; }
