@@ -10,6 +10,7 @@ import { useDialogs } from "../features/controls/Dialog";
 import { FloatingPanel } from "../layout/FloatingPanel";
 import { Resizer } from "../layout/Resizer";
 import { SearchSelect } from "../features/controls/SearchSelect";
+import { InfoTooltip } from "../features/controls/InfoTooltip";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
 import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types";
 import { parseNodes } from "../lib/groupGraph";
@@ -360,6 +361,21 @@ const FIELDS: [string, string][] = [
   ["count", "units"], ["ship_size", "cargo / voyage"], ["speed", "speed (dist/day)"], ["turnaround_days", "turnaround (days)"],
   ["operating_days", "operating days/yr"], ["capacity", "flat capacity/unit"], ["build_year", "build year"], ["close_year", "close year"], ["lifespan", "lifespan (yr)"],
 ];
+const FIELD_INFO: Record<string, string> = {
+  mode: "Transport mode. Sea routes follow real sea lanes (searoute, via Suez/Panama); road/rail use great-circle × a detour factor.",
+  cargo: "The stream this fleet carries — what it delivers along its routes.",
+  fuel: "The stream the fleet burns. Combined with efficiency × route distance it drives fuel cost and emissions (priced via the fuel's own price + impact factors — no hardcoded CO₂).",
+  efficiency: "Fuel consumed per unit cargo per unit distance. A longer route therefore burns proportionally more fuel.",
+  count: "How many carriers are in this fleet — the pool the optimiser allocates across its routes.",
+  ship_size: "Cargo one carrier moves per voyage. With speed it sets how much a carrier can deliver per year on a route.",
+  speed: "Travel speed (distance per day). Sets round-trip time, so a longer route means fewer trips ⇒ each carrier delivers less ⇒ more carriers needed.",
+  turnaround_days: "Load + unload time added to each round trip.",
+  operating_days: "In-service days per year (idle/maintenance excluded). Default 350.",
+  capacity: "A flat per-carrier yearly throughput. Used only when ship size/speed are blank; otherwise capacity is derived from the route's distance.",
+  build_year: "First year the fleet is in service. Before it, the fleet has zero carriers available.",
+  close_year: "Last year in service (or leave blank and use lifespan). After it, the fleet retires.",
+  lifespan: "Service life in years — with a build year, the fleet retires after build + lifespan − 1.",
+};
 
 function FleetPanel({ fleet, commodities, onRename, onChange, onClose }: { fleet: Row; commodities: string[]; onRename: (v: string) => void; onChange: (p: Row) => void; onClose: () => void }) {
   return (
@@ -368,7 +384,7 @@ function FleetPanel({ fleet, commodities, onRename, onChange, onClose }: { fleet
         <input className="title-input" value={s(fleet.label) || fleetId(fleet)} onChange={(e) => onRename(e.target.value)} />
         {FIELDS.map(([key, lbl]) => (
           <label className="field-row" key={key} style={{ marginTop: 6 }}>
-            <span className="muted">{lbl}</span>
+            <span className="muted">{lbl} {FIELD_INFO[key] && <InfoTooltip text={FIELD_INFO[key]} />}</span>
             {key === "mode" ? (
               <div style={{ flex: 1 }}><SearchSelect value={s(fleet.mode) || "sea"} onChange={(v) => onChange({ mode: v })} options={MODES} /></div>
             ) : key === "cargo" || key === "fuel" ? (
@@ -420,19 +436,19 @@ function RoutePanel({ route, routes, ports, fleets, fleetRoutes, labelOf, fleetL
   const fixed = !!assign && num(assign.min_units) > 0 && has(assign.max_units) && num(assign.min_units) === num(assign.max_units);
   const setFleet = (fid: string) => setFleetRoutes(fid ? [...fleetRoutes.filter((r) => s(r.process) !== proc), { process: proc, fleet_id: fid }] : fleetRoutes.filter((r) => s(r.process) !== proc));
   const setFix = (mode: string) => assign && setFleetRoutes(fleetRoutes.map((r) => (s(r.process) === proc ? (mode === "fixed" ? { ...r, min_units: num(r.max_units) || 1, max_units: num(r.max_units) || 1 } : { ...r, min_units: "", max_units: "" }) : r)));
-  const row = (lbl: string, el: React.ReactNode) => (<label className="field-row" style={{ marginTop: 6 }}><span className="muted">{lbl}</span><div style={{ flex: 1 }}>{el}</div></label>);
+  const row = (lbl: string, el: React.ReactNode, info?: string) => (<label className="field-row" style={{ marginTop: 6 }}><span className="muted">{lbl} {info && <InfoTooltip text={info} />}</span><div style={{ flex: 1 }}>{el}</div></label>);
   return (
     <FloatingPanel title="route" width={360} onClose={onClose}>
       <div style={{ padding: "12px 14px" }}>
         <div style={{ fontWeight: 600, fontSize: "0.9rem", marginBottom: 4 }}>{labelOf(s(route.from_node))} → {labelOf(s(route.to_node))}</div>
         {row("from", <SearchSelect value={s(route.from_node)} onChange={(v) => onChange({ from_node: v })} options={ports.map((p) => ({ value: p.id, label: p.label }))} />)}
         {row("to", <SearchSelect value={s(route.to_node)} onChange={(v) => onChange({ to_node: v })} options={ports.map((p) => ({ value: p.id, label: p.label }))} />)}
-        {row("mode", <SearchSelect value={s(route.mode) || "sea"} onChange={(v) => onChange({ mode: v })} options={MODES} />)}
-        {row("distance", <input className="field-input" style={{ width: "100%" }} type="number" placeholder="auto · great-circle preview" value={s(route.distance)} onChange={(e) => onChange({ distance: blank(e.target.value) })} />)}
-        {row("alternative of", <SearchSelect value={s(route.alternative_of)} onChange={(v) => onChange({ alternative_of: v })} options={[{ value: "", label: "— (primary)" }, ...others.map((r) => ({ value: s(r.process), label: `${labelOf(s(r.from_node))}→${labelOf(s(r.to_node))}` }))]} />)}
+        {row("mode", <SearchSelect value={s(route.mode) || "sea"} onChange={(v) => onChange({ mode: v })} options={MODES} />, "Sea follows real sea lanes (searoute, via Suez/Panama); road/rail use great-circle × a detour factor. Sets the route's distance basis.")}
+        {row("distance", <input className="field-input" style={{ width: "100%" }} type="number" placeholder="auto · from the ports" value={s(route.distance)} onChange={(e) => onChange({ distance: blank(e.target.value) })} />, "Leave blank to derive it from the two ports (sea = searoute length; land = great-circle × factor). Override to pin a known distance.")}
+        {row("alternative of", <SearchSelect value={s(route.alternative_of)} onChange={(v) => onChange({ alternative_of: v })} options={[{ value: "", label: "— (primary)" }, ...others.map((r) => ({ value: s(r.process), label: `${labelOf(s(r.from_node))}→${labelOf(s(r.to_node))}` }))]} />, "Mark this as an alternative to another route (drawn dotted) — e.g. a Cape route standing in for a Suez one.")}
         <label className="field-row" style={{ marginTop: 10 }}>
           <input type="checkbox" checked={blocked} onChange={(e) => onToggleBlock(e.target.checked)} />
-          <span>Block this corridor (scenario)</span>
+          <span>Block this corridor (scenario) <InfoTooltip text="Close this corridor to test a disruption (e.g. Hormuz / Suez). Its fleet assignment is detached so the optimiser must reroute via other routes." /></span>
         </label>
         {!blocked && (
           <div className="rail-section" style={{ marginTop: 8 }}>
