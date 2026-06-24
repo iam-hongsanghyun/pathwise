@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDialogs } from "../features/controls/Dialog";
 import { FloatingPanel } from "../layout/FloatingPanel";
-import { Resizer } from "../layout/Resizer";
+import { CollapsibleRail } from "../layout/CollapsibleRail";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { InfoTooltip } from "../features/controls/InfoTooltip";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
@@ -66,6 +66,8 @@ export function FleetDesignerView({
   const [expR, setExpR] = useState<Set<string>>(new Set());
   const [leftW, setLeftW] = useState(240);
   const [rightW, setRightW] = useState(260);
+  const [leftOpen, setLeftOpen] = useState(true);
+  const [rightOpen, setRightOpen] = useState(true);
   const [edit, setEdit] = useState<Edit>(null);
 
   const projection = useMemo(() => makeProjection(), []);
@@ -250,21 +252,17 @@ export function FleetDesignerView({
   return (
     <div className="view-full builder">
       <div className="builder-body">
-        <aside className="builder-rail" style={{ width: leftW }}>
-          <div className="rail-head-row">
-            <span className="rail-head">Fleets</span>
-            <button className="rail-add" title="add an alliance / company group" onClick={() => void addFleetGroup(null)}>＋</button>
-          </div>
-          <div className="rail-scroll">
-            <TreeExplorer nodes={leftTree} selectedId={selId} expandedIds={expL}
-              onToggle={(id, e) => setExpL((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
-              onSelect={(id) => { setSelId(id); if (fleetByNode.has(id)) setEdit({ kind: "fleet", id }); }}
-              actionsFor={leftActions} onContextAction={onLeftAction} onMove={onMoveLeft}
-              emptyHint="Empty — ＋ to add an alliance / company, then add fleets inside." />
-          </div>
-          <div className="rail-foot">A separate transport layer · right-click a group to add a company or fleet</div>
-        </aside>
-        <Resizer side="left" width={leftW} setWidth={setLeftW} min={200} max={420} />
+        <CollapsibleRail side="left" open={leftOpen} setOpen={setLeftOpen} width={leftW} setWidth={setLeftW} min={200} max={420}
+          title="Fleets"
+          headAction={<button className="rail-add" title="add an alliance / company group" onClick={() => void addFleetGroup(null)}>＋</button>}
+          collapsedExtras={<button className="rail-add" title="add an alliance / company group" onClick={() => void addFleetGroup(null)}>＋</button>}
+          foot="A separate transport layer · right-click a group to add a company or fleet">
+          <TreeExplorer nodes={leftTree} selectedId={selId} expandedIds={expL}
+            onToggle={(id, e) => setExpL((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
+            onSelect={(id) => { setSelId(id); if (fleetByNode.has(id)) setEdit({ kind: "fleet", id }); }}
+            actionsFor={leftActions} onContextAction={onLeftAction} onMove={onMoveLeft}
+            emptyHint="Empty — ＋ to add an alliance / company, then add fleets inside." />
+        </CollapsibleRail>
 
         <main className="builder-canvas">
           <div className="view-head">
@@ -291,12 +289,9 @@ export function FleetDesignerView({
           {ports.length === 0 && <p className="view-lead" style={{ padding: "0 14px" }}>Drag a facility from the right rail onto the map to give it a location. Once both ends of a stream are placed, the stream appears under <b>Routes</b> — set a mode to make it physical (otherwise it teleports).</p>}
         </main>
 
-        <Resizer side="right" width={rightW} setWidth={setRightW} min={220} max={440} />
-        <aside className="builder-rail is-right" style={{ width: rightW, overflow: "hidden" }}>
-          <div className="rail-head-row">
-            <span className="rail-head">Routes</span>
-            <span className="rail-foot" style={{ padding: "0 10px" }}>stream → route</span>
-          </div>
+        <CollapsibleRail side="right" open={rightOpen} setOpen={setRightOpen} width={rightW} setWidth={setRightW} min={220} max={440}
+          title="Routes" scroll={false}
+          headAction={<span className="rail-foot" style={{ padding: "0 10px" }}>stream → route</span>}>
           <div className="rail-scroll" style={{ flex: "3 1 0", minHeight: 80 }}>
             <TreeExplorer nodes={routesTree} selectedId={selId} expandedIds={expR}
               onToggle={(id, e) => setExpR((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
@@ -327,7 +322,7 @@ export function FleetDesignerView({
             )}
           </div>
           <div className="rail-foot">Drag an endpoint onto the map to give it a location.</div>
-        </aside>
+        </CollapsibleRail>
       </div>
 
       {edit?.kind === "fleet" && fleetByNode.get(edit.id) && (

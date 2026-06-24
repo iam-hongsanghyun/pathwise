@@ -9,6 +9,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useDialogs } from "../features/controls/Dialog";
 import { Resizer } from "../layout/Resizer";
+import { CollapsibleRail } from "../layout/CollapsibleRail";
 import { TemporalValue } from "../features/controls/TemporalValue";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
 import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types";
@@ -66,6 +67,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   const [libExpanded, setLibExpanded] = useState<Set<string>>(new Set());
   const [libH, setLibH] = useState(260); // adjustable height of the bottom library tree
   const [leftW, setLeftW] = useState(280); // adjustable width of the left (tree) rail
+  const [leftOpen, setLeftOpen] = useState(true); // left rail collapse toggle
   // Machine editor: adjustable rail width + each column's bottom-zone height.
   const [railW, setRailW] = useState(300);
   const [mainBottomH, setMainBottomH] = useState(240);
@@ -628,12 +630,11 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     <div className="view-full builder">
       {error && <div className="error error-bar" onClick={() => setError(null)}>{error} <span className="muted">(dismiss)</span></div>}
       <div className="builder-body">
-        <aside className="builder-rail" style={{ width: leftW }}>
+        <CollapsibleRail side="left" open={leftOpen} setOpen={setLeftOpen} width={leftW} setWidth={setLeftW} min={200} max={520}
+          title="Structure" scroll={false}
+          headAction={<button className="rail-add" title="add a top-level group" onClick={() => void addSubgroup(null)}>＋</button>}
+          collapsedExtras={<button className="rail-add" title="add a top-level group" onClick={() => void addSubgroup(null)}>＋</button>}>
           {/* TOP: the facility structure (shared node tree). */}
-          <div className="rail-head-row">
-            <span className="rail-head">Structure</span>
-            <button className="rail-add" title="add a top-level group" onClick={() => void addSubgroup(null)}>＋</button>
-          </div>
           <div className="rail-scroll">
             {tree(facilityNodes, "Empty — ＋ to add a group, then drag technologies from the Library below.", { exp: expanded, setExp: setExpanded, drop: true })}
           </div>
@@ -648,9 +649,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
             {tree(libraryNodes, "No base libraries.", { exp: libExpanded, setExp: setLibExpanded, drag: true })}
           </div>
           <div className="rail-foot">Right-click a group for actions</div>
-        </aside>
-        {/* Drag to resize the left rail's width. */}
-        <Resizer side="left" width={leftW} setWidth={setLeftW} min={200} max={520} />
+        </CollapsibleRail>
         <main className="builder-main">
           <div className="view-head">
             <div className="eyebrow">facility</div>
