@@ -53,6 +53,7 @@ export function SettingsView({
   setLeftW,
 }: Props) {
   const [section, setSection] = useState<Section>("appearance");
+  const [railOpen, setRailOpen] = useState(true);
   const items: RailItem[] = [
     { id: "appearance", label: "Appearance" },
     { id: "method", label: "Optimisation method" },
@@ -73,8 +74,10 @@ export function SettingsView({
         activeId={section}
         onSelect={(id) => setSection(id as Section)}
         width={leftW}
+        open={railOpen}
+        onToggle={() => setRailOpen((o) => !o)}
       />
-      <Resizer width={leftW} setWidth={setLeftW} side="left" />
+      {railOpen && <Resizer width={leftW} setWidth={setLeftW} side="left" />}
       <main className="main-area">
         <div className="view">
           {section === "appearance" && (

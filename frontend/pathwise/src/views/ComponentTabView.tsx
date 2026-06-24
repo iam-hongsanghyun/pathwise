@@ -13,7 +13,7 @@ import {
   TechnologyEditor,
 } from "../features/component/editors";
 import { TimeSeriesRail } from "../features/component/TimeSeriesRail";
-import { Resizer } from "../layout/Resizer";
+import { CollapsibleRail } from "../layout/CollapsibleRail";
 import { useDialogs } from "../features/controls/Dialog";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
@@ -221,6 +221,8 @@ export function ComponentTabView({
   const [error, setError] = useState<string | null>(null);
   const [rightW, setRightW] = useState(340); // resizable right-rail (time series) width
   const [leftW, setLeftW] = useState(280); // resizable left-rail (tree) width
+  const [leftOpen, setLeftOpen] = useState(true); // left rail collapse toggle
+  const [rightOpen, setRightOpen] = useState(true); // right (time-series) rail collapse
   const [unitOptions, setUnitOptions] = useState<string[]>([]); // global allowed units (fallback)
   // Unit pickers are limited to the project's registry (the model's `units` sheet);
   // fall back to the global allowed list when a model has no registry yet.
@@ -1121,7 +1123,8 @@ export function ComponentTabView({
     <div className="view-full builder">
       {error && <div className="error error-bar" onClick={() => setError(null)}>{error} <span className="muted">(dismiss)</span></div>}
       <div className="builder-body">
-        <aside className="builder-rail" style={{ width: leftW }}>
+        <CollapsibleRail side="left" open={leftOpen} setOpen={setLeftOpen} width={leftW} setWidth={setLeftW} min={200} max={520} scroll={false}
+          title={mode === "project" ? "Project" : "Library"}>
           {mode === "project" ? (
             <>
               <div className="rail-head-row" style={{ padding: "6px 10px" }}>
@@ -1203,9 +1206,7 @@ export function ComponentTabView({
             </>
           )}
           <div className="rail-foot">Right-click for actions</div>
-        </aside>
-        {/* Drag to resize the left rail's width. */}
-        <Resizer side="left" width={leftW} setWidth={setLeftW} min={200} max={520} />
+        </CollapsibleRail>
         <main className="builder-main">
           <div className="view-head">
             <div className="eyebrow">{mode === "project" ? "project workbench" : scope === "session" ? "project components" : "component library"}</div>
@@ -1257,15 +1258,12 @@ export function ComponentTabView({
         </main>
         {/* RIGHT rail (resizable): per-year time-series table for the selected component. */}
         {rail && (
-          <>
-            <Resizer width={rightW} setWidth={setRightW} side="right" />
-            <aside className="builder-rail is-right" style={{ width: rightW, padding: "14px 14px" }}>
-              <div className="eyebrow" style={{ marginBottom: 8 }}>
-                time series <span className="eyebrow-soft">· per-year overrides; empty = latest value</span>
-              </div>
-              {rail}
-            </aside>
-          </>
+          <CollapsibleRail side="right" open={rightOpen} setOpen={setRightOpen} width={rightW} setWidth={setRightW} min={220} max={560} title="Time series">
+            <div className="eyebrow" style={{ marginBottom: 8 }}>
+              per-year overrides <span className="eyebrow-soft">· empty = latest value</span>
+            </div>
+            {rail}
+          </CollapsibleRail>
         )}
       </div>
       {dialogNode}

@@ -13,20 +13,31 @@ interface Props {
   onSelect?: (id: string) => void;
   width?: number;
   dragMime?: string;
+  /** When `onToggle` is set the rail can collapse to a slim strip (`open` controls it). */
+  open?: boolean;
+  onToggle?: () => void;
 }
 
 /** Generic vertical rail list — reused for Model palette, Analytics categories,
  *  and Settings sections, so each view styles its own navigator. */
-export function RailList({ title, items, activeId, onSelect, width, dragMime }: Props) {
+export function RailList({ title, items, activeId, onSelect, width, dragMime, open = true, onToggle }: Props) {
+  if (onToggle && !open) {
+    return (
+      <div className="rail-collapsed">
+        <button className="rail-collapse" title={`show ${title ?? "panel"}`} onClick={onToggle}>›</button>
+      </div>
+    );
+  }
   return (
     <aside
       className="left-rail"
       aria-label={title ?? "Navigator"}
       style={width ? { width, flex: `0 0 ${width}px` } : undefined}
     >
-      {title && (
-        <div className="rail-group">
-          <div className="rail-head">{title}</div>
+      {(title || onToggle) && (
+        <div className="rail-group" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          {onToggle && <button className="rail-collapse" title={`hide ${title ?? "panel"}`} onClick={onToggle}>‹</button>}
+          {title && <div className="rail-head">{title}</div>}
         </div>
       )}
       <div className="rail-group">

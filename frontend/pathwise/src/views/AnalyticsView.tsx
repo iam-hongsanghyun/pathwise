@@ -47,6 +47,7 @@ interface Props {
  *  years via the bottom slider, with consumption and cost as time series. */
 export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
   const [cat, setCat] = useState<Cat>("overview");
+  const [railOpen, setRailOpen] = useState(true);
   const years = [...new Set((result?.summary.periods ?? []).map((p) => p.period))].sort((a, b) => a - b);
   const [year, setYear] = useState<number | null>(null);
   const activeYear = year ?? years[years.length - 1] ?? 0;
@@ -153,8 +154,8 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
 
   return (
     <div className="body-row">
-      <RailList title="Analytics" items={items} activeId={cat} onSelect={(id) => setCat(id as Cat)} width={leftW} />
-      <Resizer width={leftW} setWidth={setLeftW} side="left" />
+      <RailList title="Analytics" items={items} activeId={cat} onSelect={(id) => setCat(id as Cat)} width={leftW} open={railOpen} onToggle={() => setRailOpen((o) => !o)} />
+      {railOpen && <Resizer width={leftW} setWidth={setLeftW} side="left" />}
       <main className="main-area">
         <AnalyticsHead title={result ? CAT_LABEL[cat] : "run the model to populate"} />
         {cat === "macc" ? (
