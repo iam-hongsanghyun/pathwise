@@ -334,9 +334,43 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     return out;
   }, [allLibs, libBodies]);
 
+  // Duplicate a facility machine — a BUNDLE: the node + its machines row, and (when
+  // its technology is PRIVATE — used by no other machine) the technology + its recipe
+  // (io / io_t) and temporal-cost rows too, all with fresh, consistently-rewired ids.
+  // A shared (library) technology is referenced, not cloned.
+  function duplicateMachine(id: string, times: number) {
+    const node = (workbook.nodes ?? []).find((r) => s(r.node_id) === id);
+    if (!node) return;
+    const mach = (workbook.machines ?? []).find((r) => s(r.machine_id) === id);
+    const cloneByTech = (wb: Workbook, sheet: string, from: string, to: string): Workbook => {
+      const extra = (wb[sheet] ?? []).filter((r) => s(r.technology_id) === from).map((r) => ({ ...r, technology_id: to }));
+      return extra.length ? setSheet(wb, sheet, [...(wb[sheet] ?? []), ...extra]) : wb;
+    };
+    let wb = workbook;
+    for (let i = 1; i <= times; i++) {
+      const newId = genId("n");
+      const label = times === 1 ? `${s(node.label)} copy` : `${s(node.label)} #${i}`;
+      wb = setSheet(wb, "nodes", [...(wb.nodes ?? []), { ...node, node_id: newId, label }]);
+      if (mach) {
+        let techId = s(mach.baseline_technology);
+        const refs = (wb.machines ?? []).filter((r) => s(r.baseline_technology) === techId).length;
+        if (techId && refs <= 1) {
+          // private technology → clone it + its recipe / temporal rows under a new id
+          const newTech = genId("t");
+          const tech = (wb.technologies ?? []).find((r) => s(r.technology_id) === techId);
+          if (tech) wb = setSheet(wb, "technologies", [...(wb.technologies ?? []), { ...tech, technology_id: newTech }]);
+          for (const sh of ["io", "io_t", ...Object.keys(wb).filter((k) => k.startsWith("technologies_t__"))]) wb = cloneByTech(wb, sh, techId, newTech);
+          techId = newTech;
+        }
+        wb = setSheet(wb, "machines", [...(wb.machines ?? []), { ...mach, machine_id: newId, baseline_technology: techId }]);
+      }
+    }
+    setWorkbook(wb);
+  }
+
   function actionsFor(node: TreeNode): TreeAction[] {
     if (node.kind === "machine")
-      return [{ id: "edit", label: "Edit" }, { id: "delete", label: "Delete", danger: true }];
+      return [{ id: "edit", label: "Edit" }, { id: "dup", label: "Duplicate" }, { id: "dupN", label: "Duplicate ×N…" }, { id: "delete", label: "Delete", danger: true }];
     // A kind-group (Technology / Stream / Measures & MACC) is leaf-level — you
     // can't add a sub-group inside it, only drop components.
     const prefixed = isPrefixedLevel(node.level);
@@ -361,6 +395,8 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     else if (actionId === "delete") void deleteNode(node.id);
     else if (actionId === "edit") setSelId(node.id);
     else if (actionId === "see-table") { setTableGroup(node.id); setTableOpen(true); }
+    else if (actionId === "dup") duplicateMachine(node.id, 1);
+    else if (actionId === "dupN") void (async () => { const x = await prompt({ title: "Duplicate ×N", label: "how many copies", defaultValue: "10" }); const t = Math.max(1, Math.round(Number(x) || 0)); if (t) duplicateMachine(node.id, t); })();
   }
 
   const tableResult = useMemo(() => (tableGroup ? flattenFacilityGroup(workbook, tableGroup) : null), [tableGroup, workbook]);
