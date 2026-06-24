@@ -840,6 +840,31 @@ th {
 .lib-new:hover {
   background: var(--brand-strong);
 }
+/* Landing action buttons (New / Import / Template) — uniform size, stacked and
+   stretched to equal width so they line up cleanly. */
+.lib-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.lib-actions > button {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  padding: 9px 16px;
+  border-radius: var(--radius);
+  white-space: nowrap;
+  text-align: center;
+  cursor: pointer;
+  min-width: 190px;
+  box-sizing: border-box;
+}
+/* The primary has no border; give it a transparent one so its box height matches
+   the bordered ghost buttons exactly. */
+.lib-actions > button.lib-new {
+  border: 1px solid transparent;
+}
 .lib-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));

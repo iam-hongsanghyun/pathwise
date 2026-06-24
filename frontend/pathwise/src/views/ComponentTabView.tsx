@@ -768,7 +768,7 @@ export function ComponentTabView({
             </p>
           </div>
           {!starters && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <div className="lib-actions">
               <button className="lib-new" onClick={session ? newProject : newLibrary}>
                 {session ? "+ New project library" : "+ New library"}
               </button>
@@ -1195,7 +1195,9 @@ export function ComponentTabView({
                   railNodes,
                   scope === "session"
                     ? "No project libraries — ＋ to add one."
-                    : "No base libraries — ＋ to add one.",
+                    : baseGroup === "starter"
+                      ? "No starter libraries found."
+                      : "No libraries of your own yet — ＋ to add one, or duplicate a starter.",
                 )}
               </div>
             </>
