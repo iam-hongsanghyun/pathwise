@@ -28,7 +28,7 @@ from pathwise.core.entities import (
     Transition,
     TransitionAction,
 )
-from pathwise.core.problem import CostToggles, FleetRoute, Problem
+from pathwise.core.problem import CostToggles, Fleet, FleetRoute, Problem
 from pathwise.data.hierarchy import Hierarchy, load_hierarchy
 from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.sheets import (
@@ -1070,26 +1070,51 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         if tid is not None and cap is not None:
             technology_caps[tid] = cap
 
-    # Fleet pool (Layer 1b): ships of an archetype available per year, and the
-    # routes (transport processes) the fleet serves.
+    # Fleet (Layer 1b): a carrier asset class (cargo, capacity, lifecycle) and the
+    # routes (transport processes) it serves. A class is one row with ``count`` +
+    # lifecycle; the legacy per-year form (one row per (id, year, available)) is
+    # still accepted. ``fleet_id`` is canonical; ``archetype`` is its old alias.
+    _CLASS_COLS = ("company", "mode", "fuel", "cargo", "efficiency", "capacity", "count")
+    fleets: dict[str, Fleet] = {}
     fleet_traj: dict[str, dict[int, float]] = {}
     for r in _rows(workbook, FLEET):
-        a, y, n = _str(r.get("archetype")), _int(r.get("year")), _num(r.get("available"))
-        if a is not None and y is not None and n is not None:
-            fleet_traj.setdefault(a, {})[y] = n
+        fid = _str(r.get("fleet_id")) or _str(r.get("archetype"))
+        if fid is None:
+            continue
+        y, avail = _int(r.get("year")), _num(r.get("available"))
+        if y is not None and avail is not None:  # legacy per-year availability row
+            fleet_traj.setdefault(fid, {})[y] = avail
+        if r.get("count") is not None or any(r.get(c) is not None for c in _CLASS_COLS):
+            fleets[fid] = Fleet(
+                fleet_id=fid,
+                company=_str(r.get("company")) or "all",
+                mode=_str(r.get("mode")) or "",
+                fuel=_str(r.get("fuel")) or "",
+                cargo=_str(r.get("cargo")) or "",
+                efficiency=_numd(r.get("efficiency"), 0.0),
+                capacity=_numd(r.get("capacity"), 0.0),
+                count=_numd(r.get("count"), 0.0),
+                build_year=_int(r.get("build_year")),
+                close_year=_int(r.get("close_year")),
+                lifespan=_int(r.get("lifespan")),
+            )
     fleet_available: dict[tuple[str, int], float] = {
-        (a, y): n for a, traj in fleet_traj.items() for y, n in interpolate(traj, years).items()
+        (fid, y): n for fid, traj in fleet_traj.items() for y, n in interpolate(traj, years).items()
     }
+    # Lifecycle pool: a class fleet is available at its ``count`` while in service.
+    for fid, fl in fleets.items():
+        for y in years:
+            fleet_available[(fid, y)] = fl.available_at(y)
     fleet_routes: dict[str, FleetRoute] = {}
     for r in _rows(workbook, FLEET_ROUTES):
-        route_proc, route_arch = _str(r.get("process")), _str(r.get("archetype"))
-        share = _num(r.get("share"))
-        if route_proc is None or route_arch is None or share is None:
+        route_proc = _str(r.get("process"))
+        fid = _str(r.get("fleet_id")) or _str(r.get("archetype"))
+        if route_proc is None or fid is None:
             continue
         fleet_routes[route_proc] = FleetRoute(
             process=route_proc,
-            archetype=route_arch,
-            share=share,
+            fleet_id=fid,
+            share=_num(r.get("share")),  # None ⇒ fall back to the fleet's capacity
             min_units=_numd(r.get("min_units"), 0.0),
             max_units=_num(r.get("max_units")),
         )
@@ -1364,6 +1389,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         min_consumption=min_consumption,
         max_consumption=max_consumption,
         technology_caps=technology_caps,
+        fleets=fleets,
         fleet_available=fleet_available,
         fleet_routes=fleet_routes,
         company_objective=company_objective,

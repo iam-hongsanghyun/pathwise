@@ -27,22 +27,77 @@ from pathwise.core.entities import (
 
 
 @dataclass(slots=True, frozen=True)
+class Fleet:
+    """A transport fleet asset class (Layer 1b/1c).
+
+    A fleet is a pool of interchangeable carriers (ships, trucks, …) a company
+    owns, defined by what it carries and how it moves, plus its lifecycle. Its
+    routes (:class:`FleetRoute`) say which transport processes it may serve; the
+    optimiser assigns whole units across them, year by year.
+
+    Attributes:
+        fleet_id: Stable id.
+        company: Owning company (scope); ``"all"`` ⇒ unscoped.
+        mode: Transport-mode tag (sea / road / rail / air) — used by the map + 1c.
+        fuel: Commodity id consumed per distance (priced + emitting in Phase 3).
+        cargo: Commodity id carried (the stream the fleet delivers).
+        efficiency: Fuel use per unit cargo per unit distance
+            [fuel unit / cargo unit / distance unit] (drives fuel cost + emissions
+            once routes carry distance — Phase 3).
+        capacity: Throughput one unit delivers per year
+            [cargo unit / unit / yr] — the default per-route share when a route
+            does not override it.
+        count: Units in service within the lifecycle window [units].
+        build_year: First in-service year (``None`` ⇒ always in service).
+        close_year: Last in-service year (``None`` ⇒ from ``lifespan``, else never).
+        lifespan: Service life [yr]; with ``build_year`` and no ``close_year`` the
+            fleet retires after ``build_year + lifespan − 1``.
+    """
+
+    fleet_id: str
+    company: str = "all"
+    mode: str = ""
+    fuel: str = ""
+    cargo: str = ""
+    efficiency: float = 0.0
+    capacity: float = 0.0
+    count: float = 0.0
+    build_year: int | None = None
+    close_year: int | None = None
+    lifespan: int | None = None
+
+    def active(self, year: int) -> bool:
+        """Whether the fleet is in service in ``year`` (within its lifecycle)."""
+        if self.build_year is not None and year < self.build_year:
+            return False
+        close = self.close_year
+        if close is None and self.build_year is not None and self.lifespan is not None:
+            close = self.build_year + self.lifespan - 1
+        return not (close is not None and year > close)
+
+    def available_at(self, year: int) -> float:
+        """Units available in ``year`` — ``count`` while in service, else 0."""
+        return self.count if self.active(year) else 0.0
+
+
+@dataclass(slots=True, frozen=True)
 class FleetRoute:
     """A fleet-managed transport process (Layer 1b).
 
     Attributes:
         process: The transport process (route) this row makes fleet-managed.
-        archetype: Ship-class id whose shared pool serves this route — units on
-            every route of an archetype sum to its ``fleet_available`` count.
-        share: Annual throughput one ship of the archetype delivers on this route
-            [commodity unit / ship / yr] (= voyages/yr × cargo).
-        min_units: Floor on ships assigned to this route [ships].
-        max_units: Ceiling on ships assigned to this route ([ships]; ``None`` ⇒ ∞).
+        fleet_id: Fleet whose shared pool serves this route — units on every route
+            of a fleet sum to its ``fleet_available`` count (the lifecycle pool).
+        share: Annual throughput one unit delivers on this route
+            [cargo unit / unit / yr] (= voyages/yr × cargo). ``None`` ⇒ fall back
+            to the owning fleet's ``capacity``.
+        min_units: Floor on units assigned to this route [units].
+        max_units: Ceiling on units assigned to this route ([units]; ``None`` ⇒ ∞).
     """
 
     process: str
-    archetype: str
-    share: float
+    fleet_id: str
+    share: float | None = None
     min_units: float = 0.0
     max_units: float | None = None
 
@@ -139,12 +194,14 @@ class Problem:
     # (fleet-wide adoption cap), keyed by technology id — e.g. only N greenfield
     # H2-DRI plants can exist by a given year.
     technology_caps: dict[str, int] = field(default_factory=dict)
-    # ── Fleet (Layer 1b): a shared pool of ships allocated across routes ──────
-    # ``fleet_available[(archetype, year)]`` = ships of a class in existence that
-    # year (an exogenous pool in 1b). ``fleet_routes[process_id]`` makes a
-    # transport process fleet-managed: its throughput is bounded by
-    # ``units·share`` rather than a fixed capacity, and its units draw on the
-    # archetype's shared pool — so ships reallocate across routes (a MILP).
+    # ── Fleet (Layer 1b): a shared pool of carriers allocated across routes ───
+    # ``fleets[fleet_id]`` = the asset class (cargo, capacity, lifecycle, …).
+    # ``fleet_available[(fleet_id, year)]`` = units in service that year (derived
+    # from the fleet's count + lifecycle, or supplied per-year). ``fleet_routes``
+    # makes a transport process fleet-managed: its throughput is bounded by
+    # ``units·capacity`` rather than a fixed capacity, and its units draw on the
+    # fleet's shared pool — so carriers reallocate across routes (a MILP).
+    fleets: dict[str, Fleet] = field(default_factory=dict)
     fleet_available: dict[tuple[str, int], float] = field(default_factory=dict)
     fleet_routes: dict[str, FleetRoute] = field(default_factory=dict)
     company_objective: dict[str, ObjectiveMode] = field(default_factory=dict)

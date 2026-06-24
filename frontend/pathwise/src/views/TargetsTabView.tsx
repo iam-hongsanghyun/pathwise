@@ -109,36 +109,37 @@ function scatter(rows: UC[]): Record<string, Row[]> {
   return out;
 }
 
-/** Fleet pool availability gathered per archetype: one number (flat across the
- *  horizon) or a by-year map. Reads the `fleet` sheet (archetype, year, available). */
-function gatherFleet(wb: Workbook): Record<string, TemporalVal> {
-  const by: Record<string, { yr: number; v: number }[]> = {};
+/** Fleet id of a row — `fleet_id` (canonical) or `archetype` (legacy alias). */
+const fleetId = (r: Row): string => s(r.fleet_id) || s(r.archetype);
+
+/** In-service unit count per fleet, from the `fleet` sheet's class rows (`count`),
+ *  or summed from legacy per-year `available` rows when that's all there is. */
+function gatherFleet(wb: Workbook): Record<string, number> {
+  const out: Record<string, number> = {};
   for (const r of wb.fleet ?? []) {
-    const a = s(r.archetype);
-    const yr = r.year == null || r.year === "" ? null : Math.round(n(r.year));
-    if (!a || yr == null) continue;
-    (by[a] ??= []).push({ yr, v: n(r.available) });
-  }
-  const out: Record<string, TemporalVal> = {};
-  for (const [a, pts] of Object.entries(by)) {
-    const vals = pts.map((p) => p.v);
-    out[a] = vals.every((v) => v === vals[0])
-      ? (vals[0] ?? 0)
-      : Object.fromEntries(pts.map((p) => [String(p.yr), p.v]));
+    const id = fleetId(r);
+    if (!id) continue;
+    if (r.count != null && r.count !== "") out[id] = n(r.count);
+    else if (out[id] == null) out[id] = n(r.available); // legacy fallback
   }
   return out;
 }
 
-/** Inverse of gatherFleet: a flat value → one row per model year (the engine needs a
- *  year on every fleet row); a by-year value → one row per authored year (interpolated). */
-function scatterFleet(pool: Record<string, TemporalVal>, years: number[]): Row[] {
-  const rows: Row[] = [];
-  for (const [a, val] of Object.entries(pool)) {
-    if (typeof val === "number") {
-      for (const y of years) rows.push({ archetype: a, year: y, available: val });
-    } else {
-      for (const [yr, v] of Object.entries(val)) rows.push({ archetype: a, year: Number(yr), available: v });
-    }
+/** Inverse of gatherFleet: update each fleet's `count` on its existing class row
+ *  (preserving company/mode/fuel/cargo/capacity/lifecycle authored elsewhere), and
+ *  add a bare class row for any fleet that doesn't have one yet. */
+function scatterFleet(wb: Workbook, counts: Record<string, number>): Row[] {
+  const seen = new Set<string>();
+  const rows = (wb.fleet ?? [])
+    .filter((r) => r.year == null || r.year === "") // drop legacy per-year rows
+    .map((r) => {
+      const id = fleetId(r);
+      if (!(id in counts)) return r;
+      seen.add(id);
+      return { ...r, fleet_id: id, count: counts[id] };
+    });
+  for (const [id, c] of Object.entries(counts)) {
+    if (!seen.has(id)) rows.push({ fleet_id: id, count: c });
   }
   return rows;
 }
@@ -190,7 +191,7 @@ export function TargetsTabView({
     ]);
   const del = (i: number) => commit(rows.filter((_, j) => j !== i));
 
-  // ── Fleet (Layer 1b: a shared pool of interchangeable machines split over routes) ─
+  // ── Fleet (Layer 1b: a shared pool of interchangeable carriers split over routes) ─
   const procIds = useMemo(() => {
     const set = new Set<string>();
     for (const r of workbook.processes ?? []) if (s(r.process_id)) set.add(s(r.process_id));
@@ -199,19 +200,19 @@ export function TargetsTabView({
   }, [workbook]);
   const fleetRoutes = useMemo(() => (workbook.fleet_routes ?? []) as Row[], [workbook]);
   const pool = useMemo(() => gatherFleet(workbook), [workbook]);
-  const archetypes = useMemo(() => {
+  const fleetIds = useMemo(() => {
     const set = new Set<string>(Object.keys(pool));
-    for (const r of fleetRoutes) if (s(r.archetype)) set.add(s(r.archetype));
+    for (const r of fleetRoutes) if (fleetId(r)) set.add(fleetId(r));
     return [...set];
   }, [pool, fleetRoutes]);
   const commitRoutes = (rs: Row[]) => setWorkbook({ ...workbook, fleet_routes: rs });
-  const commitPool = (next: Record<string, TemporalVal>) =>
-    setWorkbook({ ...workbook, fleet: scatterFleet(next, years) });
+  const commitPool = (next: Record<string, number>) =>
+    setWorkbook({ ...workbook, fleet: scatterFleet(workbook, next) });
   const addRoute = () =>
-    commitRoutes([...fleetRoutes, { process: procIds[0] ?? "", archetype: archetypes[0] ?? "ship", share: 100 }]);
+    commitRoutes([...fleetRoutes, { process: procIds[0] ?? "", fleet_id: fleetIds[0] ?? "fleet" }]);
   const patchRoute = (i: number, p: Row) => commitRoutes(fleetRoutes.map((r, j) => (j === i ? { ...r, ...p } : r)));
   const delRoute = (i: number) => commitRoutes(fleetRoutes.filter((_, j) => j !== i));
-  const setPool = (a: string, v: TemporalVal | null | undefined) => commitPool({ ...pool, [a]: v ?? 0 });
+  const setPool = (id: string, v: number) => commitPool({ ...pool, [id]: v });
 
   // Keep type/target valid when the kind changes.
   function normalise(c: UC): UC {
@@ -412,26 +413,27 @@ export function TargetsTabView({
         <section style={{ marginBottom: 22 }}>
           <h3 className="section-title" style={{ marginBottom: 2 }}>Fleet (route assignment)</h3>
           <p className="muted" style={{ fontSize: "0.74rem", margin: "0 0 8px" }}>
-            A shared pool of interchangeable machines (e.g. ships) split across routes. Each route
-            is a process; one machine carries <b>share</b> of the route's product per year, so a
-            route's throughput is capped at <b>share × ships assigned</b>. The solver assigns whole
-            machines (integers) and the assignments on each pool sum to its <b>available</b> count —
-            so a scarce pool reallocates across routes and can leave demand unmet.
+            A shared pool of interchangeable carriers (e.g. ships) split across routes. Each route
+            is a process; one carrier delivers the fleet's <b>capacity</b> per year, so a route's
+            throughput is capped at <b>capacity × carriers assigned</b>. The solver assigns whole
+            carriers (integers) and the assignments on each fleet sum to its in-service <b>units</b> —
+            so a scarce fleet reallocates across routes and can leave demand unmet. (Mode, fuel and
+            lifecycle are set in the Fleet designer.)
           </p>
           <button className="ghost" style={{ marginBottom: 8 }} onClick={addRoute}>
             ＋ add route
           </button>
           {fleetRoutes.length === 0 ? (
             <p className="muted" style={{ fontSize: "0.78rem" }}>
-              No fleet routes — ＋ add one to pool machines across processes.
+              No fleet routes — ＋ add one to pool carriers across processes.
             </p>
           ) : (
             <table className="grid" style={{ width: "100%", fontSize: "0.76rem" }}>
               <thead>
                 <tr style={{ textAlign: "left", color: "var(--muted)" }}>
                   <th>route (process)</th>
-                  <th>pool</th>
-                  <th>share (／machine·yr)</th>
+                  <th>fleet</th>
+                  <th>share (／carrier·yr)</th>
                   <th>min</th>
                   <th>max</th>
                   <th />
@@ -450,9 +452,9 @@ export function TargetsTabView({
                     <td style={cell}>
                       <input
                         style={{ minWidth: 90 }}
-                        value={s(r.archetype)}
-                        placeholder="ship"
-                        onChange={(e) => patchRoute(i, { archetype: e.target.value })}
+                        value={fleetId(r)}
+                        placeholder="fleet"
+                        onChange={(e) => patchRoute(i, { fleet_id: e.target.value, archetype: "" })}
                       />
                     </td>
                     <td style={cell}>
@@ -460,6 +462,7 @@ export function TargetsTabView({
                         type="number"
                         style={{ width: 90 }}
                         value={s(r.share)}
+                        placeholder="capacity"
                         onChange={(e) => patchRoute(i, { share: e.target.value === "" ? "" : Number(e.target.value) })}
                       />
                     </td>
@@ -489,32 +492,30 @@ export function TargetsTabView({
               </tbody>
             </table>
           )}
-          {archetypes.length > 0 && (
+          {fleetIds.length > 0 && (
             <>
               <h4 style={{ fontSize: "0.78rem", fontWeight: 600, margin: "12px 0 4px" }}>
-                Pool availability (machines)
+                Fleet size (units in service)
               </h4>
               <table className="grid" style={{ fontSize: "0.76rem" }}>
                 <thead>
                   <tr style={{ textAlign: "left", color: "var(--muted)" }}>
-                    <th style={{ minWidth: 120 }}>pool</th>
-                    <th>available (machines)</th>
+                    <th style={{ minWidth: 120 }}>fleet</th>
+                    <th>units</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {archetypes.map((a) => (
-                    <tr key={a}>
-                      <td style={cell}>{a}</td>
+                  {fleetIds.map((id) => (
+                    <tr key={id}>
+                      <td style={cell}>{id}</td>
                       <td style={cell}>
-                        <TemporalValue
-                          value={pool[a] ?? 0}
-                          onChange={(v) => setPool(a, v)}
-                          label={`${a} · available machines`}
-                          unit="machines"
-                          perYear={false}
-                          baseYear={baseYear}
-                          periods={years}
+                        <input
+                          type="number"
+                          style={{ width: 100 }}
+                          value={pool[id] ?? 0}
+                          onChange={(e) => setPool(id, Number(e.target.value) || 0)}
                         />
+                        <span className="muted" style={{ marginLeft: 6 }}>units</span>
                       </td>
                     </tr>
                   ))}

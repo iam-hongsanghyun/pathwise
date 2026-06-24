@@ -687,21 +687,52 @@
       }
     },
     "fleet": {
-      "label": "Fleet pool",
+      "label": "Fleet",
       "columns": {
-        "archetype": {
-          "label": "Ship class",
+        "fleet_id": {
+          "label": "Fleet",
           "type": "string",
           "required": true,
-          "desc": "Archetype id whose ships are shared across its routes."
+          "desc": "Carrier asset class — a pool of interchangeable units (ships, trucks…)."
         },
-        "year": {"label": "Year", "type": "integer", "required": true},
-        "available": {
-          "label": "Ships available",
+        "company": {
+          "label": "Company",
+          "type": "string",
+          "desc": "Owning company (scope); blank ⇒ unscoped."
+        },
+        "mode": {
+          "label": "Mode",
+          "type": "string",
+          "desc": "Transport mode (sea / road / rail / air)."
+        },
+        "fuel": {
+          "label": "Fuel",
+          "type": "string",
+          "desc": "Stream the fleet consumes per distance (drives fuel cost + emissions)."
+        },
+        "cargo": {
+          "label": "Cargo",
+          "type": "string",
+          "desc": "Stream the fleet carries (delivers between stations)."
+        },
+        "efficiency": {
+          "label": "Fuel efficiency",
           "type": "number",
-          "required": true,
-          "desc": "Ships of this class in existence that year (interpolated across run years)."
-        }
+          "desc": "Fuel use per unit cargo per unit distance."
+        },
+        "capacity": {
+          "label": "Capacity / unit",
+          "type": "number",
+          "desc": "Cargo one unit delivers per year (default per-route share)."
+        },
+        "count": {
+          "label": "Units",
+          "type": "number",
+          "desc": "Units in service within the lifecycle window."
+        },
+        "build_year": {"label": "Build year", "type": "integer"},
+        "close_year": {"label": "Close year", "type": "integer"},
+        "lifespan": {"label": "Lifespan (yr)", "type": "integer"}
       }
     },
     "fleet_routes": {
@@ -711,22 +742,21 @@
           "label": "Route (process)",
           "type": "string",
           "required": true,
-          "desc": "Transport process this makes fleet-managed; its throughput becomes units·share."
+          "desc": "Transport process this makes fleet-managed; its throughput becomes units·capacity."
         },
-        "archetype": {
-          "label": "Ship class",
+        "fleet_id": {
+          "label": "Fleet",
           "type": "string",
           "required": true,
-          "desc": "Archetype whose shared pool serves this route."
+          "desc": "Fleet whose shared pool serves this route."
         },
         "share": {
-          "label": "Throughput / ship",
+          "label": "Throughput / unit",
           "type": "number",
-          "required": true,
-          "desc": "Annual cargo one ship delivers on this route (= voyages/yr × cargo)."
+          "desc": "Cargo one unit delivers on this route; blank ⇒ use the fleet's capacity."
         },
-        "min_units": {"label": "Min ships", "type": "number"},
-        "max_units": {"label": "Max ships", "type": "number"}
+        "min_units": {"label": "Min units", "type": "number"},
+        "max_units": {"label": "Max units", "type": "number"}
       }
     },
     "tech_impacts": {

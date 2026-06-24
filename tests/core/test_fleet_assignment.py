@@ -106,3 +106,67 @@ def test_scarce_pool_binds_and_leaves_demand_unmet() -> None:
     u = _units(res)
     assert u.get("pA", 0) + u.get("pB", 0) == 4  # the whole pool is used
     assert _delivered(res) < 400.0  # demand can't be fully met with 4 ships
+
+
+def _wb_lifecycle(build_year: int) -> dict[str, Any]:
+    """One route served by a fleet class that only enters service in ``build_year``."""
+    return {
+        "periods": [{"year": 2025}, {"year": 2030}],
+        "commodities": [
+            {"commodity_id": "cargo_kr", "kind": "material", "unit": "kt", "price": 0.0},
+            {"commodity_id": "cargo_a", "kind": "product", "unit": "kt"},
+        ],
+        "technologies": [{"technology_id": "route_a", "opex": 1}],
+        "io": [
+            {"technology_id": "route_a", "target": "cargo_kr", "role": "input", "coefficient": 1},
+            {
+                "technology_id": "route_a",
+                "target": "cargo_a",
+                "role": "output",
+                "coefficient": 1,
+                "is_product": True,
+            },
+        ],
+        "processes": [
+            {
+                "process_id": "pA",
+                "company": "carrier",
+                "baseline_technology": "route_a",
+                "capacity": 1e6,
+            },
+        ],
+        # New fleet schema: a class row with capacity + lifecycle (no per-year rows).
+        "fleet": [
+            {
+                "fleet_id": "ship",
+                "company": "carrier",
+                "cargo": "cargo_kr",
+                "capacity": 100.0,
+                "count": 5.0,
+                "build_year": build_year,
+            }
+        ],
+        "fleet_routes": [{"process": "pA", "fleet_id": "ship"}],  # share ⇒ fleet capacity
+        "demand": [
+            {"company": "carrier", "commodity_id": "cargo_a", "year": 2025, "amount": 250.0},
+            {"company": "carrier", "commodity_id": "cargo_a", "year": 2030, "amount": 250.0},
+        ],
+    }
+
+
+def _delivered_in(res: dict[str, Any], year: int) -> float:
+    return sum(float(r["value"]) for r in res["outputs"]["throughput"] if int(r["period"]) == year)
+
+
+def test_fleet_lifecycle_gates_availability() -> None:
+    # The fleet is only built in 2030, so 2025 has no carriers and delivers nothing;
+    # 2030 has the 5-ship pool and serves the 250 kt demand.
+    res = _solve(_wb_lifecycle(build_year=2030))
+    assert res["status"] == "optimal"
+    assert _delivered_in(res, 2025) < 1e-6  # not yet in service
+    assert abs(_delivered_in(res, 2030) - 250.0) < 1e-6  # pool available → demand met
+    # Capacity comes from the fleet (100/unit), so ≥3 carriers are needed to cover
+    # 250 kt; units carry no cost, so the solver may hold up to the pool of 5.
+    units_2030 = {(r["process"], r["period"]): int(r["ships"]) for r in res["outputs"]["fleet"]}
+    assert 3 <= units_2030.get(("pA", 2030), 0) <= 5
+    assert ("pA", 2025) not in units_2030  # no carriers in service before build_year

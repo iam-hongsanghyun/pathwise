@@ -9,8 +9,8 @@ shifts. Total demand stays flat at 8 500 kt/yr, but it migrates from EU to AU ov
 
 Mechanism (see ``core/build.py:_fleet``):
   * ``units[process, year]`` — integer ships assigned to a lane,
-  * capacity-from-fleet  Σ_k x ≤ share·units   (one ship carries ``SHIP_KT`` kt/yr),
-  * shared-pool          Σ_lane units ≤ available  (the whole fleet, every year).
+  * capacity-from-fleet  Σ_k x ≤ capacity·units  (one ship carries ``SHIP_KT`` kt/yr),
+  * shared-pool          Σ_lane units ≤ available  (the fleet's in-service count).
 
 The pool is sized to the binding requirement (85 ships = 8 500 / 100), so the
 allocation is forced and the reallocation is plainly visible in ``outputs.fleet``.
@@ -110,21 +110,40 @@ def build() -> dict[str, list[dict[str, Any]]]:
             }
         )
 
-    # One process per lane; capacity left high so the FLEET pool is the binding limit.
-    processes = [
-        {
-            "process_id": f"p_{r}",
-            "company": "carrier",
-            "baseline_technology": f"ship_{r}",
-            "capacity": 1e7,
-        }
-        for r in LANES
+    # Node hierarchy: one carrier owning a lane node (machine) per route. Capacity
+    # is left high so the FLEET pool is the binding limit. The expanded process id
+    # is the machine id (``p_au`` …) and its company resolves to the root carrier.
+    nodes = [
+        {"node_id": "carrier", "kind": "group", "level": "value_chain", "label": "Carrier"},
     ]
+    machines = []
+    for r, lane in LANES.items():
+        nodes.append(
+            {
+                "node_id": f"p_{r}",
+                "kind": "machine",
+                "level": "machine",
+                "label": f"KR–{lane['label']} lane",
+                "parent_id": "carrier",
+            }
+        )
+        machines.append(
+            {"machine_id": f"p_{r}", "baseline_technology": f"ship_{r}", "capacity": 1e7}
+        )
 
-    # The fleet table: a shared pool of ships, available every year, and the lanes
-    # (routes) it serves with a per-ship throughput share.
-    fleet = [{"archetype": "ship", "year": y, "available": FLEET_SHIPS} for y in YEARS]
-    fleet_routes = [{"process": f"p_{r}", "archetype": "ship", "share": SHIP_KT} for r in LANES]
+    # The fleet: one carrier class (a shared pool of ships) owned by the carrier,
+    # carrying cargo at SHIP_KT per ship/yr, and the lanes (routes) it serves.
+    fleet = [
+        {
+            "fleet_id": "ship",
+            "company": "carrier",
+            "mode": "sea",
+            "cargo": "cargo_kr",
+            "capacity": SHIP_KT,
+            "count": FLEET_SHIPS,
+        }
+    ]
+    fleet_routes = [{"process": f"p_{r}", "fleet_id": "ship"} for r in LANES]
 
     impact_prices = [
         {"impact_id": f"co2_{r}", "year": y, "price": CO2_PRICE[r][i]}
@@ -150,7 +169,8 @@ def build() -> dict[str, list[dict[str, Any]]]:
         "characterisation": characterisation,
         "technologies": technologies,
         "io": io,
-        "processes": processes,
+        "nodes": nodes,
+        "machines": machines,
         "fleet": fleet,
         "fleet_routes": fleet_routes,
         "impact_prices": impact_prices,

@@ -1619,40 +1619,48 @@ def _fleet(ctx: BuildContext) -> None:
     r"""Layer 1b: a shared pool of ships allocated across routes (integer MILP).
 
     A fleet-managed transport process ``p`` (``Problem.fleet_routes``) has its
-    throughput supplied by an integer count of ships rather than a fixed capacity::
+    throughput supplied by an integer count of carriers rather than a fixed
+    capacity::
 
-        Σ_k x[p, k, t] ≤ share_p · units[p, t]              (capacity from fleet)
-        Σ_{p ∈ archetype a} units[p, t] ≤ available_{a, t}   (one shared pool)
+        Σ_k x[p, k, t] ≤ cap_p · units[p, t]               (capacity from fleet)
+        Σ_{p ∈ fleet f} units[p, t] ≤ available_{f, t}      (one shared pool)
         min_p ≤ units[p, t] ≤ max_p                          (per-route bounds)
 
-    So ships of an archetype reallocate across its routes year by year — the
-    carrier's "which ships on which lane" decision. Inert unless a ``fleet_routes``
-    sheet is present (the machine's own ``capacity`` should be set high enough that
-    the fleet is the binding limit).
+    where ``cap_p`` is the route's ``share`` or the fleet's ``capacity``, and
+    ``available_{f, t}`` is the fleet's in-service count that year (zero outside
+    its build/close lifecycle window). So a fleet's carriers reallocate across its
+    routes year by year — the "which carriers on which lane" decision. Inert unless
+    a ``fleet_routes`` sheet is present (the machine's own ``capacity`` should be
+    set high enough that the fleet is the binding limit).
     """
     prob = ctx.problem
     if not prob.fleet_routes:
         return
     m = ctx.model
     routes = [p for p in prob.fleet_routes if p in ctx.procs]
-    # (C1) throughput ≤ share·units, and (C3) per-route unit bounds.
+    # (C1) throughput ≤ capacity·units, and (C3) per-route unit bounds. The
+    # per-unit throughput is the route's ``share`` if set, else the fleet's
+    # ``capacity`` (the asset-class default).
     for p in routes:
         fr = prob.fleet_routes[p]
+        fl = prob.fleets.get(fr.fleet_id)
+        share = fr.share if fr.share is not None else (fl.capacity if fl else 0.0)
         for t in ctx.years:
             u = ctx.units.sel(process=p, period=t)
             m.add_constraints(
-                ctx.x.sel(process=p, period=t).sum("tech") <= fr.share * u,
+                ctx.x.sel(process=p, period=t).sum("tech") <= share * u,
                 name=f"fleetcap[{p},{t}]",
             )
             if fr.max_units is not None:
                 m.add_constraints(u <= fr.max_units, name=f"fleetmax[{p},{t}]")
             if fr.min_units:
                 m.add_constraints(u >= fr.min_units, name=f"fleetmin[{p},{t}]")
-    # (C2) one shared pool per archetype: Σ over its routes ≤ ships available.
-    by_arch: dict[str, list[str]] = {}
+    # (C2) one shared pool per fleet: Σ over its routes ≤ units available that year
+    # (the lifecycle pool — zero outside the fleet's build/close window).
+    by_fleet: dict[str, list[str]] = {}
     for p in routes:
-        by_arch.setdefault(prob.fleet_routes[p].archetype, []).append(p)
-    for a, ps in by_arch.items():
+        by_fleet.setdefault(prob.fleet_routes[p].fleet_id, []).append(p)
+    for a, ps in by_fleet.items():
         for t in ctx.years:
             avail = prob.fleet_available.get((a, t))
             if avail is None:
