@@ -51,6 +51,12 @@
     "description": "A single carrier runs ~100 ships on three trade lanes out of Korea — to Australia, the US and the EU — with a mix of fuels (HFO / LNG) and vintages, each cohort an annual-capacity asset (ships × throughput). From 2030 any cohort can re-engine to ammonia (zero tank-to-wake CO2) via a transition. Each counterpart prices the lane's emissions differently — EU highest (ETS + FuelEU), then US, AU lowest — modelled as region-tagged CO2 impacts priced over 2025→2050. The optimiser shows the policy balloon effect: the carrier decarbonises the high-price EU lane fully (ammonia by 2030), switches only the cheaper-to-convert LNG ships on the US lane, and leaves the lax-policy AU lane fossil. Cross-lane fleet reallocation (a shared pool split by route) is the deferred Layer-1b MILP — here each cohort serves its own lane. Sell the direction and the per-lane breakeven, not absolute cost."
   },
   {
+    "id": "fleet_reallocation",
+    "label": "Fleet reallocation — shared ship pool (KR ↔ AU/US/EU)",
+    "file": "fleet_reallocation.sqlite",
+    "description": "The Layer-1b demonstration: a carrier owns ONE shared pool of 85 interchangeable ships and decides each year how many to put on three lanes out of Korea (→ Australia, US, EU). The fleet is a TABLE — a pool count, not a box per vessel — and the optimiser reallocates ships across lanes as demand shifts. Total demand stays flat at 8 500 kt/yr but migrates from EU to AU over 2025→2050, so ships steam off the shrinking EU lane (35→15) and onto the growing AU lane (20→40) while the US lane holds at 30; the pool binds at 85 every year. Mechanism: an integer units[lane, year] with capacity-from-fleet (Σ throughput ≤ share·units, one ship = 100 kt/yr) and shared-pool conservation (Σ_lane units ≤ available). Per-lane CO2 is region-tagged and priced (EU > US > AU) for reporting; with one fuel and no abatement the prices don't change dispatch — the story is the reallocation. For the policy balloon effect and re-engining, see shipping_carrier."
+  },
+  {
     "id": "petrochemical",
     "label": "Petrochemical MACC — ethylene NCC (petrochemical_macc_2025)",
     "file": "petrochemical.sqlite",
