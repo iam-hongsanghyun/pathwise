@@ -26,6 +26,27 @@ from pathwise.core.entities import (
 )
 
 
+@dataclass(slots=True, frozen=True)
+class FleetRoute:
+    """A fleet-managed transport process (Layer 1b).
+
+    Attributes:
+        process: The transport process (route) this row makes fleet-managed.
+        archetype: Ship-class id whose shared pool serves this route — units on
+            every route of an archetype sum to its ``fleet_available`` count.
+        share: Annual throughput one ship of the archetype delivers on this route
+            [commodity unit / ship / yr] (= voyages/yr × cargo).
+        min_units: Floor on ships assigned to this route [ships].
+        max_units: Ceiling on ships assigned to this route ([ships]; ``None`` ⇒ ∞).
+    """
+
+    process: str
+    archetype: str
+    share: float
+    min_units: float = 0.0
+    max_units: float | None = None
+
+
 @dataclass(slots=True)
 class CostToggles:
     """Which additive cost components enter the objective."""
@@ -118,6 +139,14 @@ class Problem:
     # (fleet-wide adoption cap), keyed by technology id — e.g. only N greenfield
     # H2-DRI plants can exist by a given year.
     technology_caps: dict[str, int] = field(default_factory=dict)
+    # ── Fleet (Layer 1b): a shared pool of ships allocated across routes ──────
+    # ``fleet_available[(archetype, year)]`` = ships of a class in existence that
+    # year (an exogenous pool in 1b). ``fleet_routes[process_id]`` makes a
+    # transport process fleet-managed: its throughput is bounded by
+    # ``units·share`` rather than a fixed capacity, and its units draw on the
+    # archetype's shared pool — so ships reallocate across routes (a MILP).
+    fleet_available: dict[tuple[str, int], float] = field(default_factory=dict)
+    fleet_routes: dict[str, FleetRoute] = field(default_factory=dict)
     company_objective: dict[str, ObjectiveMode] = field(default_factory=dict)
     # Default goal for companies without a company_config override (the run-level
     # objective set in the Optimisation tab). Falls back to COST.

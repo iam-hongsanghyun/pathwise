@@ -94,6 +94,7 @@ class BuildContext:
     flow: Any = None  # inter-process flow [edge, period]
     z: Any = None  # measure adoption [slot, period]
     emit: Any = None  # impact emitted [process, impact, period]
+    units: Any = None  # integer ships assigned to a fleet route [process, period]
     w: Any = None  # transition (replace) event [process, tech, period]
     ren: Any = None  # renewal (rebuild same tech, reset life) event [process, tech, period]
     cap_built: Any = None  # storage capacity built [store]
@@ -257,6 +258,13 @@ def build_context(model: Model, problem: Problem) -> BuildContext:
     ctx.sell = model.add_variables(lower=0.0, coords=[p_idx, r_idx, t_idx], name="sell")
     ctx.deliver = model.add_variables(lower=0.0, coords=[p_idx, r_idx, t_idx], name="deliver")
     ctx.emit = model.add_variables(coords=[p_idx, i_idx, t_idx], name="emit")
+
+    # Fleet (Layer 1b): integer ships assigned to each fleet-managed route process.
+    if problem.fleet_routes:
+        fp_idx = pd.Index(list(problem.fleet_routes), name="process")
+        ctx.units = model.add_variables(
+            lower=0.0, integer=True, coords=[fp_idx, t_idx], name="units"
+        )
 
     if slots:
         s_idx = pd.Index([s.key for s in slots], name="slot")

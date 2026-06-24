@@ -89,6 +89,7 @@ def build(problem: Problem) -> BuildContext:
     _macc(ctx)
     _controls(ctx)
     _adoption_caps(ctx)
+    _fleet(ctx)
     _objective(ctx)
     return ctx
 
@@ -1612,6 +1613,53 @@ def _adoption_caps(ctx: BuildContext) -> None:
             "process"
         )  # (period,)
         m.add_constraints(u_k <= cap, name=f"techcap[{k}]")
+
+
+def _fleet(ctx: BuildContext) -> None:
+    r"""Layer 1b: a shared pool of ships allocated across routes (integer MILP).
+
+    A fleet-managed transport process ``p`` (``Problem.fleet_routes``) has its
+    throughput supplied by an integer count of ships rather than a fixed capacity::
+
+        Σ_k x[p, k, t] ≤ share_p · units[p, t]              (capacity from fleet)
+        Σ_{p ∈ archetype a} units[p, t] ≤ available_{a, t}   (one shared pool)
+        min_p ≤ units[p, t] ≤ max_p                          (per-route bounds)
+
+    So ships of an archetype reallocate across its routes year by year — the
+    carrier's "which ships on which lane" decision. Inert unless a ``fleet_routes``
+    sheet is present (the machine's own ``capacity`` should be set high enough that
+    the fleet is the binding limit).
+    """
+    prob = ctx.problem
+    if not prob.fleet_routes:
+        return
+    m = ctx.model
+    routes = [p for p in prob.fleet_routes if p in ctx.procs]
+    # (C1) throughput ≤ share·units, and (C3) per-route unit bounds.
+    for p in routes:
+        fr = prob.fleet_routes[p]
+        for t in ctx.years:
+            u = ctx.units.sel(process=p, period=t)
+            m.add_constraints(
+                ctx.x.sel(process=p, period=t).sum("tech") <= fr.share * u,
+                name=f"fleetcap[{p},{t}]",
+            )
+            if fr.max_units is not None:
+                m.add_constraints(u <= fr.max_units, name=f"fleetmax[{p},{t}]")
+            if fr.min_units:
+                m.add_constraints(u >= fr.min_units, name=f"fleetmin[{p},{t}]")
+    # (C2) one shared pool per archetype: Σ over its routes ≤ ships available.
+    by_arch: dict[str, list[str]] = {}
+    for p in routes:
+        by_arch.setdefault(prob.fleet_routes[p].archetype, []).append(p)
+    for a, ps in by_arch.items():
+        for t in ctx.years:
+            avail = prob.fleet_available.get((a, t))
+            if avail is None:
+                continue
+            total = _lin_sum([ctx.units.sel(process=p, period=t) for p in ps])
+            if total is not None:
+                m.add_constraints(total <= avail, name=f"fleetpool[{a},{t}]")
 
 
 def _objective(ctx: BuildContext) -> None:

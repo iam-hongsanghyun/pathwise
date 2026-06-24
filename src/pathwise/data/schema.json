@@ -686,6 +686,49 @@
         }
       }
     },
+    "fleet": {
+      "label": "Fleet pool",
+      "columns": {
+        "archetype": {
+          "label": "Ship class",
+          "type": "string",
+          "required": true,
+          "desc": "Archetype id whose ships are shared across its routes."
+        },
+        "year": {"label": "Year", "type": "integer", "required": true},
+        "available": {
+          "label": "Ships available",
+          "type": "number",
+          "required": true,
+          "desc": "Ships of this class in existence that year (interpolated across run years)."
+        }
+      }
+    },
+    "fleet_routes": {
+      "label": "Fleet → route assignment",
+      "columns": {
+        "process": {
+          "label": "Route (process)",
+          "type": "string",
+          "required": true,
+          "desc": "Transport process this makes fleet-managed; its throughput becomes units·share."
+        },
+        "archetype": {
+          "label": "Ship class",
+          "type": "string",
+          "required": true,
+          "desc": "Archetype whose shared pool serves this route."
+        },
+        "share": {
+          "label": "Throughput / ship",
+          "type": "number",
+          "required": true,
+          "desc": "Annual cargo one ship delivers on this route (= voyages/yr × cargo)."
+        },
+        "min_units": {"label": "Min ships", "type": "number"},
+        "max_units": {"label": "Max ships", "type": "number"}
+      }
+    },
     "tech_impacts": {
       "label": "Direct (process) impacts",
       "columns": {

@@ -119,6 +119,15 @@ TRANSITIONS = "transitions"
 #: run a technology in any one year.
 TECHNOLOGY_CAPS = "technology_caps"
 
+#: Fleet pool (Layer 1b): ships of an archetype available in a year
+#: (archetype, year, available).
+FLEET = "fleet"
+
+#: Fleet→route assignment (Layer 1b): makes a transport process fleet-managed —
+#: (process, archetype, share, min_units, max_units). Its throughput is bounded by
+#: units·share and its units draw on the archetype's shared pool.
+FLEET_ROUTES = "fleet_routes"
+
 #: Long-format per-year transition capex (from_technology, to_technology, year,
 #: capex_per_capacity).
 TRANSITIONS_T = "transitions_t"

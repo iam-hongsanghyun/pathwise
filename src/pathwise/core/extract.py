@@ -34,6 +34,7 @@ def empty_result(
         "outputs": {
             "technology": [],
             "throughput": [],
+            "fleet": [],
             "transitions": [],
             "renewals": [],
             "measures": [],
@@ -133,6 +134,11 @@ def extract_results(
             out["outputs"]["throughput"].append(
                 {"process": p, "technology": k, "period": int(t), "value": v}
             )
+    # Fleet (Layer 1b): integer ships assigned to each route, by year.
+    if ctx.units is not None:
+        for (p, t), v in _series(ctx.units).items():
+            if v > _EPS:
+                out["outputs"]["fleet"].append({"process": p, "period": int(t), "ships": round(v)})
     # A real transition is a switch INTO a non-baseline technology; the event
     # variable on a facility's own baseline carries no cost, so the solver may
     # leave it at 1 — exclude those.

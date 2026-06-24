@@ -28,7 +28,7 @@ from pathwise.core.entities import (
     Transition,
     TransitionAction,
 )
-from pathwise.core.problem import CostToggles, Problem
+from pathwise.core.problem import CostToggles, FleetRoute, Problem
 from pathwise.data.hierarchy import Hierarchy, load_hierarchy
 from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.sheets import (
@@ -47,6 +47,8 @@ from pathwise.data.sheets import (
     EDGE_IMPACTS,
     EDGES,
     EDGES_T,
+    FLEET,
+    FLEET_ROUTES,
     IMPACT_CAPS,
     IMPACT_CAPS_T_LIMIT,
     IMPACT_PRICES,
@@ -1068,6 +1070,30 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         if tid is not None and cap is not None:
             technology_caps[tid] = cap
 
+    # Fleet pool (Layer 1b): ships of an archetype available per year, and the
+    # routes (transport processes) the fleet serves.
+    fleet_traj: dict[str, dict[int, float]] = {}
+    for r in _rows(workbook, FLEET):
+        a, y, n = _str(r.get("archetype")), _int(r.get("year")), _num(r.get("available"))
+        if a is not None and y is not None and n is not None:
+            fleet_traj.setdefault(a, {})[y] = n
+    fleet_available: dict[tuple[str, int], float] = {
+        (a, y): n for a, traj in fleet_traj.items() for y, n in interpolate(traj, years).items()
+    }
+    fleet_routes: dict[str, FleetRoute] = {}
+    for r in _rows(workbook, FLEET_ROUTES):
+        route_proc, route_arch = _str(r.get("process")), _str(r.get("archetype"))
+        share = _num(r.get("share"))
+        if route_proc is None or route_arch is None or share is None:
+            continue
+        fleet_routes[route_proc] = FleetRoute(
+            process=route_proc,
+            archetype=route_arch,
+            share=share,
+            min_units=_numd(r.get("min_units"), 0.0),
+            max_units=_num(r.get("max_units")),
+        )
+
     # Optional year-varying transition capex (long format: from_technology,
     # to_technology, year, capex_per_capacity).
     trans_capex_t: dict[tuple[str, str], dict[int, float]] = {}
@@ -1338,6 +1364,8 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         min_consumption=min_consumption,
         max_consumption=max_consumption,
         technology_caps=technology_caps,
+        fleet_available=fleet_available,
+        fleet_routes=fleet_routes,
         company_objective=company_objective,
         default_objective=ObjectiveMode(scenario.objective),
         objective_impact=scenario.objective_impact,
