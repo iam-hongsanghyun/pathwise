@@ -56,9 +56,8 @@ const I = {
   ),
   fleet: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 14l1.5 5a2 2 0 0 0 1.9 1.4h11.2a2 2 0 0 0 1.9-1.4L22 14z" />
-      <path d="M5 14V8a2 2 0 0 1 2-2h6l4 4v4" />
-      <path d="M12 6V3" />
+      <path d="M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V3l-6 2.5z" />
+      <path d="M9 4v13.5M15 6.5V20" />
     </svg>
   ),
   targets: (
@@ -89,8 +88,8 @@ const TOP: Entry[] = [
   { id: "component", label: "Library — shared, reusable building blocks (base catalogue)", icon: I.component },
   { id: "facility", label: "Facility — real-world facilities: capacity, owners & build years", icon: I.facility },
   { id: "valuechain", label: "Value chain — assemble the model (subgroups → companies → facilities)", icon: I.valuechain },
-  { id: "market", label: "Market & Policy — supply pools, ETS, carbon price (the institutional layer)", icon: I.market },
   { id: "fleet", label: "Fleet — transport fleets, ports & routes on a map", icon: I.fleet },
+  { id: "market", label: "Market & Policy — supply pools, ETS, carbon price (the institutional layer)", icon: I.market },
   { id: "targets", label: "Targets & constraints — production targets, caps and budgets by scope", icon: I.targets },
   { id: "analytics", label: "Analytics — results & charts", icon: I.analytics },
 ];
