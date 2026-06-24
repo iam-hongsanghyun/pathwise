@@ -63,6 +63,12 @@
     "description": "The Layer-1c demonstration: a carrier delivers the SAME 1,200 kt from Busan to a near market (Sydney) and a far market (Rotterdam, routed via Suez). Sea distances come from the searoute provider (Sydney ≈8,600 km, Rotterdam ≈20,200 km) and a ship's annual capacity falls with distance — fewer round trips — so the far lane needs twice the ships (8 vs 4) for identical demand. Any node carries lon/lat; a routes row gives each lane its endpoints + mode (sea via searoute, land via great-circle × a mode factor); capacity/ship = ship_size · operating_days / (2·distance/speed + turnaround). This is the physical-transport cost the value-chain optimiser sees — longer route ⇒ more carriers ⇒ more cost."
   },
   {
+    "id": "fleet_candidates",
+    "label": "Fleet candidates — optimiser picks the fleet per lane (KR→AU/EU)",
+    "file": "fleet_candidates.sqlite",
+    "description": "The Layer-1c+ demonstration: value-chain stream connections made PHYSICAL and carried by a fleet the optimiser CHOOSES from a candidate set. A Korean exporter ships one cargo to Australia (near, ≈8,600 km) and Europe (far via Suez, ≈20,200 km); each lane is a connection physicalised into a route, and the carrier owns three fleet types (HFO / LNG / ammonia) of which only SOME may run each lane — AU: HFO or LNG; EU: LNG or ammonia. Distance sets carriers needed (4 on the near lane, 9 on the far one for the same 2,000 kt) and fuel burned (efficiency × distance × cargo), priced at the fuel's price + the carbon price on its CO2. As the CO2 price climbs 30→200 $/t over 2025→2050 the optimiser switches fleets — HFO→LNG on the AU lane, LNG→ammonia on the EU lane — the 'which fleet on which lane, and when' decision. A connection with no fleet assigned stays virtual (teleport); a blocked corridor (Hormuz/Suez what-if) forces its flow to reroute or go undelivered."
+  },
+  {
     "id": "petrochemical",
     "label": "Petrochemical MACC — ethylene NCC (petrochemical_macc_2025)",
     "file": "petrochemical.sqlite",

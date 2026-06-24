@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from pathwise.core.entities import Transition
+from pathwise.core.problem import leg_key
 from pathwise.core.solve import SolveResult
 
 _ON = 0.5
@@ -204,6 +205,39 @@ def extract_results(
                             "utilization": util,
                         }
                     )
+    # Connection-fleet (Layer 1c+): the carriers the optimiser CHOSE for each
+    # physicalised value-chain connection — which candidate fleet won the lane, the
+    # cargo it carried and the fuel it burned. Reported into the same fleet table.
+    if ctx.cunits is not None:
+        cargo = {
+            leg_key(cr.process, leg.fleet_id): (cr, leg)
+            for cr in prob.connection_routes
+            for leg in cr.legs
+        }
+        legflow = _series(ctx.legflow) if ctx.legflow is not None else {}
+        for (lk, t), v in _series(ctx.cunits).items():
+            if v <= _EPS or lk not in cargo:
+                continue
+            cr, leg = cargo[lk]
+            fl = prob.fleets.get(leg.fleet_id)
+            carried = legflow.get((lk, t), 0.0)
+            if carried <= _EPS:
+                continue  # idle carriers (degenerate when a fleet has no O&M) — not chosen
+            crow: dict[str, Any] = {
+                "process": cr.process,
+                "period": int(t),
+                "ships": round(v),
+                "fleet": leg.fleet_id,
+                "commodity": cr.commodity,
+                "throughput": carried,
+                "distance": cr.distance,
+            }
+            if fl and fl.fuel:
+                crow["fuel"] = fl.fuel
+                if fl.efficiency > 0:
+                    crow["fuel_used"] = fl.efficiency * cr.distance * carried
+            out["outputs"]["fleet"].append(crow)
+
     # A real transition is a switch INTO a non-baseline technology; the event
     # variable on a facility's own baseline carries no cost, so the solver may
     # leave it at 1 — exclude those.

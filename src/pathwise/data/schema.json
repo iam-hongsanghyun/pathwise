@@ -751,7 +751,8 @@
         },
         "speed": {"label": "Speed (dist/day)", "type": "number", "desc": "Travel speed in distance units per day."},
         "turnaround_days": {"label": "Turnaround (days)", "type": "number", "desc": "Load + unload time per round trip."},
-        "operating_days": {"label": "Operating days/yr", "type": "number", "desc": "In-service days per year (default 350)."}
+        "operating_days": {"label": "Operating days/yr", "type": "number", "desc": "In-service days per year (default 350)."},
+        "opex": {"label": "O&M / unit / yr", "type": "number", "desc": "Per-carrier annual operating cost (so carrier count carries a cost)."}
       }
     },
     "routes": {

@@ -72,6 +72,7 @@ class Fleet:
     speed: float = 0.0  # travel speed [distance unit / day]
     turnaround_days: float = 0.0  # load + unload per round trip [days]
     operating_days: float = 350.0  # in-service days per year [days / yr]
+    opex: float = 0.0  # per-carrier annual operating cost [currency / unit / yr]
 
     def active(self, year: int) -> bool:
         """Whether the fleet is in service in ``year`` (within its lifecycle)."""
@@ -126,6 +127,60 @@ class FleetRoute:
     share: float | None = None
     min_units: float = 0.0
     max_units: float | None = None
+
+
+def leg_key(route: str, fleet: str) -> str:
+    """Stable coord id for a (connection route, candidate fleet) pair."""
+    return f"{route}\x1f{fleet}"
+
+
+@dataclass(slots=True, frozen=True)
+class ConnectionLeg:
+    """A candidate fleet for a physicalised value-chain connection (Layer 1c+).
+
+    A connection route lists the fleets that *may* carry its stream; the optimiser
+    picks which one(s) actually run it (some fleets per route, not all).
+
+    Attributes:
+        fleet_id: Candidate fleet whose carriers may serve this route.
+        min_units: Floor on this fleet's carriers on this route [units].
+        max_units: Ceiling on this fleet's carriers on this route ([units]; ``None`` ⇒ ∞).
+    """
+
+    fleet_id: str
+    min_units: float = 0.0
+    max_units: float | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class ConnectionRoute:
+    """A value-chain stream connection made *physical* (Layer 1c+).
+
+    A virtual connection (an :class:`Edge`, instant + free — "teleportation") becomes
+    a physical route once its endpoints carry a location and it is given a transport
+    mode + candidate fleets. Its flow is then carried by an integer count of carriers
+    drawn from the fleets' shared pools, and the route's ``distance`` drives both how
+    many carriers are needed and the fuel burned (cost + emissions). Untouched
+    connections stay virtual (no ``ConnectionRoute`` ⇒ teleport).
+
+    Attributes:
+        process: Stable route key (``r_<from>__<to>__<commodity>``).
+        commodity: The stream this route physicalises.
+        distance: Route length [distance unit, e.g. km] — drives capacity + fuel.
+        edges: Indices into :attr:`Problem.edges` this route governs (the fanned
+            producer→consumer flows of the connection). The carriers carry exactly
+            their summed flow.
+        legs: Candidate fleets (the optimiser chooses among them).
+        blocked: Scenario switch — close this corridor (its flow is forced to 0, so
+            the stream must reroute or go undelivered: the Hormuz/Suez what-if).
+    """
+
+    process: str
+    commodity: str
+    distance: float
+    edges: tuple[int, ...]
+    legs: tuple[ConnectionLeg, ...] = ()
+    blocked: bool = False
 
 
 @dataclass(slots=True, frozen=True)
@@ -259,6 +314,11 @@ class Problem:
     # mode, distance). Distance drives per-carrier capacity (Layer 1c); the rest is
     # for distance computation + the map. Inert unless transport routes are present.
     routes: dict[str, Route] = field(default_factory=dict)
+    # Physicalised value-chain connections (Layer 1c+): each carries an existing
+    # commodity Edge's flow with a chosen fleet (from a candidate set), distance →
+    # carriers + fuel. Inert unless connection routes are present (then teleport is
+    # the default for every connection without one). See ``build._connection_fleet``.
+    connection_routes: list[ConnectionRoute] = field(default_factory=list)
     company_objective: dict[str, ObjectiveMode] = field(default_factory=dict)
     # Default goal for companies without a company_config override (the run-level
     # objective set in the Optimisation tab). Falls back to COST.

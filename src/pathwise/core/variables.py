@@ -14,7 +14,7 @@ import pandas as pd
 from linopy import Model
 
 from pathwise.core.entities import MarketTarget, MeasureType, TransitionAction
-from pathwise.core.problem import Problem
+from pathwise.core.problem import Problem, leg_key
 
 
 @dataclass(slots=True)
@@ -95,6 +95,8 @@ class BuildContext:
     z: Any = None  # measure adoption [slot, period]
     emit: Any = None  # impact emitted [process, impact, period]
     units: Any = None  # integer ships assigned to a fleet route [process, period]
+    cunits: Any = None  # integer carriers of a fleet on a physicalised connection [leg, period]
+    legflow: Any = None  # cargo carried by a fleet on a physicalised connection [leg, period]
     w: Any = None  # transition (replace) event [process, tech, period]
     ren: Any = None  # renewal (rebuild same tech, reset life) event [process, tech, period]
     cap_built: Any = None  # storage capacity built [store]
@@ -265,6 +267,19 @@ def build_context(model: Model, problem: Problem) -> BuildContext:
         ctx.units = model.add_variables(
             lower=0.0, integer=True, coords=[fp_idx, t_idx], name="units"
         )
+
+    # Connection fleet (Layer 1c+): per (physicalised connection route, candidate
+    # fleet) — the integer carriers assigned (cunits) and the cargo they carry
+    # (legflow). The optimiser picks which candidate fleet(s) serve each route.
+    leg_ids = [
+        leg_key(cr.process, leg.fleet_id) for cr in problem.connection_routes for leg in cr.legs
+    ]
+    if leg_ids:
+        lg_idx = pd.Index(leg_ids, name="leg")
+        ctx.cunits = model.add_variables(
+            lower=0.0, integer=True, coords=[lg_idx, t_idx], name="cunits"
+        )
+        ctx.legflow = model.add_variables(lower=0.0, coords=[lg_idx, t_idx], name="legflow")
 
     if slots:
         s_idx = pd.Index([s.key for s in slots], name="slot")

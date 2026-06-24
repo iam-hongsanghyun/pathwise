@@ -28,7 +28,15 @@ from pathwise.core.entities import (
     Transition,
     TransitionAction,
 )
-from pathwise.core.problem import CostToggles, Fleet, FleetRoute, Problem, Route
+from pathwise.core.problem import (
+    ConnectionLeg,
+    ConnectionRoute,
+    CostToggles,
+    Fleet,
+    FleetRoute,
+    Problem,
+    Route,
+)
 from pathwise.data.hierarchy import Hierarchy, load_hierarchy
 from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.sheets import (
@@ -457,7 +465,7 @@ def _assemble_fleet(
     Returns ``(fleets, fleet_available, fleet_routes, routes)``; ``inputs`` is mutated
     in place with the fuel coefficients.
     """
-    class_cols = ("company", "mode", "fuel", "cargo", "efficiency", "capacity", "count")
+    class_cols = ("company", "mode", "fuel", "cargo", "efficiency", "capacity", "count", "opex")
     fleets: dict[str, Fleet] = {}
     fleet_traj: dict[str, dict[int, float]] = {}
     for r in _rows(workbook, FLEET):
@@ -484,6 +492,7 @@ def _assemble_fleet(
                 speed=_numd(r.get("speed"), 0.0),
                 turnaround_days=_numd(r.get("turnaround_days"), 0.0),
                 operating_days=_numd(r.get("operating_days"), 350.0),
+                opex=_numd(r.get("opex"), 0.0),
             )
     fleet_available: dict[tuple[str, int], float] = {
         (fid, y): n for fid, traj in fleet_traj.items() for y, n in interpolate(traj, years).items()
@@ -1046,6 +1055,62 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             )
         )
 
+    # ── Connection routes: physicalised value-chain stream connections ───────
+    # A ``routes`` row that names a stream (``commodity``) and is NOT itself a
+    # transport process is a *physicalised connection*: it governs the producer→
+    # consumer edges of that connection (under its from/to nodes) and is carried by
+    # a chosen fleet from its candidate set (``fleet_routes`` rows for that route —
+    # MANY allowed, the optimiser picks). A row whose process IS a real process is a
+    # legacy transport-process route (handled by ``_assemble_fleet`` + ``_fleet``).
+    process_ids = {pid for r in _rows(workbook, PROCESSES) if (pid := _str(r.get("process_id")))}
+    legs_by_route: dict[str, list[ConnectionLeg]] = {}
+    for r in _rows(workbook, FLEET_ROUTES):
+        rp = _str(r.get("process"))
+        fid = _str(r.get("fleet_id")) or _str(r.get("archetype"))
+        if rp is None or fid is None or rp in process_ids:
+            continue
+        legs_by_route.setdefault(rp, []).append(
+            ConnectionLeg(
+                fleet_id=fid,
+                min_units=_numd(r.get("min_units"), 0.0),
+                max_units=_num(r.get("max_units")),
+            )
+        )
+
+    def _leaves(node: str) -> set[str]:
+        return set(hierarchy.leaf_machines(node)) if hierarchy is not None else {node}
+
+    connection_routes: list[ConnectionRoute] = []
+    for r in _rows(workbook, ROUTES):
+        rproc = _str(r.get("process"))
+        rcomm = _str(r.get("commodity"))
+        if rproc is None or not rcomm or rproc in process_ids:
+            continue  # not a physicalised connection (legacy/process route or no stream)
+        rfrom, rto = _str(r.get("from_node")) or "", _str(r.get("to_node")) or ""
+        froms, tos = _leaves(rfrom), _leaves(rto)
+        eidx = tuple(
+            i
+            for i, e in enumerate(edges)
+            if e.commodity_id == rcomm and e.from_process in froms and e.to_process in tos
+        )
+        geo = routes.get(rproc)
+        distance = geo.distance if geo is not None else (_num(r.get("distance"), 0.0) or 0.0)
+        # Explicit candidate fleets win; otherwise "optimiser chooses" ⇒ every fleet
+        # that carries this stream is a candidate (none compatible ⇒ stays teleport).
+        legs = legs_by_route.get(rproc) or [
+            ConnectionLeg(fleet_id=fid) for fid, fl in fleets.items() if fl.cargo == rcomm
+        ]
+        connection_routes.append(
+            ConnectionRoute(
+                process=rproc,
+                commodity=rcomm,
+                distance=distance,
+                edges=eidx,
+                legs=tuple(legs),
+                blocked=_bool(r.get("blocked"), False),
+            )
+        )
+
     # ── Measures (+ blocks, + optional per-year block cost) ──────────────────
     # Long-format measure_blocks_t (measure_id, block, year, capex, opex —
     # absolute, already scaled to the instance, matching measure_blocks).
@@ -1468,6 +1533,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         fleet_available=fleet_available,
         fleet_routes=fleet_routes,
         routes=routes,
+        connection_routes=connection_routes,
         company_objective=company_objective,
         default_objective=ObjectiveMode(scenario.objective),
         objective_impact=scenario.objective_impact,

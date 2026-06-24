@@ -34,7 +34,6 @@ import { routePath } from "../lib/api/routing";
 import type { Row, Workbook } from "../types";
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
-const num = (v: unknown): number => (v == null || v === "" ? 0 : Number(v) || 0);
 const blank = (v: string): number | string => (v === "" ? "" : Number(v));
 const has = (v: unknown): boolean => v != null && v !== "";
 let _ctr = 0;
@@ -202,19 +201,11 @@ export function FleetDesignerView({
     patchNode(id, { lon, lat });
     setSelId(id);
   }
+  // Block/unblock a corridor (scenario). The engine forces a blocked route's flow
+  // to 0; candidate fleets stay attached (inert while blocked), so unblocking just
+  // clears the flag — no stashing needed.
   function toggleBlock(proc: string, on: boolean) {
-    let wb = workbook;
-    if (on) {
-      const row = fleetRoutes.find((r) => s(r.process) === proc);
-      wb = setSheet(wb, "routes", routes.map((r) => (s(r.process) === proc ? { ...r, blocked: "true", blocked_fleet: row ? JSON.stringify(row) : "" } : r)));
-      if (row) wb = setSheet(wb, "fleet_routes", fleetRoutes.filter((r) => r !== row));
-    } else {
-      const r0 = routes.find((r) => s(r.process) === proc);
-      const stash = r0 && has(r0.blocked_fleet) ? (JSON.parse(s(r0.blocked_fleet)) as Row) : null;
-      wb = setSheet(wb, "routes", routes.map((r) => (s(r.process) === proc ? { ...r, blocked: "", blocked_fleet: "" } : r)));
-      if (stash) wb = setSheet(wb, "fleet_routes", [...fleetRoutes, stash]);
-    }
-    setWorkbook(wb);
+    setWorkbook(setSheet(workbook, "routes", routes.map((r) => (s(r.process) === proc ? { ...r, blocked: on ? "true" : "" } : r))));
   }
 
   // ── tree actions ─────────────────────────────────────────────────────────────
@@ -404,12 +395,14 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
   const proc = s(route.process);
   const blocked = s(route.blocked) === "true";
   const others = routes.filter((r) => s(r.process) !== proc);
-  const assign = fleetRoutes.find((r) => s(r.process) === proc);
-  const cur = assign ? fleetId(assign) : "";
   const commodity = s(route.commodity);
-  const fixed = !!assign && num(assign.min_units) > 0 && has(assign.max_units) && num(assign.min_units) === num(assign.max_units);
-  const setFleet = (fid: string) => setFleetRoutes(fid ? [...fleetRoutes.filter((r) => s(r.process) !== proc), { process: proc, fleet_id: fid }] : fleetRoutes.filter((r) => s(r.process) !== proc));
-  const setFix = (mode: string) => assign && setFleetRoutes(fleetRoutes.map((r) => (s(r.process) === proc ? (mode === "fixed" ? { ...r, min_units: num(r.max_units) || 1, max_units: num(r.max_units) || 1 } : { ...r, min_units: "", max_units: "" }) : r)));
+  // Candidate fleets: one fleet_routes row per fleet allowed to run this route. The
+  // optimiser picks among them; empty ⇒ it may use any fleet carrying the stream.
+  const candidates = fleetRoutes.filter((r) => s(r.process) === proc);
+  const candIds = new Set(candidates.map((r) => fleetId(r)));
+  const addable = fleets.filter((f) => !candIds.has(fleetId(f)));
+  const addCandidate = (fid: string) => { if (fid && !candIds.has(fid)) setFleetRoutes([...fleetRoutes, { process: proc, fleet_id: fid }]); };
+  const removeCandidate = (fid: string) => setFleetRoutes(fleetRoutes.filter((r) => !(s(r.process) === proc && fleetId(r) === fid)));
   const row = (lbl: string, el: React.ReactNode, info?: string) => (<label className="field-row" style={{ marginTop: 6 }}><span className="muted">{lbl} {info && <InfoTooltip text={info} />}</span><div style={{ flex: 1 }}>{el}</div></label>);
   return (
     <FloatingPanel title="route" width={360} onClose={onClose}>
@@ -423,14 +416,27 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
         {row("alternative of", <SearchSelect value={s(route.alternative_of)} onChange={(v) => onChange({ alternative_of: v })} options={[{ value: "", label: "— (primary)" }, ...others.map((r) => ({ value: s(r.process), label: `${labelOf(s(r.from_node))}→${labelOf(s(r.to_node))}` }))]} />, "Mark this as an alternative to another route (drawn dotted) — e.g. a Cape route standing in for a Suez one.")}
         <label className="field-row" style={{ marginTop: 10 }}>
           <input type="checkbox" checked={blocked} onChange={(e) => onToggleBlock(e.target.checked)} />
-          <span>Block this corridor (scenario) <InfoTooltip text="Close this corridor to test a disruption (e.g. Hormuz / Suez). Its fleet assignment is detached so the optimiser must reroute via other routes." /></span>
+          <span>Block this corridor (scenario) <InfoTooltip text="Close this corridor to test a disruption (e.g. Hormuz / Suez): the route's flow is forced to 0, so the stream must reroute or go undelivered." /></span>
         </label>
-        {!blocked && (
+        {!blocked && commodity && (
           <div className="rail-section" style={{ marginTop: 8 }}>
-            <div className="rail-head">Fleet on this route</div>
-            <p className="rail-empty" style={{ margin: "2px 0 4px" }}>Leave as “— optimiser chooses” to let the solve assign a fleet; pin one to fix it.</p>
-            {row("fleet", <SearchSelect value={cur} onChange={setFleet} options={[{ value: "", label: "— optimiser chooses" }, ...fleets.map((f) => ({ value: fleetId(f), label: fleetLabel(fleetId(f)) }))]} />)}
-            {assign && row("assignment", <SearchSelect value={fixed ? "fixed" : "flexible"} onChange={setFix} options={[{ value: "flexible", label: "Flexible (poolable)" }, { value: "fixed", label: "Fixed (locked here)" }]} />)}
+            <div className="rail-head">Candidate fleets <InfoTooltip text="Fleets that MAY carry this stream — the optimiser picks which one(s) run the route (some, not all). Leave empty to let it choose from every fleet that carries this stream." /></div>
+            {candidates.length === 0 ? (
+              <p className="rail-empty" style={{ margin: "2px 0 4px" }}>Empty — the optimiser may use any fleet carrying “{commodity}”.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", margin: "4px 0" }}>
+                {candidates.map((r) => {
+                  const fid = fleetId(r);
+                  return (
+                    <div key={fid} className="fleet-ep" style={{ cursor: "default" }}>
+                      <span className="fleet-ep-label" style={{ color: "var(--text)" }}>{fleetLabel(fid)}</span>
+                      <button className="rail-add" title="remove candidate" onClick={() => removeCandidate(fid)}>✕</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {addable.length > 0 && row("add fleet", <SearchSelect value="" onChange={addCandidate} options={[{ value: "", label: "— add a candidate" }, ...addable.map((f) => ({ value: fleetId(f), label: fleetLabel(fleetId(f)) }))]} />)}
           </div>
         )}
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>

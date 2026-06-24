@@ -32,7 +32,7 @@ from pathwise.core.entities import (
     Transition,
     TransitionAction,
 )
-from pathwise.core.problem import Problem
+from pathwise.core.problem import Problem, leg_key
 from pathwise.core.variables import BuildContext, build_context
 from pathwise.logger import get_logger
 
@@ -90,6 +90,7 @@ def build(problem: Problem) -> BuildContext:
     _controls(ctx)
     _adoption_caps(ctx)
     _fleet(ctx)
+    _connection_fleet(ctx)
     _objective(ctx)
     return ctx
 
@@ -1670,6 +1671,77 @@ def _fleet(ctx: BuildContext) -> None:
                 m.add_constraints(total <= avail, name=f"fleetpool[{a},{t}]")
 
 
+def _connection_fleet(ctx: BuildContext) -> None:
+    r"""Layer 1c+: carry a physicalised value-chain connection's flow with a fleet.
+
+    A virtual connection is an :class:`Edge` (free, instant — teleport). A
+    :class:`ConnectionRoute` makes it physical: its summed edge flow must be carried
+    by carriers drawn from candidate fleets, and the route's distance sets per-carrier
+    capacity (fewer round trips on a longer route) and fuel (priced in the objective).
+    The optimiser chooses which candidate fleet(s) run each route::
+
+        legflow[r,f,t] ≤ cap_f(dist_r) · cunits[r,f,t]        (capacity per carrier)
+        Σ_f legflow[r,f,t] = Σ_{e∈r} flow[e,t]                 (carriers carry the flow)
+        Σ_{r: f serves r} cunits[r,f,t] ≤ available_{f,t}      (shared pool per fleet)
+        min ≤ cunits ≤ max                                      (per-route unit bounds)
+
+    A blocked route forces its edge flow to 0 (the corridor is closed — the stream
+    must reroute or go undelivered). A fleet out of its lifecycle window carries
+    nothing that year. Inert unless ``Problem.connection_routes`` is present.
+    """
+    prob = ctx.problem
+    # A route with edges + (candidate fleets OR a block). With no fleets and no block
+    # the connection stays VIRTUAL (teleport) — physicalising without assigning a
+    # carrier has no effect on the flow (so e.g. a fleet-less model is unchanged).
+    crs = [cr for cr in prob.connection_routes if cr.edges and (cr.legs or cr.blocked)]
+    if not crs or ctx.legflow is None:
+        return
+    m = ctx.model
+    pool: dict[str, list[str]] = {}  # fleet_id -> [leg keys] (shared pool across routes)
+    for cr in crs:
+        for t in ctx.years:
+            flow_total = _lin_sum([ctx.flow.sel(edge=e, period=t) for e in cr.edges])
+            if flow_total is None:
+                continue
+            if cr.blocked:  # corridor closed (scenario) — no flow on this route's edges
+                m.add_constraints(flow_total == 0, name=f"rblock[{cr.process},{t}]")
+                continue
+            leg_terms: list[Any] = []
+            for leg in cr.legs:
+                lk = leg_key(cr.process, leg.fleet_id)
+                u = ctx.cunits.sel(leg=lk, period=t)
+                lf = ctx.legflow.sel(leg=lk, period=t)
+                fl = prob.fleets.get(leg.fleet_id)
+                cap = (fl.capacity_on(cr.distance) or fl.capacity) if fl else 0.0
+                if fl is None or not fl.active(t) or cap <= 0:
+                    # Fleet absent / retired / no capacity this year ⇒ it carries nothing.
+                    m.add_constraints(lf == 0, name=f"legoff[{lk},{t}]")
+                    continue
+                m.add_constraints(lf <= cap * u, name=f"legcap[{lk},{t}]")
+                if leg.max_units is not None:
+                    m.add_constraints(u <= leg.max_units, name=f"legmax[{lk},{t}]")
+                if leg.min_units:
+                    m.add_constraints(u >= leg.min_units, name=f"legmin[{lk},{t}]")
+                leg_terms.append(lf)
+            served = _lin_sum(leg_terms)
+            # The chosen carriers carry exactly the route's flow (no legs ⇒ no flow).
+            m.add_constraints(
+                (flow_total == 0) if served is None else (served == flow_total),
+                name=f"legbal[{cr.process},{t}]",
+            )
+        for leg in cr.legs:
+            pool.setdefault(leg.fleet_id, []).append(leg_key(cr.process, leg.fleet_id))
+    # Shared pool per fleet: carriers across all its connection routes ≤ available.
+    for fid, lks in pool.items():
+        for t in ctx.years:
+            avail = prob.fleet_available.get((fid, t))
+            if avail is None:
+                continue
+            total = _lin_sum([ctx.cunits.sel(leg=lk, period=t) for lk in lks])
+            if total is not None:
+                m.add_constraints(total <= avail, name=f"cpool[{fid},{t}]")
+
+
 def _objective(ctx: BuildContext) -> None:
     """Discounted total system cost + slack penalties (minimise).
 
@@ -1734,6 +1806,49 @@ def _objective(ctx: BuildContext) -> None:
             dims=["edge", "period"],
         )
         obj_terms.append((w_da * freight_da * ctx.flow).sum(["edge", "period"]))
+
+    # ── Connection-fleet fuel + carrier O&M (Layer 1c+) ──────────────────────
+    # A physicalised connection's chosen carriers burn fuel (efficiency × distance
+    # per unit cargo) — priced at the fuel's own purchase price + each emission at
+    # its own impact's price (no privileged fuel/impact) — and cost a per-carrier
+    # annual O&M. legflow is cargo carried [cargo/yr]; cunits is carriers [units].
+    if ctx.legflow is not None and prob.connection_routes:
+        legs = [(cr, leg) for cr in prob.connection_routes for leg in cr.legs]
+        leg_ids = [leg_key(cr.process, leg.fleet_id) for cr, leg in legs]
+
+        def _fuel_coeff(cr: Any, leg: Any, t: int) -> float:
+            fl = prob.fleets.get(leg.fleet_id)
+            if fl is None or not fl.fuel or fl.efficiency <= 0 or cr.distance <= 0:
+                return 0.0
+            per_cargo = fl.efficiency * cr.distance  # fuel burned per unit cargo
+            fuel_price = prob.commodities[fl.fuel].price(t) if fl.fuel in prob.commodities else 0.0
+            emit_price = sum(
+                prob.commodity_impact(fl.fuel, i, t) * prob.impacts[i].price(t)
+                for i in prob.impacts
+            )
+            return float(per_cargo * (fuel_price + emit_price))
+
+        if leg_ids:
+            fuel_arr = np.array([[_fuel_coeff(cr, leg, t) for t in ctx.years] for cr, leg in legs])
+            fuel_da = xr.DataArray(
+                fuel_arr, coords={"leg": leg_ids, "period": ctx.years}, dims=["leg", "period"]
+            )
+            obj_terms.append((w_da * fuel_da * ctx.legflow).sum(["leg", "period"]))
+
+            opex_arr = np.array(
+                [
+                    [
+                        (prob.fleets[leg.fleet_id].opex if leg.fleet_id in prob.fleets else 0.0)
+                        for _ in ctx.years
+                    ]
+                    for _cr, leg in legs
+                ]
+            )
+            if opex_arr.any():
+                cop_da = xr.DataArray(
+                    opex_arr, coords={"leg": leg_ids, "period": ctx.years}, dims=["leg", "period"]
+                )
+                obj_terms.append((w_da * cop_da * ctx.cunits).sum(["leg", "period"]))
 
     # ── Variable opex: w[t] * opex[k,t] * x[p,k,t] ──────────────────────────
     if tog.opex:

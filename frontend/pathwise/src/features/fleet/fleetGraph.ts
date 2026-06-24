@@ -130,14 +130,24 @@ export function buildRouteLeaves(
 ): RouteLeaf[] {
   const leaves: RouteLeaf[] = [];
   const byProc = new Set<string>();
+  // Dedup a connection candidate against an existing route row that already covers
+  // the same (from, to, commodity) — even if that row's process id doesn't follow
+  // the routeProc convention (e.g. an imported example using its own ids).
+  const byTriple = new Set<string>();
+  const triple = (from: string, to: string, commodity: string) => `${from}\x1f${to}\x1f${commodity}`;
   for (const r of routesRows) {
     const proc = s(r.process);
     if (!proc || byProc.has(proc)) continue;
     byProc.add(proc);
-    leaves.push({ proc, from: s(r.from_node), to: s(r.to_node), commodity: s(r.commodity), mode: s(r.mode) || "sea", physical: true });
+    const from = s(r.from_node);
+    const to = s(r.to_node);
+    const commodity = s(r.commodity);
+    byTriple.add(triple(from, to, commodity));
+    leaves.push({ proc, from, to, commodity, mode: s(r.mode) || "sea", physical: true });
   }
   for (const c of connections) {
     if (!coord.has(c.from) || !coord.has(c.to)) continue;
+    if (byTriple.has(triple(c.from, c.to, c.commodity))) continue;
     const proc = routeProc(c.from, c.to, c.commodity);
     if (byProc.has(proc)) continue;
     byProc.add(proc);
