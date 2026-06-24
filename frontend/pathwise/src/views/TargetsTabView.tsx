@@ -109,6 +109,40 @@ function scatter(rows: UC[]): Record<string, Row[]> {
   return out;
 }
 
+/** Fleet pool availability gathered per archetype: one number (flat across the
+ *  horizon) or a by-year map. Reads the `fleet` sheet (archetype, year, available). */
+function gatherFleet(wb: Workbook): Record<string, TemporalVal> {
+  const by: Record<string, { yr: number; v: number }[]> = {};
+  for (const r of wb.fleet ?? []) {
+    const a = s(r.archetype);
+    const yr = r.year == null || r.year === "" ? null : Math.round(n(r.year));
+    if (!a || yr == null) continue;
+    (by[a] ??= []).push({ yr, v: n(r.available) });
+  }
+  const out: Record<string, TemporalVal> = {};
+  for (const [a, pts] of Object.entries(by)) {
+    const vals = pts.map((p) => p.v);
+    out[a] = vals.every((v) => v === vals[0])
+      ? (vals[0] ?? 0)
+      : Object.fromEntries(pts.map((p) => [String(p.yr), p.v]));
+  }
+  return out;
+}
+
+/** Inverse of gatherFleet: a flat value → one row per model year (the engine needs a
+ *  year on every fleet row); a by-year value → one row per authored year (interpolated). */
+function scatterFleet(pool: Record<string, TemporalVal>, years: number[]): Row[] {
+  const rows: Row[] = [];
+  for (const [a, val] of Object.entries(pool)) {
+    if (typeof val === "number") {
+      for (const y of years) rows.push({ archetype: a, year: y, available: val });
+    } else {
+      for (const [yr, v] of Object.entries(val)) rows.push({ archetype: a, year: Number(yr), available: v });
+    }
+  }
+  return rows;
+}
+
 export function TargetsTabView({
   workbook,
   setWorkbook,
@@ -155,6 +189,29 @@ export function TargetsTabView({
       { kind: "production", type: "produce", target: products[0] ?? "", scope: "all", value: 100, extra: {} },
     ]);
   const del = (i: number) => commit(rows.filter((_, j) => j !== i));
+
+  // ── Fleet (Layer 1b: a shared pool of interchangeable machines split over routes) ─
+  const procIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of workbook.processes ?? []) if (s(r.process_id)) set.add(s(r.process_id));
+    for (const r of workbook.machines ?? []) if (s(r.machine_id)) set.add(s(r.machine_id));
+    return [...set];
+  }, [workbook]);
+  const fleetRoutes = useMemo(() => (workbook.fleet_routes ?? []) as Row[], [workbook]);
+  const pool = useMemo(() => gatherFleet(workbook), [workbook]);
+  const archetypes = useMemo(() => {
+    const set = new Set<string>(Object.keys(pool));
+    for (const r of fleetRoutes) if (s(r.archetype)) set.add(s(r.archetype));
+    return [...set];
+  }, [pool, fleetRoutes]);
+  const commitRoutes = (rs: Row[]) => setWorkbook({ ...workbook, fleet_routes: rs });
+  const commitPool = (next: Record<string, TemporalVal>) =>
+    setWorkbook({ ...workbook, fleet: scatterFleet(next, years) });
+  const addRoute = () =>
+    commitRoutes([...fleetRoutes, { process: procIds[0] ?? "", archetype: archetypes[0] ?? "ship", share: 100 }]);
+  const patchRoute = (i: number, p: Row) => commitRoutes(fleetRoutes.map((r, j) => (j === i ? { ...r, ...p } : r)));
+  const delRoute = (i: number) => commitRoutes(fleetRoutes.filter((_, j) => j !== i));
+  const setPool = (a: string, v: TemporalVal | null | undefined) => commitPool({ ...pool, [a]: v ?? 0 });
 
   // Keep type/target valid when the kind changes.
   function normalise(c: UC): UC {
@@ -348,6 +405,122 @@ export function TargetsTabView({
                 ))}
               </tbody>
             </table>
+          )}
+        </section>
+
+        {/* Fleet (Layer 1b) */}
+        <section style={{ marginBottom: 22 }}>
+          <h3 className="section-title" style={{ marginBottom: 2 }}>Fleet (route assignment)</h3>
+          <p className="muted" style={{ fontSize: "0.74rem", margin: "0 0 8px" }}>
+            A shared pool of interchangeable machines (e.g. ships) split across routes. Each route
+            is a process; one machine carries <b>share</b> of the route's product per year, so a
+            route's throughput is capped at <b>share × ships assigned</b>. The solver assigns whole
+            machines (integers) and the assignments on each pool sum to its <b>available</b> count —
+            so a scarce pool reallocates across routes and can leave demand unmet.
+          </p>
+          <button className="ghost" style={{ marginBottom: 8 }} onClick={addRoute}>
+            ＋ add route
+          </button>
+          {fleetRoutes.length === 0 ? (
+            <p className="muted" style={{ fontSize: "0.78rem" }}>
+              No fleet routes — ＋ add one to pool machines across processes.
+            </p>
+          ) : (
+            <table className="grid" style={{ width: "100%", fontSize: "0.76rem" }}>
+              <thead>
+                <tr style={{ textAlign: "left", color: "var(--muted)" }}>
+                  <th>route (process)</th>
+                  <th>pool</th>
+                  <th>share (／machine·yr)</th>
+                  <th>min</th>
+                  <th>max</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {fleetRoutes.map((r, i) => (
+                  <tr key={i}>
+                    <td style={cell}>
+                      <SearchSelect
+                        value={s(r.process)}
+                        onChange={(v) => patchRoute(i, { process: v })}
+                        options={procIds.map((o) => ({ value: o }))}
+                      />
+                    </td>
+                    <td style={cell}>
+                      <input
+                        style={{ minWidth: 90 }}
+                        value={s(r.archetype)}
+                        placeholder="ship"
+                        onChange={(e) => patchRoute(i, { archetype: e.target.value })}
+                      />
+                    </td>
+                    <td style={cell}>
+                      <input
+                        type="number"
+                        style={{ width: 90 }}
+                        value={s(r.share)}
+                        onChange={(e) => patchRoute(i, { share: e.target.value === "" ? "" : Number(e.target.value) })}
+                      />
+                    </td>
+                    <td style={cell}>
+                      <input
+                        type="number"
+                        style={{ width: 64 }}
+                        value={s(r.min_units)}
+                        placeholder="0"
+                        onChange={(e) => patchRoute(i, { min_units: e.target.value === "" ? "" : Number(e.target.value) })}
+                      />
+                    </td>
+                    <td style={cell}>
+                      <input
+                        type="number"
+                        style={{ width: 64 }}
+                        value={s(r.max_units)}
+                        placeholder="∞"
+                        onChange={(e) => patchRoute(i, { max_units: e.target.value === "" ? "" : Number(e.target.value) })}
+                      />
+                    </td>
+                    <td>
+                      <button className="ghost" title="remove" onClick={() => delRoute(i)}>✕</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {archetypes.length > 0 && (
+            <>
+              <h4 style={{ fontSize: "0.78rem", fontWeight: 600, margin: "12px 0 4px" }}>
+                Pool availability (machines)
+              </h4>
+              <table className="grid" style={{ fontSize: "0.76rem" }}>
+                <thead>
+                  <tr style={{ textAlign: "left", color: "var(--muted)" }}>
+                    <th style={{ minWidth: 120 }}>pool</th>
+                    <th>available (machines)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {archetypes.map((a) => (
+                    <tr key={a}>
+                      <td style={cell}>{a}</td>
+                      <td style={cell}>
+                        <TemporalValue
+                          value={pool[a] ?? 0}
+                          onChange={(v) => setPool(a, v)}
+                          label={`${a} · available machines`}
+                          unit="machines"
+                          perYear={false}
+                          baseYear={baseYear}
+                          periods={years}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
           )}
         </section>
 
