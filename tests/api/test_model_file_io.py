@@ -8,13 +8,22 @@ sheets — `units`, `markets`, `impact_prices` — round-trip with everything el
 
 from __future__ import annotations
 
+import io
 from importlib.resources import files
 from typing import Any
 
 import numpy as np
+import pandas as pd
 
-from pathwise.api.workbook_io import parse_sqlite, parse_xlsx, write_sqlite, write_xlsx
+from pathwise.api.workbook_io import (
+    parse_sqlite,
+    parse_xlsx,
+    write_sqlite,
+    write_template_xlsx,
+    write_xlsx,
+)
 from pathwise.backends.registry import get_backend
+from pathwise.data.schema import template_columns
 
 _SC = {
     "economics": {"base_year": 2025},
@@ -72,3 +81,17 @@ def test_new_sheets_roundtrip_through_xlsx() -> None:
     assert rt["markets"][0]["market_id"] == "ets_kr"
     assert float(rt["markets"][0]["allocation"]) == 100.0
     assert float(rt["impact_prices"][0]["price"]) == 50.0
+
+
+def test_blank_template_has_entity_and_temporal_tabs_with_headers() -> None:
+    cols = template_columns()
+    frames = pd.read_excel(io.BytesIO(write_template_xlsx(cols)), sheet_name=None)
+    # Each entity is its own tab.
+    for sheet in ["technologies", "measures", "commodities", "markets", "io", "impacts", "demand"]:
+        assert sheet in frames, f"missing entity tab {sheet}"
+    # Temporal data lives in _t / _t__field tabs.
+    assert "io_t" in frames and "markets_t__price" in frames
+    assert any(s.endswith("_t") or "_t__" in s for s in frames)
+    # Header row matches the schema, with no data rows to fill in from.
+    assert list(frames["markets"].columns) == cols["markets"]
+    assert len(frames["technologies"].index) == 0

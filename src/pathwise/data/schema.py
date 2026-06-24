@@ -29,3 +29,13 @@ TERMINOLOGY: dict[str, str] = _CONFIG["terminology"]
 
 #: Column descriptors per sheet (drives the frontend grid + tooltips/validation).
 SCHEMA: dict[str, Any] = _CONFIG["sheets"]
+
+
+def template_columns() -> dict[str, list[str]]:
+    """Every sheet → its ordered column names — the blank fill-in template.
+
+    The keys are exactly what import reads back, so a filled-in template round-trips.
+    Temporal sheets keep their ``_t`` / ``_t__field`` names; each entity (technologies,
+    measures, commodities, markets, …) is its own sheet.
+    """
+    return {name: list(sh.get("columns", {})) for name, sh in SCHEMA.items()}

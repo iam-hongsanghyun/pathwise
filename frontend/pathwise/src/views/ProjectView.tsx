@@ -14,6 +14,7 @@ import {
   exportModelUrl,
   listExamples,
   loadExample,
+  modelTemplateUrl,
   uploadWorkbook,
 } from "../lib/api/session";
 import { type UnitsBundle, getUnits } from "../lib/api/units";
@@ -373,9 +374,13 @@ export function ProjectView({
             Export the model itself as a human-readable <b>.xlsx</b> (one sheet per table,
             PyPSA-style) or a single-file <b>.sqlite</b>. Import an edited .xlsx or .sqlite to
             replace the working model — it becomes the project. (The bundle above also carries the
-            component libraries; these are just the model sheets.)
+            component libraries; these are just the model sheets.) Start from a{" "}
+            <b>blank template</b> — every sheet with its column headers to fill in.
           </p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button className="ghost" onClick={() => triggerDownload(modelTemplateUrl())}>
+              ↓ Blank template
+            </button>
             <button className="run-button" disabled={busy || !sessionId}
               onClick={() => sessionId && triggerDownload(exportModelUrl(sessionId))}>
               ↓ Export .xlsx

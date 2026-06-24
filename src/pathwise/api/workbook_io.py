@@ -102,6 +102,16 @@ def write_xlsx(model: Workbook) -> bytes:
     return buf.getvalue()
 
 
+def write_template_xlsx(columns: dict[str, list[str]]) -> bytes:
+    """A blank fill-in ``.xlsx``: one sheet per table with its column headers and no
+    rows. ``columns`` is ``{sheet: [col, …]}`` (e.g. from ``schema.template_columns``)."""
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as xw:
+        for sheet, cols in columns.items():
+            pd.DataFrame(columns=list(cols)).to_excel(xw, sheet_name=str(sheet)[:31], index=False)
+    return buf.getvalue()
+
+
 def result_to_xlsx(result: dict[str, Any]) -> bytes:
     """Flatten a run result into ``.xlsx`` bytes (the old client-side export)."""
     outputs = result.get("outputs", {})

@@ -121,6 +121,11 @@ export function exportModelSqliteUrl(sessionId: string): string {
   return `/api/session/${sessionId}/export.sqlite`;
 }
 
+/** Download URL for the blank fill-in template (.xlsx, one sheet per table, headers only). */
+export function modelTemplateUrl(): string {
+  return "/api/template.xlsx";
+}
+
 /** Download a run result as .xlsx (flattened server-side). */
 async function _downloadResult(result: unknown, path: string, filename: string): Promise<void> {
   const resp = await fetch(path, {

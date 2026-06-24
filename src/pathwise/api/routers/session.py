@@ -23,6 +23,7 @@ from pathwise.api.workbook_io import (
     result_to_sqlite,
     result_to_xlsx,
     write_sqlite,
+    write_template_xlsx,
     write_xlsx,
 )
 from pathwise.config import get_settings
@@ -30,6 +31,7 @@ from pathwise.core.valuechain import run_value_chain
 from pathwise.data.components import extract_library_from_workbook, load_component_library
 from pathwise.data.libraries import discover_libraries, load_library_workbook
 from pathwise.data.scenario import ScenarioConfig
+from pathwise.data.schema import template_columns
 from pathwise.data.valuechain import ValueChainSpec, load_value_chain
 from pathwise.logger import get_logger
 
@@ -216,10 +218,39 @@ async def upload_workbook(session_id: str, file: UploadFile) -> dict[str, Any]:
     return {"sessionId": session_id, "sheets": counts}
 
 
+# Sheets that don't count as "model content" when deciding an empty model → template.
+_NON_CONTENT_SHEETS = {"meta", "project", "node_layout"}
+
+
+def _model_is_empty(model: dict[str, list[dict[str, Any]]]) -> bool:
+    """True when the model carries no actual data (only metadata / layout) — an
+    export then yields the blank fill-in template instead of an empty file."""
+    return not any(rows for name, rows in model.items() if name not in _NON_CONTENT_SHEETS and rows)
+
+
+def _template_response(filename: str = "pathwise_template.xlsx") -> Response:
+    return Response(
+        content=write_template_xlsx(template_columns()),
+        media_type=XLSX_MIME,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/template.xlsx")
+def download_template() -> Response:
+    """The blank fill-in template: one sheet per table with its column headers."""
+    return _template_response()
+
+
 @router.get("/session/{session_id}/export")
 def export_workbook(session_id: str) -> Response:
-    """Download the session model as a human-readable ``.xlsx`` (one sheet per table)."""
+    """Download the session model as a human-readable ``.xlsx`` (one sheet per table).
+
+    An empty model exports the blank template instead — so a fresh project gives
+    the user a structured workbook to fill in, not an empty file."""
     model = _model_or_404(_store(), session_id)
+    if _model_is_empty(model):
+        return _template_response("pathwise_model.xlsx")
     return Response(
         content=write_xlsx(model),
         media_type=XLSX_MIME,
