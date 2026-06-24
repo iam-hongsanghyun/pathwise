@@ -368,6 +368,28 @@ def extract_results(
     by_period_impact: dict[tuple[int, str], float] = {}
     for (_p, i, t), v in emit.items():
         by_period_impact[(int(t), i)] = by_period_impact.get((int(t), i), 0.0) + v
+    # Transport-route fuel emissions (fuel_used × commodity_impacts — never hardcoded)
+    # join the same totals so reported impacts span the value chain + its transport.
+    if ctx.legflow is not None and prob.connection_routes:
+        legmap = {
+            leg_key(cr.process, leg.fleet_id): (cr, leg)
+            for cr in prob.connection_routes
+            for leg in cr.legs
+        }
+        for (lk, t), v in _series(ctx.legflow).items():
+            pair = legmap.get(lk)
+            if pair is None or v <= _EPS:
+                continue
+            cr, leg = pair
+            fl = prob.fleets.get(leg.fleet_id)
+            if fl is None or not fl.fuel:
+                continue
+            fuel_used = v * fl.efficiency * cr.distance
+            for (comm, imp), fac in prob.commodity_impacts.items():
+                if comm == fl.fuel and fac:
+                    by_period_impact[(int(t), imp)] = (
+                        by_period_impact.get((int(t), imp), 0.0) + fuel_used * fac
+                    )
     out["summary"]["impacts"] = [
         {"period": t, "impact": i, "total": val} for (t, i), val in sorted(by_period_impact.items())
     ]

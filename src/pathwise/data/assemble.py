@@ -1100,6 +1100,11 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         legs = legs_by_route.get(rproc) or [
             ConnectionLeg(fleet_id=fid) for fid, fl in fleets.items() if fl.cargo == rcomm
         ]
+        # Emissions attribute to the origin node + its ancestors, so a region/company
+        # cap that contains the origin also binds this leg's transport emissions.
+        scope_chain = (
+            (rfrom, *hierarchy.ancestors(rfrom)) if hierarchy is not None and rfrom else (rfrom,)
+        )
         connection_routes.append(
             ConnectionRoute(
                 process=rproc,
@@ -1108,6 +1113,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 edges=eidx,
                 legs=tuple(legs),
                 blocked=_bool(r.get("blocked"), False),
+                scope_chain=tuple(x for x in scope_chain if x),
             )
         )
 

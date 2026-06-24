@@ -18,6 +18,7 @@ Linopy/xarray idioms used throughout:
 from __future__ import annotations
 
 import itertools
+from collections.abc import Callable
 from typing import Any
 
 import numpy as np
@@ -1299,6 +1300,11 @@ def _impacts(ctx: BuildContext) -> None:
 
         total_by_period = scope_impact_sum[cache_key]
         total = total_by_period.sel(impact=i, period=y) if total_by_period is not None else None
+        # Transport: physicalised routes whose origin is in this scope also count
+        # toward the cap (their emissions = fuel · commodity_impacts, never hardcoded).
+        route = _route_emit_terms(ctx, i, y, lambda cr, c=c: c == "all" or c in cr.scope_chain)
+        if route is not None:
+            total = route if total is None else (total + route)
         key = f"{c}|{i}|{y}"
         slack = ctx.slk_cap.sel(ckey=key)
         limit = prob.impact_caps[(c, i, y)]
@@ -1742,6 +1748,51 @@ def _connection_fleet(ctx: BuildContext) -> None:
                 m.add_constraints(total <= avail, name=f"cpool[{fid},{t}]")
 
 
+def _route_emit_terms(
+    ctx: BuildContext, impact: str, year: int, in_scope: Callable[[Any], bool]
+) -> Any:
+    r"""Connection-route fuel emissions of ``impact`` in ``year`` (a linopy expr or None).
+
+    For every candidate fleet on every in-scope physicalised route::
+
+        Σ  legflow · efficiency · distance · commodity_impact(fuel, impact, year)
+
+    A characterised *category* impact expands into its flow components
+    (``Σ_flow CF · …``). Every factor comes from the model's ``commodity_impacts`` /
+    ``characterisation`` — never hardcoded. This is added INTO impact caps and the LCIA
+    objective so transport emissions are bound + minimised like any process emission,
+    while the cost objective already prices them via the fuel term.
+    """
+    prob = ctx.problem
+    if ctx.legflow is None or not prob.connection_routes:
+        return None
+    # A category → its (flow, CF) components; a base impact → itself.
+    comps = [(f, cf) for (f, cat), cf in prob.characterisation.items() if cat == impact]
+    if not comps:
+        comps = [(impact, 1.0)]
+    terms: list[Any] = []
+    for cr in prob.connection_routes:
+        if cr.blocked or not cr.legs or not in_scope(cr):
+            continue
+        for leg in cr.legs:
+            fl = prob.fleets.get(leg.fleet_id)
+            if (
+                fl is None
+                or not fl.active(year)
+                or not fl.fuel
+                or fl.efficiency <= 0
+                or cr.distance <= 0
+            ):
+                continue
+            coeff = sum(prob.commodity_impact(fl.fuel, fi, year) * cf for fi, cf in comps)
+            coeff *= fl.efficiency * cr.distance
+            if coeff:
+                terms.append(
+                    coeff * ctx.legflow.sel(leg=leg_key(cr.process, leg.fleet_id), period=year)
+                )
+    return _lin_sum(terms)
+
+
 def _objective(ctx: BuildContext) -> None:
     """Discounted total system cost + slack penalties (minimise).
 
@@ -2056,6 +2107,11 @@ def _objective(ctx: BuildContext) -> None:
         )
         emit_cat = ctx.emit.sel(impact=prob.objective_impact)  # (process, period)
         blend.append((prob.impact_weight * dur_da * emit_cat).sum(["process", "period"]))
+        # Transport routes also contribute to the minimised impact (e.g. GWP).
+        for t in ctx.years:
+            rt = _route_emit_terms(ctx, prob.objective_impact, t, lambda _cr: True)
+            if rt is not None:
+                blend.append((prob.impact_weight * dur[t]) * rt)
     blend.extend(penalty_terms)
 
     obj = _lin_sum(blend)

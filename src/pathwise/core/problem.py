@@ -181,6 +181,10 @@ class ConnectionRoute:
     edges: tuple[int, ...]
     legs: tuple[ConnectionLeg, ...] = ()
     blocked: bool = False
+    #: Scope ids this route's emissions attribute to (its origin node + every ancestor),
+    #: so a group/company/region impact cap that contains the origin also binds the
+    #: transport leaving it. ``"all"`` always matches (sector-wide).
+    scope_chain: tuple[str, ...] = ()
 
 
 @dataclass(slots=True, frozen=True)

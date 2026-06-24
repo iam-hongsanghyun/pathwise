@@ -32,6 +32,7 @@ def _wb(
     candidates: tuple[str, ...] = ("dirty", "clean"),
     blocked: bool = False,
     with_fleets: bool = True,
+    co2_cap: float | None = None,
 ) -> dict[str, Any]:
     """A KR→DST cargo connection physicalised into a route with candidate fleets.
 
@@ -160,6 +161,15 @@ def _wb(
         "fleet_groups": [{"group_id": "c", "label": "Carrier", "level": "company"}],
         **({"fleet": fleet, "fleet_routes": fleet_routes} if with_fleets else {}),
         "demand": [{"company": "vc/dst", "commodity_id": "prod", "year": 2025, "amount": _DEMAND}],
+        **(
+            {
+                "impact_caps": [
+                    {"company": "all", "impact_id": "co2", "limit": co2_cap, "soft": False}
+                ]
+            }
+            if co2_cap is not None
+            else {}
+        ),
     }
 
 
@@ -220,6 +230,36 @@ def test_physicalised_without_a_fleet_stays_virtual_teleport() -> None:
     assert res["status"] == "optimal"
     assert not _chosen(res)  # nothing reported as fleet-carried
     assert abs(_delivered(res) - _DEMAND) < 1e-6  # demand still fully met (teleport)
+
+
+def test_transport_emissions_count_toward_a_hard_co2_cap() -> None:
+    # No carbon price → HFO is cheapest, but a hard CO2 cap forbids its fuel
+    # emissions, so the optimiser must switch to the zero-CO2 fleet. Proves the
+    # route's fuel emissions enter the impact-cap inventory.
+    res = _solve(_wb(co2_price=0.0, co2_cap=1000.0))
+    assert res["status"] == "optimal"
+    chosen = _chosen(res)
+    assert "clean" in chosen and "dirty" not in chosen
+    assert abs(_delivered(res) - _DEMAND) < 1e-6
+    co2 = sum(float(s["total"]) for s in res["summary"]["impacts"] if s["impact"] == "co2")
+    assert co2 <= 1000.0 + 1e-6  # the cap (incl. transport) holds
+
+
+def test_lcia_objective_minimises_transport_emissions() -> None:
+    # objective_impact = co2 with a large weight, no carbon price → minimising the
+    # inventory (which now includes transport) picks the zero-CO2 fleet.
+    sc = ScenarioConfig.from_dict(
+        {
+            "economics": {"base_year": 2025, "discount_rate": 0.0},
+            "optimisation_scope": "system",
+            "objective_impact": "co2",
+            "impact_weight": 1.0e6,
+        }
+    )
+    res = extract_results(solve(build(assemble_problem(_wb(co2_price=0.0), sc)))).copy()
+    assert res["status"] == "optimal"
+    chosen = _chosen(res)
+    assert "clean" in chosen and "dirty" not in chosen
 
 
 def test_single_candidate_is_forced() -> None:
