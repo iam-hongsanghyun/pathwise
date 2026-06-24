@@ -10,6 +10,8 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { useDialogs } from "../features/controls/Dialog";
 import { Resizer } from "../layout/Resizer";
 import { CollapsibleRail } from "../layout/CollapsibleRail";
+import { FlatTablePanel } from "../features/table/FlatTablePanel";
+import { flattenFacilityGroup } from "../features/table/flatten.facility";
 import { TemporalValue } from "../features/controls/TemporalValue";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
 import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types";
@@ -68,6 +70,9 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   const [libH, setLibH] = useState(260); // adjustable height of the bottom library tree
   const [leftW, setLeftW] = useState(280); // adjustable width of the left (tree) rail
   const [leftOpen, setLeftOpen] = useState(true); // left rail collapse toggle
+  const [tableGroup, setTableGroup] = useState<string | null>(null); // "See in a table" group
+  const [tableOpen, setTableOpen] = useState(true);
+  const [tableH, setTableH] = useState(260);
   // Machine editor: adjustable rail width + each column's bottom-zone height.
   const [railW, setRailW] = useState(300);
   const [mainBottomH, setMainBottomH] = useState(240);
@@ -330,13 +335,15 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   }, [allLibs, libBodies]);
 
   function actionsFor(node: TreeNode): TreeAction[] {
-    if (node.kind === "machine") return [{ id: "delete", label: "Delete", danger: true }];
+    if (node.kind === "machine")
+      return [{ id: "edit", label: "Edit" }, { id: "delete", label: "Delete", danger: true }];
     // A kind-group (Technology / Stream / Measures & MACC) is leaf-level — you
     // can't add a sub-group inside it, only drop components.
     const prefixed = isPrefixedLevel(node.level);
     return [
       ...(prefixed ? [] : [{ id: "add-group", label: "Add group inside" }]),
-      { id: "rename", label: "Rename", separatorBefore: !prefixed },
+      { id: "see-table", label: "See in a table", separatorBefore: !prefixed },
+      { id: "rename", label: "Rename", separatorBefore: true },
       { id: "delete", label: "Delete", danger: true },
     ];
   }
@@ -352,8 +359,11 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     if (actionId === "add-group") void addSubgroup(node.id);
     else if (actionId === "rename") void renameNode(node.id);
     else if (actionId === "delete") void deleteNode(node.id);
+    else if (actionId === "edit") setSelId(node.id);
+    else if (actionId === "see-table") { setTableGroup(node.id); setTableOpen(true); }
   }
 
+  const tableResult = useMemo(() => (tableGroup ? flattenFacilityGroup(workbook, tableGroup) : null), [tableGroup, workbook]);
   const sel = selId ? nodeById.get(selId) : null;
 
   function renderDetail() {
@@ -658,6 +668,10 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
           {renderDetail()}
         </main>
       </div>
+      {tableResult && (
+        <FlatTablePanel result={tableResult} workbook={workbook} setWorkbook={setWorkbook} baseYear={baseYear} periods={periods}
+          height={tableH} setHeight={setTableH} open={tableOpen} onToggle={() => setTableOpen((o) => !o)} onClose={() => setTableGroup(null)} />
+      )}
       {dialogNode}
     </div>
   );
