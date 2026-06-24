@@ -6,7 +6,7 @@
 
 import type { Row, Workbook } from "../../types";
 import { parseNodes } from "../../lib/groupGraph";
-import { instAttr, modelCurrency, setInstAttr, setTechCost, techCost } from "../../lib/caps";
+import { instAttr, ioCoeff, modelCurrency, setInstAttr, setIoCoeff, setTechCost, techCost } from "../../lib/caps";
 import type { CellVal, FlatColumn, FlatResult, FlatRow } from "./flatten";
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
@@ -78,6 +78,46 @@ function techCostCol(key: string, label: string, unit: string, perYear: boolean)
   };
 }
 
+// A temporal technology attribute (e.g. min capacity factor) via instAttr.
+function techTemporalCol(key: string, label: string, tSheet: string, unit: string, perYear: boolean): FlatColumn {
+  return {
+    key,
+    label,
+    kind: "temporal",
+    unit,
+    perYear,
+    get: (wb, id) => instAttr(wb, "technologies", "technology_id", techIdOf(wb, id), key, tSheet),
+    set: (wb, id, v: CellVal) =>
+      setInstAttr(wb, "technologies", "technology_id", techIdOf(wb, id), key, tSheet, v as number | Record<string, number> | null),
+  };
+}
+
+// The distinct stream targets of a technology's recipe on one side (input/output).
+function ioTargets(wb: Workbook, techId: string, role: string): string[] {
+  const seen = new Set<string>();
+  for (const sheet of ["io", "io_t"]) {
+    for (const r of wb[sheet] ?? []) {
+      if (s(r.technology_id) === techId && s(r.role) === role && s(r.target)) seen.add(s(r.target));
+    }
+  }
+  return [...seen];
+}
+
+// A recipe side: lists each stream; clicking one edits its coefficient (temporal-aware).
+function streamCol(role: "input" | "output", label: string): FlatColumn {
+  return {
+    key: role,
+    label,
+    kind: "streams",
+    streams: (wb, id) => ioTargets(wb, techIdOf(wb, id), role),
+    streamGet: (wb, id, target) => ioCoeff(wb, techIdOf(wb, id), role, target),
+    streamSet: (wb, id, target, v) =>
+      setIoCoeff(wb, techIdOf(wb, id), role, target, v as number | Record<string, number> | null),
+    get: (wb, id) => ioTargets(wb, techIdOf(wb, id), role).join(", "),
+    set: (wb) => wb,
+  };
+}
+
 export function flattenFacilityGroup(wb: Workbook, groupId: string): FlatResult {
   const nodes = parseNodes(wb);
   const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -118,7 +158,12 @@ export function flattenFacilityGroup(wb: Workbook, groupId: string): FlatResult 
     machineCol("decommission_year", "Close year", "number"),
     machineCol("max_renewals", "Max renewals", "number"),
     machineTemporalCol("max_capacity_factor", "Max cap. factor", "processes_t__max_capacity_factor", "×cap", false),
+    streamCol("input", "Inputs"),
+    streamCol("output", "Outputs"),
     techCol("lifespan", "Lifespan (yr)", "number"),
+    techCol("introduction_year", "Tech intro yr", "number"),
+    techCol("phase_out_year", "Tech phase-out", "number"),
+    techTemporalCol("min_capacity_factor", "Min cap. factor", "technologies_t__min_capacity_factor", "×cap", false),
     techCostCol("capex", "Capex", cur, false),
     techCostCol("opex", "Opex", cur, true),
     techCostCol("renewal", "Renewal", cur, false),

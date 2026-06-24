@@ -78,6 +78,31 @@ export function FlatTablePanel({ result, workbook, setWorkbook, baseYear, period
     );
   };
 
+  // A recipe side (inputs/outputs): each stream name + its coefficient as a click-to-
+  // edit value (static or temporal), so the whole recipe lives in one cell.
+  const StreamsCell = ({ col, id, name }: { col: FlatColumn; id: string; name: string }) => {
+    const targets = col.streams?.(workbook, id) ?? [];
+    if (targets.length === 0) return <span className="muted">—</span>;
+    return (
+      <div className="flat-streams">
+        {targets.map((target) => (
+          <span key={target} className="flat-stream">
+            <span className="flat-stream-name">{target}</span>
+            <TemporalValue
+              value={(col.streamGet?.(workbook, id, target) as TemporalVal | null) ?? null}
+              onChange={(v) => col.streamSet && setWorkbook(col.streamSet(workbook, id, target, v))}
+              label={`${name} · ${col.label} · ${target}`}
+              baseYear={baseYear}
+              periods={periods}
+              variant="text"
+              placeholder="0"
+            />
+          </span>
+        ))}
+      </div>
+    );
+  };
+
   // Fixed location columns (read-only) + one editable column per FlatColumn.
   const columns = useMemo<ColumnDef<FlatRow>[]>(() => {
     const fixed: ColumnDef<FlatRow>[] = [
@@ -94,7 +119,9 @@ export function FlatTablePanel({ result, workbook, setWorkbook, baseYear, period
         return v == null ? "" : typeof v === "object" ? "varies" : v;
       },
       cell: (c) =>
-        col.kind === "temporal" ? (
+        col.kind === "streams" ? (
+          <StreamsCell col={col} id={c.row.original.id} name={c.row.original.name} />
+        ) : col.kind === "temporal" ? (
           <TemporalValue
             value={(col.get(workbook, c.row.original.id) as TemporalVal | null) ?? null}
             onChange={(v) => setWorkbook(col.set(workbook, c.row.original.id, v))}

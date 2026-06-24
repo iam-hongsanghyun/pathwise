@@ -14,7 +14,7 @@ export interface FlatColumn {
   label: string;
   /** fieldMeta key for the header tooltip/unit (optional). */
   metaKey?: string;
-  kind: "text" | "number" | "enum" | "temporal";
+  kind: "text" | "number" | "enum" | "temporal" | "streams";
   /** enum options (kind="enum"). */
   options?: string[];
   unit?: string;
@@ -22,6 +22,12 @@ export interface FlatColumn {
   perYear?: boolean;
   get: (wb: Workbook, rowId: string) => CellVal;
   set: (wb: Workbook, rowId: string, v: CellVal) => Workbook;
+  // ── kind="streams": a recipe side (inputs/outputs). The cell lists each stream
+  // name; clicking one edits its coefficient (static or temporal). get() returns the
+  // joined names so search/sort still work. ──
+  streams?: (wb: Workbook, rowId: string) => string[];
+  streamGet?: (wb: Workbook, rowId: string, target: string) => CellVal;
+  streamSet?: (wb: Workbook, rowId: string, target: string, v: CellVal) => Workbook;
 }
 
 export interface FlatRow {

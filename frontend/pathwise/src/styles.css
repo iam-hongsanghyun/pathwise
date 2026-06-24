@@ -872,6 +872,10 @@
   color: var(--muted);
 }
 .flat-table .grid th { padding: 4px 6px; vertical-align: top; }
+/* In/out stream cells: each stream name + its click-to-edit coefficient. */
+.flat-streams { display: flex; flex-direction: column; gap: 2px; min-width: 130px; }
+.flat-stream { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.flat-stream-name { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rail-collapse {
   background: transparent;
   color: var(--muted);

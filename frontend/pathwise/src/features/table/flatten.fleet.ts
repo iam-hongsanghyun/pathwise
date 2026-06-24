@@ -39,6 +39,8 @@ const FLEET_COLUMNS: FlatColumn[] = [
   fleetCol("efficiency", "Efficiency", "number"),
   fleetCol("capacity", "Flat capacity", "number"),
   fleetCol("opex", "O&M / unit / yr", "number"),
+  fleetCol("capex", "Capex / unit", "number"),
+  fleetCol("max_build", "Max build", "number"),
   fleetCol("build_year", "Build year", "number"),
   fleetCol("close_year", "Close year", "number"),
   fleetCol("lifespan", "Lifespan (yr)", "number"),
