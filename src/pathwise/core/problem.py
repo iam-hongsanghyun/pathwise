@@ -77,6 +77,14 @@ class Fleet:
     #: optimiser may BUILD carriers (an integer decision), charged via capex_charge over
     #: the fleet's lifespan. 0 (default) ⇒ the fleet is a fixed pool (today's behaviour).
     max_build: float | None = None  # optional cap on total carriers built over the horizon
+    #: Owning fleet group + its full ancestor chain (alliance → company → … in the
+    #: fleet registry) — so a cap/target keyed to ANY fleet group binds on the sum over
+    #: its member fleets, exactly like a node group. Empty ⇒ no group scoping.
+    scopes: frozenset[str] = frozenset()
+
+    def in_scope(self, scope: str) -> bool:
+        """Whether a constraint ``scope`` covers this fleet (``all`` / id / group chain)."""
+        return scope == "all" or scope == self.fleet_id or scope in self.scopes
 
     def active(self, year: int) -> bool:
         """Whether the fleet is in service in ``year`` (within its lifecycle)."""

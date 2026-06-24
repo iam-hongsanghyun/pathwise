@@ -33,6 +33,7 @@ def _wb(
     blocked: bool = False,
     with_fleets: bool = True,
     co2_cap: float | None = None,
+    cap_scope: str = "all",
 ) -> dict[str, Any]:
     """A KR→DST cargo connection physicalised into a route with candidate fleets.
 
@@ -164,7 +165,7 @@ def _wb(
         **(
             {
                 "impact_caps": [
-                    {"company": "all", "impact_id": "co2", "limit": co2_cap, "soft": False}
+                    {"company": cap_scope, "impact_id": "co2", "limit": co2_cap, "soft": False}
                 ]
             }
             if co2_cap is not None
@@ -280,6 +281,18 @@ def test_blocked_corridor_reroutes_the_far_lane() -> None:
     }
     assert blocked["rt_eu"] > base["rt_eu"] + 1000.0  # the far lane reroutes around Suez
     assert abs(blocked["rt_au"] - base["rt_au"]) < 1.0  # the near lane is unaffected
+
+
+def test_fleet_group_emission_cap_binds_on_member_fleets() -> None:
+    # A CO2 cap keyed to the fleet's COMPANY/group (not a node) catches its fleets'
+    # transport emissions — fleet groups are first-class scopes, like node groups.
+    # No carbon price, but the carrier-scoped cap forbids HFO ⇒ the clean fleet wins.
+    res = _solve(_wb(co2_price=0.0, co2_cap=1000.0, cap_scope="carrier"))
+    assert res["status"] == "optimal"
+    chosen = _chosen(res)
+    assert "clean" in chosen and "dirty" not in chosen
+    # The fleet-group rollup reports the carrier's aggregated carriers.
+    assert any(g["group"] == "carrier" for g in res["outputs"]["fleet_groups"])
 
 
 def test_bunkering_fuel_supply_cap_limits_the_fleet() -> None:

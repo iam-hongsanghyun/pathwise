@@ -57,6 +57,7 @@ from pathwise.data.sheets import (
     EDGES,
     EDGES_T,
     FLEET,
+    FLEET_GROUPS,
     FLEET_ROUTES,
     IMPACT_CAPS,
     IMPACT_CAPS_T_LIMIT,
@@ -477,6 +478,24 @@ def _assemble_fleet(
         "opex",
         "capex",
     )
+    # Fleet-group ownership tree (alliance → company → …): a fleet's scope chain is its
+    # group + every ancestor, so a cap/target on any group binds on the sum over its
+    # member fleets — identical to a node group.
+    fg_parent: dict[str, str] = {}
+    for r in _rows(workbook, FLEET_GROUPS):
+        gid = _str(r.get("group_id"))
+        par = _str(r.get("parent_id"))
+        if gid is not None and par is not None and par != gid:
+            fg_parent[gid] = par
+
+    def _fg_chain(group: str | None) -> set[str]:
+        out: set[str] = set()
+        cur = group
+        while cur and cur not in out:
+            out.add(cur)
+            cur = fg_parent.get(cur)
+        return out
+
     fleets: dict[str, Fleet] = {}
     fleet_traj: dict[str, dict[int, float]] = {}
     for r in _rows(workbook, FLEET):
@@ -506,6 +525,11 @@ def _assemble_fleet(
                 opex=_numd(r.get("opex"), 0.0),
                 capex=_numd(r.get("capex"), 0.0),
                 max_build=_num(r.get("max_build")),
+                scopes=frozenset(
+                    x
+                    for x in {_str(r.get("company")) or "all", *_fg_chain(_str(r.get("group")))}
+                    if x
+                ),
             )
     fleet_available: dict[tuple[str, int], float] = {
         (fid, y): n for fid, traj in fleet_traj.items() for y, n in interpolate(traj, years).items()

@@ -40,6 +40,7 @@ def empty_result(
             "throughput": [],
             "fleet": [],
             "fleet_built": [],
+            "fleet_groups": [],
             "vessels": [],
             "transitions": [],
             "renewals": [],
@@ -254,6 +255,33 @@ def extract_results(
                 if fl.efficiency > 0:
                     crow["fuel_used"] = fl.efficiency * cr.distance * carried
             out["outputs"]["fleet"].append(crow)
+
+    # Fleet-group rollups (PyPSA-carrier): every fleet group's totals = the sum over
+    # its member fleets (carriers, cargo, fuel), so the registry's alliance→company
+    # tree reads exactly like the node hierarchy.
+    group_roll: dict[tuple[str, int], dict[str, float]] = {}
+    for row in out["outputs"]["fleet"]:
+        fid = row.get("fleet")
+        fl = prob.fleets.get(str(fid)) if fid else None
+        if fl is None:
+            continue
+        for g in fl.scopes:
+            agg = group_roll.setdefault(
+                (g, int(row["period"])), {"ships": 0.0, "throughput": 0.0, "fuel_used": 0.0}
+            )
+            agg["ships"] += float(row.get("ships", 0) or 0)
+            agg["throughput"] += float(row.get("throughput", 0) or 0)
+            agg["fuel_used"] += float(row.get("fuel_used", 0) or 0)
+    for (g, t), agg in sorted(group_roll.items()):
+        out["outputs"]["fleet_groups"].append(
+            {
+                "group": g,
+                "period": t,
+                "ships": round(agg["ships"]),
+                "throughput": agg["throughput"],
+                "fuel_used": agg["fuel_used"],
+            }
+        )
 
     # A real transition is a switch INTO a non-baseline technology; the event
     # variable on a facility's own baseline carries no cost, so the solver may

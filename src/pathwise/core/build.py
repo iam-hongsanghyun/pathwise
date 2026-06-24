@@ -1307,8 +1307,12 @@ def _impacts(ctx: BuildContext) -> None:
 
         # Transport: physicalised routes whose origin is in this scope also count
         # toward the cap (their emissions = fuel · commodity_impacts, never hardcoded).
-        def _route_in_cap_scope(cr: Any, _c: str = c) -> bool:
-            return _c == "all" or _c in cr.scope_chain
+        def _route_in_cap_scope(cr: Any, fid: str, _c: str = c) -> bool:
+            # Counts if the cap's scope contains the route's ORIGIN (geography) OR the
+            # carrying fleet's ownership group — so a region cap AND an alliance/company
+            # fleet cap both bind transport emissions, identical to node-group caps.
+            fl = prob.fleets.get(fid)
+            return _c == "all" or _c in cr.scope_chain or (fl is not None and fl.in_scope(_c))
 
         route = _route_emit_terms(ctx, i, y, _route_in_cap_scope)
         if route is not None:
@@ -1796,7 +1800,7 @@ def _connection_fleet(ctx: BuildContext) -> None:
 
 
 def _route_emit_terms(
-    ctx: BuildContext, impact: str, year: int, in_scope: Callable[[Any], bool]
+    ctx: BuildContext, impact: str, year: int, in_scope: Callable[[Any, str], bool]
 ) -> Any:
     r"""Connection-route fuel emissions of ``impact`` in ``year`` (a linopy expr or None).
 
@@ -1819,9 +1823,11 @@ def _route_emit_terms(
         comps = [(impact, 1.0)]
     terms: list[Any] = []
     for cr in prob.connection_routes:
-        if cr.blocked or not cr.legs or not in_scope(cr):
+        if cr.blocked or not cr.legs:
             continue
         for leg in cr.legs:
+            if not in_scope(cr, leg.fleet_id):
+                continue
             fl = prob.fleets.get(leg.fleet_id)
             if (
                 fl is None
@@ -2212,7 +2218,7 @@ def _objective(ctx: BuildContext) -> None:
         blend.append((prob.impact_weight * dur_da * emit_cat).sum(["process", "period"]))
         # Transport routes also contribute to the minimised impact (e.g. GWP).
         for t in ctx.years:
-            rt = _route_emit_terms(ctx, prob.objective_impact, t, lambda _cr: True)
+            rt = _route_emit_terms(ctx, prob.objective_impact, t, lambda _cr, _fid: True)
             if rt is not None:
                 blend.append((prob.impact_weight * dur[t]) * rt)
     blend.extend(penalty_terms)
