@@ -9,6 +9,9 @@ from pathwise.core.solve import SolveResult
 
 _ON = 0.5
 _EPS = 1e-6
+#: Backstop on the per-ship disaggregation (huge fleets would otherwise flood the
+#: result); realistic models are far smaller. Beyond this, ``vessels`` is truncated.
+_MAX_VESSELS = 5000
 
 
 def _series(var: Any) -> dict[Any, float]:
@@ -35,6 +38,7 @@ def empty_result(
             "technology": [],
             "throughput": [],
             "fleet": [],
+            "vessels": [],
             "transitions": [],
             "renewals": [],
             "measures": [],
@@ -169,6 +173,37 @@ def extract_results(
                 if fl and fl.efficiency > 0:
                     row["fuel_used"] = fl.efficiency * rt.distance * thru.get((p, t), 0.0)
             out["outputs"]["fleet"].append(row)
+
+            # Per-ship disaggregation (Layer 2): split the integer carrier count on
+            # this route into named vessels and load them greedily, so the marginal
+            # ship's under-utilisation is visible (a deterministic post-solve view —
+            # not a stochastic/discrete-event sim, which stays out of scope). Capacity
+            # per ship is the route's resolved share, else the fleet's flat capacity.
+            cap = fr.share if (fr and fr.share is not None) else (fl.capacity if fl else 0.0)
+            n_ships = round(v)
+            if cap > 0 and n_ships > 0 and len(out["outputs"]["vessels"]) < _MAX_VESSELS:
+                load_total = thru.get((p, t), 0.0)
+                full = int(load_total // cap)
+                remainder = load_total - full * cap
+                for k in range(n_ships):
+                    if k < full:
+                        load, util = cap, 1.0
+                    elif k == full and remainder > _EPS:
+                        load, util = remainder, remainder / cap
+                    else:
+                        load, util = 0.0, 0.0
+                    out["outputs"]["vessels"].append(
+                        {
+                            "vessel": f"{fr.fleet_id if fr else p}#{k + 1}",
+                            "fleet": fr.fleet_id if fr else None,
+                            "process": p,
+                            "period": t,
+                            "company": company_of.get(p),
+                            "load": load,
+                            "capacity": cap,
+                            "utilization": util,
+                        }
+                    )
     # A real transition is a switch INTO a non-baseline technology; the event
     # variable on a facility's own baseline carries no cost, so the solver may
     # leave it at 1 — exclude those.

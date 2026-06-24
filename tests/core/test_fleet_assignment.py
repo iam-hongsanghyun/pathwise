@@ -108,6 +108,23 @@ def test_scarce_pool_binds_and_leaves_demand_unmet() -> None:
     assert _delivered(res) < 400.0  # demand can't be fully met with 4 ships
 
 
+def _vessels(res: dict[str, Any], process: str) -> list[float]:
+    """Sorted per-ship utilisations on a route (Layer 2 per-ship disaggregation)."""
+    return sorted(
+        float(r["utilization"]) for r in res["outputs"]["vessels"] if r["process"] == process
+    )
+
+
+def test_per_ship_disaggregation_shows_marginal_under_utilisation() -> None:
+    # pA: 250 kt over 100-kt ships → 3 ships = 2 full + 1 half; pB: 150 → 1 full + 1 half.
+    res = _solve(_wb(available=5))
+    assert res["status"] == "optimal"
+    assert _vessels(res, "pA") == [0.5, 1.0, 1.0]  # the marginal ship is half-loaded
+    assert _vessels(res, "pB") == [0.5, 1.0]
+    # One vessel row per assigned ship, total = the fleet output's ship counts.
+    assert len(res["outputs"]["vessels"]) == sum(int(r["ships"]) for r in res["outputs"]["fleet"])
+
+
 def _wb_lifecycle(build_year: int) -> dict[str, Any]:
     """One route served by a fleet class that only enters service in ``build_year``."""
     return {
