@@ -138,8 +138,8 @@ export function validateModel(wb: Workbook): Issue[] {
         id: `io-unknown-flow:${t}:${s(r.target)}`,
         rule: "io-unknown-flow",
         severity: "warning",
-        title: "Unknown stream",
-        message: `Technology "${t}" references stream "${s(r.target)}", which isn't defined in the library.`,
+        title: "Unknown flow",
+        message: `Technology "${t}" references flow "${s(r.target)}", which isn't defined in the library.`,
         scope: { techId: t },
       });
     }
@@ -302,7 +302,7 @@ export function validateModel(wb: Workbook): Issue[] {
         rule: "tech-no-outputs",
         severity: "warning",
         title: "No outputs",
-        message: `Technology "${t}" produces no output stream — it consumes inputs but makes nothing.`,
+        message: `Technology "${t}" produces no output flow — it consumes inputs but makes nothing.`,
         scope: { techId: t },
       });
     }

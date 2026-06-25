@@ -456,7 +456,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
           const src = sourceStreams(workbook).find((x) => x.id === cid);
           const labels = (src?.consumers ?? []).map((id) => nodeById.get(id)?.label ?? id);
           return (
-            <FloatingPanel title="source stream" width={300} onClose={() => setSelId(null)}>
+            <FloatingPanel title="source flow" width={300} onClose={() => setSelId(null)}>
               <SourceStreamInspector
                 wb={workbook}
                 flowId={cid}
@@ -530,7 +530,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 <div key={idx} style={{ display: "flex", gap: 4, padding: "2px 8px", alignItems: "center" }}>
                   <span style={{ flex: 1 }}>
                     <SearchSelect value={s(r.flow_id)} onChange={(v) => setDemandRow(idx, { flow_id: v })}
-                      options={products.map((p) => ({ value: p }))} placeholder="stream…" />
+                      options={products.map((p) => ({ value: p }))} placeholder="flow…" />
                   </span>
                   <input className="field-input" style={{ width: 70 }} type="number" min={0} value={Number(r.amount) || 0} onChange={(e) => setDemandRow(idx, { amount: Number(e.target.value) || 0 })} />
                   <button className="ghost" onClick={() => delDemandRow(idx)}>✕</button>
@@ -642,7 +642,7 @@ function AltPicker({ machineLabel, baseline, available, exclude, onPick, onClose
   return (
     <Modal onClose={onClose} title={`Add alternative — ${machineLabel}`}>
       <p className="muted" style={{ fontSize: "0.78rem", marginTop: 0 }}>
-        Currently runs <strong>{baseline || "—"}</strong>. Pick a technology the optimiser may switch it to. Shared streams are reused automatically; the technology's own inputs/outputs are added as needed.
+        Currently runs <strong>{baseline || "—"}</strong>. Pick a technology the optimiser may switch it to. Shared flows are reused automatically; the technology's own inputs/outputs are added as needed.
       </p>
       <input autoFocus placeholder="search technologies…" value={q} onChange={(e) => setQ(e.target.value)} className="field-input" style={{ width: "100%", marginBottom: 8 }} />
       {filtered.length === 0 && <p className="muted">{opts.length === 0 ? "No other technologies available — add some in the Component tab." : "No matches."}</p>}
@@ -669,7 +669,7 @@ function ConnectDialog({ fromLabel, targets, flows, onConfirm, onClose }: { from
             options={targets.map((t) => ({ value: t.id, label: t.label }))} />
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          <span className="muted">stream</span>
+          <span className="muted">flow</span>
           <SearchableSelect value={flow} options={flows} onChange={setFlow} onCreate={setFlow} placeholder="flow" />
         </label>
         <label style={{ display: "flex", gap: 6, alignItems: "center" }}>

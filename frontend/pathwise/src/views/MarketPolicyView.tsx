@@ -121,7 +121,7 @@ export function MarketPolicyView({
         <div className="eyebrow">market &amp; policy</div>
         <h2 className="view-title">Market &amp; Policy</h2>
         <p className="view-lead">
-          The institutional layer: where streams are bought/sold (pools), emissions are traded (ETS),
+          The institutional layer: where flows are bought/sold (pools), emissions are traded (ETS),
           and carbon is priced — each scoped to a region/company/node, so policy can differ by place.
           Emission caps live in Optimisation.
         </p>

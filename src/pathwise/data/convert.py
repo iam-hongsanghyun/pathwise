@@ -39,7 +39,7 @@ def _dedupe_nodes(nodes: list[dict[str, object]], root_id: str) -> list[dict[str
 
 
 def to_hierarchy(
-    workbook: Workbook, *, root_id: str = "vc", root_label: str = "Value chain"
+    workbook: Workbook, *, root_id: str = "vc", root_label: str = "Network"
 ) -> Workbook:
     """Return ``workbook`` with a node hierarchy synthesised from ``processes``.
 

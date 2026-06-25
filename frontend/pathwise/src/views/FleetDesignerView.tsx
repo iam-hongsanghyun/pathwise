@@ -1,7 +1,7 @@
 // Fleet designer — a NEW transport layer, SEPARATE from facility / network.
 // LEFT sidebar = AccordionSidebar with four sections:
 //   1. Fleets  — fleet registry (fleet_groups + fleet; NEVER nodes)
-//   2. Routes  — network stream links whose two endpoints are located
+//   2. Routes  — network flow links whose two endpoints are located
 //   3. Facility — drag an endpoint onto the map to give it a location
 //   4. Chokepoint risk — maritime chokepoint probability + per-voyage toll editor
 // CENTER = the world map. Pop-ups (FloatingPanel) edit a fleet / port / route.
@@ -460,7 +460,7 @@ export function FleetDesignerView({
               title: "Routes",
               defaultOpen: false,
               headAction: (
-                <span className="rail-hint" style={{ padding: "0 6px" }}>stream → route</span>
+                <span className="rail-hint" style={{ padding: "0 6px" }}>flow → route</span>
               ),
               body: (
                 <TreeExplorer
@@ -472,7 +472,7 @@ export function FleetDesignerView({
                   actionsFor={() => []}
                   onContextAction={() => undefined}
                   onMove={() => undefined}
-                  emptyHint="Place both ends of a network stream to see it here as a route."
+                  emptyHint="Place both ends of a network flow to see it here as a route."
                 />
               ),
             },
@@ -547,7 +547,7 @@ export function FleetDesignerView({
           </div>
           {ports.length === 0 && (
             <p className="view-lead" style={{ padding: "0 14px" }}>
-              Drag a facility from the left rail onto the map to give it a location. Once both ends of a stream are placed, the stream appears under <b>Routes</b> — set a mode to make it physical (otherwise it teleports).
+              Drag a facility from the left rail onto the map to give it a location. Once both ends of a flow are placed, the flow appears under <b>Routes</b> — set a mode to make it physical (otherwise it teleports).
             </p>
           )}
           {tableResult && (
@@ -695,14 +695,14 @@ function ChokepointDesigner({
 
 // ── Pop-up editors (FloatingPanel) ────────────────────────────────────────────
 const FIELDS: [string, string][] = [
-  ["mode", "mode"], ["cargo", "cargo (stream)"], ["fuel", "fuel (stream)"], ["efficiency", "efficiency (fuel/cargo/dist)"],
+  ["mode", "mode"], ["cargo", "cargo (flow)"], ["fuel", "fuel (flow)"], ["efficiency", "efficiency (fuel/cargo/dist)"],
   ["count", "units"], ["ship_size", "cargo / voyage"], ["speed", "speed (dist/day)"], ["turnaround_days", "turnaround (days)"],
   ["operating_days", "operating days/yr"], ["capacity", "flat capacity/unit"], ["build_year", "build year"], ["close_year", "close year"], ["lifespan", "lifespan (yr)"],
 ];
 const FIELD_INFO: Record<string, string> = {
   mode: "Transport mode. Sea routes follow real sea lanes (searoute, via Suez/Panama); road/rail use great-circle × a detour factor.",
-  cargo: "The stream this fleet carries — what it delivers along its routes.",
-  fuel: "The stream the fleet burns. Combined with efficiency × route distance it drives fuel cost and emissions (priced via the fuel's own price + impact factors — no hardcoded CO₂).",
+  cargo: "The flow this fleet carries — what it delivers along its routes.",
+  fuel: "The flow the fleet burns. Combined with efficiency × route distance it drives fuel cost and emissions (priced via the fuel's own price + impact factors — no hardcoded CO₂).",
   efficiency: "Fuel consumed per unit cargo per unit distance. A longer route therefore burns proportionally more fuel.",
   count: "How many carriers are in this fleet — the pool the optimiser allocates across its routes.",
   ship_size: "Cargo one carrier moves per voyage. With speed it sets how much a carrier can deliver per year on a route.",
@@ -755,7 +755,7 @@ function NodePanel({ id, label, level, coord, onRename, onLevel, onCoord, onClos
           <span className="muted">latitude</span>
           <input className="field-input" style={{ flex: 1 }} type="number" value={coord ? coord.lat : ""} onChange={(e) => onCoord({ lat: blank(e.target.value) })} placeholder="—" />
         </label>
-        <p className="rail-empty" style={{ marginTop: 8 }}>{isPort ? "Drag the marker on the map to move it. Once both ends of a stream are placed it appears under Routes." : "Drag this onto the map (or set a longitude/latitude) to place it."}</p>
+        <p className="rail-empty" style={{ marginTop: 8 }}>{isPort ? "Drag the marker on the map to move it. Once both ends of a flow are placed it appears under Routes." : "Drag this onto the map (or set a longitude/latitude) to place it."}</p>
         <input type="hidden" value={id} readOnly />
       </div>
     </FloatingPanel>
@@ -781,18 +781,18 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
       <div style={{ padding: "12px 14px" }}>
         <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>{labelOf(s(route.from_node))} → {labelOf(s(route.to_node))}</div>
         <div className="muted" style={{ fontSize: "0.74rem", marginBottom: 6 }}>
-          {flow ? <>stream <b style={{ color: "var(--text)" }}>{flow}</b> · made physical (otherwise it teleports)</> : "direct transport process"}
+          {flow ? <>flow <b style={{ color: "var(--text)" }}>{flow}</b> · made physical (otherwise it teleports)</> : "direct transport process"}
         </div>
         {row("mode", <SearchSelect value={s(route.mode) || "sea"} onChange={(v) => onChange({ mode: v })} options={MODES} />, "Sea follows real sea lanes (searoute, via Suez/Panama); road/rail use great-circle × a detour factor. Sets the route's distance basis.")}
         {row("distance", <input className="field-input" style={{ width: "100%" }} type="number" placeholder="auto · from the ports" value={s(route.distance)} onChange={(e) => onChange({ distance: blank(e.target.value) })} />, "Leave blank to derive it from the two ports (sea = searoute length; land = great-circle × factor). Override to pin a known distance.")}
         {row("alternative of", <SearchSelect value={s(route.alternative_of)} onChange={(v) => onChange({ alternative_of: v })} options={[{ value: "", label: "— (primary)" }, ...others.map((r) => ({ value: s(r.process), label: `${labelOf(s(r.from_node))}→${labelOf(s(r.to_node))}` }))]} />, "Mark this as an alternative to another route (drawn dotted) — e.g. a Cape route standing in for a Suez one.")}
         <label className="field-row" style={{ marginTop: 10 }}>
           <input type="checkbox" checked={blocked} onChange={(e) => onToggleBlock(e.target.checked)} />
-          <span>Block this corridor (scenario) <InfoTooltip text="Close this corridor to test a disruption (e.g. Hormuz / Suez): the route's flow is forced to 0, so the stream must reroute or go undelivered." /></span>
+          <span>Block this corridor (scenario) <InfoTooltip text="Close this corridor to test a disruption (e.g. Hormuz / Suez): the route's flow is forced to 0, so the flow must reroute or go undelivered." /></span>
         </label>
         {!blocked && flow && (
           <div className="rail-section" style={{ marginTop: 8 }}>
-            <div className="rail-head">Candidate fleets <InfoTooltip text="Fleets that MAY carry this stream — the optimiser picks which one(s) run the route (some, not all). Leave empty to let it choose from every fleet that carries this stream." /></div>
+            <div className="rail-head">Candidate fleets <InfoTooltip text="Fleets that MAY carry this flow — the optimiser picks which one(s) run the route (some, not all). Leave empty to let it choose from every fleet that carries this flow." /></div>
             {candidates.length === 0 ? (
               <p className="rail-empty" style={{ margin: "2px 0 4px" }}>Empty — the optimiser may use any fleet carrying "{flow}".</p>
             ) : (

@@ -292,7 +292,7 @@ class Hierarchy:
         for c in self.links:
             for end in (c.from_node, c.to_node):
                 if end not in self.nodes:
-                    errors.append(f"connection references unknown node '{end}'")
+                    errors.append(f"link references unknown node '{end}'")
         return errors
 
 

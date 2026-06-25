@@ -287,7 +287,7 @@ export function TargetsTabView({
         <section style={{ marginBottom: 22 }}>
           <h3 className="section-title" style={{ marginBottom: 2 }}>Constraints</h3>
           <p className="muted" style={{ fontSize: "0.74rem", margin: "0 0 8px" }}>
-            Each row: pick what (a stream's production, an emission, or the budget), the scope it
+            Each row: pick what (a flow.s production, an emission, or the budget), the scope it
             applies to, whether it's a target / minimum / maximum, and the value. The value is one
             number for the whole horizon, or click it to set a value <b>per year</b>.
           </p>

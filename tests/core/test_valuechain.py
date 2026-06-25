@@ -16,7 +16,7 @@ from pathwise.core.network import (
     _shift,
     marginal_price,
     run_network,
-    sweep_value_chain,
+    sweep_network,
 )
 from pathwise.data.network import CouplingLink, NetworkSpec, Stage
 from pathwise.data.scenario import ScenarioConfig
@@ -251,7 +251,7 @@ def test_uncertainty_sweep_spreads_downstream_outcomes() -> None:
     # Three upstream carbon-policy draws ⇒ a distribution of downstream steel cost.
     spec = _spec()
     draws = [{"elec": _electricity_wb(c), "steel": _steel_wb()} for c in (0.0, 100.0, 200.0)]
-    res = sweep_value_chain(spec, draws, SC)
+    res = sweep_network(spec, draws, SC)
 
     assert len(res["runs"]) == 3
     steel_cost = res["distribution"]["steel"]["cost"]

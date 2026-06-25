@@ -387,7 +387,7 @@ export function resolveLevers(
   }
   const resolve = (target: string): string[] =>
     procIds.has(target) ? [target] : (byBaseline.get(target) ?? []);
-  // Streams/stores resolve to consumers: every facility whose baseline
+  // Flows/stores resolve to consumers: every facility whose baseline
   // technology takes the stream as an input (mirrors the assembler).
   const techInputs = new Map<string, Set<string>>();
   const addInput = (tech: string, flow: string) => {

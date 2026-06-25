@@ -143,9 +143,7 @@ class GroupComponent(BaseModel):
         for conn in self.links:
             for end in (conn.source, conn.target):
                 if end not in known:
-                    raise ValueError(
-                        f"group '{self.name}' connection references unknown child '{end}'"
-                    )
+                    raise ValueError(f"group '{self.name}' link references unknown child '{end}'")
         return self
 
 

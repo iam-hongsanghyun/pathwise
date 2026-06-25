@@ -72,7 +72,7 @@ export function Row({ children }: { children: React.ReactNode }) {
   return <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>{children}</div>;
 }
 
-// ── Flow / stream ────────────────────────────────────────────────────────
+// ── Flow / flow ────────────────────────────────────────────────────────
 export function FlowEditor({
   value,
   onChange,
@@ -83,12 +83,12 @@ export function FlowEditor({
   onChange: (v: FlowTemplate) => void;
   onRename: (id: string) => void;
   /** Allowed units (the project's unit registry) — the unit picker is limited to
-   *  these so a stream can't carry an unconvertible/typo'd unit. */
+   *  these so a flow can't carry an unconvertible/typo'd unit. */
   unitOptions?: string[];
 }) {
   return (
     <section>
-      <h2 style={{ margin: "0 0 12px" }}>Stream</h2>
+      <h2 style={{ margin: "0 0 12px" }}>Flow</h2>
       <Row>
         <Field label="id" meta="flow_id">
           <input
@@ -144,7 +144,7 @@ export function FlowEditor({
   );
 }
 
-// ── Technology (recipe streams) ───────────────────────────────────────────────
+// ── Technology (recipe flows) ───────────────────────────────────────────────
 export function TechnologyEditor({
   value,
   flowIds,
@@ -161,7 +161,7 @@ export function TechnologyEditor({
   onRename: (id: string) => void;
   /** Allowed units (from GET /api/units) offered in each row's unit picker. */
   unitOptions?: string[];
-  /** Resolves a stream's canonical unit — the default shown when a row is blank. */
+  /** Resolves a flow's canonical unit — the default shown when a row is blank. */
   streamUnitOf?: (id: string) => string | undefined;
 }) {
   const setIo = (i: number, patch: Partial<IoRow>) =>
@@ -203,9 +203,9 @@ export function TechnologyEditor({
       </Row>
 
       <h3 style={{ margin: "8px 0 6px", fontSize: "0.85rem" }}>
-        Streams <span className="muted">(inputs · outputs · impacts)</span>
+        Flows <span className="muted">(inputs · outputs · impacts)</span>
         <button className="ghost" style={{ marginLeft: 8 }} onClick={addIo}>
-          ＋ add stream
+          ＋ add flow
         </button>
       </h3>
       <table className="grid" style={{ width: "100%", fontSize: "0.78rem" }}>
@@ -238,7 +238,7 @@ export function TechnologyEditor({
                           setIo(i, { target: name });
                         }
                   }
-                  placeholder={r.role === "impact" ? "impact id" : "stream"}
+                  placeholder={r.role === "impact" ? "impact id" : "flow"}
                 />
               </td>
               <td>
@@ -253,7 +253,7 @@ export function TechnologyEditor({
                   value={r.unit ?? ""}
                   options={[...new Set([r.unit ?? "", ...unitOptions].filter(Boolean))]}
                   onChange={(v) => setIo(i, { unit: v.trim() || null })}
-                  placeholder={streamUnitOf?.(r.target) || "stream unit"}
+                  placeholder={streamUnitOf?.(r.target) || "flow unit"}
                 />
               </td>
               <td style={{ textAlign: "center" }}>
@@ -279,7 +279,7 @@ export function TechnologyEditor({
           ))}
         </tbody>
       </table>
-      {value.io.length === 0 && <p className="muted" style={{ fontSize: "0.78rem" }}>No streams yet — a technology needs at least one product output.</p>}
+      {value.io.length === 0 && <p className="muted" style={{ fontSize: "0.78rem" }}>No flows yet — a technology needs at least one product output.</p>}
       <RecipePreview ioRows={value.io} unitOf={streamUnitOf} />
     </section>
   );
@@ -371,7 +371,7 @@ export function AssetEditor({
             </Field>
             <Field label="target">
               <div style={{ minWidth: 140 }}>
-                <SearchableSelect value={m.target} options={flowIds} onChange={(v) => setLever(i, { target: v })} onCreate={(name) => setLever(i, { target: name })} placeholder="stream / impact" />
+                <SearchableSelect value={m.target} options={flowIds} onChange={(v) => setLever(i, { target: v })} onCreate={(name) => setLever(i, { target: name })} placeholder="flow / impact" />
               </div>
             </Field>
             <Field label="lifetime">
@@ -451,7 +451,7 @@ export function LeverEditor({
         </Field>
         <Field label="target" meta="target">
           <div style={{ minWidth: 150 }}>
-            <SearchableSelect value={value.target} options={flowIds} onChange={(v) => onChange({ ...value, target: v })} onCreate={(name) => onChange({ ...value, target: name })} placeholder="stream / impact" />
+            <SearchableSelect value={value.target} options={flowIds} onChange={(v) => onChange({ ...value, target: v })} onCreate={(name) => onChange({ ...value, target: name })} placeholder="flow / impact" />
           </div>
         </Field>
         <Field label="lifetime" meta="lifetime">

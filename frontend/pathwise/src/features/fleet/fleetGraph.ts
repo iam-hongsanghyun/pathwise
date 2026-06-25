@@ -72,7 +72,7 @@ export function facilityTree(nodes: GroupNode[], coord: Map<string, { lon: numbe
   }));
 }
 
-// ── Routes = physicalised network stream links ──────────────────────
+// ── Routes = physicalised network flow links ──────────────────────
 // A network `link` (from_node → to_node carrying a flow) is a VIRTUAL
 // stream flow — "teleportation": free + instant. It becomes a PHYSICAL route once its
 // two endpoints carry a location AND it is given physical info (mode/fleet). The TOP
@@ -166,7 +166,7 @@ export function routeTree(leaves: RouteLeaf[], labelOf: (id: string) => string):
   const out: TreeNode[] = [];
   for (const [flow, ls] of [...groups.entries()].sort((a, b) => (a[0] || "~").localeCompare(b[0] || "~"))) {
     const gid = `stream::${flow}`;
-    out.push({ id: gid, parentId: null, kind: "group", label: flow || "Direct routes", level: `stream · ${ls.length}`, hasChildren: true, droppable: false });
+    out.push({ id: gid, parentId: null, kind: "group", label: flow || "Direct routes", level: `flow · ${ls.length}`, hasChildren: true, droppable: false });
     for (const l of ls)
       out.push({ id: l.proc, parentId: gid, kind: "asset", label: `${labelOf(l.from)} → ${labelOf(l.to)}`, level: l.physical ? l.mode || "route" : "physicalise →", hasChildren: false });
   }

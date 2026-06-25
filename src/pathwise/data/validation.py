@@ -117,7 +117,7 @@ def validate(workbook: Workbook) -> ValidationReport:
             for r in workbook.get(LINKS, []):
                 c = str(r.get("flow_id", ""))
                 if c and c not in flows:
-                    report.errors.append(f"connection references unknown stream '{c}'")
+                    report.errors.append(f"link references unknown flow '{c}'")
             # A connection only flows if some asset in the source subtree OUTPUTS
             # the flow and some asset in the target subtree INPUTS it; else
             # it silently expands to zero edges (assemble._expand_hierarchy).
@@ -147,7 +147,7 @@ def validate(workbook: Workbook) -> ValidationReport:
                 )
                 if not (makes and takes):
                     report.warnings.append(
-                        f"connection '{fn}'→'{tn}' on '{com}' expands to no edges "
+                        f"link '{fn}'→'{tn}' on '{com}' expands to no edges "
                         "(no producing/consuming asset in the subtrees)"
                     )
 
@@ -202,7 +202,7 @@ def validate(workbook: Workbook) -> ValidationReport:
         for r in workbook.get(sheet, []):
             c = str(r.get(col, ""))
             if c and c not in flows:
-                report.errors.append(f"{sheet}: unknown stream '{c}'")
+                report.errors.append(f"{sheet}: unknown flow '{c}'")
             k = str(r.get("technology_id", ""))
             if k and k not in techs:
                 report.errors.append(f"{sheet}: unknown technology '{k}'")
@@ -214,7 +214,7 @@ def validate(workbook: Workbook) -> ValidationReport:
                 report.errors.append(f"edge references unknown facility '{p}'")
         c = str(r.get("flow_id", ""))
         if c and c not in flows:
-            report.errors.append(f"edge references unknown stream '{c}'")
+            report.errors.append(f"edge references unknown flow '{c}'")
 
     for r in workbook.get(LEVERS, []):
         ap = str(r.get("applies_to", ""))

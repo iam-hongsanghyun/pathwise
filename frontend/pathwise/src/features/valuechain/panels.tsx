@@ -1,4 +1,4 @@
-// Side panels for the Network tab: asset inspector (required streams +
+// Side panels for the Network tab: asset inspector (required flows +
 // how each is satisfied), ports/purchasing, demand targets, and the per-level
 // cascade result summary. Presentational; the host mutates the workbook.
 
@@ -50,7 +50,7 @@ function chain(wb: Workbook, nodeId: string): string[] {
 }
 
 // ── Asset inspector ─────────────────────────────────────────────────────────
-// A single technology shows its full recipe — every input / output stream with
+// A single technology shows its full recipe — every input / output flow with
 // its per-unit coefficient AND who provides / consumes it (the connected group,
 // a purchase, or final demand) — plus impacts and the years it is available. This
 // is the detailed view; groups get the lighter Flow context instead.
@@ -63,7 +63,7 @@ export function AssetInspector({
 }: {
   wb: Workbook;
   machineId: string;
-  /** Persist a new workbook (per-stream market min/max edits flow through this). */
+  /** Persist a new workbook (per-flow market min/max edits flow through this). */
   onWorkbookChange?: (wb: Workbook) => void;
   /** Horizon start — seeds the temporal editor. */
   baseYear?: number;
@@ -82,7 +82,7 @@ export function AssetInspector({
   const impacts = io.filter((r) => s(r.role) === "impact");
 
   // Levers (MACC) reaching THIS facility — directly (facility/technology) or via
-  // a linked MACC set. A technology- or stream-scoped link is COPIED to every
+  // a linked MACC set. A technology- or flow-scoped link is COPIED to every
   // matching facility, but each facility adopts it independently (isolated), which
   // the scope label below makes explicit.
   const inputStreams = new Set(inputs.map((r) => s(r.target)));
@@ -92,7 +92,7 @@ export function AssetInspector({
     if (s(ln.facility) === machineId) linkScope.set(g, "this facility");
     else if (tech && s(ln.technology) === tech) linkScope.set(g, `every ${techLabel} · adopted independently`);
     else if (s(ln.flow) && inputStreams.has(s(ln.flow)))
-      linkScope.set(g, `stream ${s(ln.flow)} · adopted independently`);
+      linkScope.set(g, `flow ${s(ln.flow)} · adopted independently`);
   }
   const appliedLevers = new Map<string, string>(); // lever id → scope label
   for (const m of wb.levers ?? []) {
@@ -117,7 +117,7 @@ export function AssetInspector({
   );
   const lab = (id: string): string => labelOf.get(id) || id.split("/").pop() || id;
 
-  // Connected counterpart group(s) for a stream: who sends it in / takes it out
+  // Connected counterpart group(s) for a flow: who sends it in / takes it out
   // (a link wired at this node or any ancestor).
   const partners = (c: string, dir: "in" | "out"): string[] => {
     const near = dir === "in" ? "to_node" : "from_node";
@@ -172,7 +172,7 @@ export function AssetInspector({
 
   if (!asset) return <p className="muted" style={{ padding: 16 }}>Asset not found.</p>;
 
-  // Units come from the streams (flows sheet); throughput is measured in the
+  // Units come from the flows (flows sheet); throughput is measured in the
   // product output's unit. Each coefficient is "per unit of throughput".
   const unitOf = (cid: string): string =>
     s((wb.flows ?? []).find((x) => s(x.flow_id) === cid)?.unit) || "";
@@ -222,7 +222,7 @@ export function AssetInspector({
     </span>
   );
 
-  // One stream (an io flow): a grid of [name | min | max]. OUTPUT bounds the
+  // One flow (an io flow): a grid of [name | min | max]. OUTPUT bounds the
   // asset's production; INPUT bounds the pooled intake (min = required offtake,
   // max = max purchase) AND lists each provider link so the buyer can cap
   // purchase per producer.
@@ -303,7 +303,7 @@ export function AssetInspector({
 
       {/* Asset-level facts are FIXED properties of the asset, shown read-only
           here (dense). They are edited in the Facility view; the network map is
-          the market — links, prices and per-stream limits (above). */}
+          the market — links, prices and per-flow limits (above). */}
       <div className="mi-section-head"><span>asset</span><span className="muted">fixed — edit in Facility</span></div>
       <div className="mi-note" style={{ display: "flex", flexWrap: "wrap", gap: "2px 14px", marginTop: 4 }}>
         <span>capacity <b>{fmt(Number(asset.capacity) || 0)}</b> {thru}/yr</span>
@@ -313,7 +313,7 @@ export function AssetInspector({
         {co2Intensity != null && <span>CO₂ <b>{fmt(co2Intensity)}</b> {s(co2?.unit)}/{thru}</span>}
       </div>
 
-      <p className="muted mi-note">Recipe coefficients are edited in the Component tab; capacity &amp; lifecycle in the Facility tab. Per-stream min/max here are market limits on this asset's flows (min offtake = required purchase). ★ = a final product (can meet demand).</p>
+      <p className="muted mi-note">Recipe coefficients are edited in the Component tab; capacity &amp; lifecycle in the Facility tab. Per-flow min/max here are market limits on this asset's flows (min offtake = required purchase). ★ = a final product (can meet demand).</p>
 
       {otherImpacts.length > 0 && (
         <div className="mi-block">
@@ -539,10 +539,10 @@ function PortAdder({ flows, onAdd }: { flows: string[]; onAdd: (c: string, k: "b
   return (
     <div style={{ display: "flex", gap: 4, padding: "4px 8px", alignItems: "center" }}>
       <div style={{ flex: 1 }}>
-        <SearchableSelect value="" options={flows} onChange={(c) => c && onAdd(c, "buy")} placeholder="buy stream…" />
+        <SearchableSelect value="" options={flows} onChange={(c) => c && onAdd(c, "buy")} placeholder="buy flow…" />
       </div>
       <div style={{ flex: 1 }}>
-        <SearchableSelect value="" options={flows} onChange={(c) => c && onAdd(c, "sell")} placeholder="sell stream…" />
+        <SearchableSelect value="" options={flows} onChange={(c) => c && onAdd(c, "sell")} placeholder="sell flow…" />
       </div>
     </div>
   );
@@ -570,7 +570,7 @@ export interface YearOverlay {
   throughput: (id: string) => number | undefined;
   /** Flow along a ``from → to`` link for a flow that year. */
   flow: (from: string, to: string, flow: string) => number | undefined;
-  /** External purchase of a flow by a facility that year (a source stream). */
+  /** External purchase of a flow by a facility that year (a source flow). */
   buy: (id: string, flow: string) => number | undefined;
 }
 
@@ -620,9 +620,9 @@ export function buildOverlay(r: RunResult | CascadeResult): {
   return { years: [...years].sort((a, b) => a - b), at };
 }
 
-/** Right-rail READ-ONLY summary of a source stream (a raw material bought
- *  externally). Streams are components — defined and priced in the Component
- *  view (the "Streams" sheet); the network map only shows their use here. */
+/** Right-rail READ-ONLY summary of a source flow (a raw material bought
+ *  externally). Flows are components — defined and priced in the Component
+ *  view (the "Flows" sheet); the network map only shows their use here. */
 export function SourceStreamInspector({
   wb,
   flowId,
@@ -635,9 +635,9 @@ export function SourceStreamInspector({
   wb: Workbook;
   flowId: string;
   consumerLabels: string[];
-  /** Set / clear (null) this stream's annual supply cap — static or by-year. */
+  /** Set / clear (null) this flow's annual supply cap — static or by-year. */
   onSupplyCap?: (v: TemporalVal | null) => void;
-  /** Set this stream's external-purchase window (year or null for open-ended). */
+  /** Set this flow's external-purchase window (year or null for open-ended). */
   onAvailability?: (from: number | null, to: number | null) => void;
   baseYear?: number;
   periods?: number[];
@@ -656,7 +656,7 @@ export function SourceStreamInspector({
   );
   return (
     <div className="mi" style={{ padding: "16px 20px" }}>
-      <div className="eyebrow" style={{ color: "var(--warn-text)" }}>source stream</div>
+      <div className="eyebrow" style={{ color: "var(--warn-text)" }}>source flow</div>
       <h2 className="mi-title">{flowId}</h2>
       <p className="muted mi-note" style={{ marginTop: 0 }}>
         A raw material consumed by the chain but produced by none — bought externally.
@@ -718,8 +718,8 @@ export function SourceStreamInspector({
         </>
       )}
       <p className="muted mi-note">
-        The supply cap is a hard ceiling on this stream's annual supply; the window gates
-        external purchase. When a producer is wired to this stream, the producer's
+        The supply cap is a hard ceiling on this flow's annual supply; the window gates
+        external purchase. When a producer is wired to this flow, the producer's
         build/close years govern instead. Price is edited in the <b>Component</b> view.
       </p>
       <div className="mi-section-head">

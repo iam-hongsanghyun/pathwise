@@ -136,7 +136,7 @@ export function HierarchyMap({
     [workbook, mode, expanded, orientation],
   );
 
-  // Source streams (consumed but produced by none — raw materials) sit in a band
+  // Source flows (consumed but produced by none — raw materials) sit in a band
   // across the top; the hierarchy is shifted down by `bandH` to make room.
   const sources = useMemo(() => sourceStreams(workbook), [workbook]);
   const SRC_W = 158;
@@ -592,7 +592,7 @@ export function HierarchyMap({
         {sources.length > 0 && (
           <span className="muted" style={{ fontSize: "0.72rem", marginLeft: "auto", display: "inline-flex", gap: 12, alignItems: "center" }}>
             <span title="a node→node flow inside the chain (free internal transfer)"><span style={{ color: "#0f766e", fontWeight: 700 }}>→</span> link (in-chain)</span>
-            <span title="a raw stream produced by no node — bought from outside the chain"><span style={{ color: "var(--warn)", fontWeight: 700 }}>▾</span> source (bought outside)</span>
+            <span title="a raw flow produced by no node — bought from outside the chain"><span style={{ color: "var(--warn)", fontWeight: 700 }}>▾</span> source (bought outside)</span>
           </span>
         )}
       </div>
@@ -618,7 +618,7 @@ export function HierarchyMap({
           </marker>
         </defs>
 
-        {/* Top sources band: raw-material streams feeding the chain. */}
+        {/* Top sources band: raw-material flows feeding the chain. */}
         {sources.map((src) => {
           const sp = srcPos.get(src.id)!;
           const consumed = overlay
@@ -934,7 +934,7 @@ function ConnectForm({
     <div style={{ position: "fixed", left: Math.min(x, window.innerWidth - 300), top: Math.min(y, window.innerHeight - 160), zIndex: 1000, background: "var(--surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-button)", boxShadow: "0 6px 24px rgba(0,0,0,0.14)", padding: 10, width: 268, fontSize: "0.78rem" }}>
       <div style={{ marginBottom: 6 }}><b>{fromLabel}</b> → <b>{toLabel}</b></div>
       <div style={{ marginBottom: 6 }}>
-        <SearchableSelect value={flow} options={flows} onChange={setFlow} onCreate={setFlow} placeholder="stream / flow" />
+        <SearchableSelect value={flow} options={flows} onChange={setFlow} onCreate={setFlow} placeholder="flow" />
       </div>
       <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
         <span className="muted" style={{ width: 70 }}>lag (yr)</span>

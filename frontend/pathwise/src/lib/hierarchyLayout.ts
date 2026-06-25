@@ -391,7 +391,7 @@ export interface EditEdge {
   count: number;
 }
 
-/** A source stream: a flow consumed by a facility but produced by none
+/** A source flow: a flow consumed by a facility but produced by none
  *  (a raw material / external input — iron ore, coal). `consumers` are the
  *  asset-node ids whose baseline technology consumes it. */
 export interface SourceStream {
@@ -399,7 +399,7 @@ export interface SourceStream {
   consumers: string[];
 }
 
-/** Detect source streams: flows that are a technology INPUT somewhere (or
+/** Detect source flows: flows that are a technology INPUT somewhere (or
  *  flagged purchasable) but never a technology OUTPUT — i.e. they must be
  *  supplied from outside the modelled chain. */
 export function sourceStreams(wb: Workbook): SourceStream[] {

@@ -1,6 +1,6 @@
 // Component tab — each library has THREE fixed structures:
-//   Technology  (recipe: properties + input/output streams + linked MACCs)
-//   Stream      (flow properties)
+//   Technology  (recipe: properties + input/output flows + linked MACCs)
+//   Flow      (flow properties)
 //   Levers      (MACC = a group of levers · Individual = reusable levers)
 // Left = the structure tree; right-click adds/renames/deletes; the right (main)
 // detail shows the properties of the selected item.
@@ -322,7 +322,7 @@ export function ComponentTabView({
     setDirty((prev) => new Set(prev).add(libId));
   }
 
-  // ── Tree: library → Sector → {Technology, Stream (outputs), Measures & MACC} ──
+  // ── Tree: library → Sector → {Technology, Flow (outputs), Measures & MACC} ──
   const treeNodes = useMemo<TreeNode[]>(() => {
     const out: TreeNode[] = [];
     const node = (id: string, parentId: string, label: string, kind: TreeNode["kind"], has: boolean): void => {
@@ -339,7 +339,7 @@ export function ComponentTabView({
       const { order, buckets } = libraryBuckets(body);
       // Sector → Group → Components, but the sector level is only worth showing
       // when the library spans more than one sector; otherwise the groups
-      // (Technology / Stream / Measures) hang straight off the library. An empty
+      // (Technology / Flow / Measures) hang straight off the library. An empty
       // library still shows the three groups (under "Other") so the user can open
       // a group and add the first component there — never via a top-level button.
       const order2 = order.length ? order : [OTHER];
@@ -352,7 +352,7 @@ export function ComponentTabView({
         if (multiSector) node(secId, `lib:${lk}`, s, "group", true);
         node(`cat:${lk}:${s}/tech`, groupParent, "Technology", "group", b.techs.length > 0);
         for (const t of b.techs) node(`t:${lk}:${t.technology_id}`, `cat:${lk}:${s}/tech`, t.technology_id, "leaf", false);
-        node(`cat:${lk}:${s}/stream`, groupParent, "Stream", "group", b.streams.length > 0);
+        node(`cat:${lk}:${s}/stream`, groupParent, "Flow", "group", b.streams.length > 0);
         for (const c of b.streams) node(`s:${lk}:${c.flow_id}`, `cat:${lk}:${s}/stream`, c.flow_id, "leaf", false);
         node(`cat:${lk}:${s}/measures`, groupParent, "Levers & MACC", "group", b.maccs.length + b.measures.length > 0);
         node(`cat:${lk}:${s}/macc`, `cat:${lk}:${s}/measures`, "MACC", "group", b.maccs.length > 0);
@@ -533,7 +533,7 @@ export function ComponentTabView({
     const s = parseId(node.id);
     if (s.kind === "library")
       // No "add" here — components are added inside a group (open Technology /
-      // Stream / Measures & MACC), never at the library level.
+      // Flow / Measures & MACC), never at the library level.
       return [
         { id: "rename-lib", label: mode === "project" ? "Rename project" : "Rename library" },
         { id: "delete-lib", label: mode === "project" ? "Delete project" : "Delete library", danger: true },
@@ -544,12 +544,12 @@ export function ComponentTabView({
       const map: Record<string, TreeAction[]> = {
         "": [
           { id: "add-tech", label: "Add technology" },
-          { id: "add-stream", label: "Add stream" },
+          { id: "add-stream", label: "Add flow" },
           { id: "add-lever", label: "Add lever" },
           { id: "add-macc", label: "Add MACC" },
         ],
         tech: [{ id: "add-tech", label: "Add technology" }],
-        stream: [{ id: "add-stream", label: "Add stream" }],
+        stream: [{ id: "add-stream", label: "Add flow" }],
         measures: [{ id: "add-lever", label: "Add lever" }, { id: "add-macc", label: "Add MACC" }],
         macc: [{ id: "add-macc", label: "Add MACC" }],
         indiv: [{ id: "add-lever", label: "Add lever" }],
@@ -645,7 +645,7 @@ export function ComponentTabView({
           <div className="comp-card-row">
             {ioCol("produced by", prod, "in")}
             <div className="comp-card-mid">
-              <span className="lib-tier">stream</span>
+              <span className="lib-tier">flow</span>
               <div className="comp-card-title">{c.flow_id}</div>
               <div className="comp-card-meta">{c.unit ? `${c.kind} · ${c.unit}` : c.kind}</div>
               {tsChip(tsYears(c.price_by_year, c.sale_price_by_year))}
@@ -689,7 +689,7 @@ export function ComponentTabView({
     if (sub === "tech")
       return <BucketShell title={`${sector} · Technologies`} add={() => addTech(libId)}>{grid(b.techs.map(techCard), "No technologies in this sector.")}</BucketShell>;
     if (sub === "stream")
-      return <BucketShell title={`${sector} · Streams`} add={() => addStream(libId, sector === OTHER ? null : sector)}>{grid(b.streams.map(streamCard), "No streams produced in this sector.")}</BucketShell>;
+      return <BucketShell title={`${sector} · Flows`} add={() => addStream(libId, sector === OTHER ? null : sector)}>{grid(b.streams.map(streamCard), "No flows produced in this sector.")}</BucketShell>;
     if (sub === "indiv")
       return <BucketShell title={`${sector} · Levers`} add={() => addLever(libId)}>{grid(b.measures.map(leverCard), "No individual levers in this sector.")}</BucketShell>;
     if (sub === "macc")
@@ -764,7 +764,7 @@ export function ComponentTabView({
                 ? "Project-specific component libraries — kept with this project, never written to the base catalogue, and usable in the Facility and Network views."
                 : starters
                   ? "Shipped, read-only reference libraries. Browse them, then duplicate one into your own libraries to customise it."
-                  : "Your own reusable libraries — shared across all projects (not tied to one). Build technologies, streams & abatement measures, organised by sector."}
+                  : "Your own reusable libraries — shared across all projects (not tied to one). Build technologies, flows & abatement measures, organised by sector."}
             </p>
           </div>
           {!starters && (
@@ -821,7 +821,7 @@ export function ComponentTabView({
                 </div>
                 <div className="lib-card-stats">
                   <div><b>{l.technologies}</b><span className="muted">tech</span></div>
-                  <div><b>{l.flows}</b><span className="muted">streams</span></div>
+                  <div><b>{l.flows}</b><span className="muted">flows</span></div>
                   <div><b>{l.levers}</b><span className="muted">levers</span></div>
                 </div>
               </button>
@@ -860,7 +860,7 @@ export function ComponentTabView({
     );
   }
 
-  // Group cards (Technologies / Streams / MACCs / Measures) for one sector —
+  // Group cards (Technologies / Flows / MACCs / Measures) for one sector —
   // the middle level of Sector → Group → Components. Clicking opens the group's
   // editable table.
   function groupCards(libId: string, sector: string, b: Bucket) {
@@ -868,7 +868,7 @@ export function ComponentTabView({
     // first component there — adding never happens at the library level.
     const groups = [
       { sub: "tech", label: "Technologies", desc: "Process recipes — inputs, outputs, costs & impacts", n: b.techs.length },
-      { sub: "stream", label: "Streams", desc: "Flows produced here, and how they connect", n: b.streams.length },
+      { sub: "stream", label: "Flows", desc: "Flows produced here, and how they connect", n: b.streams.length },
       { sub: "measures", label: "Levers & MACC", desc: "Abatement levers and their cost curves", n: b.maccs.length + b.measures.length },
     ];
     return groups.map((g) =>
@@ -898,8 +898,8 @@ export function ComponentTabView({
             <input className="field-input" style={{ flex: 1, maxWidth: 280 }} value={body.label} onChange={(e) => editLib(sel.libId, (lib) => ({ ...lib, label: e.target.value }))} />
           </label>
           <p className="muted" style={{ fontSize: "0.78rem" }}>
-            {l?.technologies ?? 0} technologies · {l?.flows ?? 0} streams · {l?.levers ?? 0} levers · {l?.maccs ?? 0} MACCs.
-            {" "}Open a group to add or edit components — a technology gets its own input/output streams; levers are reusable and bundled into MACCs.
+            {l?.technologies ?? 0} technologies · {l?.flows ?? 0} flows · {l?.levers ?? 0} levers · {l?.maccs ?? 0} MACCs.
+            {" "}Open a group to add or edit components — a technology gets its own input/output flows; levers are reusable and bundled into MACCs.
           </p>
           {(() => {
             // Always offer a way in: sector cards when multi-sector, otherwise the
@@ -977,7 +977,7 @@ export function ComponentTabView({
             onRename={(id) => setSel({ libId: sel.libId, kind: "stream", id })}
           />
           <div className="rail-section" style={{ marginTop: 12 }}>
-            <div className="rail-head">Levers targeting this stream</div>
+            <div className="rail-head">Levers targeting this flow</div>
             <div className="rail-empty" style={{ fontSize: "0.78rem" }}>{targeting.length ? targeting.join(", ") : "none"}</div>
           </div>
         </>
@@ -1023,7 +1023,7 @@ export function ComponentTabView({
     if (sel.kind === "stream") {
       const c = body.flows.find((x) => x.flow_id === sel.id);
       return c == null ? null : {
-        label: `Stream · ${c.flow_id}`,
+        label: `Flow · ${c.flow_id}`,
         value: c.notes ?? "",
         set: (v) => editLib(sel.libId, (l) => ({ ...l, flows: l.flows.map((x) => (x.flow_id === sel.id ? { ...x, notes: v } : x)) })),
       };

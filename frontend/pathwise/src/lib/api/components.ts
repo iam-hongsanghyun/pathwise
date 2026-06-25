@@ -99,7 +99,7 @@ export interface FlowTemplate {
   /** Per-year overrides of the scalar price/sale_price (empty = scalar). */
   price_by_year?: ByYear;
   sale_price_by_year?: ByYear;
-  /** Owning sector (the sector that PRODUCES this stream — electricity is "power",
+  /** Owning sector (the sector that PRODUCES this flow — electricity is "power",
    *  not "steel"). Blank/null = a general, industry-agnostic stream. */
   sector?: string | null;
   /** Free-text notes / references (optimiser ignores it). */

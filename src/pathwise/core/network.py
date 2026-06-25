@@ -126,7 +126,7 @@ def run_network(
     return out
 
 
-def sweep_value_chain(
+def sweep_network(
     spec: NetworkSpec,
     draws: list[dict[str, Workbook]],
     scenario: ScenarioConfig | None = None,

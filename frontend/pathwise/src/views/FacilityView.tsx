@@ -49,10 +49,10 @@ interface Props {
 /** Which kind a dragged Library leaf carries (encoded as the leaf id's prefix). */
 type DragKind = "t" | "s" | "m" | "g";
 
-// The PREFIXED modelling groups — Technology / Stream / Levers & MACC — are
+// The PREFIXED modelling groups — Technology / Flow / Levers & MACC — are
 // auto-created when a component is dropped, and are distinct from the user's own
 // (free-text) groups like sector / company / facility.
-const PREFIXED_LEVELS = new Set(["Technology", "Stream", "Levers & MACC"]);
+const PREFIXED_LEVELS = new Set(["Technology", "Flow", "Levers & MACC"]);
 const isPrefixedLevel = (lvl?: string | null): boolean => !!lvl && PREFIXED_LEVELS.has(lvl);
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
@@ -164,7 +164,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
 
   const KIND_GROUP: Record<DragKind, string> = {
     t: "Technology",
-    s: "Stream",
+    s: "Flow",
     m: "Levers & MACC",
     g: "Levers & MACC",
   };
@@ -285,7 +285,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
       const tg = grp("tech", "Technology", body.technologies.length > 0);
       for (const t of body.technologies)
         out.push({ id: `t:${l.scope}:${l.id}:${t.technology_id}`, parentId: tg, kind: "leaf", label: t.technology_id, hasChildren: false, draggable: true });
-      const sg = grp("stream", "Stream", body.flows.length > 0);
+      const sg = grp("stream", "Flow", body.flows.length > 0);
       for (const c of body.flows)
         out.push({ id: `s:${l.scope}:${l.id}:${c.flow_id}`, parentId: sg, kind: "leaf", label: c.flow_id, hasChildren: false, draggable: true });
       const mg = grp("meas", "Levers & MACC", body.measures.length + body.maccs.length > 0);
@@ -462,7 +462,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
             {cell("maxren", "max renewals",
               <input className="field-input" type="number" min={0} step={1} placeholder="∞ (unlimited)" value={s(r?.max_renewals)} onChange={(e) => editAsset(sel.id, { max_renewals: e.target.value === "" ? null : Number(e.target.value) })} />)}
 
-            <div className="mf-sec">input streams · per {thru}</div>
+            <div className="mf-sec">input flows · per {thru}</div>
             {inputs.length === 0 ? <div className="mf-empty">no inputs</div> : inputs.map(coeffCell)}
 
             <div className="mf-sec">products &amp; emissions</div>
@@ -519,8 +519,8 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         )}
         <p className="detail-note" style={{ marginBottom: 8 }}>
           {prefixed
-            ? `Drag a ${sel.level === "Technology" ? "technology" : sel.level === "Stream" ? "stream" : "lever / MACC"} from the Library below to add one here.`
-            : "Right-click in the tree to add a group inside (like a folder), or drag a component from the Library below — it files under a Technology / Stream / Levers & MACC group."}
+            ? `Drag a ${sel.level === "Technology" ? "technology" : sel.level === "Flow" ? "stream" : "lever / MACC"} from the Library below to add one here.`
+            : "Right-click in the tree to add a group inside (like a folder), or drag a component from the Library below — it files under a Technology / Flow / Levers & MACC group."}
         </p>
         {kids.length === 0 ? (
           <p className="detail-note">Empty — drag a component from the Library at the bottom-left.</p>

@@ -22,7 +22,7 @@ const KIND_OPTS = [
   { value: "lever", label: "Enable lever" },
   { value: "tech_cost", label: "Change tech cost" },
   { value: "io_coef", label: "Change I/O rate" },
-  { value: "stream_cap", label: "Change stream cap" },
+  { value: "stream_cap", label: "Change flow cap" },
 ];
 
 //: Kinds whose value is a plain number (the rest pick from a list).

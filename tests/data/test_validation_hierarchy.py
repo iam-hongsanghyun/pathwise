@@ -59,7 +59,7 @@ def test_connection_to_unknown_flow_is_error() -> None:
     m = _model()
     m["links"][0]["flow_id"] = "plasma"
     report = validate(m)
-    assert any("unknown stream 'plasma'" in e for e in report.errors)
+    assert any("unknown flow 'plasma'" in e for e in report.errors)
 
 
 def test_parent_cycle_is_error() -> None:
