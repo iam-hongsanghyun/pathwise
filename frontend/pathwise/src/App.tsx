@@ -48,6 +48,7 @@ export function App() {
   // unmount the view and reset the ▶ Run button while the job is still going.
   const [running, setRunning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
   const [leftW, setLeftW] = useState(232);
   const [libraries, setLibraries] = useState<LibraryEntry[]>([]);
   // v2: visual theme + density (persisted; reflected on <html data-theme/density>).
@@ -167,6 +168,7 @@ export function App() {
       await putModel(sessionId, workbook);
       const res = await runToCompletion(sessionId, scenario, { domain: "process", backend }, setRunning);
       setResult(res);
+      setWarnings(res.validation?.warnings ?? []);
       if (res.status === "invalid" && res.validation?.errors?.length) {
         setError(res.validation.errors.join(" "));
       } else {
@@ -243,6 +245,17 @@ export function App() {
         </header>
 
         {error && <div className="error" style={{ padding: "4px 16px" }}>{error}</div>}
+        {warnings.length > 0 && (
+          <div className="run-warnings">
+            <span className="run-warnings-icon">⚠</span>
+            <div className="run-warnings-body">
+              <strong>{warnings.length} unit/validation warning{warnings.length === 1 ? "" : "s"}</strong>
+              <ul>{warnings.slice(0, 6).map((w, i) => <li key={i}>{w}</li>)}</ul>
+              {warnings.length > 6 && <span className="muted">…and {warnings.length - 6} more</span>}
+            </div>
+            <button className="run-warnings-x" title="dismiss" onClick={() => setWarnings([])}>✕</button>
+          </div>
+        )}
 
         {view === "project" && (
           <ProjectView

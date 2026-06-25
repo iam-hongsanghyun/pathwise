@@ -55,6 +55,10 @@ def run_model(
         problem = assemble_problem(wb, scenario)
         if forced:
             problem.forced_switches = dict(forced)
+        # Surface unit-conversion issues as validation WARNINGS (loud, not just logs).
+        if report is not None and problem.unit_issues:
+            warns = report.setdefault("warnings", [])
+            warns.extend(m for m in problem.unit_issues if m not in warns)
         return solve(build(problem), opts)
 
     # Whole-model joint solve (no hierarchy, or the root/system level).

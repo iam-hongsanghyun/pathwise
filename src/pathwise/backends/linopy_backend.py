@@ -103,6 +103,11 @@ class LinopyBackend:
         problem = domain.build_problem(eval_model, sc)
         if forced:
             problem.forced_switches = forced
+        # Surface unit-conversion issues (a coefficient left as authored because it
+        # couldn't be converted) as validation WARNINGS — loud, not just server logs.
+        for msg in problem.unit_issues:
+            if msg not in report.warnings:
+                report.warnings.append(msg)
         ctx = build(problem)
         time_limit = min(sc.solver.time_limit_s, float(settings.max_solver_time_limit_s))
         # HiGHS log streams to the server terminal so the optimisation is visible;

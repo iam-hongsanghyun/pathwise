@@ -369,6 +369,11 @@ class Problem:
     capex_convention: CapexConvention = CapexConvention.NPV
     slack_penalty: float = 1.0e9
     toggles: CostToggles = field(default_factory=CostToggles)
+    # Unit-conversion issues recorded while assembling (a coefficient that could not
+    # be converted to its stream's canonical unit was left as authored). Surfaced as
+    # result validation WARNINGS so a silently-wrong coefficient is visible, not just
+    # logged. Empty ⇒ every coefficient converted cleanly (or needed no conversion).
+    unit_issues: tuple[str, ...] = ()
 
     @property
     def years(self) -> list[int]:

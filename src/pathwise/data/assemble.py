@@ -1707,4 +1707,5 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         capex_convention=econ.capex_convention,
         slack_penalty=scenario.slack_penalty,
         toggles=toggles,
+        unit_issues=tuple(converter.issues),
     )

@@ -161,3 +161,41 @@ def test_project_override_changes_conversion() -> None:
     # 1300 KRW -> USD: global /1300 = 1.0, override /1000 = 1.3.
     np.testing.assert_allclose(glob, 1.0, rtol=1e-6)
     np.testing.assert_allclose(over, 1.3, rtol=1e-9)
+
+
+def test_converter_issue_is_recorded_on_the_problem() -> None:
+    # gas in tonnes with no LHV degrades (left as authored) — but the assemble-time
+    # converter now records the issue on the Problem so a run can surface it as a
+    # WARNING instead of silently using a wrong-dimension coefficient.
+    wb = _wb(
+        [
+            _product(),
+            {
+                "technology_id": "EAF",
+                "target": "gas",
+                "role": "input",
+                "coefficient": 2.0,
+                "unit": "t",
+            },
+        ]
+    )
+    prob = assemble_problem(wb, _SCN)
+    assert prob.unit_issues  # non-empty
+    assert any("gas" in m for m in prob.unit_issues)
+
+
+def test_clean_model_has_no_unit_issues() -> None:
+    # A model whose units all convert cleanly records nothing (no false alarms).
+    wb = _wb(
+        [
+            _product(),
+            {
+                "technology_id": "EAF",
+                "target": "electricity",
+                "role": "input",
+                "coefficient": 3.6,
+                "unit": "GJ",
+            },
+        ]
+    )
+    assert assemble_problem(wb, _SCN).unit_issues == ()

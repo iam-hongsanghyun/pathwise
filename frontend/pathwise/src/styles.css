@@ -1266,6 +1266,30 @@
 .error-bar {
   padding: 4px 12px;
 }
+/* Post-run, non-blocking warnings (unit-conversion / validation) — amber, dismissable. */
+.run-warnings {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  background: color-mix(in srgb, #c8860b 12%, var(--surface));
+  border-bottom: 1px solid color-mix(in srgb, #c8860b 35%, var(--border));
+  color: var(--text);
+}
+.run-warnings-icon { color: #c8860b; flex: 0 0 auto; }
+.run-warnings-body { flex: 1; min-width: 0; }
+.run-warnings-body ul { margin: 2px 0 0; padding-left: 16px; }
+.run-warnings-body li { margin: 1px 0; }
+.run-warnings-x {
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 4px;
+}
+.run-warnings-x:hover { color: var(--text); }
 
 /* ── Buttons / inputs ───────────────────────────────────────────────────── */
 button {
