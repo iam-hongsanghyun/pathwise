@@ -41,9 +41,9 @@ def run_model(
     ``forced_switches`` pins technology switches (``{machine: (to_tech, year)}`` —
     a selected variant compiled by :mod:`pathwise.backends.variants`) on every
     assembled :class:`Problem` before the build, so both the optimiser and the
-    simulator honour them. Applied to the direct-build paths (joint / subset /
-    independent — the only modes the run UIs use); the value-chain *cascade* path
-    does not yet thread them.
+    simulator honour them. Applied to ALL paths — joint, subset, independent, and
+    the value-chain *cascade* (each stage's problem is pinned; keys for machines not
+    in a stage are inert).
     """
     hierarchy = load_hierarchy(workbook)
     level = scenario.optimisation_scope
@@ -98,4 +98,11 @@ def run_model(
     spec, workbooks = partition(
         workbook, hierarchy, level, signals=c.signals, default_lag=c.default_lag, targets=units
     )
-    return run_value_chain(spec, workbooks, scenario, iterations=c.iterations, damping=c.damping)
+    return run_value_chain(
+        spec,
+        workbooks,
+        scenario,
+        iterations=c.iterations,
+        damping=c.damping,
+        forced_switches=forced,
+    )

@@ -164,6 +164,24 @@ def test_upstream_carbon_policy_raises_downstream_price_and_flips_pathway() -> N
     assert _switched(high), "expensive electricity ⇒ switch to the half-electricity tech"
 
 
+def test_forced_switch_is_honoured_in_the_cascade() -> None:
+    # With cheap electricity the free cascade keeps the baseline Arc (no switch)…
+    spec = _spec()
+    free = run_value_chain(spec, {"elec": _electricity_wb(10.0), "steel": _steel_wb()}, SC)
+    assert free["status"] == "optimal"
+    assert not _switched(free)
+    # …but pinning the Mill to Arc_HR forces the switch even so — the cascade now
+    # threads forced_switches into each stage's problem (previously a silent no-op).
+    pinned = run_value_chain(
+        spec,
+        {"elec": _electricity_wb(10.0), "steel": _steel_wb()},
+        SC,
+        forced_switches={"Mill": ("Arc_HR", 2030)},  # run Arc in 2025, switch in 2030
+    )
+    assert pinned["status"] == "optimal"
+    assert _switched(pinned), "a forced switch must be honoured on the cascade path"
+
+
 def test_carbon_intensity_signal_couples_into_downstream_emissions() -> None:
     # Electricity emits 1,000 tCO2 for 1,000 MWh ⇒ CI = 1.0 tCO2/MWh, injected
     # into steel's electricity input so the mill's emissions reflect the grid.

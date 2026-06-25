@@ -63,6 +63,7 @@ def run_value_chain(
     scenario: ScenarioConfig | None = None,
     iterations: int = 1,
     damping: float = 0.5,
+    forced_switches: dict[str, tuple[str, int]] | None = None,
 ) -> dict[str, Any]:
     """Solve a value chain as a cascade of coupled stages.
 
@@ -100,7 +101,7 @@ def run_value_chain(
     prev: dict[tuple[str, str, int], float] = {}
     passes = 0
     for it in range(max(1, iterations)):
-        results, couplings = _forward_pass(spec, wbs, base)
+        results, couplings = _forward_pass(spec, wbs, base, forced_switches)
         passes = it + 1
         if not feedback:
             break
@@ -207,17 +208,26 @@ def _stats(values: list[float]) -> dict[str, float]:
 
 
 def _forward_pass(
-    spec: ValueChainSpec, wbs: dict[str, Workbook], base: ScenarioConfig
+    spec: ValueChainSpec,
+    wbs: dict[str, Workbook],
+    base: ScenarioConfig,
+    forced: dict[str, tuple[str, int]] | None = None,
 ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
-    """One upstream→downstream solve, injecting price/CI signals as it goes."""
+    """One upstream→downstream solve, injecting price/CI signals as it goes.
+
+    ``forced`` pins technology switches (``{process: (to_tech, year)}``, a selected
+    variant) on every stage's problem — keys for processes not in a stage are simply
+    inert, so a model-wide pin reaches whichever stage owns each machine.
+    """
     results: dict[str, dict[str, Any]] = {}
     couplings: list[dict[str, Any]] = []
     by_source = _links_by_source(spec)
     for sid in spec.order():
         sc = _stage_scenario(base, spec.stage(sid).scenario)
-        results[sid] = extract_results(
-            solve(build(assemble_problem(wbs[sid], sc)), options_from_scenario(sc))
-        )
+        prob = assemble_problem(wbs[sid], sc)
+        if forced:
+            prob.forced_switches = dict(forced)
+        results[sid] = extract_results(solve(build(prob), options_from_scenario(sc)))
         for link in by_source.get(sid, []):
             target_years = _years(wbs[link.to_stage])
             # marginal_price (finite-difference) takes precedence over the
