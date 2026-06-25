@@ -1,17 +1,15 @@
 // Fleet designer — a NEW transport layer, SEPARATE from facility / value chain.
-// LEFT rail = the fleet registry (its own alliance→company→fleet tree in
-// `fleet_groups` + `fleet`; never `nodes`). CENTER = the world map. RIGHT rail =
-// TOP "Routes" (value-chain stream connections whose two endpoints are located —
-// grouped by stream) + BOTTOM "Facility" (drag an endpoint onto the map to give it
-// a location). A connection is "teleportation" until it is located AND given a mode;
-// then it is a physical route a fleet can serve. Fleets are CANDIDATES — the optimiser
-// chooses unless a route pins one. Pop-ups (FloatingPanel) edit a fleet / port / route.
+// LEFT sidebar = AccordionSidebar with four sections:
+//   1. Fleets  — fleet registry (fleet_groups + fleet; NEVER nodes)
+//   2. Routes  — value-chain stream connections whose two endpoints are located
+//   3. Facility — drag an endpoint onto the map to give it a location
+//   4. Chokepoint risk — maritime chokepoint probability + per-voyage toll editor
+// CENTER = the world map. Pop-ups (FloatingPanel) edit a fleet / port / route.
 
 import { useEffect, useMemo, useState } from "react";
 import { useDialogs } from "../features/controls/Dialog";
 import { FloatingPanel } from "../layout/FloatingPanel";
-import { CollapsibleRail } from "../layout/CollapsibleRail";
-import { Resizer } from "../layout/Resizer";
+import { AccordionSidebar } from "../layout/AccordionSidebar";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { InfoTooltip } from "../features/controls/InfoTooltip";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
@@ -90,13 +88,8 @@ export function FleetDesignerView({
   const [expL, setExpL] = useState<Set<string>>(new Set());
   const [expR, setExpR] = useState<Set<string>>(new Set());
   const [expF, setExpF] = useState<Set<string>>(new Set());
-  const [facilityH, setFacilityH] = useState(220); // right-rail Routes↕Facility split
-  const [chokeOpen, setChokeOpen] = useState(false); // left-rail chokepoint designer
-  const [chokeH, setChokeH] = useState(280);
-  const [leftW, setLeftW] = useState(240);
-  const [rightW, setRightW] = useState(260);
+  const [leftW, setLeftW] = useState(260);
   const [leftOpen, setLeftOpen] = useState(true);
-  const [rightOpen, setRightOpen] = useState(true);
   const [tableGroup, setTableGroup] = useState<string | null>(null); // "See in a table" group
   const [tableOpen, setTableOpen] = useState(true);
   const [tableH, setTableH] = useState(260);
@@ -308,7 +301,7 @@ export function FleetDesignerView({
   const patchNode = (id: string, p: Row) => setWorkbook(setSheet(workbook, "nodes", (workbook.nodes ?? []).map((r) => (s(r.node_id) === id ? { ...r, ...p } : r))));
   const patchRoute = (proc: string, p: Row) => setWorkbook(setSheet(workbook, "routes", routes.map((r) => (s(r.process) === proc ? { ...r, ...p } : r))));
 
-  // ── LEFT: fleet registry (fleet_groups + fleet — NEVER nodes) ────────────────
+  // ── Fleet registry (fleet_groups + fleet — NEVER nodes) ─────────────────────
   async function addFleetGroup(parentId: string | null) {
     const label = (await prompt({ title: "Add group", label: "name", placeholder: "e.g. Alliance, Carrier Co." }))?.trim();
     if (!label) return;
@@ -371,10 +364,7 @@ export function FleetDesignerView({
     else patchFleetGroup(e.dragId, { parent_id: newParent ?? "" });
   }
 
-  // ── RIGHT: physicalise a stream connection + locate its endpoints ────────────
-  // Selecting a route leaf opens its panel. A candidate (a located connection with
-  // no `routes` row yet) is physicalised on select — a row is created so it can carry
-  // a mode/fleet; "Remove route" in the panel sends it back to teleportation.
+  // ── Routes: physicalise a stream connection + locate its endpoints ───────────
   function selectRoute(leaf: RouteLeaf) {
     if (!leaf.physical && !routes.some((r) => s(r.process) === leaf.proc))
       setWorkbook(setSheet(workbook, "routes", [...routes, { process: leaf.proc, from_node: leaf.from, to_node: leaf.to, commodity: leaf.commodity, mode: "sea" }]));
@@ -386,10 +376,7 @@ export function FleetDesignerView({
     patchNode(id, { lon, lat });
     setSelId(id);
   }
-  // Upsert a corridor's probability and/or per-voyage toll on the `corridors` sheet
-  // (each setter preserves the other field). `blocked` stays synced at 100% so the
-  // engine's legacy reader still hard-blocks. A row with neither prob nor toll is
-  // dropped so the sheet stays clean.
+  // Upsert a corridor's probability and/or per-voyage toll on the `corridors` sheet.
   function patchCorridor(name: string, patch: { prob?: number; toll?: number }) {
     const prob = patch.prob != null
       ? Math.max(0, Math.min(1, Number.isFinite(patch.prob) ? patch.prob : 0))
@@ -410,14 +397,11 @@ export function FleetDesignerView({
   }
   const setCorridorProb = (name: string, prob: number) => patchCorridor(name, { prob });
   const setCorridorToll = (name: string, toll: number) => patchCorridor(name, { toll });
-  // Block/unblock a corridor (scenario). The engine forces a blocked route's flow
-  // to 0; candidate fleets stay attached (inert while blocked), so unblocking just
-  // clears the flag — no stashing needed.
   function toggleBlock(proc: string, on: boolean) {
     setWorkbook(setSheet(workbook, "routes", routes.map((r) => (s(r.process) === proc ? { ...r, blocked: on ? "true" : "" } : r))));
   }
 
-  // ── tree actions ─────────────────────────────────────────────────────────────
+  // ── Tree actions ─────────────────────────────────────────────────────────────
   const leftActions = (n: TreeNode): TreeAction[] =>
     n.kind === "asset"
       ? [{ id: "edit", label: "Edit" }, { id: "dup", label: "Duplicate" }, { id: "dupN", label: "Duplicate ×N…" }, { id: "rename", label: "Rename" }, { id: "delete", label: "Delete", danger: true }]
@@ -439,92 +423,148 @@ export function FleetDesignerView({
   return (
     <div className="view-full builder">
       <div className="builder-body">
-        <CollapsibleRail side="left" open={leftOpen} setOpen={setLeftOpen} width={leftW} setWidth={setLeftW} min={200} max={420}
-          title="Fleets" scroll={false}
-          headAction={<button className="rail-add" title="add an alliance / company group" onClick={() => void addFleetGroup(null)}>＋</button>}
-          collapsedExtras={<button className="rail-add" title="add an alliance / company group" onClick={() => void addFleetGroup(null)}>＋</button>}
-          foot="A separate transport layer · right-click a group to add a company or fleet">
-          <div className="rail-scroll" style={{ flex: 1, minHeight: 80 }}>
-            <TreeExplorer nodes={leftTree} selectedId={selId} expandedIds={expL}
-              onToggle={(id, e) => setExpL((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
-              onSelect={(id) => { setSelId(id); if (fleetByNode.has(id)) setEdit({ kind: "fleet", id }); }}
-              actionsFor={leftActions} onContextAction={onLeftAction} onMove={onMoveLeft}
-              emptyHint="Empty — ＋ to add an alliance / company, then add fleets inside." />
-          </div>
-          {/* Chokepoint designer — collapsible + height-adjustable bottom section. */}
-          {chokeOpen && <Resizer side="top" width={chokeH} setWidth={setChokeH} min={140} max={620} />}
-          <div style={{ flex: chokeOpen ? `0 0 ${chokeH}px` : "0 0 auto", display: "flex", flexDirection: "column", minHeight: 0 }}>
-            <button className="rail-head-row is-divided choke-toggle" onClick={() => setChokeOpen((o) => !o)}
-              title="Maritime chokepoint risk + per-voyage tolls">
-              <span className="rail-head">{chokeOpen ? "▾" : "▸"} Chokepoint risk</span>
-              <span className="rail-foot" style={{ padding: "0 10px" }}>
-                {blockedCorridors.length ? `${blockedCorridors.length} shut` : corridorAtRisk ? `${corridorAtRisk} at risk` : ""}
-              </span>
-            </button>
-            {chokeOpen && (
-              <div className="rail-scroll" style={{ flex: 1, minHeight: 0 }}>
-                <ChokepointDesigner probs={corridorProbs} tolls={corridorTolls} onProb={setCorridorProb} onToll={setCorridorToll}
-                  routes={exposureRoutes} routeLabel={(p) => routeLabelByProc.get(p) ?? p} currency={currency} />
-              </div>
-            )}
-          </div>
-        </CollapsibleRail>
+        <AccordionSidebar
+          open={leftOpen}
+          setOpen={setLeftOpen}
+          width={leftW}
+          setWidth={setLeftW}
+          min={200}
+          max={480}
+          collapsedExtras={
+            <button className="rail-add" title="add an alliance / company group" onClick={() => void addFleetGroup(null)}>＋</button>
+          }
+          sections={[
+            {
+              id: "fleets",
+              title: "Fleets",
+              defaultOpen: true,
+              headAction: (
+                <button className="rail-add" title="add an alliance / company group" onClick={() => void addFleetGroup(null)}>＋</button>
+              ),
+              body: (
+                <TreeExplorer
+                  nodes={leftTree}
+                  selectedId={selId}
+                  expandedIds={expL}
+                  onToggle={(id, e) => setExpL((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
+                  onSelect={(id) => { setSelId(id); if (fleetByNode.has(id)) setEdit({ kind: "fleet", id }); }}
+                  actionsFor={leftActions}
+                  onContextAction={onLeftAction}
+                  onMove={onMoveLeft}
+                  emptyHint="Empty — ＋ to add an alliance / company, then add fleets inside."
+                />
+              ),
+            },
+            {
+              id: "routes",
+              title: "Routes",
+              defaultOpen: true,
+              headAction: (
+                <span className="rail-hint" style={{ padding: "0 6px" }}>stream → route</span>
+              ),
+              body: (
+                <TreeExplorer
+                  nodes={routesTree}
+                  selectedId={selId}
+                  expandedIds={expR}
+                  onToggle={(id, e) => setExpR((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
+                  onSelect={(id) => { const leaf = leafByProc.get(id); if (leaf) selectRoute(leaf); else setExpR((p) => { const m = new Set(p); m.has(id) ? m.delete(id) : m.add(id); return m; }); }}
+                  actionsFor={() => []}
+                  onContextAction={() => undefined}
+                  onMove={() => undefined}
+                  emptyHint="Place both ends of a value-chain stream to see it here as a route."
+                />
+              ),
+            },
+            {
+              id: "facility",
+              title: "Facility",
+              defaultOpen: true,
+              headAction: (
+                <span className="rail-hint" style={{ padding: "0 6px" }}>{[...coord.keys()].length} placed</span>
+              ),
+              body: (
+                <>
+                  <TreeExplorer
+                    nodes={facilityNodes}
+                    selectedId={selId}
+                    expandedIds={expF}
+                    onToggle={(id, e) => setExpF((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
+                    onSelect={(id) => { setSelId(id); setEdit({ kind: "node", id }); }}
+                    actionsFor={() => []}
+                    onContextAction={() => undefined}
+                    onMove={() => undefined}
+                    canDrop={() => false}
+                    emptyHint="The facility / value-chain structure — drag a node onto the map to place it."
+                  />
+                  <div className="rail-foot">Drag a facility node onto the map to give it a location.</div>
+                </>
+              ),
+            },
+            {
+              id: "chokepoints",
+              title: "Chokepoint risk",
+              defaultOpen: false,
+              grow: false,
+              headAction: (
+                <span className="rail-foot" style={{ padding: "0 6px", border: "none" }}>
+                  {blockedCorridors.length ? `${blockedCorridors.length} shut` : corridorAtRisk ? `${corridorAtRisk} at risk` : ""}
+                </span>
+              ),
+              body: (
+                <ChokepointDesigner
+                  probs={corridorProbs}
+                  tolls={corridorTolls}
+                  onProb={setCorridorProb}
+                  onToll={setCorridorToll}
+                  routes={exposureRoutes}
+                  routeLabel={(p) => routeLabelByProc.get(p) ?? p}
+                  currency={currency}
+                />
+              ),
+            },
+          ]}
+        />
 
         <main className="builder-canvas">
           <div className="view-head">
             <div className="eyebrow">fleet</div>
             <span className="view-status">drag a facility onto the map to place it · drag a marker to move it · click a route to edit</span>
-            <span style={{ flex: 1 }} />
-            <button
-              className="ghost"
-              style={{ fontSize: "0.74rem", color: blockedCorridors.length ? "var(--danger)" : corridorAtRisk ? "var(--text)" : "var(--muted)" }}
-              title="Chokepoint risk — open the designer in the left rail (probability + per-voyage toll + detour exposure)"
-              onClick={() => { setLeftOpen(true); setChokeOpen(true); }}
-            >
-              ⚠ Chokepoints{blockedCorridors.length ? ` (${blockedCorridors.length} shut)` : corridorAtRisk ? ` (${corridorAtRisk})` : ""}
-            </button>
           </div>
           <div style={{ flex: 1, minHeight: 0, display: "flex", padding: "10px 14px" }}>
-            <FleetMap ports={ports} routes={mapRoutes} selId={selId} pendingFrom={null} currency={currency}
+            <FleetMap
+              ports={ports}
+              routes={mapRoutes}
+              selId={selId}
+              pendingFrom={null}
+              currency={currency}
               onMovePort={(id, lon, lat) => patchNode(id, { lon, lat })}
               onClickPort={(id) => { setSelId(id); setEdit({ kind: "node", id }); }}
               onDropNode={locateNode}
               onSelectRoute={(proc) => { setSelId(proc); setEdit({ kind: "route", id: proc }); }}
-              onBackground={() => undefined} />
+              onBackground={() => undefined}
+            />
           </div>
-          {ports.length === 0 && <p className="view-lead" style={{ padding: "0 14px" }}>Drag a facility from the right rail onto the map to give it a location. Once both ends of a stream are placed, the stream appears under <b>Routes</b> — set a mode to make it physical (otherwise it teleports).</p>}
+          {ports.length === 0 && (
+            <p className="view-lead" style={{ padding: "0 14px" }}>
+              Drag a facility from the left rail onto the map to give it a location. Once both ends of a stream are placed, the stream appears under <b>Routes</b> — set a mode to make it physical (otherwise it teleports).
+            </p>
+          )}
           {tableResult && (
-            <FlatTablePanel result={tableResult} workbook={workbook} setWorkbook={setWorkbook} baseYear={baseYear} periods={periods}
-              height={tableH} setHeight={setTableH} open={tableOpen} onToggle={() => setTableOpen((o) => !o)} onClose={() => setTableGroup(null)} />
+            <FlatTablePanel
+              result={tableResult}
+              workbook={workbook}
+              setWorkbook={setWorkbook}
+              baseYear={baseYear}
+              periods={periods}
+              height={tableH}
+              setHeight={setTableH}
+              open={tableOpen}
+              onToggle={() => setTableOpen((o) => !o)}
+              onClose={() => setTableGroup(null)}
+            />
           )}
         </main>
-
-        <CollapsibleRail side="right" open={rightOpen} setOpen={setRightOpen} width={rightW} setWidth={setRightW} min={220} max={440}
-          title="Routes" scroll={false}
-          headAction={<span className="rail-foot" style={{ padding: "0 10px" }}>stream → route</span>}>
-          <div className="rail-scroll" style={{ flex: "1 1 0", minHeight: 80 }}>
-            <TreeExplorer nodes={routesTree} selectedId={selId} expandedIds={expR}
-              onToggle={(id, e) => setExpR((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
-              onSelect={(id) => { const leaf = leafByProc.get(id); if (leaf) selectRoute(leaf); else setExpR((p) => { const m = new Set(p); m.has(id) ? m.delete(id) : m.add(id); return m; }); }}
-              actionsFor={() => []} onContextAction={() => undefined} onMove={() => undefined}
-              emptyHint="Place both ends of a value-chain stream to see it here as a route." />
-          </div>
-          <Resizer side="top" width={facilityH} setWidth={setFacilityH} min={90} max={560} />
-          <div style={{ flex: `0 0 ${facilityH}px`, display: "flex", flexDirection: "column", minHeight: 0 }}>
-            <div className="rail-head-row is-divided">
-              <span className="rail-head">Facility</span>
-              <span className="rail-foot" style={{ padding: "0 10px" }}>{[...coord.keys()].length} placed</span>
-            </div>
-            <div className="rail-scroll" style={{ flex: 1, minHeight: 0 }}>
-              <TreeExplorer nodes={facilityNodes} selectedId={selId} expandedIds={expF}
-                onToggle={(id, e) => setExpF((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
-                onSelect={(id) => { setSelId(id); setEdit({ kind: "node", id }); }}
-                actionsFor={() => []} onContextAction={() => undefined} onMove={() => undefined} canDrop={() => false}
-                emptyHint="The facility / value-chain structure — drag a node onto the map to place it." />
-            </div>
-            <div className="rail-foot">Drag a facility node onto the map to give it a location.</div>
-          </div>
-        </CollapsibleRail>
       </div>
 
       {edit?.kind === "fleet" && fleetByNode.get(edit.id) && (
@@ -549,11 +589,7 @@ export function FleetDesignerView({
 }
 
 // Chokepoint designer (left-rail section): each maritime corridor carries an annual
-// closure PROBABILITY and an optional per-voyage TOLL. It shows each corridor's detour
-// EXPOSURE (which sea routes it hits, how far they'd reroute, or whether any are
-// stranded) + the expected annual detour (prob × total detour km). Geometry comes from
-// /api/route-exposure; probability + toll are applied client-side, so editing either
-// recomputes locally without re-fetching.
+// closure PROBABILITY and an optional per-voyage TOLL.
 const _km = (km: number): string => (km >= 1000 ? `${(km / 1000).toFixed(1)}k` : Math.round(km).toString());
 
 function ChokepointDesigner({
@@ -575,8 +611,6 @@ function ChokepointDesigner({
 }) {
   const [exp, setExp] = useState<Map<string, CorridorExposure>>(new Map());
   const [loading, setLoading] = useState(false);
-  // Re-fetch the geometric exposure only when the routes change or a corridor
-  // crosses the 100% line (which moves the baseline). Plain prob/toll edits don't.
   const hardKey = CORRIDORS.filter(([id]) => (probs.get(id) ?? 0) >= 1).map(([id]) => id).join(",");
   useEffect(() => {
     let alive = true;
@@ -590,8 +624,6 @@ function ChokepointDesigner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routes, hardKey]);
 
-  // Rank corridors worst-first: stranded routes float to the top, then by expected
-  // annual detour (probability × total reroute distance).
   const ranked = CORRIDORS.map(([id, label]) => {
     const e = exp.get(id);
     const p = probs.get(id) ?? 0;
@@ -738,8 +770,6 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
   const blocked = s(route.blocked) === "true";
   const others = routes.filter((r) => s(r.process) !== proc);
   const commodity = s(route.commodity);
-  // Candidate fleets: one fleet_routes row per fleet allowed to run this route. The
-  // optimiser picks among them; empty ⇒ it may use any fleet carrying the stream.
   const candidates = fleetRoutes.filter((r) => s(r.process) === proc);
   const candIds = new Set(candidates.map((r) => fleetId(r)));
   const addable = fleets.filter((f) => !candIds.has(fleetId(f)));
@@ -764,7 +794,7 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
           <div className="rail-section" style={{ marginTop: 8 }}>
             <div className="rail-head">Candidate fleets <InfoTooltip text="Fleets that MAY carry this stream — the optimiser picks which one(s) run the route (some, not all). Leave empty to let it choose from every fleet that carries this stream." /></div>
             {candidates.length === 0 ? (
-              <p className="rail-empty" style={{ margin: "2px 0 4px" }}>Empty — the optimiser may use any fleet carrying “{commodity}”.</p>
+              <p className="rail-empty" style={{ margin: "2px 0 4px" }}>Empty — the optimiser may use any fleet carrying "{commodity}".</p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", margin: "4px 0" }}>
                 {candidates.map((r) => {

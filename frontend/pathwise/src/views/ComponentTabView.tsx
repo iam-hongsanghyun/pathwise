@@ -13,7 +13,7 @@ import {
   TechnologyEditor,
 } from "../features/component/editors";
 import { TimeSeriesRail } from "../features/component/TimeSeriesRail";
-import { CollapsibleRail } from "../layout/CollapsibleRail";
+import { AccordionSidebar } from "../layout/AccordionSidebar";
 import { useDialogs } from "../features/controls/Dialog";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
@@ -219,10 +219,8 @@ export function ComponentTabView({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
-  const [rightW, setRightW] = useState(340); // resizable right-rail (time series) width
-  const [leftW, setLeftW] = useState(280); // resizable left-rail (tree) width
-  const [leftOpen, setLeftOpen] = useState(true); // left rail collapse toggle
-  const [rightOpen, setRightOpen] = useState(true); // right (time-series) rail collapse
+  const [leftW, setLeftW] = useState(280); // resizable left sidebar width
+  const [leftOpen, setLeftOpen] = useState(true); // sidebar collapse toggle
   const [unitOptions, setUnitOptions] = useState<string[]>([]); // global allowed units (fallback)
   // Unit pickers are limited to the project's registry (the model's `units` sheet);
   // fall back to the global allowed list when a model has no registry yet.
@@ -1119,59 +1117,111 @@ export function ComponentTabView({
     />
   );
 
+  // Build the sections array. The "Library / Project" tree is always the first
+  // section; "Time series" is appended only when a single component is selected
+  // and produces time-series rows.
+  const libSectionBody =
+    mode === "project" ? (
+      <>
+        <div className="rail-head-row" style={{ padding: "6px 10px" }}>
+          <span className="rail-head">Project</span>
+          <button className="rail-add" title="new project" onClick={newProject}>＋</button>
+        </div>
+        <div style={{ padding: "0 10px 6px" }}>
+          <SearchSelect
+            value={activeProjectId ?? ""}
+            onChange={(v) => switchProject(v)}
+            options={sessionProjects.map((l) => ({ value: l.id, label: l.label || l.id }))}
+            placeholder={sessionProjects.length ? "select a project…" : "no projects yet"}
+          />
+        </div>
+        <div style={{ flex: 1, minHeight: 60, overflow: "auto" }}>
+          {activeLibId
+            ? libTree(railNodes, "Empty project — add or copy components from the main panel.")
+            : <div className="rail-empty" style={{ padding: 10 }}>Create a project with ＋, then add components.</div>}
+        </div>
+        <div className="rail-foot">Right-click for actions</div>
+      </>
+    ) : (
+      <>
+        <div className="rail-head-row">
+          <div className="seg" role="group" aria-label="Library scope">
+            <button
+              className={scope === "base" && baseGroup === "starter" ? "is-active" : ""}
+              title="Shipped starter libraries (read-only references)"
+              onClick={() => { setScope("base"); setBaseGroup("starter"); setSel(null); }}
+            >
+              Starters
+            </button>
+            <button
+              className={scope === "base" && baseGroup === "user" ? "is-active" : ""}
+              title="Your own reusable libraries (shared across projects)"
+              onClick={() => { setScope("base"); setBaseGroup("user"); setSel(null); }}
+            >
+              Mine
+            </button>
+            <button
+              className={scope === "session" ? "is-active" : ""}
+              title="This project's own components"
+              onClick={() => { setScope("session"); setSel(null); }}
+            >
+              Project
+            </button>
+          </div>
+          {!(scope === "base" && baseGroup === "starter") && (
+            <button
+              className="rail-add"
+              title={scope === "session" ? "new project library" : "new library"}
+              onClick={scope === "session" ? newProject : newLibrary}
+            >
+              ＋
+            </button>
+          )}
+        </div>
+        {scope === "base" && onPickLibrary && (
+          <div className="rail-import">
+            <SearchSelect
+              value=""
+              onChange={(v) => v && onPickLibrary(v)}
+              options={libraries
+                .filter((l) => l.has_components)
+                .map((l) => ({ value: `${l.tier}/${l.id}`, label: `${l.label}` }))}
+              placeholder="import components…"
+            />
+          </div>
+        )}
+        <div className="rail-scroll">
+          {libTree(
+            railNodes,
+            scope === "session"
+              ? "No project libraries — ＋ to add one."
+              : baseGroup === "starter"
+                ? "No starter libraries found."
+                : "No libraries of your own yet — ＋ to add one, or duplicate a starter.",
+          )}
+        </div>
+        <div className="rail-foot">Right-click for actions</div>
+      </>
+    );
+
   return (
     <div className="view-full builder">
       {error && <div className="error error-bar" onClick={() => setError(null)}>{error} <span className="muted">(dismiss)</span></div>}
       <div className="builder-body">
-        <CollapsibleRail side="left" open={leftOpen} setOpen={setLeftOpen} width={leftW} setWidth={setLeftW} min={200} max={520} scroll={false}
-          title={mode === "project" ? "Project" : "Library"}>
-          {mode === "project" ? (
-            <>
-              <div className="rail-head-row" style={{ padding: "6px 10px" }}>
-                <span className="rail-head">Project</span>
-                <button className="rail-add" title="new project" onClick={newProject}>＋</button>
-              </div>
-              <div style={{ padding: "0 10px 6px" }}>
-                <SearchSelect
-                  value={activeProjectId ?? ""}
-                  onChange={(v) => switchProject(v)}
-                  options={sessionProjects.map((l) => ({ value: l.id, label: l.label || l.id }))}
-                  placeholder={sessionProjects.length ? "select a project…" : "no projects yet"}
-                />
-              </div>
-              <div style={{ flex: 1, minHeight: 60, overflow: "auto" }}>
-                {activeLibId
-                  ? libTree(railNodes, "Empty project — add or copy components from the main panel.")
-                  : <div className="rail-empty" style={{ padding: 10 }}>Create a project with ＋, then add components.</div>}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="rail-head-row">
-                <div className="seg" role="group" aria-label="Library scope">
-                  <button
-                    className={scope === "base" && baseGroup === "starter" ? "is-active" : ""}
-                    title="Shipped starter libraries (read-only references)"
-                    onClick={() => { setScope("base"); setBaseGroup("starter"); setSel(null); }}
-                  >
-                    Starters
-                  </button>
-                  <button
-                    className={scope === "base" && baseGroup === "user" ? "is-active" : ""}
-                    title="Your own reusable libraries (shared across projects)"
-                    onClick={() => { setScope("base"); setBaseGroup("user"); setSel(null); }}
-                  >
-                    Mine
-                  </button>
-                  <button
-                    className={scope === "session" ? "is-active" : ""}
-                    title="This project's own components"
-                    onClick={() => { setScope("session"); setSel(null); }}
-                  >
-                    Project
-                  </button>
-                </div>
-                {!(scope === "base" && baseGroup === "starter") && (
+        <AccordionSidebar
+          open={leftOpen}
+          setOpen={setLeftOpen}
+          width={leftW}
+          setWidth={setLeftW}
+          min={200}
+          max={520}
+          sections={[
+            {
+              id: "library",
+              title: mode === "project" ? "Project" : "Library",
+              defaultOpen: true,
+              headAction:
+                !(mode === "project") && !(scope === "base" && baseGroup === "starter") ? (
                   <button
                     className="rail-add"
                     title={scope === "session" ? "new project library" : "new library"}
@@ -1179,34 +1229,32 @@ export function ComponentTabView({
                   >
                     ＋
                   </button>
-                )}
-              </div>
-              {scope === "base" && onPickLibrary && (
-                <div className="rail-import">
-                  <SearchSelect
-                    value=""
-                    onChange={(v) => v && onPickLibrary(v)}
-                    options={libraries
-                      .filter((l) => l.has_components)
-                      .map((l) => ({ value: `${l.tier}/${l.id}`, label: `${l.label}` }))}
-                    placeholder="import components…"
-                  />
-                </div>
-              )}
-              <div className="rail-scroll">
-                {libTree(
-                  railNodes,
-                  scope === "session"
-                    ? "No project libraries — ＋ to add one."
-                    : baseGroup === "starter"
-                      ? "No starter libraries found."
-                      : "No libraries of your own yet — ＋ to add one, or duplicate a starter.",
-                )}
-              </div>
-            </>
-          )}
-          <div className="rail-foot">Right-click for actions</div>
-        </CollapsibleRail>
+                ) : mode === "project" ? (
+                  <button className="rail-add" title="new project" onClick={newProject}>＋</button>
+                ) : undefined,
+              body: libSectionBody,
+            },
+            ...(rail
+              ? [
+                  {
+                    id: "timeseries",
+                    title: "Time series",
+                    defaultOpen: true,
+                    grow: true,
+                    body: (
+                      <>
+                        <div style={{ padding: "6px 10px 4px" }}>
+                          <span className="eyebrow">per-year overrides</span>
+                          <span className="eyebrow-soft"> · empty = latest value</span>
+                        </div>
+                        {rail}
+                      </>
+                    ),
+                  },
+                ]
+              : []),
+          ]}
+        />
         <main className="builder-main">
           <div className="view-head">
             <div className="eyebrow">{mode === "project" ? "project workbench" : scope === "session" ? "project templates" : "template library"}</div>
@@ -1256,15 +1304,6 @@ export function ComponentTabView({
             </div>
           )}
         </main>
-        {/* RIGHT rail (resizable): per-year time-series table for the selected component. */}
-        {rail && (
-          <CollapsibleRail side="right" open={rightOpen} setOpen={setRightOpen} width={rightW} setWidth={setRightW} min={220} max={560} title="Time series">
-            <div className="eyebrow" style={{ marginBottom: 8 }}>
-              per-year overrides <span className="eyebrow-soft">· empty = latest value</span>
-            </div>
-            {rail}
-          </CollapsibleRail>
-        )}
       </div>
       {dialogNode}
     </div>

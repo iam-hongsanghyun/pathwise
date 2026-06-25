@@ -1,15 +1,12 @@
 // Facility tab — the REAL-WORLD layer between Component (scientific spec) and
-// Value Chain (flows). It builds the shared node tree (sector → company →
-// asset, free-text levels, any depth) and holds each asset's real-world
-// data: physical capacity, owner, build/close year. It edits ONLY structure +
-// asset data — connections are the Value Chain's job (same workbook, different
-// concern). It never edits the component library: the base Library tree shown at
-// the BOTTOM of the left rail is a READ-ONLY drag source.
+// Value Chain (flows). Left sidebar = AccordionSidebar with two sections:
+//   1. Structure — the shared node tree (drop target for library items)
+//   2. Templates — the base Library catalogue (READ-ONLY drag source)
+// Never edits the component library: the base Library tree is a READ-ONLY drag source.
 
 import { useEffect, useMemo, useState } from "react";
 import { useDialogs } from "../features/controls/Dialog";
-import { Resizer } from "../layout/Resizer";
-import { CollapsibleRail } from "../layout/CollapsibleRail";
+import { AccordionSidebar } from "../layout/AccordionSidebar";
 import { FlatTablePanel } from "../features/table/FlatTablePanel";
 import { flattenFacilityGroup } from "../features/table/flatten.facility";
 import { TemporalValue } from "../features/controls/TemporalValue";
@@ -67,13 +64,11 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   const [selId, setSelId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [libExpanded, setLibExpanded] = useState<Set<string>>(new Set());
-  const [libH, setLibH] = useState(260); // adjustable height of the bottom library tree
-  const [leftW, setLeftW] = useState(280); // adjustable width of the left (tree) rail
-  const [leftOpen, setLeftOpen] = useState(true); // left rail collapse toggle
+  const [leftW, setLeftW] = useState(280); // adjustable width of the left sidebar
+  const [leftOpen, setLeftOpen] = useState(true); // sidebar collapse toggle
   const [tableGroup, setTableGroup] = useState<string | null>(null); // "See in a table" group
   const [tableOpen, setTableOpen] = useState(true);
   const [tableH, setTableH] = useState(260);
-  // Asset editor: adjustable rail width + each column's bottom-zone height.
   const [error, setError] = useState<string | null>(null);
 
   // The shared node tree (same workbook the Value Chain edits).
@@ -87,10 +82,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   const machineRow = (id: string): Row | undefined =>
     (workbook.assets ?? []).find((r) => s(r.asset_id) === id);
 
-  // ── Library catalogue (read-only drag source at the bottom of the rail) ──────
-  // Both BASE (shared) and the PROJECT's own (session) component libraries — so a
-  // user can drag in project-specific components alongside the base ones. Each is
-  // keyed by `${scope}/${id}` so a base and a project library can share an id.
+  // ── Library catalogue (read-only drag source — bottom accordion section) ──────
   const [allLibs, setAllLibs] = useState<LibrarySummary[]>([]);
   const [libBodies, setLibBodies] = useState<Map<string, ComponentLibrary>>(new Map());
   useEffect(() => {
@@ -170,11 +162,6 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     setWorkbook(setSheet(workbook, "nodes", (workbook.nodes ?? []).map((r) => (s(r.node_id) === e.dragId ? { ...r, parent_id: newParent } : r))));
   }
 
-  // Drag a technology from the base Library tree onto a facility node → place a
-  // asset (real-world instance) under it. The recipe stays in the component;
-  // the asset carries the physical capacity + real-world data.
-
-  // The group a dropped component is filed under, by its kind.
   const KIND_GROUP: Record<DragKind, string> = {
     t: "Technology",
     s: "Stream",
@@ -182,10 +169,6 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     g: "Levers & MACC",
   };
 
-  // Technology / Stream / Levers & MACC are the LAST group level — under them
-  // live only components, never another group. So a drop onto a kind-group (or a
-  // asset inside one) files under its nearest NORMAL ancestor group, so the
-  // kind-group is a SIBLING, never nested inside another kind-group.
   function normalParentOf(targetId: string): string | null {
     let cur = nodeById.get(targetId);
     while (cur) {
@@ -195,7 +178,6 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     return null;
   }
 
-  /** Find (or create) the kind-group under `parentId`, returning [groupId, wb]. */
   function ensureKindGroup(wb: Workbook, parentId: string | null, kind: DragKind): [string, Workbook] {
     const label = KIND_GROUP[kind];
     const existing = (wb.nodes ?? []).find(
@@ -206,11 +188,6 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     return [id, setSheet(wb, "nodes", [...(wb.nodes ?? []), { node_id: id, parent_id: parentId, kind: "group", level: label, label }])];
   }
 
-  // Drop a component from the Library onto a facility node: prompt for a name,
-  // ensure its KIND group (Technology / Stream / Levers & MACC) under the
-  // target, then place it there. A technology becomes a real asset (recipe
-  // hard-copied via placeTechnology) carrying physical data; other kinds become
-  // a named real-world entry under their group.
   async function dropComponent(scope: LibScope, libId: string, kind: DragKind, compId: string, parentId: string) {
     if (!sessionId) return;
     const kindWord = { t: "technology", s: "stream", m: "lever", g: "MACC" }[kind];
@@ -218,8 +195,6 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     if (!name) return;
     setError(null);
     try {
-      // File under the target's nearest normal group, so the Technology / Stream /
-      // "Levers & MACC" group is a sibling — never nested inside another kind-group.
       const np = normalParentOf(parentId);
       const [kgId, wb] = ensureKindGroup(workbook, np, kind);
       const expand = (p: Set<string>) => {
@@ -229,7 +204,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
       };
       if (kind === "t") {
         setWorkbook(wb);
-        await putModel(sessionId, wb); // the endpoint operates on the stored model
+        await putModel(sessionId, wb);
         const res = await placeTechnology(sessionId, { library: libId, technology: compId, parent_id: kgId, capacity: 0, scope });
         let fresh = await getFullModel(sessionId);
         const newId = res.root ?? res.created[0];
@@ -241,7 +216,6 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         setExpanded(expand);
         if (newId) setSelId(newId);
       } else {
-        // Stream / Lever / MACC → a named real-world entry under its group.
         const leafId = genId("c");
         const next = setSheet(wb, "nodes", [
           ...(wb.nodes ?? []),
@@ -257,18 +231,14 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     }
   }
 
-  // Edit a asset's real-world fields on the shared `assets` row.
   function editAsset(id: string, patch: Record<string, Row[string]>) {
     setWorkbook(setSheet(workbook, "assets", (workbook.assets ?? []).map((r) => (s(r.asset_id) === id ? { ...r, ...patch } : r))));
   }
-  // Edit this asset's OWN technology instance (its private copy in the
-  // `technologies` sheet) — capex / renewal / opex / lifespan / availability.
   function editTech(techId: string, patch: Record<string, Row[string]>) {
     setWorkbook(setSheet(workbook, "technologies", (workbook.technologies ?? []).map((r) => (s(r.technology_id) === techId ? { ...r, ...patch } : r))));
   }
 
   // ── Trees ────────────────────────────────────────────────────────────────────
-  // The facility node tree (top): the shared structure, drop target for the library.
   const facilityNodes = useMemo<TreeNode[]>(() => {
     const out: TreeNode[] = [];
     const walk = (parentId: string | null) => {
@@ -290,10 +260,6 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     return out;
   }, [nodes]);
 
-  // The Library catalogue (bottom): READ-ONLY drag source — base + project libs.
-  // Each library shows its components by kind (Technology / Stream / Levers &
-  // MACC); every component leaf is draggable, its id encoding kind + scope + lib
-  // so placement resolves the right (base vs project) library.
   const libraryNodes = useMemo<TreeNode[]>(() => {
     const out: TreeNode[] = [];
     for (const l of allLibs) {
@@ -331,10 +297,6 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     return out;
   }, [allLibs, libBodies]);
 
-  // Duplicate a facility asset — a BUNDLE: the node + its assets row, and (when
-  // its technology is PRIVATE — used by no other asset) the technology + its recipe
-  // (io / io_t) and temporal-cost rows too, all with fresh, consistently-rewired ids.
-  // A shared (library) technology is referenced, not cloned.
   function duplicateAsset(id: string, times: number) {
     const node = (workbook.nodes ?? []).find((r) => s(r.node_id) === id);
     if (!node) return;
@@ -352,7 +314,6 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         let techId = s(mach.baseline_technology);
         const refs = (wb.assets ?? []).filter((r) => s(r.baseline_technology) === techId).length;
         if (techId && refs <= 1) {
-          // private technology → clone it + its recipe / temporal rows under a new id
           const newTech = genId("t");
           const tech = (wb.technologies ?? []).find((r) => s(r.technology_id) === techId);
           if (tech) wb = setSheet(wb, "technologies", [...(wb.technologies ?? []), { ...tech, technology_id: newTech }]);
@@ -368,8 +329,6 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   function actionsFor(node: TreeNode): TreeAction[] {
     if (node.kind === "asset")
       return [{ id: "edit", label: "Edit" }, { id: "dup", label: "Duplicate" }, { id: "dupN", label: "Duplicate ×N…" }, { id: "delete", label: "Delete", danger: true }];
-    // A kind-group (Technology / Stream / Levers & MACC) is leaf-level — you
-    // can't add a sub-group inside it, only drop components.
     const prefixed = isPrefixedLevel(node.level);
     return [
       ...(prefixed ? [] : [{ id: "add-group", label: "Add group inside" }]),
@@ -379,7 +338,6 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     ];
   }
 
-  // A kind-group holds ONLY components — forbid reparenting any group into one.
   const canDrop = (dragId: string, newParentId: string | null): boolean => {
     if (!newParentId) return true;
     const np = nodeById.get(newParentId);
@@ -418,7 +376,6 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     if (sel.kind === "asset") {
       const r = machineRow(sel.id);
       if (!r) {
-        // A non-technology real-world entry (stream / lever / MACC leaf).
         return (
           <section className="detail-col">
             <h2 className="view-title">{sel.label}</h2>
@@ -441,12 +398,8 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
       const unit = product ? commodityUnit(workbook, product) : "";
       const maxOut = product ? maxOutputCap(workbook, sel.id, product) : null;
       const minOut = product ? minOutputCap(workbook, sel.id, product) : null;
-      // Physical units: throughput is measured in the product's unit; each recipe
-      // coefficient is "<stream unit> per <throughput unit>".
       const thru = unit || "unit";
       const impactUnit = (iid: string) => s((workbook.impacts ?? []).find((x) => s(x.impact_id) === iid)?.unit) || "";
-      // One attribute = a cell with the name on top and its value (+ unit) below.
-      // Every cell lives in ONE flowing panel, separated only by grid lines.
       const cell = (key: string, label: string, node: React.ReactNode, unit?: string) => (
         <div className="mf-cell" key={key}>
           <div className="mf-name">{label}</div>
@@ -467,8 +420,6 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         <section className="detail-col asset-detail">
           <h2 className="view-title">{sel.label}</h2>
           <p className="detail-sub muted">asset · {techLabel}</p>
-          {/* One panel — every attribute is a name-on-top / value-below cell,
-              separated only by grid lines; the four groups are inline bands. */}
           <div className="asset-fields">
             <div className="mf-sec">technology · {techLabel}<span className="mf-sec-note">this asset's own copy — edits here don't affect other assets</span></div>
             {techRow ? (
@@ -532,9 +483,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         </section>
       );
     }
-    // group node — show its children as CARDS (like the component view). The
-    // Technology / Stream / Levers & MACC groups are PREFIXED (modelling)
-    // groups, distinct from normal user groups (sector/company/…).
+    // group node
     const prefixed = isPrefixedLevel(sel.level);
     const kids = childrenOf(nodes, sel.id);
     const childCard = (k: (typeof kids)[number]) => {
@@ -582,44 +531,57 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     );
   }
 
-  const tree = (nodesFor: TreeNode[], emptyHint: string, opts: { exp: Set<string>; setExp: (s: Set<string>) => void; drag?: boolean; drop?: boolean }) => (
+  const structureTree = (
     <TreeExplorer
-      nodes={nodesFor}
+      nodes={facilityNodes}
       selectedId={selId}
-      expandedIds={opts.exp}
+      expandedIds={expanded}
       onToggle={(id, e) => {
-        opts.setExp((() => {
-          const m = new Set(opts.exp);
+        setExpanded((() => {
+          const m = new Set(expanded);
+          if (e) m.add(id);
+          else m.delete(id);
+          return m;
+        })());
+      }}
+      onSelect={(id) => setSelId(id)}
+      actionsFor={actionsFor}
+      onContextAction={onContextAction}
+      onMove={onMove}
+      canDrop={canDrop}
+      acceptsExternal={() => true}
+      onExternalDrop={(payload, target) => {
+        const parts = payload.split(":");
+        const kind = parts[0];
+        const scope = parts[1];
+        if (kind !== "t" && kind !== "s" && kind !== "m" && kind !== "g") return;
+        if (scope !== "base" && scope !== "session") return;
+        void dropComponent(scope, parts[2], kind, parts.slice(3).join(":"), target.id);
+      }}
+      emptyHint="Empty — ＋ to add a group, then drag technologies from the Templates below."
+    />
+  );
+
+  const templatesTree = (
+    <TreeExplorer
+      nodes={libraryNodes}
+      selectedId={selId}
+      expandedIds={libExpanded}
+      onToggle={(id, e) => {
+        setLibExpanded((() => {
+          const m = new Set(libExpanded);
           if (e) m.add(id);
           else m.delete(id);
           return m;
         })());
         // Only the top-level library node loads a body (kind-groups have a colon).
-        if (opts.drag && e && id.startsWith("lib:") && !id.slice(4).includes(":")) void loadLibBody(id.slice(4));
+        if (e && id.startsWith("lib:") && !id.slice(4).includes(":")) void loadLibBody(id.slice(4));
       }}
-      onSelect={(id) => {
-        // The library tree (bottom) is a read-only drag source — never selectable.
-        if (opts.drag) return;
-        setSelId(id);
-      }}
-      actionsFor={opts.drop ? actionsFor : () => []}
-      onContextAction={onContextAction}
-      onMove={opts.drop ? onMove : () => undefined}
-      canDrop={opts.drop ? canDrop : undefined}
-      acceptsExternal={opts.drop ? () => true : undefined}
-      onExternalDrop={
-        opts.drop
-          ? (payload, target) => {
-              const parts = payload.split(":");
-              const kind = parts[0];
-              const scope = parts[1];
-              if (kind !== "t" && kind !== "s" && kind !== "m" && kind !== "g") return;
-              if (scope !== "base" && scope !== "session") return;
-              void dropComponent(scope, parts[2], kind, parts.slice(3).join(":"), target.id);
-            }
-          : undefined
-      }
-      emptyHint={emptyHint}
+      onSelect={() => undefined}
+      actionsFor={() => []}
+      onContextAction={() => undefined}
+      onMove={() => undefined}
+      emptyHint="No base libraries."
     />
   );
 
@@ -627,26 +589,42 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     <div className="view-full builder">
       {error && <div className="error error-bar" onClick={() => setError(null)}>{error} <span className="muted">(dismiss)</span></div>}
       <div className="builder-body">
-        <CollapsibleRail side="left" open={leftOpen} setOpen={setLeftOpen} width={leftW} setWidth={setLeftW} min={200} max={520}
-          title="Structure" scroll={false}
-          headAction={<button className="rail-add" title="add a top-level group" onClick={() => void addSubgroup(null)}>＋</button>}
-          collapsedExtras={<button className="rail-add" title="add a top-level group" onClick={() => void addSubgroup(null)}>＋</button>}>
-          {/* TOP: the facility structure (shared node tree). */}
-          <div className="rail-scroll">
-            {tree(facilityNodes, "Empty — ＋ to add a group, then drag technologies from the Library below.", { exp: expanded, setExp: setExpanded, drop: true })}
-          </div>
-          {/* Drag the divider to grow / shrink the library tree below. */}
-          <Resizer side="top" width={libH} setWidth={setLibH} min={80} max={600} />
-          {/* BOTTOM: the base Templates — READ-ONLY drag source. */}
-          <div className="rail-head-row is-divided">
-            <span className="rail-head">Templates</span>
-            <span className="rail-hint">drag onto a group ↑</span>
-          </div>
-          <div className="rail-scroll" style={{ flex: "none", height: libH }}>
-            {tree(libraryNodes, "No base libraries.", { exp: libExpanded, setExp: setLibExpanded, drag: true })}
-          </div>
-          <div className="rail-foot">Right-click a group for actions</div>
-        </CollapsibleRail>
+        <AccordionSidebar
+          open={leftOpen}
+          setOpen={setLeftOpen}
+          width={leftW}
+          setWidth={setLeftW}
+          min={200}
+          max={520}
+          collapsedExtras={
+            <button className="rail-add" title="add a top-level group" onClick={() => void addSubgroup(null)}>＋</button>
+          }
+          sections={[
+            {
+              id: "structure",
+              title: "Structure",
+              defaultOpen: true,
+              headAction: (
+                <button className="rail-add" title="add a top-level group" onClick={() => void addSubgroup(null)}>＋</button>
+              ),
+              body: structureTree,
+            },
+            {
+              id: "templates",
+              title: "Templates",
+              defaultOpen: true,
+              headAction: (
+                <span className="rail-hint" style={{ padding: "0 6px" }}>drag onto a group ↑</span>
+              ),
+              body: (
+                <>
+                  {templatesTree}
+                  <div className="rail-foot">Right-click a group for actions</div>
+                </>
+              ),
+            },
+          ]}
+        />
         <main className="builder-main">
           <div className="view-head">
             <div className="eyebrow">system</div>

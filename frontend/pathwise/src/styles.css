@@ -959,6 +959,50 @@
   background: var(--bg-hover);
 }
 
+/* ── AccordionSidebar: section header + body ────────────────────────────── */
+/* The outer .builder-rail handles the border-right; sections stack vertically. */
+.acc-sidebar > .rail-head-row {
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.acc-section {
+  /* flex props set inline per-section (grow vs fixed) */
+}
+/* Section header: looks like .rail-head-row but is a full-width button. */
+.acc-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  flex: 0 0 auto;
+}
+.acc-head:hover {
+  background: var(--bg-hover);
+}
+.acc-chevron {
+  font-size: 0.75rem;
+  color: var(--muted);
+  flex: 0 0 auto;
+  line-height: 1;
+}
+/* The headAction slot: rendered right-aligned, click doesn't toggle the section. */
+.acc-head-action {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+}
+/* Section body: overflow and flex handled inline so grow:false sections stay compact. */
+.acc-body {
+  /* overflow: auto and flex set inline */
+}
+
 /* ── Floating, draggable inspector panel (Value-Chain map) ───────────────── */
 .float-panel {
   position: fixed;

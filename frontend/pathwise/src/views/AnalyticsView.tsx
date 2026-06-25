@@ -8,8 +8,8 @@ import { PortfolioResult } from "../features/charts/PortfolioResult";
 import { TopologyCanvas } from "../features/topology/TopologyCanvas";
 import { HierarchyMap } from "../features/topology/HierarchyMap";
 import { RouteAnalytics } from "../features/fleet/RouteAnalytics";
-import { RailList, type RailItem } from "../layout/RailList";
-import { Resizer } from "../layout/Resizer";
+import { AccordionSidebar } from "../layout/AccordionSidebar";
+import type { RailItem } from "../layout/RailList";
 import type { RunResult, Workbook } from "../types";
 
 type Cat = "overview" | "map" | "routes" | "consumption" | "cost" | "impacts" | "transitions" | "levers" | "macc";
@@ -43,7 +43,7 @@ interface Props {
   setLeftW: (w: number) => void;
 }
 
-/** Analytics — category rail + tailored main; the process map animates over
+/** Analytics — category accordion sidebar + tailored main; the process map animates over
  *  years via the bottom slider, with consumption and cost as time series. */
 export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
   const [cat, setCat] = useState<Cat>("overview");
@@ -52,20 +52,28 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
   const [year, setYear] = useState<number | null>(null);
   const activeYear = year ?? years[years.length - 1] ?? 0;
 
-  // A portfolio-backend result carries its own block; the MILP timelines are
-  // empty for such runs, so show the dedicated allocation view instead.
+  // A portfolio-backend result carries its own block.
   const pf = result?.outputs.portfolio;
   if (pf) {
     return (
       <div className="body-row">
-        <RailList
-          title="Analytics"
-          items={[{ id: "portfolio", label: "Portfolio" }]}
-          activeId="portfolio"
-          onSelect={() => undefined}
+        <AccordionSidebar
+          open={railOpen}
+          setOpen={setRailOpen}
           width={leftW}
+          setWidth={setLeftW}
+          min={160}
+          max={360}
+          sections={[{
+            id: "analytics",
+            title: "Analytics",
+            defaultOpen: true,
+            grow: false,
+            body: (
+              <button className="rail-item is-active" style={{ width: "100%" }}>Portfolio</button>
+            ),
+          }]}
         />
-        <Resizer width={leftW} setWidth={setLeftW} side="left" />
         <main className="main-area">
           <AnalyticsHead title="Portfolio" />
           <PortfolioResult portfolio={pf} />
@@ -79,14 +87,23 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
   if (frontier) {
     return (
       <div className="body-row">
-        <RailList
-          title="Analytics"
-          items={[{ id: "frontier", label: "Frontier" }]}
-          activeId="frontier"
-          onSelect={() => undefined}
+        <AccordionSidebar
+          open={railOpen}
+          setOpen={setRailOpen}
           width={leftW}
+          setWidth={setLeftW}
+          min={160}
+          max={360}
+          sections={[{
+            id: "analytics",
+            title: "Analytics",
+            defaultOpen: true,
+            grow: false,
+            body: (
+              <button className="rail-item is-active" style={{ width: "100%" }}>Frontier</button>
+            ),
+          }]}
         />
-        <Resizer width={leftW} setWidth={setLeftW} side="left" />
         <main className="main-area">
           <AnalyticsHead title="Cost–impact frontier" />
           <FrontierResult frontier={frontier} />
@@ -95,20 +112,28 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
     );
   }
 
-  // A simulate (LCA what-if) result carries an `lca` block (+ optional variant
-  // comparison / policy sweep / cap compliance); show the dedicated LCA view.
+  // A simulate (LCA what-if) result carries an `lca` block.
   const lca = result?.outputs.lca;
   if (lca) {
     return (
       <div className="body-row">
-        <RailList
-          title="Analytics"
-          items={[{ id: "lca", label: "LCA" }]}
-          activeId="lca"
-          onSelect={() => undefined}
+        <AccordionSidebar
+          open={railOpen}
+          setOpen={setRailOpen}
           width={leftW}
+          setWidth={setLeftW}
+          min={160}
+          max={360}
+          sections={[{
+            id: "analytics",
+            title: "Analytics",
+            defaultOpen: true,
+            grow: false,
+            body: (
+              <button className="rail-item is-active" style={{ width: "100%" }}>LCA</button>
+            ),
+          }]}
         />
-        <Resizer width={leftW} setWidth={setLeftW} side="left" />
         <main className="main-area">
           <AnalyticsHead title="Lifecycle assessment" />
           <LcaResult result={result} />
@@ -117,19 +142,28 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
     );
   }
 
-  // Likewise a MACC (greedy-abatement) result carries its own block.
+  // MACC result.
   const macc = result?.outputs.macc;
   if (macc) {
     return (
       <div className="body-row">
-        <RailList
-          title="Analytics"
-          items={[{ id: "macc", label: "MACC" }]}
-          activeId="macc"
-          onSelect={() => undefined}
+        <AccordionSidebar
+          open={railOpen}
+          setOpen={setRailOpen}
           width={leftW}
+          setWidth={setLeftW}
+          min={160}
+          max={360}
+          sections={[{
+            id: "analytics",
+            title: "Analytics",
+            defaultOpen: true,
+            grow: false,
+            body: (
+              <button className="rail-item is-active" style={{ width: "100%" }}>MACC</button>
+            ),
+          }]}
         />
-        <Resizer width={leftW} setWidth={setLeftW} side="left" />
         <main className="main-area">
           <AnalyticsHead title="MACC" />
           <MaccResult macc={macc} />
@@ -154,8 +188,33 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
 
   return (
     <div className="body-row">
-      <RailList title="Analytics" items={items} activeId={cat} onSelect={(id) => setCat(id as Cat)} width={leftW} open={railOpen} onToggle={() => setRailOpen((o) => !o)} />
-      {railOpen && <Resizer width={leftW} setWidth={setLeftW} side="left" />}
+      <AccordionSidebar
+        open={railOpen}
+        setOpen={setRailOpen}
+        width={leftW}
+        setWidth={setLeftW}
+        min={160}
+        max={360}
+        sections={[{
+          id: "analytics",
+          title: "Analytics",
+          defaultOpen: true,
+          grow: false,
+          body: (
+            <div className="rail-group">
+              {items.map((it) => (
+                <button
+                  key={it.id}
+                  className={`rail-item${it.id === cat ? " is-active" : ""}`}
+                  onClick={() => setCat(it.id as Cat)}
+                >
+                  {it.label}
+                </button>
+              ))}
+            </div>
+          ),
+        }]}
+      />
       <main className="main-area">
         <AnalyticsHead title={result ? CAT_LABEL[cat] : "run the model to populate"} />
         {cat === "macc" ? (
@@ -170,11 +229,8 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
           <RouteAnalytics workbook={workbook} result={result} />
         ) : cat === "map" ? (
           (workbook.nodes?.length ?? 0) > 0 ? (
-            // Hierarchical model → the multi-level map (its own top toolbar:
-            // layout toggle + year slider; shows every level in one chart).
             <HierarchyMap workbook={workbook} result={result} />
           ) : (
-            // Flat model → the plain process map, year slider on top.
             <>
               <div className="year-slider" style={{ borderBottom: "1px solid var(--border)", borderTop: "none" }}>
                 <span className="muted">Year</span>

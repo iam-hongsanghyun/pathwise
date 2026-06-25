@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { SearchSelect } from "../features/controls/SearchSelect";
-import { RailList, type RailItem } from "../layout/RailList";
-import { Resizer } from "../layout/Resizer";
+import { AccordionSidebar } from "../layout/AccordionSidebar";
+import type { RailItem } from "../layout/RailList";
 import type { Density, ThemeName } from "../lib/useTheme";
 import type {
   AssetLevel,
@@ -54,11 +54,6 @@ export function SettingsView({
 }: Props) {
   const [section, setSection] = useState<Section>("appearance");
   const [railOpen, setRailOpen] = useState(true);
-  const items: RailItem[] = [
-    { id: "appearance", label: "Appearance" },
-    { id: "method", label: "Optimisation method" },
-    { id: "solver", label: "Solver" },
-  ];
   const backends = config?.backends ?? [{ name: "linopy", label: "linopy + HiGHS" }];
   const isPortfolio = backend === "portfolio";
   const isSimulate = backend === "simulate";
@@ -68,16 +63,37 @@ export function SettingsView({
 
   return (
     <div className="body-row">
-      <RailList
-        title="Settings"
-        items={items}
-        activeId={section}
-        onSelect={(id) => setSection(id as Section)}
-        width={leftW}
+      <AccordionSidebar
         open={railOpen}
-        onToggle={() => setRailOpen((o) => !o)}
+        setOpen={setRailOpen}
+        width={leftW}
+        setWidth={setLeftW}
+        min={160}
+        max={360}
+        sections={[{
+          id: "settings",
+          title: "Settings",
+          defaultOpen: true,
+          grow: false,
+          body: (
+            <div className="rail-group">
+              {([
+                { id: "appearance", label: "Appearance" },
+                { id: "method", label: "Optimisation method" },
+                { id: "solver", label: "Solver" },
+              ] as RailItem[]).map((it) => (
+                <button
+                  key={it.id}
+                  className={`rail-item${it.id === section ? " is-active" : ""}`}
+                  onClick={() => setSection(it.id as Section)}
+                >
+                  {it.label}
+                </button>
+              ))}
+            </div>
+          ),
+        }]}
       />
-      {railOpen && <Resizer width={leftW} setWidth={setLeftW} side="left" />}
       <main className="main-area">
         <div className="view">
           {section === "appearance" && (
