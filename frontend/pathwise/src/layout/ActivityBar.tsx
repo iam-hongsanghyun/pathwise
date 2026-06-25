@@ -84,10 +84,10 @@ const I = {
 // Component / Value-chain / Targets / Analytics live at the top; Settings is
 // pinned to the bottom of the strip (separated by a flex spacer).
 const TOP: Entry[] = [
-  { id: "project", label: "Project — name, import/export the whole project (components + facilities + value chain)", icon: I.project },
-  { id: "component", label: "Library — shared, reusable building blocks (base catalogue)", icon: I.component },
-  { id: "facility", label: "Facility — real-world facilities: capacity, owners & build years", icon: I.facility },
-  { id: "valuechain", label: "Value chain — assemble the model (subgroups → companies → facilities)", icon: I.valuechain },
+  { id: "project", label: "Project — name, import/export the whole project (templates + systems + network)", icon: I.project },
+  { id: "component", label: "Template — shared, reusable building blocks (base catalogue)", icon: I.component },
+  { id: "facility", label: "System — real-world systems: capacity, owners & build years", icon: I.facility },
+  { id: "valuechain", label: "Network — assemble the model (subgroups → companies → systems)", icon: I.valuechain },
   { id: "fleet", label: "Fleet — transport fleets, ports & routes on a map", icon: I.fleet },
   { id: "market", label: "Market & Policy — supply pools, ETS, carbon price (the institutional layer)", icon: I.market },
   { id: "targets", label: "Targets & constraints — production targets, caps and budgets by scope", icon: I.targets },

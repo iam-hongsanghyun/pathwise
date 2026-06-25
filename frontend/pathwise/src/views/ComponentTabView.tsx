@@ -1209,7 +1209,7 @@ export function ComponentTabView({
         </CollapsibleRail>
         <main className="builder-main">
           <div className="view-head">
-            <div className="eyebrow">{mode === "project" ? "project workbench" : scope === "session" ? "project components" : "component library"}</div>
+            <div className="eyebrow">{mode === "project" ? "project workbench" : scope === "session" ? "project templates" : "template library"}</div>
             <span className="view-status">{status}</span>
           </div>
           {/* Detail scrolls on its own so a tall recipe (+ the Applicable MACCs

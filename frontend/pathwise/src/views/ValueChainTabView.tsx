@@ -394,8 +394,8 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
         {/* CENTER: relationship canvas */}
         <main className="builder-canvas">
           <div className="view-head" style={{ padding: "12px 16px 0" }}>
-            <div className="eyebrow">value chain</div>
-            <span className="view-status">connections &amp; flows between facilities</span>
+            <div className="eyebrow">network</div>
+            <span className="view-status">links &amp; flows between systems</span>
             <span style={{ flex: 1 }} />
             {issues.length > 0 && (
               <button className="ghost health-chip" title="model health" onClick={() => { setSelId(null); setShowHealth(true); }}>
@@ -407,13 +407,13 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
           </div>
           {!hasHierarchy ? (
             <div className="vc-empty">
-              <h2 className="view-title" style={{ margin: 0 }}>Start a value chain</h2>
+              <h2 className="view-title" style={{ margin: 0 }}>Start a network</h2>
               <p className="detail-note" style={{ maxWidth: 420, textAlign: "center", margin: 0 }}>
-                A value chain is a tree of <b>nodes</b> (sector → company → facility) holding <b>machines</b> that run a <b>technology</b>; you wire them with <b>connections</b> (in-chain) and <b>markets</b> (buy/sell outside). Import a whole model from the <b>Project</b> tab.
+                A network is a tree of <b>nodes</b> (sector → company → system) holding <b>assets</b> that run a <b>technology</b>; you wire them with <b>links</b> (in-network) and <b>markets</b> (buy/sell outside). Import a whole model from the <b>Project</b> tab.
               </p>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <button className="run-button" onClick={() => addSubgroup(null)}>＋ Add value chain</button>
-                <span className="detail-note">…then right-click it to add subgroups or components</span>
+                <button className="run-button" onClick={() => addSubgroup(null)}>＋ Add network</button>
+                <span className="detail-note">…then right-click it to add subgroups or templates</span>
               </div>
             </div>
           ) : (

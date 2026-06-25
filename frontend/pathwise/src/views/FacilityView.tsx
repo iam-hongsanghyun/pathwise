@@ -403,14 +403,14 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     if (!sel) {
       return (
         <section>
-          <h2 className="view-title">Facility</h2>
+          <h2 className="view-title">System</h2>
           <p className="view-lead">
             Build the real-world structure here. Add groups at any level you like
-            (sector, company, facility — your own names, any depth) from the tree
-            on the left, then drag technologies from the <b>Library</b> at the
-            bottom of the rail onto a group to place a real machine. Give each
-            machine its physical capacity, owner and build/close year. Flows
-            between nodes are defined in the Value Chain.
+            (sector, company, system — your own names, any depth) from the tree
+            on the left, then drag technologies from the <b>Templates</b> at the
+            bottom of the rail onto a group to place a real asset. Give each
+            asset its physical capacity, owner and build/close year. Flows
+            between nodes are defined in the Network.
           </p>
         </section>
       );
@@ -466,7 +466,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
       return (
         <section className="detail-col machine-detail">
           <h2 className="view-title">{sel.label}</h2>
-          <p className="detail-sub muted">machine · {techLabel}</p>
+          <p className="detail-sub muted">asset · {techLabel}</p>
           {/* One panel — every attribute is a name-on-top / value-below cell,
               separated only by grid lines; the four groups are inline bands. */}
           <div className="machine-fields">
@@ -637,9 +637,9 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
           </div>
           {/* Drag the divider to grow / shrink the library tree below. */}
           <Resizer side="top" width={libH} setWidth={setLibH} min={80} max={600} />
-          {/* BOTTOM: the base Library — READ-ONLY drag source. */}
+          {/* BOTTOM: the base Templates — READ-ONLY drag source. */}
           <div className="rail-head-row is-divided">
-            <span className="rail-head">Library</span>
+            <span className="rail-head">Templates</span>
             <span className="rail-hint">drag onto a group ↑</span>
           </div>
           <div className="rail-scroll" style={{ flex: "none", height: libH }}>
@@ -649,8 +649,8 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         </CollapsibleRail>
         <main className="builder-main">
           <div className="view-head">
-            <div className="eyebrow">facility</div>
-            <span className="view-status">real-world facilities &amp; machines</span>
+            <div className="eyebrow">system</div>
+            <span className="view-status">real-world systems &amp; assets</span>
           </div>
           {renderDetail()}
         </main>
