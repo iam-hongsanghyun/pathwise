@@ -147,21 +147,27 @@ export function FleetMap({
     });
   };
 
-  // client px → current viewBox coords (the SVG is width:100%, so px ≠ viewBox units).
+  // client px → viewBox user coords via the SVG's own transform. getScreenCTM honours
+  // the viewBox AND preserveAspectRatio letterboxing (the panel isn't 2:1, so the map
+  // is letterboxed) — manual rect math would land the cursor off by the letterbox band.
   const toViewBox = (clientX: number, clientY: number): [number, number] | null => {
-    const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect) return null;
-    if (mode === "globe") {
-      return [((clientX - rect.left) / rect.width) * MAP_W, ((clientY - rect.top) / rect.height) * MAP_H];
-    }
-    return [view.x + ((clientX - rect.left) / rect.width) * view.w, view.y + ((clientY - rect.top) / rect.height) * view.h];
+    const svg = svgRef.current;
+    const ctm = svg?.getScreenCTM();
+    if (!svg || !ctm) return null;
+    const pt = svg.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    const p = pt.matrixTransform(ctm.inverse());
+    return [p.x, p.y];
   };
   const toLonLat = (clientX: number, clientY: number): [number, number] | null => {
     const vb = toViewBox(clientX, clientY);
     if (!vb) return null;
     const ll = projection.invert?.(vb);
     if (!ll || !Number.isFinite(ll[0]) || !Number.isFinite(ll[1])) return null;
-    return [Math.round(ll[0] * 100) / 100, Math.round(ll[1] * 100) / 100];
+    // Wrap longitude into [-180,180]: a continuous flat pan can read into copy +1.
+    const lon = (((ll[0] + 180) % 360) + 360) % 360 - 180;
+    return [Math.round(lon * 100) / 100, Math.round(ll[1] * 100) / 100];
   };
 
   // Wheel zoom — native + non-passive so we can preventDefault (no page scroll).
