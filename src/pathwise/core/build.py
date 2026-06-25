@@ -1747,39 +1747,50 @@ def _connection_fleet(ctx: BuildContext) -> None:
         return
     m = ctx.model
     pool: dict[str, list[str]] = {}  # fleet_id -> [leg keys] (shared pool across routes)
+    # Group routes by the LANE they physicalise (identical edge-set). MODAL ALTERNATIVES
+    # — several routes (sea / rail / …) on one connection — share a lane, so the lane's
+    # flow is split across modes (Σ carried over every mode == the lane flow) and the
+    # optimiser picks the cheapest feasible mix. A single-route lane is unchanged.
+    lanes: dict[tuple[int, ...], list[Any]] = {}
     for cr in crs:
+        lanes.setdefault(tuple(cr.edges), []).append(cr)
+
+    for group in lanes.values():
+        lane_key = group[0].process  # stable, unique per lane (first mode's process id)
         for t in ctx.years:
-            flow_total = _lin_sum([ctx.flow.sel(edge=e, period=t) for e in cr.edges])
+            flow_total = _lin_sum([ctx.flow.sel(edge=e, period=t) for e in group[0].edges])
             if flow_total is None:
                 continue
-            if cr.blocked:  # corridor closed (scenario) — no flow on this route's edges
-                m.add_constraints(flow_total == 0, name=f"rblock[{cr.process},{t}]")
+            if all(cr.blocked for cr in group):  # every mode on this lane is closed
+                m.add_constraints(flow_total == 0, name=f"rblock[{lane_key},{t}]")
                 continue
-            leg_terms: list[Any] = []
-            for leg in cr.legs:
-                lk = leg_key(cr.process, leg.fleet_id)
-                u = ctx.cunits.sel(leg=lk, period=t)
-                lf = ctx.legflow.sel(leg=lk, period=t)
-                fl = prob.fleets.get(leg.fleet_id)
-                cap = (fl.capacity_on(cr.distance) or fl.capacity) if fl else 0.0
-                if fl is None or not fl.active(t) or cap <= 0:
-                    # Fleet absent / retired / no capacity this year ⇒ it carries nothing.
-                    m.add_constraints(lf == 0, name=f"legoff[{lk},{t}]")
-                    continue
-                m.add_constraints(lf <= cap * u, name=f"legcap[{lk},{t}]")
-                if leg.max_units is not None:
-                    m.add_constraints(u <= leg.max_units, name=f"legmax[{lk},{t}]")
-                if leg.min_units:
-                    m.add_constraints(u >= leg.min_units, name=f"legmin[{lk},{t}]")
-                leg_terms.append(lf)
-            served = _lin_sum(leg_terms)
-            # The chosen carriers carry exactly the route's flow (no legs ⇒ no flow).
+            served_terms: list[Any] = []
+            for cr in group:
+                for leg in cr.legs:
+                    lk = leg_key(cr.process, leg.fleet_id)
+                    u = ctx.cunits.sel(leg=lk, period=t)
+                    lf = ctx.legflow.sel(leg=lk, period=t)
+                    fl = prob.fleets.get(leg.fleet_id)
+                    cap = (fl.capacity_on(cr.distance) or fl.capacity) if fl else 0.0
+                    # A blocked mode, or an absent/retired/no-capacity fleet, carries nothing.
+                    if cr.blocked or fl is None or not fl.active(t) or cap <= 0:
+                        m.add_constraints(lf == 0, name=f"legoff[{lk},{t}]")
+                        continue
+                    m.add_constraints(lf <= cap * u, name=f"legcap[{lk},{t}]")
+                    if leg.max_units is not None:
+                        m.add_constraints(u <= leg.max_units, name=f"legmax[{lk},{t}]")
+                    if leg.min_units:
+                        m.add_constraints(u >= leg.min_units, name=f"legmin[{lk},{t}]")
+                    served_terms.append(lf)
+            served = _lin_sum(served_terms)
+            # The chosen carriers across every mode carry exactly the lane's flow.
             m.add_constraints(
                 (flow_total == 0) if served is None else (served == flow_total),
-                name=f"legbal[{cr.process},{t}]",
+                name=f"legbal[{lane_key},{t}]",
             )
-        for leg in cr.legs:
-            pool.setdefault(leg.fleet_id, []).append(leg_key(cr.process, leg.fleet_id))
+        for cr in group:
+            for leg in cr.legs:
+                pool.setdefault(leg.fleet_id, []).append(leg_key(cr.process, leg.fleet_id))
     # Shared pool per fleet: carriers across all its connection routes ≤ available
     # (legacy count + carriers it has built — same expression as the process pool).
     for fid, lks in pool.items():

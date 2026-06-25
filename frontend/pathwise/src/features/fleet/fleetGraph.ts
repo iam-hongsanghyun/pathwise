@@ -82,9 +82,14 @@ export function facilityTree(nodes: GroupNode[], coord: Map<string, { lon: numbe
 /** dataTransfer MIME used when dragging a Facility endpoint onto the map to place it. */
 export const NODE_DRAG_TYPE = "application/x-pathwise-node";
 
-const slug = (v: string): string => v.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+/** Slug an id fragment into the `[a-zA-Z0-9_]` charset used by process keys. */
+export const slugId = (v: string): string => v.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+const slug = slugId;
 
-/** Stable `routes`/`fleet_routes` process key for a (from, to, flow) link. */
+/** Stable `routes`/`fleet_routes` process key for a (from, to, flow) link. The
+ *  canonical (primary) mode keeps this id; an alternative mode on the same lane
+ *  appends `__<mode>` so several modes can coexist as distinct route rows that the
+ *  engine still groups into one lane (same edges) and splits flow across. */
 export const routeProc = (from: string, to: string, flow: string): string =>
   `r_${slug(from)}__${slug(to)}__${slug(flow)}`;
 

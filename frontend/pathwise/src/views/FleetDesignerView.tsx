@@ -25,7 +25,9 @@ import {
   fleetRegistryTree,
   parseLinks,
   parseFleetGroups,
+  routeProc,
   routeTree,
+  slugId,
   type RouteLeaf,
 } from "../features/fleet/fleetGraph";
 import { routeExposure, routePath, type CorridorExposure } from "../lib/api/routing";
@@ -36,7 +38,6 @@ import type { Row, Workbook } from "../types";
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
 const blank = (v: string): number | string => (v === "" ? "" : Number(v));
-const has = (v: unknown): boolean => v != null && v !== "";
 let _ctr = 0;
 const genId = (p: string): string => `${p}_${Date.now().toString(36)}${(_ctr++).toString(36)}`;
 
@@ -197,6 +198,24 @@ export function FleetDesignerView({
     }
     return m;
   }, [fleets]);
+  // For each lane (from|to|flow), the canonical primary route is the one whose id is
+  // routeProc(from,to,flow); every other route on the lane is an alternative MODE,
+  // drawn dotted. (A single-mode lane has no alternatives, so nothing is dotted.)
+  const altProcs = useMemo(() => {
+    const byLane = new Map<string, Row[]>();
+    for (const r of routes) {
+      const k = `${s(r.from_node)}|${s(r.to_node)}|${s(r.flow)}`;
+      (byLane.get(k) ?? byLane.set(k, []).get(k)!).push(r);
+    }
+    const out = new Set<string>();
+    for (const [k, rs] of byLane) {
+      if (rs.length < 2) continue;
+      const [from, to, flow] = k.split("|");
+      const primary = routeProc(from, to, flow);
+      for (const r of rs) if (s(r.process) !== primary) out.add(s(r.process));
+    }
+    return out;
+  }, [routes]);
   const drawRoutes = useMemo(
     () =>
       routes
@@ -210,7 +229,7 @@ export function FleetDesignerView({
           const key = `${from.lon.toFixed(2)},${from.lat.toFixed(2)}|${to.lon.toFixed(2)},${to.lat.toFixed(2)}|${mode}|${blockedCorridors.join(",")}`;
           return {
             process: proc, from, to, mode, key,
-            blocked: s(r.blocked) === "true", alt: has(r.alternative_of),
+            blocked: s(r.blocked) === "true", alt: altProcs.has(proc),
             fromLabel: nodeById.get(s(r.from_node))?.label ?? s(r.from_node),
             toLabel: nodeById.get(s(r.to_node))?.label ?? s(r.to_node),
             flow,
@@ -218,7 +237,7 @@ export function FleetDesignerView({
           };
         })
         .filter((r): r is NonNullable<typeof r> => r !== null),
-    [routes, coord, blockedCorridors, nodeById, fleetsByProc, fleetsByCargo],
+    [routes, coord, blockedCorridors, nodeById, fleetsByProc, fleetsByCargo, altProcs],
   );
   const mapRoutes = useMemo<MapRoute[]>(
     () => drawRoutes.map((r) => {
@@ -370,6 +389,19 @@ export function FleetDesignerView({
       setWorkbook(setSheet(workbook, "routes", [...routes, { process: leaf.proc, from_node: leaf.from, to_node: leaf.to, flow: leaf.flow, mode: "sea" }]));
     setSelId(leaf.proc);
     setEdit({ kind: "route", id: leaf.proc });
+  }
+  // Add an ALTERNATIVE MODE on a lane: a second route row with the same
+  // from/to/flow but a different mode. The engine groups same-edge routes into one
+  // lane and splits its flow across the modes, picking the cheapest feasible mix.
+  function addModeRoute(base: Row, mode: string) {
+    const from = s(base.from_node), to = s(base.to_node), flow = s(base.flow);
+    const root = routeProc(from, to, flow); // canonical (primary) lane id
+    const taken = new Set(routes.map((r) => s(r.process)));
+    let proc = `${root}__${slugId(mode)}`;
+    for (let n = 2; taken.has(proc); n++) proc = `${root}__${slugId(mode)}_${n}`;
+    setWorkbook(setSheet(workbook, "routes", [...routes, { process: proc, from_node: from, to_node: to, flow, mode }]));
+    setSelId(proc);
+    setEdit({ kind: "route", id: proc });
   }
   // A Facility endpoint dropped on the map (or its marker dragged) → set its location.
   function locateNode(id: string, lon: number, lat: number) {
@@ -581,6 +613,8 @@ export function FleetDesignerView({
           labelOf={(id) => nodeById.get(id)?.label ?? id} fleetLabel={(fid) => s(fleetByNode.get(fid)?.label) || fid}
           onChange={(p) => patchRoute(edit!.id, p)} onToggleBlock={(on) => toggleBlock(edit!.id, on)}
           setFleetRoutes={(rows) => setWorkbook(setSheet(workbook, "fleet_routes", rows))}
+          onAddMode={(mode) => addModeRoute(editRoute, mode)}
+          onSwitch={(p) => { setSelId(p); setEdit({ kind: "route", id: p }); }}
           onDelete={() => { setWorkbook(setSheet(setSheet(workbook, "routes", routes.filter((r) => s(r.process) !== edit!.id)), "fleet_routes", fleetRoutes.filter((r) => s(r.process) !== edit!.id))); setEdit(null); }}
           onClose={() => setEdit(null)} />
       )}
@@ -759,14 +793,21 @@ function NodePanel({ id, label, level, coord, onRename, onLevel, onCoord, onClos
   );
 }
 
-function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, onChange, onToggleBlock, setFleetRoutes, onDelete, onClose }: {
+function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, onChange, onToggleBlock, setFleetRoutes, onAddMode, onSwitch, onDelete, onClose }: {
   route: Row; routes: Row[]; fleets: Row[]; fleetRoutes: Row[]; labelOf: (id: string) => string; fleetLabel: (id: string) => string;
-  onChange: (p: Row) => void; onToggleBlock: (on: boolean) => void; setFleetRoutes: (rows: Row[]) => void; onDelete: () => void; onClose: () => void;
+  onChange: (p: Row) => void; onToggleBlock: (on: boolean) => void; setFleetRoutes: (rows: Row[]) => void;
+  onAddMode: (mode: string) => void; onSwitch: (proc: string) => void; onDelete: () => void; onClose: () => void;
 }) {
   const proc = s(route.process);
   const blocked = s(route.blocked) === "true";
-  const others = routes.filter((r) => s(r.process) !== proc);
   const flow = s(route.flow);
+  // Sibling routes on the SAME lane (from, to, flow) — the modal alternatives the
+  // optimiser splits the lane's flow across. Modes already on the lane can't be re-added.
+  const siblings = routes.filter(
+    (r) => s(r.from_node) === s(route.from_node) && s(r.to_node) === s(route.to_node) && s(r.flow) === flow,
+  );
+  const usedModes = new Set(siblings.map((r) => s(r.mode) || "sea"));
+  const addableModes = MODES.filter((m) => !usedModes.has(m.value));
   const candidates = fleetRoutes.filter((r) => s(r.process) === proc);
   const candIds = new Set(candidates.map((r) => fleetId(r)));
   const addable = fleets.filter((f) => !candIds.has(fleetId(f)));
@@ -782,7 +823,29 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
         </div>
         {row("mode", <SearchSelect value={s(route.mode) || "sea"} onChange={(v) => onChange({ mode: v })} options={MODES} />, "Sea follows real sea lanes (searoute, via Suez/Panama); road/rail use great-circle × a detour factor. Sets the route's distance basis.")}
         {row("distance", <input className="field-input" style={{ width: "100%" }} type="number" placeholder="auto · from the ports" value={s(route.distance)} onChange={(e) => onChange({ distance: blank(e.target.value) })} />, "Leave blank to derive it from the two ports (sea = searoute length; land = great-circle × factor). Override to pin a known distance.")}
-        {row("alternative of", <SearchSelect value={s(route.alternative_of)} onChange={(v) => onChange({ alternative_of: v })} options={[{ value: "", label: "— (primary)" }, ...others.map((r) => ({ value: s(r.process), label: `${labelOf(s(r.from_node))}→${labelOf(s(r.to_node))}` }))]} />, "Mark this as an alternative to another route (drawn dotted) — e.g. a Cape route standing in for a Suez one.")}
+        {flow && (
+          <div className="rail-section" style={{ marginTop: 10 }}>
+            <div className="rail-head">Modes on this lane <InfoTooltip text="Several transport modes (sea, rail, road…) can serve the SAME lane. The optimiser splits the lane's flow across them and picks the cheapest feasible mix — so a rail route alongside a sea one is a real alternative, not just a redraw. Add a mode to give it that choice." /></div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, margin: "4px 0 2px" }}>
+              {siblings.map((r) => {
+                const m = s(r.mode) || "sea";
+                const isThis = s(r.process) === proc;
+                return (
+                  <button key={s(r.process)} className="ghost" disabled={isThis}
+                    style={{ fontSize: ".72rem", padding: "1px 8px", borderRadius: 10,
+                      border: "1px solid var(--border)", background: isThis ? "var(--accent-soft, var(--border))" : "transparent",
+                      fontWeight: isThis ? 600 : 400, opacity: isThis ? 1 : 0.85, cursor: isThis ? "default" : "pointer" }}
+                    title={isThis ? "editing this mode" : `edit the ${m} route`}
+                    onClick={() => !isThis && onSwitch(s(r.process))}>
+                    {m}
+                  </button>
+                );
+              })}
+            </div>
+            {addableModes.length > 0 &&
+              row("add mode", <SearchSelect value="" onChange={(v) => v && onAddMode(v)} options={[{ value: "", label: "— add an alternative mode" }, ...addableModes]} />)}
+          </div>
+        )}
         <label className="field-row" style={{ marginTop: 10 }}>
           <input type="checkbox" checked={blocked} onChange={(e) => onToggleBlock(e.target.checked)} />
           <span>Block this corridor (scenario) <InfoTooltip text="Close this corridor to test a disruption (e.g. Hormuz / Suez): the route's flow is forced to 0, so the flow must reroute or go undelivered." /></span>
