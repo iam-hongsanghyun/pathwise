@@ -69,9 +69,6 @@ export function AccordionSidebar({
     );
   }
 
-  // Count how many open sections want to grow so we can distribute flex space.
-  const openGrowing = sections.filter((s) => sectionOpen[s.id] !== false && s.grow !== false).length;
-
   return (
     <>
       <aside
@@ -95,8 +92,14 @@ export function AccordionSidebar({
               style={{
                 display: "flex",
                 flexDirection: "column",
-                flex: grows ? "1 1 0" : "0 0 auto",
-                minHeight: 0,
+                // Basis = content (auto), not 0, so a short open section doesn't claim an
+                // equal share of the rail; grow:true also fills free space. Both shrink
+                // (min-height:0) so an over-tall section scrolls its own body instead of
+                // pushing the whole rail.
+                flex: grows ? "1 1 auto" : "0 1 auto",
+                // Floor so a squeezed open section keeps its header + a row or two and
+                // scrolls its own body, rather than collapsing to a sliver.
+                minHeight: "5rem",
                 borderTop: "1px solid var(--border)",
               }}
             >
@@ -123,7 +126,7 @@ export function AccordionSidebar({
                 <div
                   className="acc-body"
                   style={{
-                    flex: grows && openGrowing > 0 ? "1 1 0" : "0 0 auto",
+                    flex: "1 1 auto",
                     minHeight: 0,
                     overflow: "auto",
                   }}

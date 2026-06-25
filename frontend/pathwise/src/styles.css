@@ -765,20 +765,34 @@
 .fleet-port-label { font-size: 11px; fill: var(--text); pointer-events: none; }
 /* Chokepoint-risk panel: one corridor = a probability input + its detour exposure. */
 .corridor-row {
-  padding: 7px 0;
+  padding: 6px 0;
   border-bottom: 1px solid var(--border);
 }
 .corridor-row:last-child { border-bottom: 0; }
-.corridor-row-head {
-  display: flex;
+/* Name + the two compact number inputs share one grid; the units are shown ONCE in
+ * the column header (.corridor-cols) instead of repeated on every row. */
+.corridor-cols,
+.corridor-main {
+  display: grid;
+  grid-template-columns: 1fr 48px 64px;
+  gap: 6px;
   align-items: center;
-  gap: 8px;
 }
-.corridor-name { flex: 1; font-size: 0.84rem; }
-.corridor-inputs { display: flex; gap: 10px; margin-top: 4px; }
-.corridor-field { display: flex; align-items: center; gap: 4px; }
-.corridor-field .field-input { width: 64px; text-align: right; }
-.corridor-exposure { margin-top: 4px; font-size: 0.74rem; color: var(--muted); }
+.corridor-cols {
+  font-size: 0.66rem;
+  color: var(--muted);
+  padding: 0 0 4px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+}
+.corridor-cols span:not(:first-child) { text-align: right; }
+.corridor-name { font-size: 0.84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.corridor-num { width: 100%; text-align: right; padding: 3px 6px; }
+/* Drop the native number spinners so the inputs stay tight. */
+.corridor-num::-webkit-outer-spin-button,
+.corridor-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.corridor-num { -moz-appearance: textfield; appearance: textfield; }
+.corridor-exposure { margin-top: 3px; font-size: 0.72rem; color: var(--muted); }
 /* The collapsible chokepoint section header (a full-width toggle button). */
 .choke-toggle {
   width: 100%;

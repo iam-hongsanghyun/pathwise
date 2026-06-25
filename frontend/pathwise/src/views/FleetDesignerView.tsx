@@ -505,7 +505,7 @@ export function FleetDesignerView({
               id: "chokepoints",
               title: "Chokepoint risk",
               defaultOpen: false,
-              grow: false,
+              grow: true,
               headAction: (
                 <span className="rail-foot" style={{ padding: "0 6px", border: "none" }}>
                   {blockedCorridors.length ? `${blockedCorridors.length} shut` : corridorAtRisk ? `${corridorAtRisk} at risk` : ""}
@@ -644,7 +644,13 @@ function ChokepointDesigner({
       {routes.length === 0 ? (
         <p className="rail-empty">Place both ends of a sea route on the map to see exposure.</p>
       ) : (
-        ranked.map(({ id, label, p, toll, e, expected }) => {
+        <>
+          <div className="corridor-cols">
+            <span>chokepoint</span>
+            <span>%/yr</span>
+            <span>{currency}/voy</span>
+          </div>
+          {ranked.map(({ id, label, p, toll, e, expected }) => {
           const used = !!e && e.n_routes > 0;
           const stranded = (e?.n_stranded ?? 0) > 0;
           const detail = e?.routes
@@ -652,22 +658,16 @@ function ChokepointDesigner({
             .join("\n");
           return (
             <div key={id} className={`corridor-row${stranded ? " is-stranded" : ""}`}>
-              <div className="corridor-row-head">
+              <div className="corridor-main">
                 <span className="corridor-name">{label}</span>
-              </div>
-              <div className="corridor-inputs">
-                <label className="corridor-field">
-                  <input className="field-input" type="number" min={0} max={100} step={0.5}
-                    value={p ? Number((p * 100).toFixed(2)) : ""} placeholder="0"
-                    onChange={(ev) => onProb(id, ev.target.value === "" ? 0 : Number(ev.target.value) / 100)} />
-                  <span className="field-unit">%/yr</span>
-                </label>
-                <label className="corridor-field">
-                  <input className="field-input" type="number" min={0} step={1000}
-                    value={toll || ""} placeholder="0"
-                    onChange={(ev) => onToll(id, ev.target.value === "" ? 0 : Number(ev.target.value))} />
-                  <span className="field-unit">{currency}/voyage</span>
-                </label>
+                <input className="field-input corridor-num" type="number" min={0} max={100} step={0.5}
+                  title="annual closure probability (%/yr)"
+                  value={p ? Number((p * 100).toFixed(2)) : ""} placeholder="0"
+                  onChange={(ev) => onProb(id, ev.target.value === "" ? 0 : Number(ev.target.value) / 100)} />
+                <input className="field-input corridor-num" type="number" min={0} step={1000}
+                  title={`per-voyage toll (${currency}/voyage)`}
+                  value={toll || ""} placeholder="0"
+                  onChange={(ev) => onToll(id, ev.target.value === "" ? 0 : Number(ev.target.value))} />
               </div>
               <div className="corridor-exposure" title={detail || undefined}>
                 {!used ? (
@@ -686,7 +686,8 @@ function ChokepointDesigner({
               </div>
             </div>
           );
-        })
+        })}
+        </>
       )}
       {loading && <p className="muted" style={{ fontSize: "0.72rem", marginTop: 8 }}>computing exposure…</p>}
     </div>
