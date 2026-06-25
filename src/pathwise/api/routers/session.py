@@ -15,7 +15,7 @@ from fastapi import APIRouter, Header, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from pathwise.api.routers._deps import session_libs, session_store
+from pathwise.api.routers._deps import runs_store, session_libs, session_store
 from pathwise.api.session_store import SessionNotFound, SessionStore
 from pathwise.api.workbook_io import (
     parse_sqlite,
@@ -64,6 +64,7 @@ CORE_SHEETS = [
 
 _store = session_store
 _session_libs = session_libs
+_runs = runs_store
 
 
 def _model_or_404(store: SessionStore, session_id: str) -> dict[str, list[dict[str, Any]]]:
@@ -107,7 +108,8 @@ def clear_session(session_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=f"unknown session '{session_id}'")
     counts = store.put_model(session_id, {name: [] for name in CORE_SHEETS})
     _session_libs().delete_session(session_id)
-    return {"sessionId": session_id, "sheets": counts}
+    cleared_runs = _runs().clear(session_id=session_id, keep_exported=True)
+    return {"sessionId": session_id, "sheets": counts, "clearedRuns": cleared_runs}
 
 
 @router.post("/cache/clear")
@@ -119,23 +121,27 @@ def clear_cache(x_admin_token: str | None = Header(default=None)) -> dict[str, A
 
     Removes every session model and every session-scoped component library (the
     gitignored working state under ``<data_dir>/sessions`` and
-    ``<data_dir>/session_libraries``). The shared base component libraries and
-    bundled examples are left untouched.
+    ``<data_dir>/session_libraries``), plus every stored run the user has NOT
+    exported (exported runs are kept as history). The shared base component
+    libraries and bundled examples are left untouched.
     """
     admin_token = get_settings().admin_token
     if admin_token and x_admin_token != admin_token:
         raise HTTPException(status_code=403, detail="admin token required")
     cleared_sessions = _store().clear_all()
     cleared_libraries = _session_libs().clear_all()
+    cleared_runs = _runs().clear(keep_exported=True)
     session_id = _store().create({name: [] for name in CORE_SHEETS})
     logger.info(
-        "cache cleared: %d session(s), %d session-library set(s)",
+        "cache cleared: %d session(s), %d session-library set(s), %d run(s)",
         cleared_sessions,
         cleared_libraries,
+        cleared_runs,
     )
     return {
         "clearedSessions": cleared_sessions,
         "clearedSessionLibraries": cleared_libraries,
+        "clearedRuns": cleared_runs,
         "sessionId": session_id,
     }
 
@@ -278,9 +284,17 @@ def export_workbook_sqlite(session_id: str) -> Response:
     )
 
 
+def _mark_exported(result: dict[str, Any]) -> None:
+    """Flag the stored run (if any) as exported, so a cache clear keeps it."""
+    run_id = result.get("runId")
+    if run_id:
+        _runs().mark_exported(str(run_id))
+
+
 @router.post("/export/result")
 def export_result(result: dict[str, Any]) -> Response:
-    """Flatten a run result into a downloadable ``.xlsx``."""
+    """Flatten a run result into a downloadable ``.xlsx`` (and mark it exported)."""
+    _mark_exported(result)
     return Response(
         content=result_to_xlsx(result),
         media_type=XLSX_MIME,
@@ -291,12 +305,59 @@ def export_result(result: dict[str, Any]) -> Response:
 @router.post("/export/result.sqlite")
 def export_result_sqlite(result: dict[str, Any]) -> Response:
     """Flatten a run result into a downloadable SQLite (one table per output, by
-    year — technology, throughput, transitions, consumption, emissions, …)."""
+    year — technology, throughput, transitions, consumption, emissions, …).
+
+    Marks the stored run exported so a cache clear keeps it."""
+    _mark_exported(result)
     return Response(
         content=result_to_sqlite(result),
         media_type="application/x-sqlite3",
         headers={"Content-Disposition": 'attachment; filename="pathwise_result.sqlite"'},
     )
+
+
+# ── Run history (persisted run results) ───────────────────────────────────────
+
+
+@router.get("/runs")
+def list_all_runs() -> dict[str, Any]:
+    """Light metadata for ALL persisted runs (newest first).
+
+    Global (not session-scoped) so exported runs stay visible in the history even
+    after a cache clear hands back a fresh session id.
+    """
+    return {"runs": _runs().list()}
+
+
+@router.get("/session/{session_id}/runs")
+def list_runs(session_id: str) -> dict[str, Any]:
+    """Light metadata for this session's persisted runs (newest first)."""
+    return {"sessionId": session_id, "runs": _runs().list(session_id)}
+
+
+@router.get("/runs/{run_id}")
+def get_run(run_id: str) -> dict[str, Any]:
+    """The full stored result for one run."""
+    result = _runs().get(run_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"unknown run '{run_id}'")
+    return result
+
+
+@router.post("/runs/{run_id}/export")
+def mark_run_exported(run_id: str) -> dict[str, Any]:
+    """Mark a stored run exported (so a cache clear keeps it)."""
+    if not _runs().mark_exported(run_id):
+        raise HTTPException(status_code=404, detail=f"unknown run '{run_id}'")
+    return {"runId": run_id, "exported": True}
+
+
+@router.delete("/runs/{run_id}")
+def delete_run(run_id: str) -> dict[str, Any]:
+    """Delete one stored run (exported or not)."""
+    if not _runs().delete(run_id):
+        raise HTTPException(status_code=404, detail=f"unknown run '{run_id}'")
+    return {"runId": run_id, "deleted": True}
 
 
 # ── Examples (bundled example workbooks, loaded server-side) ──────────────────

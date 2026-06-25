@@ -381,7 +381,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
             {
               id: "structure",
               title: "Structure",
-              defaultOpen: true,
+              defaultOpen: false,
               headAction: (
                 <button className="rail-add" title="add top-level subgroup" onClick={() => addSubgroup(null)}>＋</button>
               ),

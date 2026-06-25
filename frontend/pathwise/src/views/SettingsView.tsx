@@ -14,7 +14,7 @@ import type {
 // Settings holds run/appearance parameters only. Project-wide economics
 // (currency, discount, horizon) live in the Project tab; policy/markets are
 // authored in the Network.
-type Section = "appearance" | "method" | "solver";
+type Section = "appearance" | "method" | "solver" | "data";
 
 interface Props {
   config: ConfigBundle | null;
@@ -26,6 +26,8 @@ interface Props {
   onTheme: (t: ThemeName) => void;
   density: Density;
   onDensity: (d: Density) => void;
+  /** Wipe all working data + non-exported runs (exported runs are kept). */
+  onClearCache: () => void;
   leftW: number;
   setLeftW: (w: number) => void;
 }
@@ -49,11 +51,12 @@ export function SettingsView({
   onTheme,
   density,
   onDensity,
+  onClearCache,
   leftW,
   setLeftW,
 }: Props) {
   const [section, setSection] = useState<Section>("appearance");
-  const [railOpen, setRailOpen] = useState(true);
+  const [railOpen, setRailOpen] = useState(false);
   const backends = config?.backends ?? [{ name: "linopy", label: "linopy + HiGHS" }];
   const isPortfolio = backend === "portfolio";
   const isSimulate = backend === "simulate";
@@ -73,7 +76,7 @@ export function SettingsView({
         sections={[{
           id: "settings",
           title: "Settings",
-          defaultOpen: true,
+          defaultOpen: false,
           grow: false,
           body: (
             <div className="rail-group">
@@ -81,6 +84,7 @@ export function SettingsView({
                 { id: "appearance", label: "Appearance" },
                 { id: "method", label: "Optimisation method" },
                 { id: "solver", label: "Solver" },
+                { id: "data", label: "Data & cache" },
               ] as RailItem[]).map((it) => (
                 <button
                   key={it.id}
@@ -290,6 +294,36 @@ export function SettingsView({
               <p className="muted">
                 HiGHS via linopy (our engine — not PyPSA). Global scaling on for numerical
                 stability; MIP gap / time limit are server-controlled.
+              </p>
+            </section>
+          )}
+          {section === "data" && (
+            <section className="card">
+              <h3>Data &amp; cache</h3>
+              <label className="inspector-field">
+                <span>Clear working data &amp; runs</span>
+                <button
+                  className="ghost"
+                  title="Wipe the working model, session libraries, and stored runs — then start fresh"
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "Clear all working data and stored runs?\n\nThis wipes the working model, " +
+                          "session libraries, and every run you have NOT exported. Runs you exported " +
+                          "(★) are kept. Not undoable.",
+                      )
+                    ) {
+                      onClearCache();
+                    }
+                  }}
+                >
+                  🗑 Clear cache &amp; runs
+                </button>
+              </label>
+              <p className="muted">
+                Wipes the working model, session-scoped libraries, and the run history — except the
+                runs you <strong>exported</strong> (download a run from Analytics to keep it), which
+                survive the clear. Bundled examples and your saved libraries are untouched.
               </p>
             </section>
           )}

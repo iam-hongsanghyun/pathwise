@@ -26,6 +26,7 @@ from pathwise import __version__
 from pathwise.api.config_provider import get_config_bundle
 from pathwise.api.jobs import JobStore
 from pathwise.api.models import RunPayload
+from pathwise.api.routers._deps import runs_store
 from pathwise.api.routers.component_libraries import router as component_libraries_router
 from pathwise.api.routers.routing import router as routing_router
 from pathwise.api.routers.session import router as session_router
@@ -66,7 +67,16 @@ def _solve(payload: dict[str, Any], report: ProgressFn) -> dict[str, Any]:
         store = SessionStore(Path(get_settings().data_dir) / "sessions")
         model = store.get_model(session_id)
     backend = get_backend(options.get("backend"))
-    return backend.run(model, payload.get("scenario", {}), options, progress=report)
+    result = backend.run(model, payload.get("scenario", {}), options, progress=report)
+    # Persist the completed run so it survives a refresh and shows in the history;
+    # best-effort — a storage hiccup must never fail the run itself.
+    try:
+        result["runId"] = runs_store().save(
+            session_id, result, backend=options.get("backend") or ""
+        )
+    except Exception:
+        logger.exception("failed to persist run result")
+    return result
 
 
 @app.get("/api/health")

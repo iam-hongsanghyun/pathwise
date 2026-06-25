@@ -65,7 +65,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [libExpanded, setLibExpanded] = useState<Set<string>>(new Set());
   const [leftW, setLeftW] = useState(280); // adjustable width of the left sidebar
-  const [leftOpen, setLeftOpen] = useState(true); // sidebar collapse toggle
+  const [leftOpen, setLeftOpen] = useState(false); // sidebar collapse toggle
   const [tableGroup, setTableGroup] = useState<string | null>(null); // "See in a table" group
   const [tableOpen, setTableOpen] = useState(true);
   const [tableH, setTableH] = useState(260);
@@ -603,7 +603,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
             {
               id: "structure",
               title: "Structure",
-              defaultOpen: true,
+              defaultOpen: false,
               headAction: (
                 <button className="rail-add" title="add a top-level group" onClick={() => void addSubgroup(null)}>＋</button>
               ),
@@ -612,7 +612,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
             {
               id: "templates",
               title: "Templates",
-              defaultOpen: true,
+              defaultOpen: false,
               headAction: (
                 <span className="rail-hint" style={{ padding: "0 6px" }}>drag onto a group ↑</span>
               ),

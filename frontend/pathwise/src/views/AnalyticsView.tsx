@@ -8,9 +8,10 @@ import { PortfolioResult } from "../features/charts/PortfolioResult";
 import { TopologyCanvas } from "../features/topology/TopologyCanvas";
 import { HierarchyMap } from "../features/topology/HierarchyMap";
 import { RouteAnalytics } from "../features/fleet/RouteAnalytics";
-import { AccordionSidebar } from "../layout/AccordionSidebar";
+import { AccordionSidebar, type AccordionSection } from "../layout/AccordionSidebar";
+import { downloadResultSqlite, downloadResultXlsx } from "../lib/api/session";
 import type { RailItem } from "../layout/RailList";
-import type { RunResult, Workbook } from "../types";
+import type { RunMeta, RunResult, Workbook } from "../types";
 
 type Cat = "overview" | "map" | "routes" | "consumption" | "cost" | "impacts" | "transitions" | "levers" | "macc";
 
@@ -26,12 +27,57 @@ const CAT_LABEL: Record<Cat, string> = {
   macc: "MACC",
 };
 
-/** The consistent view header every view shows at the top of its main panel. */
-function AnalyticsHead({ title }: { title: string }) {
+/** The consistent view header every view shows at the top of its main panel.
+ *  When a result is present it also offers to download it (which marks the
+ *  stored run "exported", so a cache clear keeps it). */
+function AnalyticsHead({ title, result }: { title: string; result?: RunResult | null }) {
   return (
-    <div className="view-head" style={{ padding: "16px 16px 0" }}>
+    <div
+      className="view-head"
+      style={{ padding: "16px 16px 0", display: "flex", alignItems: "baseline", gap: 12 }}
+    >
       <div className="eyebrow">analytics</div>
-      <span className="view-status">{title}</span>
+      <span className="view-status" style={{ flex: 1 }}>{title}</span>
+      {result && (
+        <span style={{ display: "flex", gap: 6 }}>
+          <button className="ghost" title="Download as .xlsx (keeps this run on clear)" onClick={() => void downloadResultXlsx(result)}>⬇ xlsx</button>
+          <button className="ghost" title="Download as .sqlite (keeps this run on clear)" onClick={() => void downloadResultSqlite(result)}>⬇ sqlite</button>
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** The run-history list: re-open a past run, with a badge for the exported ones
+ *  (the ones a cache clear keeps). */
+function RunHistory({
+  runs,
+  currentRunId,
+  onLoadRun,
+}: {
+  runs: RunMeta[];
+  currentRunId?: string;
+  onLoadRun: (runId: string) => void;
+}) {
+  if (!runs.length) {
+    return <div className="rail-empty" style={{ padding: 10 }}>No runs yet — ▶ run the model.</div>;
+  }
+  return (
+    <div className="rail-group">
+      {runs.map((r) => (
+        <button
+          key={r.runId}
+          className={`rail-item${r.runId === currentRunId ? " is-active" : ""}`}
+          style={{ width: "100%", display: "flex", justifyContent: "space-between", gap: 8 }}
+          title={`${r.createdAt}${r.objective != null ? ` · obj ${r.objective.toLocaleString()}` : ""}`}
+          onClick={() => onLoadRun(r.runId)}
+        >
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {r.createdAt.slice(0, 16).replace("T", " ")} · {r.status}
+          </span>
+          {r.exported && <span className="pw-pill" title="exported — kept on clear">★</span>}
+        </button>
+      ))}
     </div>
   );
 }
@@ -39,15 +85,27 @@ function AnalyticsHead({ title }: { title: string }) {
 interface Props {
   workbook: Workbook;
   result: RunResult | null;
+  runs: RunMeta[];
+  onLoadRun: (runId: string) => void;
   leftW: number;
   setLeftW: (w: number) => void;
 }
 
 /** Analytics — category accordion sidebar + tailored main; the process map animates over
  *  years via the bottom slider, with consumption and cost as time series. */
-export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
+export function AnalyticsView({ workbook, result, runs, onLoadRun, leftW, setLeftW }: Props) {
   const [cat, setCat] = useState<Cat>("overview");
-  const [railOpen, setRailOpen] = useState(true);
+  const [railOpen, setRailOpen] = useState(false);
+  // The run-history section, appended to every variant's sidebar so a past run can
+  // be re-opened (and its exported state seen) from anywhere in analytics.
+  const runsSection: AccordionSection = {
+    id: "runs",
+    title: `Runs${runs.length ? ` (${runs.length})` : ""}`,
+    defaultOpen: false,
+    grow: false,
+    body: <RunHistory runs={runs} currentRunId={result?.runId} onLoadRun={onLoadRun} />,
+  };
+  const withRuns = (secs: AccordionSection[]): AccordionSection[] => [...secs, runsSection];
   const years = [...new Set((result?.summary.periods ?? []).map((p) => p.period))].sort((a, b) => a - b);
   const [year, setYear] = useState<number | null>(null);
   const activeYear = year ?? years[years.length - 1] ?? 0;
@@ -64,18 +122,18 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
           setWidth={setLeftW}
           min={160}
           max={360}
-          sections={[{
+          sections={withRuns([{
             id: "analytics",
             title: "Analytics",
-            defaultOpen: true,
+            defaultOpen: false,
             grow: false,
             body: (
               <button className="rail-item is-active" style={{ width: "100%" }}>Portfolio</button>
             ),
-          }]}
+          }])}
         />
         <main className="main-area">
-          <AnalyticsHead title="Portfolio" />
+          <AnalyticsHead title="Portfolio" result={result} />
           <PortfolioResult portfolio={pf} />
         </main>
       </div>
@@ -94,18 +152,18 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
           setWidth={setLeftW}
           min={160}
           max={360}
-          sections={[{
+          sections={withRuns([{
             id: "analytics",
             title: "Analytics",
-            defaultOpen: true,
+            defaultOpen: false,
             grow: false,
             body: (
               <button className="rail-item is-active" style={{ width: "100%" }}>Frontier</button>
             ),
-          }]}
+          }])}
         />
         <main className="main-area">
-          <AnalyticsHead title="Cost–impact frontier" />
+          <AnalyticsHead title="Cost–impact frontier" result={result} />
           <FrontierResult frontier={frontier} />
         </main>
       </div>
@@ -124,18 +182,18 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
           setWidth={setLeftW}
           min={160}
           max={360}
-          sections={[{
+          sections={withRuns([{
             id: "analytics",
             title: "Analytics",
-            defaultOpen: true,
+            defaultOpen: false,
             grow: false,
             body: (
               <button className="rail-item is-active" style={{ width: "100%" }}>LCA</button>
             ),
-          }]}
+          }])}
         />
         <main className="main-area">
-          <AnalyticsHead title="Lifecycle assessment" />
+          <AnalyticsHead title="Lifecycle assessment" result={result} />
           <LcaResult result={result} />
         </main>
       </div>
@@ -154,18 +212,18 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
           setWidth={setLeftW}
           min={160}
           max={360}
-          sections={[{
+          sections={withRuns([{
             id: "analytics",
             title: "Analytics",
-            defaultOpen: true,
+            defaultOpen: false,
             grow: false,
             body: (
               <button className="rail-item is-active" style={{ width: "100%" }}>MACC</button>
             ),
-          }]}
+          }])}
         />
         <main className="main-area">
-          <AnalyticsHead title="MACC" />
+          <AnalyticsHead title="MACC" result={result} />
           <MaccResult macc={macc} />
         </main>
       </div>
@@ -195,10 +253,10 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
         setWidth={setLeftW}
         min={160}
         max={360}
-        sections={[{
+        sections={withRuns([{
           id: "analytics",
           title: "Analytics",
-          defaultOpen: true,
+          defaultOpen: false,
           grow: false,
           body: (
             <div className="rail-group">
@@ -213,10 +271,10 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
               ))}
             </div>
           ),
-        }]}
+        }])}
       />
       <main className="main-area">
-        <AnalyticsHead title={result ? CAT_LABEL[cat] : "run the model to populate"} />
+        <AnalyticsHead title={result ? CAT_LABEL[cat] : "run the model to populate"} result={result} />
         {cat === "macc" ? (
           <div className="view">
             <MaccDesigner workbook={workbook} />

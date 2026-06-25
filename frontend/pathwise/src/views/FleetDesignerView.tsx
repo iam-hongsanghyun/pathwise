@@ -89,7 +89,7 @@ export function FleetDesignerView({
   const [expR, setExpR] = useState<Set<string>>(new Set());
   const [expF, setExpF] = useState<Set<string>>(new Set());
   const [leftW, setLeftW] = useState(260);
-  const [leftOpen, setLeftOpen] = useState(true);
+  const [leftOpen, setLeftOpen] = useState(false);
   const [tableGroup, setTableGroup] = useState<string | null>(null); // "See in a table" group
   const [tableOpen, setTableOpen] = useState(true);
   const [tableH, setTableH] = useState(260);
@@ -437,7 +437,7 @@ export function FleetDesignerView({
             {
               id: "fleets",
               title: "Fleets",
-              defaultOpen: true,
+              defaultOpen: false,
               headAction: (
                 <button className="rail-add" title="add an alliance / company group" onClick={() => void addFleetGroup(null)}>＋</button>
               ),
@@ -458,7 +458,7 @@ export function FleetDesignerView({
             {
               id: "routes",
               title: "Routes",
-              defaultOpen: true,
+              defaultOpen: false,
               headAction: (
                 <span className="rail-hint" style={{ padding: "0 6px" }}>stream → route</span>
               ),
@@ -479,7 +479,7 @@ export function FleetDesignerView({
             {
               id: "facility",
               title: "Facility",
-              defaultOpen: true,
+              defaultOpen: false,
               headAction: (
                 <span className="rail-hint" style={{ padding: "0 6px" }}>{[...coord.keys()].length} placed</span>
               ),

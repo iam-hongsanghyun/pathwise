@@ -13,7 +13,7 @@ import {
   TechnologyEditor,
 } from "../features/component/editors";
 import { TimeSeriesRail } from "../features/component/TimeSeriesRail";
-import { AccordionSidebar } from "../layout/AccordionSidebar";
+import { AccordionSidebar, type AccordionSection } from "../layout/AccordionSidebar";
 import { useDialogs } from "../features/controls/Dialog";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
@@ -220,7 +220,7 @@ export function ComponentTabView({
   const [status, setStatus] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [leftW, setLeftW] = useState(280); // resizable left sidebar width
-  const [leftOpen, setLeftOpen] = useState(true); // sidebar collapse toggle
+  const [leftOpen, setLeftOpen] = useState(false); // sidebar collapse toggle (collapsed by default)
   const [unitOptions, setUnitOptions] = useState<string[]>([]); // global allowed units (fallback)
   // Unit pickers are limited to the project's registry (the model's `units` sheet);
   // fall back to the global allowed list when a model has no registry yet.
@@ -1091,6 +1091,17 @@ export function ComponentTabView({
           if (splitLib(libId)[0] !== scope) return false;
           return scope !== "base" || originOf(libId) === baseGroup;
         });
+  // Library mode shows the three tiers as independently-collapsible sections; each
+  // tier filters the full tree to its own libraries.
+  const tierNodes = (pred: "starter" | "user" | "session"): TreeNode[] =>
+    treeNodes.filter((nd) => {
+      const libId = parseId(nd.id).libId;
+      const sc = splitLib(libId)[0];
+      return pred === "session" ? sc === "session" : sc === "base" && originOf(libId) === pred;
+    });
+  const starterNodes = tierNodes("starter");
+  const mineNodes = tierNodes("user");
+  const projectNodes = tierNodes("session");
   const libTree = (nodes: TreeNode[], emptyHint: string) => (
     <TreeExplorer
       nodes={nodes}
@@ -1109,6 +1120,14 @@ export function ComponentTabView({
         const next = parseId(id);
         if (!openLibs.has(next.libId)) void loadLib(next.libId);
         setSel(next);
+        // Keep scope/baseGroup in sync with the selected tier (drives the
+        // landing page + eyebrow, which still read these).
+        const sc = splitLib(next.libId)[0];
+        if (sc === "session") setScope("session");
+        else {
+          setScope("base");
+          setBaseGroup(originOf(next.libId) === "starter" ? "starter" : "user");
+        }
       }}
       actionsFor={actionsFor}
       onContextAction={onContextAction}
@@ -1120,89 +1139,98 @@ export function ComponentTabView({
   // Build the sections array. The "Library / Project" tree is always the first
   // section; "Time series" is appended only when a single component is selected
   // and produces time-series rows.
-  const libSectionBody =
-    mode === "project" ? (
-      <>
-        <div className="rail-head-row" style={{ padding: "6px 10px" }}>
-          <span className="rail-head">Project</span>
-          <button className="rail-add" title="new project" onClick={newProject}>＋</button>
-        </div>
-        <div style={{ padding: "0 10px 6px" }}>
-          <SearchSelect
-            value={activeProjectId ?? ""}
-            onChange={(v) => switchProject(v)}
-            options={sessionProjects.map((l) => ({ value: l.id, label: l.label || l.id }))}
-            placeholder={sessionProjects.length ? "select a project…" : "no projects yet"}
-          />
-        </div>
-        <div style={{ flex: 1, minHeight: 60, overflow: "auto" }}>
-          {activeLibId
-            ? libTree(railNodes, "Empty project — add or copy components from the main panel.")
-            : <div className="rail-empty" style={{ padding: 10 }}>Create a project with ＋, then add components.</div>}
-        </div>
-        <div className="rail-foot">Right-click for actions</div>
-      </>
-    ) : (
-      <>
-        <div className="rail-head-row">
-          <div className="seg" role="group" aria-label="Library scope">
-            <button
-              className={scope === "base" && baseGroup === "starter" ? "is-active" : ""}
-              title="Shipped starter libraries (read-only references)"
-              onClick={() => { setScope("base"); setBaseGroup("starter"); setSel(null); }}
-            >
-              Starters
-            </button>
-            <button
-              className={scope === "base" && baseGroup === "user" ? "is-active" : ""}
-              title="Your own reusable libraries (shared across projects)"
-              onClick={() => { setScope("base"); setBaseGroup("user"); setSel(null); }}
-            >
-              Mine
-            </button>
-            <button
-              className={scope === "session" ? "is-active" : ""}
-              title="This project's own components"
-              onClick={() => { setScope("session"); setSel(null); }}
-            >
-              Project
-            </button>
-          </div>
-          {!(scope === "base" && baseGroup === "starter") && (
-            <button
-              className="rail-add"
-              title={scope === "session" ? "new project library" : "new library"}
-              onClick={scope === "session" ? newProject : newLibrary}
-            >
-              ＋
-            </button>
-          )}
-        </div>
-        {scope === "base" && onPickLibrary && (
-          <div className="rail-import">
-            <SearchSelect
-              value=""
-              onChange={(v) => v && onPickLibrary(v)}
-              options={libraries
-                .filter((l) => l.has_components)
-                .map((l) => ({ value: `${l.tier}/${l.id}`, label: `${l.label}` }))}
-              placeholder="import components…"
-            />
+  // Project mode shows ONLY the active project's own components (one section).
+  const libSectionBody = (
+    <>
+      <div style={{ padding: "0 10px 6px" }}>
+        <SearchSelect
+          value={activeProjectId ?? ""}
+          onChange={(v) => switchProject(v)}
+          options={sessionProjects.map((l) => ({ value: l.id, label: l.label || l.id }))}
+          placeholder={sessionProjects.length ? "select a project…" : "no projects yet"}
+        />
+      </div>
+      <div style={{ flex: 1, minHeight: 60, overflow: "auto" }}>
+        {activeLibId ? (
+          libTree(railNodes, "Empty project — add or copy components from the main panel.")
+        ) : (
+          <div className="rail-empty" style={{ padding: 10 }}>
+            Create a project with ＋, then add components.
           </div>
         )}
-        <div className="rail-scroll">
-          {libTree(
-            railNodes,
-            scope === "session"
-              ? "No project libraries — ＋ to add one."
-              : baseGroup === "starter"
-                ? "No starter libraries found."
-                : "No libraries of your own yet — ＋ to add one, or duplicate a starter.",
-          )}
-        </div>
-        <div className="rail-foot">Right-click for actions</div>
-      </>
-    );
+      </div>
+      <div className="rail-foot">Right-click for actions</div>
+    </>
+  );
+
+  // Library mode: each tier (Starters / Mine / Project) is its own collapsible
+  // section, so several can be open at once. Import + ＋ live on the editable tiers.
+  const tierFoot = (text: string) => <div className="rail-foot">{text}</div>;
+  const importPicker = onPickLibrary ? (
+    <div className="rail-import">
+      <SearchSelect
+        value=""
+        onChange={(v) => v && onPickLibrary(v)}
+        options={libraries
+          .filter((l) => l.has_components)
+          .map((l) => ({ value: `${l.tier}/${l.id}`, label: `${l.label}` }))}
+        placeholder="import components…"
+      />
+    </div>
+  ) : null;
+  const tierSections: AccordionSection[] = [
+    {
+      id: "starters",
+      title: "Starters",
+      defaultOpen: false,
+      body: (
+        <>
+          <div className="rail-scroll">{libTree(starterNodes, "No starter libraries found.")}</div>
+          {tierFoot("Read-only references · right-click to duplicate")}
+        </>
+      ),
+    },
+    {
+      id: "mine",
+      title: "Mine",
+      defaultOpen: false,
+      headAction: (
+        <button className="rail-add" title="new library" onClick={newLibrary}>
+          ＋
+        </button>
+      ),
+      body: (
+        <>
+          {importPicker}
+          <div className="rail-scroll">
+            {libTree(
+              mineNodes,
+              "No libraries of your own yet — ＋ to add one, or duplicate a starter.",
+            )}
+          </div>
+          {tierFoot("Right-click for actions")}
+        </>
+      ),
+    },
+    {
+      id: "project",
+      title: "Project",
+      defaultOpen: false,
+      headAction: (
+        <button className="rail-add" title="new project library" onClick={newProject}>
+          ＋
+        </button>
+      ),
+      body: (
+        <>
+          <div className="rail-scroll">
+            {libTree(projectNodes, "No project libraries — ＋ to add one.")}
+          </div>
+          {tierFoot("Right-click for actions")}
+        </>
+      ),
+    },
+  ];
 
   return (
     <div className="view-full builder">
@@ -1216,30 +1244,27 @@ export function ComponentTabView({
           min={200}
           max={520}
           sections={[
-            {
-              id: "library",
-              title: mode === "project" ? "Project" : "Library",
-              defaultOpen: true,
-              headAction:
-                !(mode === "project") && !(scope === "base" && baseGroup === "starter") ? (
-                  <button
-                    className="rail-add"
-                    title={scope === "session" ? "new project library" : "new library"}
-                    onClick={scope === "session" ? newProject : newLibrary}
-                  >
-                    ＋
-                  </button>
-                ) : mode === "project" ? (
-                  <button className="rail-add" title="new project" onClick={newProject}>＋</button>
-                ) : undefined,
-              body: libSectionBody,
-            },
+            ...(mode === "project"
+              ? [
+                  {
+                    id: "library",
+                    title: "Project",
+                    defaultOpen: false,
+                    headAction: (
+                      <button className="rail-add" title="new project" onClick={newProject}>
+                        ＋
+                      </button>
+                    ),
+                    body: libSectionBody,
+                  } satisfies AccordionSection,
+                ]
+              : tierSections),
             ...(rail
               ? [
                   {
                     id: "timeseries",
                     title: "Time series",
-                    defaultOpen: true,
+                    defaultOpen: false,
                     grow: true,
                     body: (
                       <>
@@ -1250,7 +1275,7 @@ export function ComponentTabView({
                         {rail}
                       </>
                     ),
-                  },
+                  } satisfies AccordionSection,
                 ]
               : []),
           ]}

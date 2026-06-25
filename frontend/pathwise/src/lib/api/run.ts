@@ -1,11 +1,23 @@
 // Run client: submit by sessionId (the model never travels from the browser),
 // then poll until the result is ready. Pure logic layer: no React.
 
-import type { ConfigBundle, JobState, RunResult } from "../../types";
+import type { ConfigBundle, JobState, RunMeta, RunResult } from "../../types";
 
 async function json<T>(resp: Response): Promise<T> {
   if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}: ${await resp.text()}`);
   return (await resp.json()) as T;
+}
+
+/** The persisted run history (all sessions, newest first). Stays visible across a
+ *  cache clear so the user's exported runs remain reachable. */
+export async function listRuns(): Promise<RunMeta[]> {
+  const { runs } = await json<{ runs: RunMeta[] }>(await fetch("/api/runs"));
+  return runs;
+}
+
+/** Load one stored run's full result (for the history → re-open in analytics). */
+export async function getRun(runId: string): Promise<RunResult> {
+  return json<RunResult>(await fetch(`/api/runs/${encodeURIComponent(runId)}`));
 }
 
 /** Human tick label for a polled job: a live "done / total runs (label)" while a

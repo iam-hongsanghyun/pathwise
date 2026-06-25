@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { getConfig, runToCompletion } from "./lib/api/run";
+import { getConfig, getRun, listRuns, runToCompletion } from "./lib/api/run";
 import {
   clearCache,
   clearModel,
@@ -21,7 +21,7 @@ import { TargetsTabView } from "./views/TargetsTabView";
 import { SimulateSetup } from "./features/simulate/SimulateSetup";
 import { FrontierSetup } from "./features/simulate/FrontierSetup";
 import { ValueChainTabView } from "./views/ValueChainTabView";
-import type { ConfigBundle, PortfolioConfig, RunResult, Workbook } from "./types";
+import type { ConfigBundle, PortfolioConfig, RunMeta, RunResult, Workbook } from "./types";
 
 export function App() {
   const [config, setConfig] = useState<ConfigBundle | null>(null);
@@ -44,6 +44,14 @@ export function App() {
     views: [],
   });
   const [result, setResult] = useState<RunResult | null>(null);
+  // Persisted run history (all sessions, newest first); survives refresh + a
+  // cache clear (which keeps the runs the user exported).
+  const [runs, setRuns] = useState<RunMeta[]>([]);
+  const refreshRuns = () => {
+    listRuns()
+      .then(setRuns)
+      .catch(() => undefined);
+  };
   // Run status lives here (not in the view) so switching tabs mid-run doesn't
   // unmount the view and reset the ▶ Run button while the job is still going.
   const [running, setRunning] = useState<string | null>(null);
@@ -69,6 +77,14 @@ export function App() {
         setWorkbook(model);
       })
       .catch((e) => setError(String(e)));
+    // Restore the run history; re-open the most recent run so analytics survive a
+    // page refresh (the result no longer lives only in volatile React state).
+    listRuns()
+      .then((rs) => {
+        setRuns(rs);
+        if (rs[0]) getRun(rs[0].runId).then(setResult).catch(() => undefined);
+      })
+      .catch(() => undefined);
   }, []);
 
   // Bounded undo history of workbook states (model edits + server-side ops).
@@ -168,6 +184,7 @@ export function App() {
       await putModel(sessionId, workbook);
       const res = await runToCompletion(sessionId, scenario, { domain: "process", backend }, setRunning);
       setResult(res);
+      refreshRuns(); // the completed run is now in the persisted history
       setWarnings(res.validation?.warnings ?? []);
       if (res.status === "invalid" && res.validation?.errors?.length) {
         setError(res.validation.errors.join(" "));
@@ -202,6 +219,20 @@ export function App() {
       setWorkbook(model);
       setResult(null);
       setBackend("linopy");
+      refreshRuns(); // history now holds only the runs the user exported
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  /** Re-open a stored run from the history in the Analytics view. */
+  async function onLoadRun(runId: string) {
+    setError(null);
+    try {
+      const res = await getRun(runId);
+      setResult(res);
+      setWarnings(res.validation?.warnings ?? []);
+      setView("analytics");
     } catch (e) {
       setError(String(e));
     }
@@ -317,7 +348,14 @@ export function App() {
             />
           ))}
         {view === "analytics" && (
-          <AnalyticsView workbook={workbook} result={result} leftW={leftW} setLeftW={setLeftW} />
+          <AnalyticsView
+            workbook={workbook}
+            result={result}
+            runs={runs}
+            onLoadRun={onLoadRun}
+            leftW={leftW}
+            setLeftW={setLeftW}
+          />
         )}
         {view === "settings" && (
           <SettingsView
@@ -330,6 +368,7 @@ export function App() {
             onTheme={setTheme}
             density={density}
             onDensity={setDensity}
+            onClearCache={onClearCache}
             leftW={leftW}
             setLeftW={setLeftW}
           />

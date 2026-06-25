@@ -28,10 +28,24 @@ export interface ConfigBundle {
   buildId: string;
 }
 
+/** One entry in the persisted run history (light metadata for the list). */
+export interface RunMeta {
+  runId: string;
+  sessionId: string;
+  createdAt: string;
+  label: string;
+  backend: string;
+  status: string;
+  objective: number | null;
+  exported: boolean;
+}
+
 export interface RunResult {
   status: string;
   termination: string;
   objective: number | null;
+  /** Server id of the persisted run (set once the result is stored). */
+  runId?: string;
   terminology: Record<string, string>;
   validation: { errors: string[]; warnings: string[] };
   outputs: {
