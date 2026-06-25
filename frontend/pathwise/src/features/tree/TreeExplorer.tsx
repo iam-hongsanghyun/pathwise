@@ -81,7 +81,7 @@ export function TreeExplorer({
   const allowDrop = (target: TreeNode, position: DropPosition): boolean => {
     const drag = dragId.current;
     if (!drag || drag === target.id) return false;
-    const droppable = target.droppable ?? (target.kind !== "machine" && target.kind !== "leaf");
+    const droppable = target.droppable ?? (target.kind !== "asset" && target.kind !== "leaf");
     if (position === "inside" && !droppable) return false;
     if (isAncestorOrSelf(drag, target.id)) return false; // can't drop into own subtree
     const newParent = position === "inside" ? target.id : target.parentId;

@@ -110,13 +110,13 @@ def test_facility_decommission_switches_off() -> None:
 
 
 def test_facility_build_year_delays_online() -> None:
-    # build_year (introduced_year) is the online-from year: the machine is OFF
+    # build_year (introduced_year) is the online-from year: the asset is OFF
     # before it, so early demand can only be met by slack.
     wb = _base()
     wb["processes"][0]["introduced_year"] = 2030
     res = _solve(wb)
     active = _active(res)
-    assert 2025 not in active, "machine not built yet in 2025"
+    assert 2025 not in active, "asset not built yet in 2025"
     assert 2030 in active and 2035 in active
     assert any("2025" in s["key"] for s in res["outputs"]["demand_slack"])
 

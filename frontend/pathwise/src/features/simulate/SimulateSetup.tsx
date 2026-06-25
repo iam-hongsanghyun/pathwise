@@ -78,14 +78,14 @@ export function SimulateSetup({
         <h2 className="view-title">Scenario simulator</h2>
         <p className="view-lead">
           Evaluate the as-is baseline and compare it against the <strong>variants</strong> you
-          defined in the Value chain (per-machine forced switches, price or lever changes).
+          defined in the Value chain (per-asset forced switches, price or lever changes).
           Optionally sweep a carbon price.
         </p>
 
         <section style={{ marginBottom: 18 }}>
           <h3 className="section-title">Baseline</h3>
           <p className="muted" style={{ fontSize: ".78rem", margin: 0 }}>
-            Current configuration — each machine runs its baseline technology, no auto-adopted
+            Current configuration — each asset runs its baseline technology, no auto-adopted
             abatement.
           </p>
         </section>
@@ -94,7 +94,7 @@ export function SimulateSetup({
           <h3 className="section-title" style={{ marginBottom: 2 }}>Variants</h3>
           {variants.length === 0 ? (
             <p className="muted" style={{ fontSize: ".78rem", margin: 0 }}>
-              No variants yet. Add them in the <strong>Value chain</strong> view — select a machine,
+              No variants yet. Add them in the <strong>Value chain</strong> view — select a asset,
               then “Variants (what-if)” in its panel. The run will still report the baseline LCA.
             </p>
           ) : (

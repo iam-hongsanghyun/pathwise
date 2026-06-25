@@ -51,24 +51,24 @@ export function fleetRegistryTree(groups: FleetGroup[], fleets: Row[]): TreeNode
     out.push({ id: g.id, parentId: g.parentId, kind: "group", label: g.label, level: g.level || undefined, hasChildren: hasChild(g.id), droppable: true });
   for (const f of fleets) {
     const id = fleetId(f);
-    out.push({ id, parentId: s(f.group) || null, kind: "machine", label: s(f.label) || id, level: `fleet · ${s(f.mode) || "—"}`, hasChildren: false });
+    out.push({ id, parentId: s(f.group) || null, kind: "asset", label: s(f.label) || id, level: `fleet · ${s(f.mode) || "—"}`, hasChildren: false });
   }
   return out;
 }
 
 /** RIGHT rail: the facility `nodes` hierarchy (ports flagged) — a reference to pull
- *  ports/machines onto the map. */
+ *  ports/assets onto the map. */
 export function facilityTree(nodes: GroupNode[], coord: Map<string, { lon: number; lat: number }>): TreeNode[] {
   const childCount = new Map<string | null, number>();
   for (const nd of nodes) childCount.set(nd.parentId, (childCount.get(nd.parentId) ?? 0) + 1);
   return nodes.map((nd) => ({
     id: nd.id,
     parentId: nd.parentId,
-    kind: nd.kind === "machine" ? "machine" : "group",
+    kind: nd.kind === "asset" ? "asset" : "group",
     label: nd.label,
     level: coord.has(nd.id) ? "port" : nd.level || undefined,
     hasChildren: (childCount.get(nd.id) ?? 0) > 0,
-    droppable: nd.kind !== "machine",
+    droppable: nd.kind !== "asset",
   }));
 }
 
@@ -168,7 +168,7 @@ export function routeTree(leaves: RouteLeaf[], labelOf: (id: string) => string):
     const gid = `stream::${commodity}`;
     out.push({ id: gid, parentId: null, kind: "group", label: commodity || "Direct routes", level: `stream · ${ls.length}`, hasChildren: true, droppable: false });
     for (const l of ls)
-      out.push({ id: l.proc, parentId: gid, kind: "machine", label: `${labelOf(l.from)} → ${labelOf(l.to)}`, level: l.physical ? l.mode || "route" : "physicalise →", hasChildren: false });
+      out.push({ id: l.proc, parentId: gid, kind: "asset", label: `${labelOf(l.from)} → ${labelOf(l.to)}`, level: l.physical ? l.mode || "route" : "physicalise →", hasChildren: false });
   }
   return out;
 }

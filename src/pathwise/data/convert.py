@@ -2,15 +2,15 @@
 
 A pre-hierarchy workbook describes facilities in a flat ``processes`` sheet wired
 by ``edges``, scoped by ``company`` / ``group`` strings. :func:`to_hierarchy`
-turns that into the ``nodes`` / ``machines`` / ``connections`` tree the builder
+turns that into the ``nodes`` / ``assets`` / ``connections`` tree the builder
 and per-level solver use: a value-chain root → company groups → facility groups
-→ one machine per process; edges become connections. No sector knowledge — it
+→ one asset per process; edges become connections. No sector knowledge — it
 reads only the generic scope columns.
 """
 
 from __future__ import annotations
 
-from pathwise.data.sheets import CONNECTIONS, EDGES, MACHINES, NODE_LAYOUT, NODES, PROCESSES
+from pathwise.data.sheets import ASSETS, CONNECTIONS, EDGES, NODE_LAYOUT, NODES, PROCESSES
 from pathwise.data.workbook import Workbook
 
 
@@ -45,7 +45,7 @@ def to_hierarchy(
 
     A no-op if it already has ``nodes`` (already a hierarchy) or no ``processes``.
     The catalogue/scenario sheets are kept verbatim; ``processes`` / ``edges`` /
-    ``node_layout`` are replaced by ``nodes`` / ``machines`` / ``connections``.
+    ``node_layout`` are replaced by ``nodes`` / ``assets`` / ``connections``.
     """
     if workbook.get(NODES):
         return workbook
@@ -77,13 +77,13 @@ def to_hierarchy(
             )
             seen.add(node_id)
 
-    # A machine's node id IS its process id; group ids must stay disjoint from
+    # A asset's node id IS its process id; group ids must stay disjoint from
     # those, or a process whose company/group is named after itself would parent
-    # the machine to a same-named group (a self-parent cycle). So a grouping
-    # level whose id collides with any machine id is skipped.
+    # the asset to a same-named group (a self-parent cycle). So a grouping
+    # level whose id collides with any asset id is skipped.
     pids = {_s(p.get("process_id")) for p in procs if _s(p.get("process_id"))}
 
-    machines: list[dict[str, object]] = []
+    assets: list[dict[str, object]] = []
     for p in procs:
         pid = _s(p.get("process_id"))
         if not pid:
@@ -103,14 +103,14 @@ def to_hierarchy(
             {
                 "node_id": pid,
                 "parent_id": parent,
-                "kind": "machine",
-                "level": "machine",
+                "kind": "asset",
+                "level": "asset",
                 "label": pid,
             }
         )
         seen.add(pid)
         m: dict[str, object] = {
-            "machine_id": pid,
+            "asset_id": pid,
             "baseline_technology": p.get("baseline_technology"),
             "capacity": p.get("capacity"),
         }
@@ -120,7 +120,7 @@ def to_hierarchy(
             m["decommission_year"] = p.get("decommission_year")
         if p.get("max_renewals") is not None:
             m["max_renewals"] = p.get("max_renewals")
-        machines.append(m)
+        assets.append(m)
 
     connections: list[dict[str, object]] = []
     for e in workbook.get(EDGES, []):
@@ -133,6 +133,6 @@ def to_hierarchy(
 
     out = {k: v for k, v in workbook.items() if k not in (PROCESSES, EDGES, NODE_LAYOUT)}
     out[NODES] = _dedupe_nodes(nodes, root_id)
-    out[MACHINES] = machines
+    out[ASSETS] = assets
     out[CONNECTIONS] = connections
     return out

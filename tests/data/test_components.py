@@ -50,7 +50,7 @@ def _library() -> ComponentLibrary:
                     ],
                 },
             ],
-            "machines": [
+            "assets": [
                 {"name": "bf", "technology": "BF", "capacity": 100},
                 {"name": "bof", "technology": "BOF", "capacity": 100},
             ],
@@ -75,7 +75,7 @@ def test_instantiate_builds_path_qualified_instance_tree() -> None:
     wb = instantiate(_library(), "co")
     ids = {n["node_id"] for n in wb["nodes"]}
     assert ids == {"co", "co/m1", "co/m1/bf", "co/m1/bof"}
-    assert {m["machine_id"] for m in wb["machines"]} == {"co/m1/bf", "co/m1/bof"}
+    assert {m["asset_id"] for m in wb["assets"]} == {"co/m1/bf", "co/m1/bof"}
     # the group's internal connection is stamped between the child instances.
     conn = wb["connections"][0]
     assert (conn["from_node"], conn["to_node"], conn["commodity_id"]) == (
@@ -110,11 +110,11 @@ def test_a_component_can_be_reused_as_distinct_instances() -> None:
     assert res["status"] == "optimal" and not res["outputs"]["demand_slack"]
 
 
-def test_machine_levers_are_stamped_per_instance() -> None:
+def test_asset_levers_are_stamped_per_instance() -> None:
     lib = _library()
-    bf = lib.machine("bf")
+    bf = lib.asset("bf")
     assert bf is not None
-    bf.measures.append(  # the MACC subgroup authored on the machine
+    bf.measures.append(  # the MACC subgroup authored on the asset
         LeverTemplate(
             lever_id="eff",
             type="energy_efficiency",
@@ -140,7 +140,7 @@ def test_machine_levers_are_stamped_per_instance() -> None:
 
 
 def test_instantiate_stamps_a_machines_technology_macc() -> None:
-    # a machine with NO embedded levers, but a technology that links a MACC
+    # a asset with NO embedded levers, but a technology that links a MACC
     lib = ComponentLibrary.model_validate(
         {
             "commodities": [
@@ -166,7 +166,7 @@ def test_instantiate_stamps_a_machines_technology_macc() -> None:
                 }
             ],
             "maccs": [{"macc_id": "eaf_eff", "measures": ["vfd"]}],
-            "machines": [{"name": "eaf", "technology": "EAF", "capacity": 100}],
+            "assets": [{"name": "eaf", "technology": "EAF", "capacity": 100}],
             "groups": [{"name": "plant", "level": "facility", "children": [{"component": "eaf"}]}],
         }
     )
@@ -174,7 +174,7 @@ def test_instantiate_stamps_a_machines_technology_macc() -> None:
     assert any(str(m["lever_id"]).endswith("· vfd") for m in wb.get("levers", []))
 
 
-def test_place_technology_makes_a_machine_with_its_macc() -> None:
+def test_place_technology_makes_a_asset_with_its_macc() -> None:
     lib = ComponentLibrary.model_validate(
         {
             "commodities": [
@@ -204,12 +204,12 @@ def test_place_technology_makes_a_machine_with_its_macc() -> None:
     )
     model = {"nodes": [{"node_id": "co", "parent_id": None, "kind": "group", "level": "company"}]}
     model = place_technology(model, lib, "EAF", parent_id="co", capacity=200)
-    machine = next(m for m in model["machines"] if m["machine_id"] == "co/EAF")
-    # The machine runs its OWN instance of the technology; provenance kept on
+    asset = next(m for m in model["assets"] if m["asset_id"] == "co/EAF")
+    # The asset runs its OWN instance of the technology; provenance kept on
     # source_technology.
-    assert machine["baseline_technology"] == "EAF@co/EAF" and machine["capacity"] == 200
-    assert machine["source_technology"] == "EAF"
-    # the linked MACC's lever is stamped onto the machine, scaled to capacity
+    assert asset["baseline_technology"] == "EAF@co/EAF" and asset["capacity"] == 200
+    assert asset["source_technology"] == "EAF"
+    # the linked MACC's lever is stamped onto the asset, scaled to capacity
     meas = [m for m in model["levers"] if m["facility"] == "co/EAF"]
     assert meas and meas[0]["lever_id"] == "co/EAF · vfd"
     assert model["lever_blocks"][0]["capex"] == pytest.approx(1000.0)  # 5 × 200
@@ -241,7 +241,7 @@ def test_place_technology_carries_per_year_costs() -> None:
     model = {"nodes": [{"node_id": "co", "parent_id": None, "kind": "group", "level": "company"}]}
     model = place_technology(model, lib, "EAF", parent_id="co", capacity=10)
     # the per-year costs ride into the model on the technologies_prices sheet,
-    # rekeyed to the machine's own technology instance
+    # rekeyed to the asset's own technology instance
     iid = "EAF@co/EAF"
     tp = model.get("technologies_prices", [])
     assert {(r["technology_id"], r["year"]) for r in tp} == {(iid, 2025), (iid, 2035)}
@@ -256,7 +256,7 @@ def test_place_technology_carries_per_year_costs() -> None:
 
 
 def test_placing_a_technology_twice_makes_independent_instances() -> None:
-    # The same component placed on two machines must yield two INDEPENDENT
+    # The same component placed on two assets must yield two INDEPENDENT
     # technology instances (distinct ids), each tracing back to the component via
     # source_technology — so they can later be edited apart.
     lib = ComponentLibrary.model_validate(
@@ -278,10 +278,10 @@ def test_placing_a_technology_twice_makes_independent_instances() -> None:
     }
     model = place_technology(model, lib, "EAF", parent_id="co", capacity=10)
     model = place_technology(model, lib, "EAF", parent_id="co", capacity=20)
-    machines = {m["machine_id"]: m for m in model["machines"]}
-    baselines = {m["baseline_technology"] for m in machines.values()}
-    assert len(machines) == 2 and len(baselines) == 2  # two distinct instances
-    assert all(m["source_technology"] == "EAF" for m in machines.values())
+    assets = {m["asset_id"]: m for m in model["assets"]}
+    baselines = {m["baseline_technology"] for m in assets.values()}
+    assert len(assets) == 2 and len(baselines) == 2  # two distinct instances
+    assert all(m["source_technology"] == "EAF" for m in assets.values())
     # each instance is its own technologies row
     tech_ids = {r["technology_id"] for r in model["technologies"]}
     assert baselines <= tech_ids
@@ -352,8 +352,8 @@ def test_instantiate_into_drops_a_fresh_copy_under_a_parent() -> None:
     assert len({r["technology_id"] for r in model["technologies"]}) == len(model["technologies"])
 
 
-def test_machine_real_world_fields_round_trip() -> None:
-    # A Project machine carries real-world facts (owner / capacity / build &
+def test_asset_real_world_fields_round_trip() -> None:
+    # A Project asset carries real-world facts (owner / capacity / build &
     # close year) on top of its technology — these must survive the SQLite
     # round-trip the component-library store uses.
     lib = ComponentLibrary.model_validate(
@@ -366,7 +366,7 @@ def test_machine_real_world_fields_round_trip() -> None:
                     "io": [{"target": "steel", "role": "output", "coefficient": 1}],
                 }
             ],
-            "machines": [
+            "assets": [
                 {
                     "name": "BF #1",
                     "technology": "BF",
@@ -379,7 +379,7 @@ def test_machine_real_world_fields_round_trip() -> None:
         }
     )
     back = library_from_workbook(library_to_workbook(lib))
-    m = back.machine("BF #1")
+    m = back.asset("BF #1")
     assert m is not None
     assert m.owner == "Company A"
     assert m.capacity == 2.0

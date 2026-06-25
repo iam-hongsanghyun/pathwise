@@ -11,7 +11,7 @@ import type {
   GroupComponent,
   IoRow,
   LeverTemplate,
-  MachineComponent,
+  AssetComponent,
   MaccGroup,
   TechnologyTemplate,
 } from "../../lib/api/components";
@@ -285,8 +285,8 @@ export function TechnologyEditor({
   );
 }
 
-// ── Machine (facility) + MACC measures ────────────────────────────────────────
-export function MachineEditor({
+// ── Asset (facility) + MACC measures ────────────────────────────────────────
+export function AssetEditor({
   value,
   techIds,
   commodityIds,
@@ -294,12 +294,12 @@ export function MachineEditor({
   onChange,
   onRename,
 }: {
-  value: MachineComponent;
+  value: AssetComponent;
   techIds: string[];
   commodityIds: string[];
-  /** Optional inline recipe editor for the machine's technology (1:1 feel). */
+  /** Optional inline recipe editor for the asset's technology (1:1 feel). */
   embeddedTech?: React.ReactNode;
-  onChange: (v: MachineComponent) => void;
+  onChange: (v: AssetComponent) => void;
   onRename: (id: string) => void;
 }) {
   const setLever = (i: number, patch: Partial<LeverTemplate>) =>
@@ -323,7 +323,7 @@ export function MachineEditor({
 
   return (
     <section>
-      <h2 style={{ margin: "0 0 12px" }}>Machine (facility)</h2>
+      <h2 style={{ margin: "0 0 12px" }}>Asset (facility)</h2>
       <Row>
         <Field label="name">
           <input
@@ -351,7 +351,7 @@ export function MachineEditor({
       {embeddedTech}
 
       <h3 style={{ margin: "12px 0 6px", fontSize: "0.85rem" }}>
-        Levers <span className="muted">(MACC retrofits of this machine)</span>
+        Levers <span className="muted">(MACC retrofits of this asset)</span>
         <button className="ghost" style={{ marginLeft: 8 }} onClick={addLever}>
           ＋ add lever
         </button>
@@ -418,7 +418,7 @@ export function MachineEditor({
           </button>
         </div>
       ))}
-      {value.measures.length === 0 && <p className="muted" style={{ fontSize: "0.78rem" }}>No levers — this machine has no MACC retrofits.</p>}
+      {value.measures.length === 0 && <p className="muted" style={{ fontSize: "0.78rem" }}>No levers — this asset has no MACC retrofits.</p>}
     </section>
   );
 }
@@ -632,7 +632,7 @@ export function GroupEditor({
         <Row key={i}>
           <Field label="component">
             <div style={{ minWidth: 180 }}>
-              <SearchableSelect value={c.component} options={componentNames} onChange={(v) => onChange({ ...value, children: value.children.map((x, j) => (j === i ? { ...x, component: v } : x)) })} hint="build a machine/group first" />
+              <SearchableSelect value={c.component} options={componentNames} onChange={(v) => onChange({ ...value, children: value.children.map((x, j) => (j === i ? { ...x, component: v } : x)) })} hint="build a asset/group first" />
             </div>
           </Field>
           <Field label="alias (instance name)">

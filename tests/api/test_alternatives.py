@@ -1,8 +1,8 @@
-"""Value-chain alternatives — offering a machine an alternative technology.
+"""Value-chain alternatives — offering a asset an alternative technology.
 
 An alternative is a value-chain choice (not baked into the Component library):
 adding one merges the technology's recipe into the session and records a
-transition the optimiser may switch the machine to.
+transition the optimiser may switch the asset to.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ def _lib() -> ComponentLibrary:
             ],
             "measures": [],
             "maccs": [],
-            "machines": [],
+            "assets": [],
             "groups": [],
         }
     )
@@ -52,10 +52,10 @@ def _lib() -> ComponentLibrary:
 def test_add_alternative_merges_recipe_and_transition() -> None:
     model = {
         "technologies": [{"technology_id": "BOF", "lifespan": 25}],
-        "machines": [{"machine_id": "mill/bof", "baseline_technology": "BOF"}],
+        "assets": [{"asset_id": "mill/bof", "baseline_technology": "BOF"}],
     }
     out = add_alternative(model, _lib(), "EAF", from_technology="BOF")
-    # The alternative is stamped as a per-machine INSTANCE (EAF@<node>) tracing
+    # The alternative is stamped as a per-asset INSTANCE (EAF@<node>) tracing
     # back to the component via source_technology.
     iid = "EAF@BOF"
     assert any(t["technology_id"] == iid for t in out["technologies"]), "recipe merged"
@@ -79,14 +79,14 @@ def test_alternative_endpoint_on_imported_scenario() -> None:
     techs = client.get(f"/api/session/{sid}/technologies").json()
     assert any(t["technology"] == "EAF" for t in techs)
 
-    # offer EAF as an alternative to the BOF machine (from the scenario library)
+    # offer EAF as an alternative to the BOF asset (from the scenario library)
     mid = "vc/korea/kr_steel/mill/bof"
     res = client.post(
         f"/api/session/{sid}/alternative",
         json={
             "library": "green_steel_chain",
             "technology": "EAF",
-            "machine_id": mid,
+            "asset_id": mid,
             "scope": "session",
         },
     )

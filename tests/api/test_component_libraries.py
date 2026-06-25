@@ -110,8 +110,8 @@ def test_library_template_has_fillable_sheets_with_headers() -> None:
     frames = pd.read_excel(io.BytesIO(r.content), sheet_name=None)
     for sheet in ["commodities", "technologies", "io", "levers", "maccs"]:
         assert sheet in frames, f"template missing {sheet} tab"
-    # Machines are Facility-layer placed instances, not reusable components.
-    assert "machines" not in frames
+    # Assets are Facility-layer placed instances, not reusable components.
+    assert "assets" not in frames
     # Header row matches the schema; no rows to fill from.
     assert "coefficient" in frames["io"].columns
     assert len(frames["technologies"].index) == 0
@@ -168,10 +168,10 @@ def test_put_create_get_delete() -> None:
         "technologies": [
             {"technology_id": "T", "io": [{"target": "x", "role": "output", "coefficient": 1}]}
         ],
-        "machines": [{"name": "m1", "technology": "T", "capacity": 10}],
+        "assets": [{"name": "m1", "technology": "T", "capacity": 10}],
     }
     summary = client.put("/api/component-library/mylib", json=body).json()
-    assert summary["id"] == "mylib" and summary["machines"] == 1
+    assert summary["id"] == "mylib" and summary["assets"] == 1
     assert any(lib["id"] == "mylib" for lib in client.get("/api/component-libraries").json())
     assert client.delete("/api/component-library/mylib").json()["deleted"] is True
     assert client.get("/api/component-library/mylib").status_code == 404
@@ -213,10 +213,10 @@ def test_place_technology_creates_independent_machines() -> None:
     assert r1["root"] and r2["root"] and r1["root"] != r2["root"], "two placements are independent"
 
     wb = client.get(f"/api/session/{sid}/model").json()["model"]
-    machines = [m for m in wb["machines"] if str(m.get("source_technology")) == "BF_BOF"]
-    assert {float(m["capacity"]) for m in machines} == {500.0, 700.0}
+    assets = [m for m in wb["assets"] if str(m.get("source_technology")) == "BF_BOF"]
+    assert {float(m["capacity"]) for m in assets} == {500.0, 700.0}
     # each placement is its OWN technology instance (distinct baseline ids)
-    assert len({str(m["baseline_technology"]) for m in machines}) == 2
+    assert len({str(m["baseline_technology"]) for m in assets}) == 2
 
 
 def test_place_unknown_technology_is_422() -> None:

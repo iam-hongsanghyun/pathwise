@@ -2,16 +2,16 @@
 
 A *model* can optionally carry a tree of **nodes** of arbitrary, user-defined
 depth. Each node is either a ``group`` (a composite — its children are other
-nodes, and it exposes boundary **ports**) or a ``machine`` (a leaf that runs one
+nodes, and it exposes boundary **ports**) or a ``asset`` (a leaf that runs one
 technology with its own capacity). **Connections** wire sibling nodes by a
 commodity and may carry a **time gap** (``lag_years``); they generalise the flat
 ``edges`` sheet. The fixed chain "value chain → sector → company → facility →
-machine" is just one example — ``level`` is free text and depth is unbounded, so
+asset" is just one example — ``level`` is free text and depth is unbounded, so
 nothing here is sector-specific.
 
 This module is **pure and read-only**: it parses the optional ``nodes`` /
-``machines`` / ``connections`` / ``ports`` sheets into an immutable
-:class:`Hierarchy` and answers tree queries (subtree membership, leaf machines,
+``assets`` / ``connections`` / ``ports`` sheets into an immutable
+:class:`Hierarchy` and answers tree queries (subtree membership, leaf assets,
 designed levels, derived ports). The optimisation engine consumes it elsewhere;
 when these sheets are absent the model stays flat (``load_hierarchy`` returns
 ``None``) and behaves exactly as before.
@@ -25,10 +25,10 @@ from enum import StrEnum
 from typing import Any
 
 from pathwise.data.sheets import (
+    ASSETS,
     CONNECTION_IMPACTS,
     CONNECTIONS,
     CONNECTIONS_T,
-    MACHINES,
     NODES,
     PORTS,
 )
@@ -40,7 +40,7 @@ class NodeKind(StrEnum):
     """What a node is."""
 
     GROUP = "group"  # composite: has children + boundary ports
-    MACHINE = "machine"  # leaf: runs one technology
+    ASSET = "asset"  # leaf: runs one technology
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,9 +50,9 @@ class Node:
     Attributes:
         node_id: Unique id across the whole tree.
         parent_id: Parent node id, or ``None`` for a root.
-        kind: ``group`` or ``machine``.
+        kind: ``group`` or ``asset``.
         level: User-defined level name (e.g. ``"company"``) — free text; the only
-            privileged level is the implicit leaf ``machine``.
+            privileged level is the implicit leaf ``asset``.
         label: Display name.
         order: Sibling ordering hint for the UI.
     """
@@ -66,17 +66,17 @@ class Node:
 
 
 @dataclass(frozen=True, slots=True)
-class Machine:
+class Asset:
     """Leaf detail: the sub-unit that runs a technology (mirrors a process row)."""
 
-    machine_id: str
+    asset_id: str
     baseline_technology: str
     capacity: float = 0.0
     introduced_year: int | None = None
-    #: Last year this machine may operate; after it the facility is forced off.
+    #: Last year this asset may operate; after it the facility is forced off.
     decommission_year: int | None = None
     max_capacity_factor: float = 1.0
-    #: Per-machine total renewal-count cap over the horizon; ``None`` ⇒ unlimited.
+    #: Per-asset total renewal-count cap over the horizon; ``None`` ⇒ unlimited.
     max_renewals: int | None = None
 
 
@@ -153,7 +153,7 @@ class Hierarchy:
     """An immutable node tree plus its connections and ports."""
 
     nodes: dict[str, Node]
-    machines: dict[str, Machine]
+    assets: dict[str, Asset]
     connections: list[Connection]
     ports: list[Port]
     _children: dict[str, list[str]] = field(default_factory=dict)
@@ -208,17 +208,15 @@ class Hierarchy:
         return out
 
     def leaf_machines(self, node_id: str) -> list[str]:
-        """Machine-kind nodes in ``node_id``'s subtree (including itself)."""
+        """Asset-kind nodes in ``node_id``'s subtree (including itself)."""
         scope = {node_id} | self.descendants(node_id)
-        return sorted(
-            n for n in scope if n in self.nodes and self.nodes[n].kind == NodeKind.MACHINE
-        )
+        return sorted(n for n in scope if n in self.nodes and self.nodes[n].kind == NodeKind.ASSET)
 
-    def in_scope(self, scope: str, machine_id: str) -> bool:
-        """Whether ``machine_id`` falls under ``scope`` (``"all"`` ⇒ always)."""
-        if scope == "all" or scope == machine_id:
+    def in_scope(self, scope: str, asset_id: str) -> bool:
+        """Whether ``asset_id`` falls under ``scope`` (``"all"`` ⇒ always)."""
+        if scope == "all" or scope == asset_id:
             return True
-        return scope in self.ancestors(machine_id)
+        return scope in self.ancestors(asset_id)
 
     def depth(self, node_id: str) -> int:
         """Root = 0; each step down adds 1."""
@@ -231,7 +229,13 @@ class Hierarchy:
             name = n.level or n.kind.value
             d = self.depth(nid)
             by_level[name] = min(by_level.get(name, d), d)
-        return [name for name, _ in sorted(by_level.items(), key=lambda kv: (kv[1], kv[0]))]
+        # Order root→leaf by min depth; the privileged leaf level ("asset") always
+        # sorts after same-depth designed levels (a directly-placed asset can sit at
+        # the same depth as a facility), then alphabetically as a stable tiebreak.
+        return [
+            name
+            for name, _ in sorted(by_level.items(), key=lambda kv: (kv[1], kv[0] == "asset", kv[0]))
+        ]
 
     def nodes_at_level(self, level: str) -> list[str]:
         """Node ids whose ``level`` (or leaf kind) matches ``level``."""
@@ -277,14 +281,14 @@ class Hierarchy:
                 seen.add(cur)
                 parent = self.nodes[cur].parent_id if cur in self.nodes else None
                 cur = parent
-        for m in self.machines:
+        for m in self.assets:
             if m not in self.nodes:
-                errors.append(f"machine '{m}' has no matching node row")
-            elif self.nodes[m].kind != NodeKind.MACHINE:
-                errors.append(f"machine '{m}' is declared as a group node")
+                errors.append(f"asset '{m}' has no matching node row")
+            elif self.nodes[m].kind != NodeKind.ASSET:
+                errors.append(f"asset '{m}' is declared as a group node")
         for nid, n in self.nodes.items():
-            if n.kind == NodeKind.MACHINE and nid not in self.machines:
-                errors.append(f"machine node '{nid}' has no row in the machines sheet")
+            if n.kind == NodeKind.ASSET and nid not in self.assets:
+                errors.append(f"asset node '{nid}' has no row in the assets sheet")
         for c in self.connections:
             for end in (c.from_node, c.to_node):
                 if end not in self.nodes:
@@ -314,14 +318,14 @@ def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
             order=_num(r.get("order")) or 0.0,
         )
 
-    machines: dict[str, Machine] = {}
-    for r in workbook.get(MACHINES, []):
-        mid = _str(r.get("machine_id"))
+    assets: dict[str, Asset] = {}
+    for r in workbook.get(ASSETS, []):
+        mid = _str(r.get("asset_id"))
         if mid is None:
             continue
         mc = _num(r.get("max_capacity_factor"))
-        machines[mid] = Machine(
-            machine_id=mid,
+        assets[mid] = Asset(
+            asset_id=mid,
             baseline_technology=_str(r.get("baseline_technology")) or "",
             capacity=_num(r.get("capacity")) or 0.0,
             introduced_year=_int(r.get("introduced_year")),
@@ -378,4 +382,4 @@ def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
         if nid and c and direction in {"in", "out"}:
             ports.append(Port(nid, c, direction, _str(r.get("bind_node"))))
 
-    return Hierarchy(nodes=nodes, machines=machines, connections=connections, ports=ports)
+    return Hierarchy(nodes=nodes, assets=assets, connections=connections, ports=ports)

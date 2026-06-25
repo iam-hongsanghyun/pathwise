@@ -1,4 +1,4 @@
-"""A pool machine = a 100%-pass-through node (input commodity X → output X). The
+"""A pool asset = a 100%-pass-through node (input commodity X → output X). The
 node balance makes it route (inflow = outflow), so sources feed it and consumers
 draw from it, and a buy limit on a source→pool edge caps that source's supply."""
 

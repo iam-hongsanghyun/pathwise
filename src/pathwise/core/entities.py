@@ -177,7 +177,7 @@ class Technology:
             may be adopted (market availability; inclusive).
         phase_out_year: Available-to year [yr], **EXCLUSIVE** — the technology is
             unusable *from* this year (usable through ``phase_out_year − 1``), so a
-            facility running it must transition or switch off by then. Per-machine
+            facility running it must transition or switch off by then. Per-asset
             once the technology is instanced.
         actions: Allowed transition actions for this technology.
         capex_by_year: Replacement capital cost [currency / unit capacity] by year.
@@ -339,7 +339,7 @@ class Technology:
 
 @dataclass(slots=True, frozen=True)
 class Process:
-    """A facility/machine: one active technology per period, owned by a company.
+    """A facility/asset: one active technology per period, owned by a company.
 
     Attributes:
         process_id: Unique id.
@@ -350,7 +350,7 @@ class Process:
             company, a group, or ``"all"`` — see :meth:`in_scope`.
         baseline_technology: Technology active at the horizon start.
         capacity: Nameplate throughput per year [throughput / yr].
-        introduced_year: Build year [yr] — the machine is **off before it** (it
+        introduced_year: Build year [yr] — the asset is **off before it** (it
             does not exist yet). Also the install date used for lifecycle ageing.
         capex: Overnight build cost [currency] (recorded; used for new builds).
         fixed_opex: Fixed annual cost while the facility operates [currency / yr].
@@ -362,13 +362,13 @@ class Process:
             *from* this year (it runs through ``decommission_year − 1``). Together
             with ``introduced_year`` it defines the active window
             ``[introduced_year, decommission_year)``, which overrides the lifespan.
-        max_renewals: Per-machine cap on the **total number of renewals**
+        max_renewals: Per-asset cap on the **total number of renewals**
             (same-technology rebuilds) over the whole horizon [count]. ``None`` ⇒
             unlimited (the asset may rebuild every lifespan indefinitely). ``0`` ⇒
-            no renewal allowed at this machine, so once a vintage expires it must
+            no renewal allowed at this asset, so once a vintage expires it must
             *replace* (switch technology) or switch off. ``N`` ⇒ at most ``N``
             rebuilds, after which it must replace — the "reline a BF-BOF N times,
-            then build new" rule. Only binds when the machine is lifecycle-tracked
+            then build new" rule. Only binds when the asset is lifecycle-tracked
             (i.e. it declares :attr:`introduced_year`); a renewal also still
             requires the active technology to permit
             :attr:`TransitionAction.RENEW`.
@@ -383,7 +383,7 @@ class Process:
     fixed_opex: float = 0.0
     failure_rate: float = 0.0
     replaceable: bool = True
-    #: Per-machine total renewal-count cap over the horizon; ``None`` ⇒ unlimited,
+    #: Per-asset total renewal-count cap over the horizon; ``None`` ⇒ unlimited,
     #: ``0`` ⇒ renewal forbidden (must replace at end of life). See class docstring.
     max_renewals: int | None = None
     capacity_by_year: dict[int, float] = field(default_factory=dict)
@@ -391,7 +391,7 @@ class Process:
     fixed_opex_by_year: dict[int, float] = field(default_factory=dict)
     #: Optional year-varying forced-outage fraction; falls back to ``failure_rate``.
     failure_rate_by_year: dict[int, float] = field(default_factory=dict)
-    #: Per-machine utilisation ceiling [0–1]: throughput ≤ ``max_capacity_factor ×
+    #: Per-asset utilisation ceiling [0–1]: throughput ≤ ``max_capacity_factor ×
     #: available capacity``. 1.0 ⇒ no extra ceiling (nameplate capacity is the cap).
     max_capacity_factor: float = 1.0
     #: Optional year-varying utilisation ceiling; falls back to ``max_capacity_factor``.
@@ -431,9 +431,9 @@ class Process:
         """Whether this facility is covered by a constraint ``scope``.
 
         A scope matches ``"all"``, the facility id, its company, or its group.
-        For a node hierarchy ``scopes`` holds the machine's full ancestor chain,
+        For a node hierarchy ``scopes`` holds the asset's full ancestor chain,
         so a cap / market / demand can be applied at ANY designed level (sector /
-        company / facility / machine / all), not just the canonical three.
+        company / facility / asset / all), not just the canonical three.
         """
         return (
             scope == "all"

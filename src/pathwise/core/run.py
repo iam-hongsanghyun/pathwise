@@ -38,11 +38,11 @@ def run_model(
     ``terminology`` / ``report`` are folded into the joint result (the cascade
     result carries its own per-stage shape).
 
-    ``forced_switches`` pins technology switches (``{machine: (to_tech, year)}`` —
+    ``forced_switches`` pins technology switches (``{asset: (to_tech, year)}`` —
     a selected variant compiled by :mod:`pathwise.backends.variants`) on every
     assembled :class:`Problem` before the build, so both the optimiser and the
     simulator honour them. Applied to ALL paths — joint, subset, independent, and
-    the value-chain *cascade* (each stage's problem is pinned; keys for machines not
+    the value-chain *cascade* (each stage's problem is pinned; keys for assets not
     in a stage are inert).
     """
     hierarchy = load_hierarchy(workbook)

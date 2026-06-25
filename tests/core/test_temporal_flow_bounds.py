@@ -112,14 +112,14 @@ def _hier_wb() -> dict[str, Any]:
     return {
         "nodes": [
             {"node_id": "co", "parent_id": None, "kind": "group", "level": "company"},
-            {"node_id": "co/p1", "parent_id": "co", "kind": "machine"},
-            {"node_id": "co/p2", "parent_id": "co", "kind": "machine"},
-            {"node_id": "co/c", "parent_id": "co", "kind": "machine"},
+            {"node_id": "co/p1", "parent_id": "co", "kind": "asset"},
+            {"node_id": "co/p2", "parent_id": "co", "kind": "asset"},
+            {"node_id": "co/c", "parent_id": "co", "kind": "asset"},
         ],
-        "machines": [
-            {"machine_id": "co/p1", "baseline_technology": "PT", "capacity": 1000},
-            {"machine_id": "co/p2", "baseline_technology": "PT2", "capacity": 1000},
-            {"machine_id": "co/c", "baseline_technology": "CT", "capacity": 1000},
+        "assets": [
+            {"asset_id": "co/p1", "baseline_technology": "PT", "capacity": 1000},
+            {"asset_id": "co/p2", "baseline_technology": "PT2", "capacity": 1000},
+            {"asset_id": "co/c", "baseline_technology": "CT", "capacity": 1000},
         ],
         "technologies": [
             {"technology_id": "PT"},

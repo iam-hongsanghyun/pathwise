@@ -1,4 +1,4 @@
-"""A machine→machine edge bound authored alongside a node hierarchy (the machine-
+"""A asset→asset edge bound authored alongside a node hierarchy (the asset-
 only per-provider model) binds the actual fanned edge — the fan-out must NOT also
 create a second, unbounded parallel channel for the same triple."""
 
@@ -19,18 +19,18 @@ def _solve(wb: dict[str, Any]) -> dict[str, Any]:
 
 def _wb() -> dict[str, Any]:
     # co/p1 cheap (gas @10), co/p2 dear (gas2 @100) both make elec; co/c turns
-    # elec→steel. Connections are machine→machine. Demand 100 steel ⇒ 100 elec.
+    # elec→steel. Connections are asset→asset. Demand 100 steel ⇒ 100 elec.
     return {
         "nodes": [
             {"node_id": "co", "parent_id": None, "kind": "group", "level": "company"},
-            {"node_id": "co/p1", "parent_id": "co", "kind": "machine"},
-            {"node_id": "co/p2", "parent_id": "co", "kind": "machine"},
-            {"node_id": "co/c", "parent_id": "co", "kind": "machine"},
+            {"node_id": "co/p1", "parent_id": "co", "kind": "asset"},
+            {"node_id": "co/p2", "parent_id": "co", "kind": "asset"},
+            {"node_id": "co/c", "parent_id": "co", "kind": "asset"},
         ],
-        "machines": [
-            {"machine_id": "co/p1", "baseline_technology": "PT", "capacity": 1000},
-            {"machine_id": "co/p2", "baseline_technology": "PT2", "capacity": 1000},
-            {"machine_id": "co/c", "baseline_technology": "CT", "capacity": 1000},
+        "assets": [
+            {"asset_id": "co/p1", "baseline_technology": "PT", "capacity": 1000},
+            {"asset_id": "co/p2", "baseline_technology": "PT2", "capacity": 1000},
+            {"asset_id": "co/c", "baseline_technology": "CT", "capacity": 1000},
         ],
         "technologies": [
             {"technology_id": "PT"},
@@ -72,9 +72,9 @@ def test_baseline_uses_cheap_provider() -> None:
     np.testing.assert_allclose(res["objective"], 1000.0, rtol=1e-6)
 
 
-def test_authored_machine_edge_bound_binds_without_duplication() -> None:
+def test_authored_asset_edge_bound_binds_without_duplication() -> None:
     wb = _wb()
-    # Cap the cheap provider's machine→machine edge at 30 (what the popup writes).
+    # Cap the cheap provider's asset→asset edge at 30 (what the popup writes).
     # If the fan-out also created an unbounded co/p1→co/c edge, this cap would be
     # bypassed and cost would stay $1000; seeding seen_edges makes it bind.
     wb["edges"] = [

@@ -41,7 +41,7 @@ def _project_library() -> dict[str, Any]:
         ],
         "measures": [],
         "maccs": [],
-        "machines": [],
+        "assets": [],
         "groups": [],
     }
 
@@ -71,7 +71,7 @@ def test_place_technology_resolves_session_scope() -> None:
     )
     assert miss.status_code == 404
 
-    # scope='session' resolves the project's own library and places the machine
+    # scope='session' resolves the project's own library and places the asset
     res = client.post(
         f"/api/session/{sid}/place-technology",
         json={"library": "proj", "technology": "MY_BF", "parent_id": "co", "scope": "session"},
@@ -79,7 +79,7 @@ def test_place_technology_resolves_session_scope() -> None:
     assert res.status_code == 200, res.text
     assert res.json()["root"]
     model = client.get(f"/api/session/{sid}/model").json()["model"]
-    assert any(m.get("source_technology") == "MY_BF" for m in model.get("machines", []))
+    assert any(m.get("source_technology") == "MY_BF" for m in model.get("assets", []))
 
 
 def test_place_technology_defaults_to_base_scope() -> None:

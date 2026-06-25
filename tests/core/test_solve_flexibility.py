@@ -18,12 +18,12 @@ def _model() -> dict[str, list[dict[str, Any]]]:
             {"node_id": "chain", "parent_id": None, "kind": "group", "level": "value_chain"},
             {"node_id": "chain/a", "parent_id": "chain", "kind": "group", "level": "company"},
             {"node_id": "chain/b", "parent_id": "chain", "kind": "group", "level": "company"},
-            {"node_id": "chain/a/m", "parent_id": "chain/a", "kind": "machine"},
-            {"node_id": "chain/b/m", "parent_id": "chain/b", "kind": "machine"},
+            {"node_id": "chain/a/m", "parent_id": "chain/a", "kind": "asset"},
+            {"node_id": "chain/b/m", "parent_id": "chain/b", "kind": "asset"},
         ],
-        "machines": [
-            {"machine_id": "chain/a/m", "baseline_technology": "TA", "capacity": 100},
-            {"machine_id": "chain/b/m", "baseline_technology": "TB", "capacity": 100},
+        "assets": [
+            {"asset_id": "chain/a/m", "baseline_technology": "TA", "capacity": 100},
+            {"asset_id": "chain/b/m", "baseline_technology": "TB", "capacity": 100},
         ],
         "technologies": [{"technology_id": "TA", "io": []}, {"technology_id": "TB", "io": []}],
         "io": [

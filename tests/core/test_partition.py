@@ -43,12 +43,12 @@ def _wb() -> dict:
             {"node_id": "vc", "kind": "group", "level": "value_chain"},
             {"node_id": "up", "parent_id": "vc", "kind": "group", "level": "company"},
             {"node_id": "down", "parent_id": "vc", "kind": "group", "level": "company"},
-            {"node_id": "upm", "parent_id": "up", "kind": "machine", "level": "machine"},
-            {"node_id": "downm", "parent_id": "down", "kind": "machine", "level": "machine"},
+            {"node_id": "upm", "parent_id": "up", "kind": "asset", "level": "asset"},
+            {"node_id": "downm", "parent_id": "down", "kind": "asset", "level": "asset"},
         ],
-        "machines": [
-            {"machine_id": "upm", "baseline_technology": "GEN", "capacity": 1000},
-            {"machine_id": "downm", "baseline_technology": "FAB", "capacity": 1000},
+        "assets": [
+            {"asset_id": "upm", "baseline_technology": "GEN", "capacity": 1000},
+            {"asset_id": "downm", "baseline_technology": "FAB", "capacity": 1000},
         ],
         "connections": [
             {"from_node": "up", "to_node": "down", "commodity_id": "mid", "lag_years": 0},
@@ -86,7 +86,7 @@ def test_partition_structure_at_company_level() -> None:
     link = spec.links[0]
     assert (link.from_stage, link.to_stage, link.commodity) == ("up", "down", "mid")
     assert link.feedback  # downstream demand drives upstream production
-    # up's sub-workbook has only the upstream machine; down only the downstream.
+    # up's sub-workbook has only the upstream asset; down only the downstream.
     assert {str(p["process_id"]) for p in workbooks["up"]["processes"]} == {"upm"}
     assert {str(p["process_id"]) for p in workbooks["down"]["processes"]} == {"downm"}
 

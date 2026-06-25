@@ -217,7 +217,7 @@ def _forward_pass(
 
     ``forced`` pins technology switches (``{process: (to_tech, year)}``, a selected
     variant) on every stage's problem — keys for processes not in a stage are simply
-    inert, so a model-wide pin reaches whichever stage owns each machine.
+    inert, so a model-wide pin reaches whichever stage owns each asset.
     """
     results: dict[str, dict[str, Any]] = {}
     couplings: list[dict[str, Any]] = []

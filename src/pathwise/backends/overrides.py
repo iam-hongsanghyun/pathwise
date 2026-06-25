@@ -8,7 +8,7 @@ copied, the rest shared).
 
 Supported ops (P2):
 
-* ``set_machine_tech`` — ``{op, machine, technology}``: pin a machine to a
+* ``set_asset_tech`` — ``{op, asset, technology}``: pin a asset to a
   different baseline technology (e.g. switch a steel mill ``BOF`` → ``EAF``).
 * ``set_price`` — ``{op, commodity, price, year?}``: change a commodity's
   purchase price; a static ``price`` (all years) unless ``year`` is given, in
@@ -94,16 +94,16 @@ def _rows(wb: Workbook, sheet: str) -> list[dict[str, Any]]:
     return rows
 
 
-def _set_machine_tech(wb: Workbook, ov: dict[str, Any], _src: Workbook) -> None:
-    machine, tech = str(ov.get("machine") or ""), str(ov.get("technology") or "")
-    if not machine or not tech:
-        raise OverrideError("set_machine_tech needs 'machine' and 'technology'")
+def _set_asset_tech(wb: Workbook, ov: dict[str, Any], _src: Workbook) -> None:
+    asset, tech = str(ov.get("asset") or ""), str(ov.get("technology") or "")
+    if not asset or not tech:
+        raise OverrideError("set_asset_tech needs 'asset' and 'technology'")
     if not any(str(t.get("technology_id")) == tech for t in wb.get(sheets.TECHNOLOGIES, [])):
-        raise OverrideError(f"set_machine_tech: unknown technology {tech!r}")
-    rows = _rows(wb, sheets.MACHINES)
-    hit = [r for r in rows if str(r.get("machine_id")) == machine]
+        raise OverrideError(f"set_asset_tech: unknown technology {tech!r}")
+    rows = _rows(wb, sheets.ASSETS)
+    hit = [r for r in rows if str(r.get("asset_id")) == asset]
     if not hit:
-        raise OverrideError(f"set_machine_tech: unknown machine {machine!r}")
+        raise OverrideError(f"set_asset_tech: unknown asset {asset!r}")
     for r in hit:
         r["baseline_technology"] = tech
 
@@ -278,7 +278,7 @@ def _set_stream_cap(wb: Workbook, ov: dict[str, Any], _src: Workbook) -> None:
 
 
 _OPS = {
-    "set_machine_tech": _set_machine_tech,
+    "set_asset_tech": _set_asset_tech,
     "set_price": _set_price,
     "set_carbon_price": _set_carbon_price,
     "toggle_lever": _toggle_lever,

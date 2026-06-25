@@ -19,6 +19,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from pathwise.data.aliases import normalize_workbook
 from pathwise.data.workbook import Workbook
 from pathwise.logger import get_logger
 
@@ -77,7 +78,13 @@ class SessionStore:
         return n
 
     def put_model(self, session_id: str, model: Workbook) -> dict[str, int]:
-        """Replace the whole session model; returns per-sheet row counts."""
+        """Replace the whole session model; returns per-sheet row counts.
+
+        The model is normalised through the back-compat alias map first, so a model
+        ingested under OLD sheet/column names (a bundled example or an imported
+        pre-rename file) is persisted — and counted — under the current vocabulary.
+        """
+        model = normalize_workbook(model)
         with self._open(session_id) as conn:
             conn.execute("DELETE FROM sheets")
             for name, rows in model.items():

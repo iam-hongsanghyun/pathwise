@@ -106,7 +106,7 @@ export function validateModel(wb: Workbook): Issue[] {
   const add = (i: Issue) => issues.push(i);
 
   const nodes = wb.nodes ?? [];
-  const machines = wb.machines ?? [];
+  const assets = wb.assets ?? [];
   const io = wb.io ?? [];
   const commodities = wb.commodities ?? [];
   const connections = wb.connections ?? [];
@@ -198,19 +198,19 @@ export function validateModel(wb: Workbook): Issue[] {
     }
   });
 
-  // ── Machines: capacity, baseline tech, unsatisfied inputs ────────────────────
-  for (const m of machines) {
-    const mid = s(m.machine_id);
+  // ── Assets: capacity, baseline tech, unsatisfied inputs ────────────────────
+  for (const m of assets) {
+    const mid = s(m.asset_id);
     const tech = s(m.baseline_technology);
     if (!tech || !techIds.has(tech)) {
       add({
-        id: `orphan-machine-no-tech:${mid}`,
-        rule: "orphan-machine-no-tech",
+        id: `orphan-asset-no-tech:${mid}`,
+        rule: "orphan-asset-no-tech",
         severity: "error",
         title: "Missing technology",
         message: tech
-          ? `Machine "${mid}" runs technology "${tech}", which isn't in any library.`
-          : `Machine "${mid}" has no baseline technology set.`,
+          ? `Asset "${mid}" runs technology "${tech}", which isn't in any library.`
+          : `Asset "${mid}" has no baseline technology set.`,
         scope: { nodeId: mid },
       });
     }
@@ -220,18 +220,18 @@ export function validateModel(wb: Workbook): Issue[] {
         rule: "nonpositive-capacity",
         severity: "error",
         title: "No capacity",
-        message: `Machine "${mid}" has capacity ${s(m.capacity) || 0} — it can't produce anything.`,
+        message: `Asset "${mid}" has capacity ${s(m.capacity) || 0} — it can't produce anything.`,
         scope: { nodeId: mid },
-        sheet: "machines",
-        rowIndex: machines.indexOf(m),
+        sheet: "assets",
+        rowIndex: assets.indexOf(m),
         fix: {
           label: "Set capacity",
-          descriptor: { kind: "patchRow", sheet: "machines", rowIndex: machines.indexOf(m), patch: {} },
+          descriptor: { kind: "patchRow", sheet: "assets", rowIndex: assets.indexOf(m), patch: {} },
           promptFor: { field: "capacity", label: "capacity", defaultValue: 1000 },
         },
       });
     }
-    // unsatisfied-input — mirrors MachineInspector.inFrom verbatim.
+    // unsatisfied-input — mirrors AssetInspector.inFrom verbatim.
     const scope = scopeOf(mid);
     for (const c of inputsOfTech.get(tech) ?? []) {
       const fedByConnection = connections.some(
@@ -294,7 +294,7 @@ export function validateModel(wb: Workbook): Issue[] {
   // ── Technologies in use that produce NOTHING (no output rows at all) ──────────
   // (An intermediate tech that outputs a non-product stream is fine in a value
   // chain — it feeds downstream — so we only flag a tech with zero outputs.)
-  const usedTechs = new Set(machines.map((m) => s(m.baseline_technology)));
+  const usedTechs = new Set(assets.map((m) => s(m.baseline_technology)));
   for (const t of usedTechs) {
     if (t && techIds.has(t) && !techHasOutput.has(t)) {
       add({

@@ -1,6 +1,6 @@
 // Shared recipe summariser — turns a technology's IO rows into a readable
 // "deploy N units → consumes / produces / emits" read-out. Pure; used by both the
-// Component builder (TechnologyEditor) and the Value-chain builder (MachineInspector)
+// Component builder (TechnologyEditor) and the Value-chain builder (AssetInspector)
 // so the preview reads identically in both.
 
 const s = (v: unknown): string => (v == null ? "" : String(v));

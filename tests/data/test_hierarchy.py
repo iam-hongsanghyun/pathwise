@@ -3,7 +3,7 @@
 A pure read model layered above the flat engine. ``load_hierarchy`` returns
 ``None`` for a flat workbook (no ``nodes`` sheet); otherwise it answers tree
 queries the optimisation layer will rely on (subtree membership = scope, leaf
-machines, designed levels) and derives boundary ports from connections.
+assets, designed levels) and derives boundary ports from connections.
 """
 
 from __future__ import annotations
@@ -12,21 +12,21 @@ from pathwise.data.hierarchy import NodeKind, load_hierarchy
 
 
 def _wb() -> dict:
-    # vc → {steel co, auto co}; steel co → {mill facility → [bf machine, eaf machine]}.
+    # vc → {steel co, auto co}; steel co → {mill facility → [bf asset, eaf asset]}.
     return {
         "nodes": [
             {"node_id": "vc", "kind": "group", "level": "value_chain"},
             {"node_id": "steel", "parent_id": "vc", "kind": "group", "level": "company"},
             {"node_id": "auto", "parent_id": "vc", "kind": "group", "level": "company"},
             {"node_id": "mill", "parent_id": "steel", "kind": "group", "level": "facility"},
-            {"node_id": "bf", "parent_id": "mill", "kind": "machine", "level": "machine"},
-            {"node_id": "eaf", "parent_id": "mill", "kind": "machine", "level": "machine"},
-            {"node_id": "press", "parent_id": "auto", "kind": "machine", "level": "machine"},
+            {"node_id": "bf", "parent_id": "mill", "kind": "asset", "level": "asset"},
+            {"node_id": "eaf", "parent_id": "mill", "kind": "asset", "level": "asset"},
+            {"node_id": "press", "parent_id": "auto", "kind": "asset", "level": "asset"},
         ],
-        "machines": [
-            {"machine_id": "bf", "baseline_technology": "BF", "capacity": 100},
-            {"machine_id": "eaf", "baseline_technology": "EAF", "capacity": 50},
-            {"machine_id": "press", "baseline_technology": "Press", "capacity": 30},
+        "assets": [
+            {"asset_id": "bf", "baseline_technology": "BF", "capacity": 100},
+            {"asset_id": "eaf", "baseline_technology": "EAF", "capacity": 50},
+            {"asset_id": "press", "baseline_technology": "Press", "capacity": 30},
         ],
         "connections": [
             {"from_node": "steel", "to_node": "auto", "commodity_id": "steel", "lag_years": 2},
@@ -43,7 +43,7 @@ def test_tree_parsing_and_children_order() -> None:
     assert h is not None
     assert h.root() == "vc"
     assert set(h.children("vc")) == {"steel", "auto"}
-    assert h.nodes["bf"].kind == NodeKind.MACHINE
+    assert h.nodes["bf"].kind == NodeKind.ASSET
 
 
 def test_subtree_scope_membership() -> None:
@@ -61,7 +61,7 @@ def test_subtree_scope_membership() -> None:
 def test_levels_ordered_root_to_leaf() -> None:
     h = load_hierarchy(_wb())
     assert h is not None
-    assert h.levels() == ["value_chain", "company", "facility", "machine"]
+    assert h.levels() == ["value_chain", "company", "facility", "asset"]
     assert h.nodes_at_level("company") == ["auto", "steel"]
 
 
@@ -77,18 +77,18 @@ def test_derive_ports_from_boundary_crossing_connection() -> None:
     assert not any(p.node_id == "vc" for p in ports)
 
 
-def test_check_flags_dangling_parent_and_missing_machine_row() -> None:
+def test_check_flags_dangling_parent_and_missing_asset_row() -> None:
     wb = _wb()
-    wb["nodes"].append({"node_id": "ghost", "parent_id": "nope", "kind": "machine"})
+    wb["nodes"].append({"node_id": "ghost", "parent_id": "nope", "kind": "asset"})
     h = load_hierarchy(wb)
     assert h is not None
     errors = h.check()
     assert any("unknown parent" in e for e in errors)
-    assert any("ghost" in e and "machines sheet" in e for e in errors)
+    assert any("ghost" in e and "assets sheet" in e for e in errors)
 
 
-def test_machine_max_renewals_parses_and_reaches_the_process() -> None:
-    # The per-machine renewal cap is authored on the machine row and must survive
+def test_asset_max_renewals_parses_and_reaches_the_process() -> None:
+    # The per-asset renewal cap is authored on the asset row and must survive
     # the hierarchy → flat-process expansion (``_expand_hierarchy``) — the path
     # the value-chain/project UI uses, distinct from the flat ``processes`` sheet.
     from pathwise.data import ScenarioConfig, assemble_problem
@@ -100,11 +100,11 @@ def test_machine_max_renewals_parses_and_reaches_the_process() -> None:
         "technologies": [{"technology_id": "T", "lifespan": 5}],
         "nodes": [
             {"node_id": "co", "kind": "group", "level": "company"},
-            {"node_id": "P", "parent_id": "co", "kind": "machine", "level": "machine"},
+            {"node_id": "P", "parent_id": "co", "kind": "asset", "level": "asset"},
         ],
-        "machines": [
+        "assets": [
             {
-                "machine_id": "P",
+                "asset_id": "P",
                 "baseline_technology": "T",
                 "capacity": 100,
                 "introduced_year": 2020,
@@ -122,13 +122,13 @@ def test_machine_max_renewals_parses_and_reaches_the_process() -> None:
         ],
     }
     h = load_hierarchy(wb)
-    assert h is not None and h.machines["P"].max_renewals == 2
+    assert h is not None and h.assets["P"].max_renewals == 2
     prob = assemble_problem(wb, ScenarioConfig.from_dict({}))
     assert {p.process_id: p.max_renewals for p in prob.processes} == {"P": 2}
 
 
-def test_machine_build_and_close_year_reach_the_process() -> None:
-    # The Facility view edits a machine's build/close year; both must survive the
+def test_asset_build_and_close_year_reach_the_process() -> None:
+    # The Facility view edits a asset's build/close year; both must survive the
     # hierarchy → process expansion as introduced_year / decommission_year (the
     # canonical engine columns). Regression: they used to be dropped silently.
     from pathwise.data import ScenarioConfig, assemble_problem
@@ -140,11 +140,11 @@ def test_machine_build_and_close_year_reach_the_process() -> None:
         "technologies": [{"technology_id": "T", "lifespan": 30}],
         "nodes": [
             {"node_id": "co", "kind": "group", "level": "company"},
-            {"node_id": "P", "parent_id": "co", "kind": "machine", "level": "machine"},
+            {"node_id": "P", "parent_id": "co", "kind": "asset", "level": "asset"},
         ],
-        "machines": [
+        "assets": [
             {
-                "machine_id": "P",
+                "asset_id": "P",
                 "baseline_technology": "T",
                 "capacity": 100,
                 "introduced_year": 2020,
@@ -162,7 +162,7 @@ def test_machine_build_and_close_year_reach_the_process() -> None:
         ],
     }
     h = load_hierarchy(wb)
-    assert h is not None and h.machines["P"].decommission_year == 2030
+    assert h is not None and h.assets["P"].decommission_year == 2030
     prob = assemble_problem(wb, ScenarioConfig.from_dict({}))
     p = prob.processes[0]
     assert (p.introduced_year, p.decommission_year) == (2020, 2030)

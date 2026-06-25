@@ -1,7 +1,7 @@
 """Composite components — reusable, recursively-nested building blocks.
 
 The authoring model: every reusable thing has a unique name and lives in a
-*component library*. A **machine** component is a leaf (a technology recipe + a
+*component library*. A **asset** component is a leaf (a technology recipe + a
 capacity). A **group** component is a composite: it lists its children (each a
 reference to another component, by name, with an instance *alias*) and the
 **connections between those children** — so a group carries its own internal
@@ -9,7 +9,7 @@ wiring and reusing the group reuses the wiring.
 
 Placing a component **instantiates** it: :func:`instantiate` walks the chosen
 component top-down and stamps a fresh INSTANCE of every descendant into the
-recursive ``nodes`` / ``machines`` / ``connections`` hierarchy (path-qualified
+recursive ``nodes`` / ``assets`` / ``connections`` hierarchy (path-qualified
 ids keep instances unique), so one definition can be reused in many groups, and
 produces a workbook the engine (and :func:`pathwise.core.run.run_model`) consumes
 directly.
@@ -33,6 +33,7 @@ from typing import Any
 from pydantic import BaseModel, Field, model_validator
 
 from pathwise.data.sheets import (
+    ASSETS,
     COMMODITIES,
     COMMODITY_PRICES,
     COMMODITY_PROPERTIES,
@@ -45,7 +46,6 @@ from pathwise.data.sheets import (
     LEVER_BLOCKS_T,
     LEVERS,
     MACCS,
-    MACHINES,
     META,
     NODES,
     TECHNOLOGIES,
@@ -66,18 +66,18 @@ from pathwise.data.templates import (
 from pathwise.data.workbook import Workbook
 
 
-class MachineComponent(BaseModel):
-    """A real-world machine: one physical unit running one technology.
+class AssetComponent(BaseModel):
+    """A real-world asset: one physical unit running one technology.
 
     This is the **Project** layer's core primitive. A component (technology) is
-    the per-unit technical spec; a machine is a named instance of it with its
+    the per-unit technical spec; a asset is a named instance of it with its
     real-world facts: an owning **company**, a physical **capacity** (size), a
-    **build_year** / **close_year**, and its own **levers** (a per-machine MACC
-    — the same technology's retrofits, which may differ machine-to-machine). The
-    same technology appears as many differently-named machines across companies.
+    **build_year** / **close_year**, and its own **levers** (a per-asset MACC
+    — the same technology's retrofits, which may differ asset-to-asset). The
+    same technology appears as many differently-named assets across companies.
 
-    Each machine is independent (a hard copy): editing one machine's levers
-    never affects another. Instantiating a machine stamps each lever onto the
+    Each asset is independent (a hard copy): editing one asset's levers
+    never affects another. Instantiating a asset stamps each lever onto the
     resulting node, with block capex/opex scaled to the instance capacity.
     """
 
@@ -85,9 +85,9 @@ class MachineComponent(BaseModel):
     label: str = ""
     technology: str  # a technology_id defined in the library's technologies
     capacity: float = Field(default=0.0, ge=0.0)
-    #: The company that owns this machine (free-text; a project groups by it).
+    #: The company that owns this asset (free-text; a project groups by it).
     owner: str = ""
-    #: Real-world lifecycle: the year the machine is built / retired (0 = unset).
+    #: Real-world lifecycle: the year the asset is built / retired (0 = unset).
     build_year: int = Field(default=0, ge=0)
     close_year: int = Field(default=0, ge=0)
     measures: list[LeverTemplate] = Field(default_factory=list)
@@ -152,7 +152,7 @@ class MaccGroup(BaseModel):
     The "group of levers" of the Component builder: it links a set of
     standalone, reusable :class:`LeverTemplate`\\ s by id. A technology lists
     the MACCs that apply to it (``TechnologyTemplate.maccs``); placing that
-    technology stamps every lever of those MACCs onto the resulting machine.
+    technology stamps every lever of those MACCs onto the resulting asset.
     """
 
     macc_id: str
@@ -165,16 +165,16 @@ class MaccGroup(BaseModel):
 class ComponentLibrary(BaseModel):
     """A catalogue of the three reusable building blocks — technologies (recipes
     + their streams), streams (commodities), and measures (individual + grouped
-    into MACCs). ``machines`` / ``groups`` are legacy composite components kept
+    into MACCs). ``assets`` / ``groups`` are legacy composite components kept
     for back-compatibility; the builder no longer authors them (the Value Chain
-    places a technology directly as a machine)."""
+    places a technology directly as a asset)."""
 
     label: str = ""
     commodities: list[CommodityTemplate] = Field(default_factory=list)
     technologies: list[TechnologyTemplate] = Field(default_factory=list)
     measures: list[LeverTemplate] = Field(default_factory=list)
     maccs: list[MaccGroup] = Field(default_factory=list)
-    machines: list[MachineComponent] = Field(default_factory=list)
+    assets: list[AssetComponent] = Field(default_factory=list)
     groups: list[GroupComponent] = Field(default_factory=list)
     #: Free-text notes / references keyed by DERIVED sector name. Sectors are not
     #: stored entities, so their notes live here at the library level; entity notes
@@ -183,13 +183,13 @@ class ComponentLibrary(BaseModel):
 
     @model_validator(mode="after")
     def _names_unique(self) -> ComponentLibrary:
-        names = [m.name for m in self.machines] + [g.name for g in self.groups]
+        names = [m.name for m in self.assets] + [g.name for g in self.groups]
         if len(names) != len(set(names)):
-            raise ValueError("duplicate component name across machines/groups")
+            raise ValueError("duplicate component name across assets/groups")
         return self
 
-    def machine(self, name: str) -> MachineComponent | None:
-        return next((m for m in self.machines if m.name == name), None)
+    def asset(self, name: str) -> AssetComponent | None:
+        return next((m for m in self.assets if m.name == name), None)
 
     def group(self, name: str) -> GroupComponent | None:
         return next((g for g in self.groups if g.name == name), None)
@@ -300,12 +300,12 @@ PROJECT_BUNDLE_FORMAT = "pathwise.project"
 class ProjectBundle(BaseModel):
     """A self-contained, portable **project** — a named workspace bundling its
     Facility + Value-Chain model with every component it needs to re-open and
-    re-edit on any machine.
+    re-edit on any asset.
 
     Maps onto the three-layer model:
 
     - ``model``: the shared Facility + Value-Chain workbook
-      (nodes / machines / connections / … + the ``project`` sheet that carries the
+      (nodes / assets / connections / … + the ``project`` sheet that carries the
       name). The engine runs off this alone — placed recipes are already inlined.
     - ``session_libraries``: the project's OWN (project-specific) component
       libraries, kept verbatim. They live only with the project, never in the base
@@ -324,20 +324,20 @@ class ProjectBundle(BaseModel):
 
 
 def referenced_technology_ids(model: dict[str, list[dict[str, Any]]]) -> set[str]:
-    """Every technology id a model uses: each machine's baseline technology plus
+    """Every technology id a model uses: each asset's baseline technology plus
     both endpoints of every transition.
 
     Used to slice base libraries down to the components a project actually needs
     (the recipe rows themselves already live inline in the model).
 
     Args:
-        model: A session workbook (reads its ``machines`` + ``transitions`` sheets).
+        model: A session workbook (reads its ``assets`` + ``transitions`` sheets).
 
     Returns:
         The set of referenced ``technology_id`` strings (falsy ids dropped).
     """
     out: set[str] = set()
-    for row in model.get("machines", []):
+    for row in model.get("assets", []):
         tid = str(row.get("baseline_technology") or "")
         if tid:
             out.add(tid)
@@ -384,7 +384,7 @@ def load_component_library(path: str | Path) -> ComponentLibrary:
 # A component library is a nested document; we store it the same generic
 # sheets-in-SQLite way the examples use, so libraries are inspectable with any
 # SQLite tool. The cleanly-flat kinds become tables; the genuinely-nested legacy
-# bits (a machine's measures, a group's children/connections) ride along as a
+# bits (a asset's measures, a group's children/connections) ride along as a
 # JSON column so the round-trip stays lossless.
 
 
@@ -465,7 +465,7 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
             )
             for g in lib.maccs
         ],
-        MACHINES: [
+        ASSETS: [
             {
                 "name": mc.name,
                 "label": mc.label,
@@ -476,7 +476,7 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
                 "close_year": mc.close_year,
                 "measures_json": js([m.model_dump() for m in mc.measures]),
             }
-            for mc in lib.machines
+            for mc in lib.assets
         ],
         GROUPS: [
             with_notes(
@@ -733,8 +733,8 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
         )
         for r in wb.get(COMMODITIES, [])
     ]
-    machines = [
-        MachineComponent(
+    assets = [
+        AssetComponent(
             name=_es(r.get("name")),
             label=_es(r.get("label")),
             technology=_es(r.get("technology")),
@@ -747,7 +747,7 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
                 for m in json.loads(_es(r.get("measures_json")) or "[]")
             ],
         )
-        for r in wb.get(MACHINES, [])
+        for r in wb.get(ASSETS, [])
     ]
     groups = [
         GroupComponent(
@@ -771,7 +771,7 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
         technologies=technologies,
         measures=measures,
         maccs=maccs,
-        machines=machines,
+        assets=assets,
         groups=groups,
         notes_by_sector=notes_by_sector,
     )
@@ -783,7 +783,7 @@ def instantiate(
     """Stamp a component into a recursive hierarchy workbook (one fresh instance).
 
     Recursively places ``component`` and all its descendants as instance nodes
-    (path-qualified ids), emitting the ``nodes`` / ``machines`` / ``connections``
+    (path-qualified ids), emitting the ``nodes`` / ``assets`` / ``connections``
     sheets plus the referenced ``technologies`` / ``io`` / ``commodities``. The
     result is a runnable workbook (add ``periods`` + ``demand`` to solve).
 
@@ -791,41 +791,41 @@ def instantiate(
         KeyError: If ``component`` or any referenced child is not in the library.
     """
     nodes: list[dict[str, Any]] = []
-    machines: list[dict[str, Any]] = []
+    assets: list[dict[str, Any]] = []
     connections: list[dict[str, Any]] = []
     levers: list[dict[str, Any]] = []
     lever_blocks: list[dict[str, Any]] = []
     lever_blocks_t: list[dict[str, Any]] = []
 
     def place(name: str, node_id: str, parent_id: str | None) -> None:
-        machine = library.machine(name)
-        if machine is not None:
+        asset = library.asset(name)
+        if asset is not None:
             nodes.append(
                 {
                     "node_id": node_id,
                     "parent_id": parent_id,
-                    "kind": "machine",
-                    "level": "machine",
-                    "label": machine.label or machine.name,
+                    "kind": "asset",
+                    "level": "asset",
+                    "label": asset.label or asset.name,
                 }
             )
             m_row: dict[str, Any] = {
-                "machine_id": node_id,
-                "baseline_technology": machine.technology,
-                "capacity": machine.capacity,
+                "asset_id": node_id,
+                "baseline_technology": asset.technology,
+                "capacity": asset.capacity,
             }
-            # Carry the machine's lifecycle years under the canonical column names
+            # Carry the asset's lifecycle years under the canonical column names
             # the engine reads (0 = unset for the legacy build_year/close_year).
-            if machine.build_year:
-                m_row["introduced_year"] = machine.build_year
-            if machine.close_year:
-                m_row["decommission_year"] = machine.close_year
-            machines.append(m_row)
-            # Levers come from the machine's technology's linked MACCs, plus
-            # any embedded directly on the machine (legacy); deduped by id.
-            applied = list(machine.measures)
+            if asset.build_year:
+                m_row["introduced_year"] = asset.build_year
+            if asset.close_year:
+                m_row["decommission_year"] = asset.close_year
+            assets.append(m_row)
+            # Levers come from the asset's technology's linked MACCs, plus
+            # any embedded directly on the asset (legacy); deduped by id.
+            applied = list(asset.measures)
             seen_ids = {m.lever_id for m in applied}
-            for m in library.technology_measures(machine.technology):
+            for m in library.technology_measures(asset.technology):
                 if m.lever_id not in seen_ids:
                     applied.append(m)
                     seen_ids.add(m.lever_id)
@@ -846,11 +846,11 @@ def instantiate(
                             "lever_id": mid,
                             "block": i,
                             "reduction": blk.reduction,
-                            "capex": round(blk.capex_per_capacity * machine.capacity, 2),
-                            "opex": round(blk.opex_per_capacity * machine.capacity, 2),
+                            "capex": round(blk.capex_per_capacity * asset.capacity, 2),
+                            "opex": round(blk.opex_per_capacity * asset.capacity, 2),
                         }
                     )
-                    lever_blocks_t.extend(_lever_block_t_rows(mid, i, blk, machine.capacity))
+                    lever_blocks_t.extend(_lever_block_t_rows(mid, i, blk, asset.capacity))
             return
         group = library.group(name)
         if group is None:
@@ -909,7 +909,7 @@ def instantiate(
 
     out: Workbook = {
         NODES: nodes,
-        MACHINES: machines,
+        ASSETS: assets,
         CONNECTIONS: connections,
         TECHNOLOGIES: technologies,
         IO: io,
@@ -948,7 +948,7 @@ def instantiate_into(
     The "place a facility into a company" operation of the Value-Chain builder:
     :func:`instantiate` stamps a brand-new instance (path-qualified ids, so two
     companies never share a facility), then this merges that instance into the
-    existing workbook — appending ``nodes`` / ``machines`` / ``connections`` /
+    existing workbook — appending ``nodes`` / ``assets`` / ``connections`` /
     ``levers`` / ``lever_blocks`` and merging the referenced
     ``technologies`` / ``io`` / ``commodities`` by id (existing rows win, recipes
     are shared). The instance's root node is re-parented to ``parent_id``.
@@ -983,7 +983,7 @@ def instantiate_into(
     # they append cleanly like lever_blocks.
     append_keys = (
         NODES,
-        MACHINES,
+        ASSETS,
         CONNECTIONS,
         LEVERS,
         LEVER_BLOCKS,
@@ -1099,9 +1099,9 @@ def _instance_into(wb: Workbook, tech: TechnologyTemplate, iid: str, source: str
     """Copy a technology template into ``wb`` under a unique instance id ``iid``.
 
     Rekeys the technology / io / cost-trajectory / io-trajectory rows to ``iid``
-    so a placed machine owns a **private, independently-editable copy** of the
+    so a placed asset owns a **private, independently-editable copy** of the
     technology; ``source_technology`` records the component it was stamped from.
-    Two machines stamped from the same component therefore get distinct instances
+    Two assets stamped from the same component therefore get distinct instances
     and can be edited apart.
     """
 
@@ -1133,12 +1133,12 @@ def place_technology(
     capacity: float = 0.0,
     instance_id: str | None = None,
 ) -> Workbook:
-    """Place a technology as a fresh MACHINE node under ``parent_id``.
+    """Place a technology as a fresh ASSET node under ``parent_id``.
 
-    The Value-Chain builder's "add component": a technology becomes one machine
+    The Value-Chain builder's "add component": a technology becomes one asset
     node (a process); its recipe (``technologies`` / ``io``) + referenced streams
     + impacts are merged in, and every lever of the technology's linked MACCs is
-    stamped onto the machine (block cost scaled to ``capacity``). Pure — returns a
+    stamped onto the asset (block cost scaled to ``capacity``). Pure — returns a
     new workbook.
 
     Raises:
@@ -1160,17 +1160,17 @@ def place_technology(
         {
             "node_id": node_id,
             "parent_id": parent_id,
-            "kind": "machine",
-            "level": "machine",
+            "kind": "asset",
+            "level": "asset",
             "label": technology_id,
         }
     )
-    # The machine runs its OWN instance of the technology (a private copy), so the
-    # same component placed on two machines can be edited independently.
+    # The asset runs its OWN instance of the technology (a private copy), so the
+    # same component placed on two assets can be edited independently.
     iid = f"{technology_id}@{node_id}"
-    wb.setdefault(MACHINES, []).append(
+    wb.setdefault(ASSETS, []).append(
         {
-            "machine_id": node_id,
+            "asset_id": node_id,
             "baseline_technology": iid,
             "capacity": capacity,
             "source_technology": technology_id,
@@ -1222,7 +1222,7 @@ def add_alternative(
     capex_per_capacity: float = 0.0,
 ) -> Workbook:
     """Make ``technology_id`` an ALTERNATIVE the optimiser may switch to from
-    ``from_technology`` — used to offer alternatives on a machine in the value
+    ``from_technology`` — used to offer alternatives on a asset in the value
     chain WITHOUT baking them into the Component library.
 
     Merges the alternative's recipe (``technologies`` / ``io`` + referenced
@@ -1238,9 +1238,9 @@ def add_alternative(
         raise KeyError(f"unknown technology '{technology_id}'")
 
     wb: Workbook = {k: list(v) for k, v in model.items()}
-    # Per-machine alternative: stamp a PRIVATE instance of the alternative
-    # technology for the machine whose baseline is ``from_technology`` (itself an
-    # instance id), so the switch option is editable independently per machine.
+    # Per-asset alternative: stamp a PRIVATE instance of the alternative
+    # technology for the asset whose baseline is ``from_technology`` (itself an
+    # instance id), so the switch option is editable independently per asset.
     node = from_technology.split("@", 1)[1] if "@" in from_technology else from_technology
     alt_iid = f"{technology_id}@{node}"
     _instance_into(wb, tech, alt_iid, technology_id)
@@ -1297,7 +1297,7 @@ def extract_library_from_workbook(workbook: Workbook, *, label: str = "") -> Com
 
     The near-inverse of :func:`instantiate`: an imported scenario carries its
     component DEFINITIONS (streams, technology recipes, levers) interleaved with
-    its value-chain STRUCTURE (nodes/machines/connections). This pulls the
+    its value-chain STRUCTURE (nodes/assets/connections). This pulls the
     definitions back out into a :class:`ComponentLibrary` so the Component view can
     show the scenario's components, leaving the structure to the Value-chain view.
 

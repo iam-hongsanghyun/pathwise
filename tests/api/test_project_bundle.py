@@ -29,11 +29,11 @@ def _new_session() -> str:
 
 
 def _seed(sid: str) -> None:
-    """A minimal Facility/Value-Chain model: one machine running a BASE technology
+    """A minimal Facility/Value-Chain model: one asset running a BASE technology
     (BF_BOF from the seeded 'steel' library) + a named project."""
     model = {
         "nodes": [{"node_id": "n1", "kind": "group", "level": "company", "label": "Acme"}],
-        "machines": [{"machine_id": "mac1", "baseline_technology": "BF_BOF", "capacity": 10}],
+        "assets": [{"asset_id": "mac1", "baseline_technology": "BF_BOF", "capacity": 10}],
         "connections": [],
         "project": [{"name": "Acme Steel"}],
     }
@@ -47,7 +47,7 @@ def _seed(sid: str) -> None:
         "technologies": [],
         "measures": [],
         "maccs": [],
-        "machines": [],
+        "assets": [],
         "groups": [],
     }
     assert client.put(f"/api/session/{sid}/component-library/proj", json=proj).status_code == 200
@@ -82,7 +82,7 @@ def test_import_restores_model_and_project_libraries() -> None:
     assert res.json()["name"] == "Acme Steel"
 
     model = client.get(f"/api/session/{dst}/model").json()["model"]
-    assert model["machines"][0]["baseline_technology"] == "BF_BOF"
+    assert model["assets"][0]["baseline_technology"] == "BF_BOF"
     assert model["project"][0]["name"] == "Acme Steel"
 
     libs = {x["id"]: x for x in client.get(f"/api/session/{dst}/component-libraries").json()}

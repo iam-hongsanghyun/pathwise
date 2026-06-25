@@ -72,7 +72,7 @@ def _project(flat: Workbook, members: set[str], cut: str, h: Hierarchy) -> Workb
     """A flat, self-contained sub-workbook for one cut node."""
     sub: Workbook = {}
     for sheet, rows in flat.items():
-        if sheet in ("nodes", "machines", "connections", "ports"):
+        if sheet in ("nodes", "assets", "connections", "ports"):
             continue  # the sub-workbook is flat (no re-expansion)
         if sheet == "processes":
             sub[sheet] = [r for r in rows if str(r.get("process_id")) in members]
@@ -127,17 +127,17 @@ def partition(
     cut_set = set(cut_ids)
     flat = _expand_hierarchy(workbook, hierarchy)
 
-    machine_cut: dict[str, str] = {}
-    for mid in hierarchy.machines:
+    asset_cut: dict[str, str] = {}
+    for mid in hierarchy.assets:
         cuts = _cuts_for(mid, cut_set, hierarchy)
         if cuts:
             # Deterministic pick: iterating a set is hash-seed dependent, which made
             # the partition (and thus per-cut results) vary between runs.
-            machine_cut[mid] = min(cuts)
+            asset_cut[mid] = min(cuts)
 
     workbooks: dict[str, Workbook] = {}
     for cut in cut_ids:
-        members = {m for m, c in machine_cut.items() if c == cut}
+        members = {m for m, c in asset_cut.items() if c == cut}
         workbooks[cut] = _project(flat, members, cut, hierarchy)
 
     links: list[CouplingLink] = []
@@ -198,7 +198,7 @@ def is_partitionable(hierarchy: Hierarchy, level: str, targets: list[str] | None
 
 def subset_workbook(workbook: Workbook, hierarchy: Hierarchy, keep: list[str]) -> Workbook:
     """A workbook restricted to the subtrees rooted at ``keep`` (for a JOINT solve
-    of a chosen set of units). Node/machine/connection/lever/scope rows outside
+    of a chosen set of units). Node/asset/connection/lever/scope rows outside
     the kept subtrees are dropped; shared catalogue + scenario sheets are kept.
     """
     members: set[str] = set()
@@ -209,8 +209,8 @@ def subset_workbook(workbook: Workbook, hierarchy: Hierarchy, keep: list[str]) -
     for sheet, rows in workbook.items():
         if sheet == "nodes":
             sub[sheet] = [r for r in rows if str(r.get("node_id")) in members]
-        elif sheet == "machines":
-            sub[sheet] = [r for r in rows if str(r.get("machine_id")) in members]
+        elif sheet == "assets":
+            sub[sheet] = [r for r in rows if str(r.get("asset_id")) in members]
         elif sheet == "connections":
             sub[sheet] = [
                 r

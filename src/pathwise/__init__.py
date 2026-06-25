@@ -1,7 +1,7 @@
 """pathwise — process-network cost-optimisation model.
 
 A multi-period mixed-integer linear program for least-cost decarbonisation of
-networks of production processes (facilities/machines) that consume energy,
+networks of production processes (facilities/assets) that consume energy,
 material, and indirect resources to make products while emitting multiple
 environmental impacts. Paired with a drag-and-drop web designer.
 """

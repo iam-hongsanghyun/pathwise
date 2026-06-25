@@ -34,7 +34,7 @@ Variants are **model-resident** (the ``variants`` + ``variant_interventions``
 sheets, authored in the value chain) and compiled by
 :mod:`pathwise.backends.variants` — shared with the optimiser, which *forces* a
 selected variant. The simulator evaluates **every** variant against the baseline:
-a ``tech`` intervention is a **forced timed switch** (the machine runs its baseline
+a ``tech`` intervention is a **forced timed switch** (the asset runs its baseline
 before ``forced_year`` and the target technology from it, via
 ``Problem.forced_switches``), booking the straight-line **sunk cost** of retiring
 the incumbent early; ``stream`` / ``lever`` interventions reuse the override
@@ -63,7 +63,7 @@ from pathwise.progress import ProgressFn
 
 logger = get_logger(__name__)
 
-#: Sheets that hand the optimiser a *choice*. Stripping them pins each machine to
+#: Sheets that hand the optimiser a *choice*. Stripping them pins each asset to
 #: its baseline technology with no auto-adopted abatement — the "current" config.
 _FREE_CHOICE_SHEETS = ("transitions", "levers", "lever_blocks", "lever_blocks_t")
 
@@ -225,7 +225,7 @@ def _evaluate_forced(
     """System-scope evaluation that pins ``forced`` timed technology switches.
 
     Mirrors :func:`_evaluate`'s joint solve but assembles the :class:`Problem`
-    directly so the forced switches (``{machine: (to_tech, year)}``) can be set on
+    directly so the forced switches (``{asset: (to_tech, year)}``) can be set on
     it before the build pins the active-technology schedule. With no forced
     switches this is identical to :func:`_evaluate`'s system path.
     """
@@ -253,7 +253,7 @@ def _evaluate_variants(
     A variant inherits the baseline's *as-is* pinning (technology switching off);
     its ``overrides`` then perturb that — change a price, or put a lever back on
     the table (the full ``model`` is the override *source*) — and its ``forced``
-    timed tech switches pin a machine onto a new technology from a given year,
+    timed tech switches pin a asset onto a new technology from a given year,
     booking the stranded-asset (sunk) cost of retiring the incumbent early.
     """
     out: list[dict[str, Any]] = []
@@ -291,23 +291,23 @@ def _sunk_cost(model: Workbook, forced: dict[str, tuple[str, int]]) -> float:
     """Stranded capital of retiring incumbents early to honour forced switches.
 
     Algorithm:
-        Straight-line undepreciated book value of each machine forced off before
+        Straight-line undepreciated book value of each asset forced off before
         end-of-life::
 
             sunk = Σ_machine  capex_baseline · capacity · max(0, 1 − age / lifespan)
 
-        where ``age = forced_year − introduced_year`` (the machine's build year),
+        where ``age = forced_year − introduced_year`` (the asset's build year),
         ``lifespan`` is the baseline technology's economic life [yr], and
         ``capex_baseline`` its overnight build cost [currency / unit capacity]. A
-        machine with no build year (no vintage) strands nothing (sunk = 0).
+        asset with no build year (no vintage) strands nothing (sunk = 0).
 
         ASCII: sunk = capex * cap * max(0, 1 - (year-built)/lifespan), summed.
     """
     techs = {str(t.get("technology_id")): t for t in model.get("technologies", [])}
-    machines = {str(m.get("machine_id")): m for m in model.get("machines", [])}
+    assets = {str(m.get("asset_id")): m for m in model.get("assets", [])}
     total = 0.0
-    for machine_id, (_to_tech, year) in forced.items():
-        m = machines.get(machine_id)
+    for asset_id, (_to_tech, year) in forced.items():
+        m = assets.get(asset_id)
         if m is None or m.get("introduced_year") in (None, ""):
             continue
         build_year = int(m["introduced_year"])
@@ -522,9 +522,9 @@ def _compliance(config: dict[str, Any], caps: dict[tuple[str, int], float]) -> d
 
 
 def _stage_map(model: Workbook) -> dict[str, str]:
-    """Map each machine ``process_id`` to its value-chain **stage** — the nearest
+    """Map each asset ``process_id`` to its value-chain **stage** — the nearest
     ancestor node with ``level == "company"`` (a lifecycle stage in a value-chain
-    model). Falls back to the machine id when no company ancestor exists."""
+    model). Falls back to the asset id when no company ancestor exists."""
     nodes = model.get("nodes", [])
     parent = {
         str(n.get("node_id")): (str(n["parent_id"]) if n.get("parent_id") else None) for n in nodes
@@ -542,7 +542,7 @@ def _stage_map(model: Workbook) -> dict[str, str]:
     return {
         str(n.get("node_id")): company(str(n.get("node_id")))
         for n in nodes
-        if str(n.get("kind")) == "machine"
+        if str(n.get("kind")) == "asset"
     }
 
 

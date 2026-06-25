@@ -3,7 +3,7 @@
 Unlike the read-only facility ``library`` (bundled ``assets``), component
 libraries are **user-owned**: there are *many* named libraries, each a
 :class:`~pathwise.data.components.ComponentLibrary` (commodities, technologies,
-machines with their MACC measures, groups). They are stored as **SQLite** (one
+assets with their MACC measures, groups). They are stored as **SQLite** (one
 table per kind, like the example workbooks) under the writable
 ``<data_dir>/component_libraries`` (gitignored), seeded once from the bundled
 starters so a fresh install opens with real, editable content.
@@ -179,7 +179,7 @@ def _summary(
         "technologies": len(lib.technologies),
         "levers": len(lib.measures),
         "maccs": len(lib.maccs),
-        "machines": len(lib.machines),
+        "assets": len(lib.assets),
         "groups": len(lib.groups),
     }
 
@@ -217,7 +217,7 @@ def list_component_libraries() -> list[dict[str, Any]]:
 
 #: The fillable sheets of a component library, in author order. Components are the
 #: reusable building blocks only — streams, technology recipes, and levers/MACCs.
-#: ``machines`` (placed instances) belong to the Facility layer, and ``groups``
+#: ``assets`` (placed instances) belong to the Facility layer, and ``groups``
 #: (sector structure) is built as components are placed — both are omitted.
 _LIBRARY_SHEETS = [
     "commodities",
@@ -264,9 +264,9 @@ def save_component_library(lib_id: str, library: ComponentLibrary) -> dict[str, 
     _guard_writable(lib_id)
     path.write_bytes(write_sqlite(library_to_workbook(library)))
     logger.info(
-        "saved component library %s (%d machines, %d groups)",
+        "saved component library %s (%d assets, %d groups)",
         lib_id,
-        len(library.machines),
+        len(library.assets),
         len(library.groups),
     )
     return _summary(lib_id, library)
@@ -560,7 +560,7 @@ def instantiate_component(session_id: str, body: InstantiateInsert) -> dict[str,
 class PlaceTechnology(BaseModel):
     """Body for ``POST /api/session/{sid}/place-technology``.
 
-    Place ``technology`` from ``library`` as a fresh MACHINE under ``parent_id``,
+    Place ``technology`` from ``library`` as a fresh ASSET under ``parent_id``,
     with its ``capacity``; the technology's MACC measures come along.
     """
 
@@ -574,7 +574,7 @@ class PlaceTechnology(BaseModel):
 
 @router.post("/session/{session_id}/place-technology")
 def place_technology_route(session_id: str, body: PlaceTechnology) -> dict[str, Any]:
-    """Add one technology as a machine node to the session's hierarchy."""
+    """Add one technology as a asset node to the session's hierarchy."""
     lib = _resolve_library(session_id, body.library, body.scope)
     store = _store()
     try:
@@ -605,7 +605,7 @@ def place_technology_route(session_id: str, body: PlaceTechnology) -> dict[str, 
 
 
 # ── Value-chain alternatives ──────────────────────────────────────────────────
-# An "alternative" is another technology the optimiser may switch a machine to.
+# An "alternative" is another technology the optimiser may switch a asset to.
 # It's a VALUE-CHAIN choice (not baked into the Component library): adding one
 # merges the technology's recipe into the session and records a transition.
 
@@ -634,18 +634,18 @@ def list_available_technologies(session_id: str) -> list[dict[str, Any]]:
 
 class AddAlternative(BaseModel):
     """Body for ``POST /api/session/{sid}/alternative`` — offer ``technology``
-    (from ``library`` in ``scope``) as a switch target for ``machine_id``."""
+    (from ``library`` in ``scope``) as a switch target for ``asset_id``."""
 
     library: str
     technology: str
-    machine_id: str
+    asset_id: str
     scope: str = "base"  # "base" | "session"
     capex_per_capacity: float = 0.0
 
 
 @router.post("/session/{session_id}/alternative")
 def add_alternative_route(session_id: str, body: AddAlternative) -> dict[str, Any]:
-    """Make a technology an alternative the optimiser may switch the machine to."""
+    """Make a technology an alternative the optimiser may switch the asset to."""
     if body.scope == "session":
         maybe = _session_libs().get(session_id, body.library)
         if maybe is None:
@@ -667,14 +667,14 @@ def add_alternative_route(session_id: str, body: AddAlternative) -> dict[str, An
     baseline = next(
         (
             str(m.get("baseline_technology"))
-            for m in model.get("machines", [])
-            if str(m.get("machine_id")) == body.machine_id
+            for m in model.get("assets", [])
+            if str(m.get("asset_id")) == body.asset_id
         ),
         None,
     )
     if not baseline:
         raise HTTPException(
-            status_code=422, detail=f"machine '{body.machine_id}' has no baseline technology"
+            status_code=422, detail=f"asset '{body.asset_id}' has no baseline technology"
         )
     try:
         model = add_alternative(

@@ -1,4 +1,4 @@
-"""Regrouping bare machines under a Technology kind-group is engine-equivalent and
+"""Regrouping bare assets under a Technology kind-group is engine-equivalent and
 actually produces the grouping."""
 
 from __future__ import annotations
@@ -17,12 +17,12 @@ def _wb() -> dict[str, Any]:
         "nodes": [
             {"node_id": "vc", "parent_id": None, "kind": "group", "level": "value_chain"},
             {"node_id": "vc/co", "parent_id": "vc", "kind": "group", "level": "company"},
-            {"node_id": "vc/co/s", "parent_id": "vc/co", "kind": "machine"},
-            {"node_id": "vc/co/c", "parent_id": "vc/co", "kind": "machine"},
+            {"node_id": "vc/co/s", "parent_id": "vc/co", "kind": "asset"},
+            {"node_id": "vc/co/c", "parent_id": "vc/co", "kind": "asset"},
         ],
-        "machines": [
-            {"machine_id": "vc/co/s", "baseline_technology": "ST", "capacity": 1000},
-            {"machine_id": "vc/co/c", "baseline_technology": "CT", "capacity": 1000},
+        "assets": [
+            {"asset_id": "vc/co/s", "baseline_technology": "ST", "capacity": 1000},
+            {"asset_id": "vc/co/c", "baseline_technology": "CT", "capacity": 1000},
         ],
         "technologies": [{"technology_id": "ST"}, {"technology_id": "CT"}],
         "io": [
@@ -57,12 +57,12 @@ def test_regroup_inserts_technology_groups() -> None:
     out = regroup_machines(_wb())
     groups = [n for n in out["nodes"] if n.get("level") == "Technology"]
     assert len(groups) == 1  # one Technology group under vc/co
-    # both machines now sit under it
+    # both assets now sit under it
     kg = groups[0]["node_id"]
-    machines = [n for n in out["nodes"] if n.get("kind") == "machine"]
-    assert all(m["parent_id"] == kg for m in machines)
-    # machine ids unchanged (wiring preserved)
-    assert {m["node_id"] for m in machines} == {"vc/co/s", "vc/co/c"}
+    assets = [n for n in out["nodes"] if n.get("kind") == "asset"]
+    assert all(m["parent_id"] == kg for m in assets)
+    # asset ids unchanged (wiring preserved)
+    assert {m["node_id"] for m in assets} == {"vc/co/s", "vc/co/c"}
 
 
 def test_regroup_is_engine_equivalent() -> None:

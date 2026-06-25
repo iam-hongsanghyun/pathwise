@@ -41,7 +41,7 @@ def test_technology_available_years_round_trip() -> None:
             ],
             "measures": [],
             "maccs": [],
-            "machines": [],
+            "assets": [],
             "groups": [],
         }
     )
@@ -81,7 +81,7 @@ def test_no_trajectory_library_keeps_legacy_sheets() -> None:
             ],
             "measures": [],
             "maccs": [],
-            "machines": [],
+            "assets": [],
             "groups": [],
         }
     )
@@ -156,7 +156,7 @@ def test_trajectories_and_notes_round_trip() -> None:
                 }
             ],
             "maccs": [{"macc_id": "m1", "label": "MACC", "measures": ["ee1"], "notes": "bundle"}],
-            "machines": [],
+            "assets": [],
             "groups": [],
             # "steel": "" — an explicit empty sector note is distinct from absent
             # and must survive (present-or-absent dict, no "" default).
@@ -242,7 +242,7 @@ def test_session_library_crud_isolated_per_session() -> None:
         "technologies": [],
         "measures": [],
         "maccs": [],
-        "machines": [],
+        "assets": [],
         "groups": [],
     }
     assert client.put(f"/api/session/{a}/component-library/mine", json=lib).status_code == 200

@@ -1,8 +1,8 @@
 // Facility tab — the REAL-WORLD layer between Component (scientific spec) and
 // Value Chain (flows). It builds the shared node tree (sector → company →
-// machine, free-text levels, any depth) and holds each machine's real-world
+// asset, free-text levels, any depth) and holds each asset's real-world
 // data: physical capacity, owner, build/close year. It edits ONLY structure +
-// machine data — connections are the Value Chain's job (same workbook, different
+// asset data — connections are the Value Chain's job (same workbook, different
 // concern). It never edits the component library: the base Library tree shown at
 // the BOTTOM of the left rail is a READ-ONLY drag source.
 
@@ -73,7 +73,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   const [tableGroup, setTableGroup] = useState<string | null>(null); // "See in a table" group
   const [tableOpen, setTableOpen] = useState(true);
   const [tableH, setTableH] = useState(260);
-  // Machine editor: adjustable rail width + each column's bottom-zone height.
+  // Asset editor: adjustable rail width + each column's bottom-zone height.
   const [error, setError] = useState<string | null>(null);
 
   // The shared node tree (same workbook the Value Chain edits).
@@ -85,7 +85,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   const baseYear = periods.length ? Math.min(...periods) : 2025;
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const machineRow = (id: string): Row | undefined =>
-    (workbook.machines ?? []).find((r) => s(r.machine_id) === id);
+    (workbook.assets ?? []).find((r) => s(r.asset_id) === id);
 
   // ── Library catalogue (read-only drag source at the bottom of the rail) ──────
   // Both BASE (shared) and the PROJECT's own (session) component libraries — so a
@@ -159,7 +159,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     const doomed = descendantsOf(id);
     if (!(await confirm({ title: "Delete", message: `Delete '${nodeById.get(id)?.label ?? id}' and everything under it?`, danger: true, confirmLabel: "Delete" }))) return;
     let wb = setSheet(workbook, "nodes", (workbook.nodes ?? []).filter((r) => !doomed.has(s(r.node_id))));
-    wb = setSheet(wb, "machines", (wb.machines ?? []).filter((r) => !doomed.has(s(r.machine_id))));
+    wb = setSheet(wb, "assets", (wb.assets ?? []).filter((r) => !doomed.has(s(r.asset_id))));
     wb = setSheet(wb, "connections", (wb.connections ?? []).filter((r) => !doomed.has(s(r.from_node)) && !doomed.has(s(r.to_node))));
     setWorkbook(wb);
     if (selId && doomed.has(selId)) setSelId(null);
@@ -171,8 +171,8 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   }
 
   // Drag a technology from the base Library tree onto a facility node → place a
-  // machine (real-world instance) under it. The recipe stays in the component;
-  // the machine carries the physical capacity + real-world data.
+  // asset (real-world instance) under it. The recipe stays in the component;
+  // the asset carries the physical capacity + real-world data.
 
   // The group a dropped component is filed under, by its kind.
   const KIND_GROUP: Record<DragKind, string> = {
@@ -184,12 +184,12 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
 
   // Technology / Stream / Levers & MACC are the LAST group level — under them
   // live only components, never another group. So a drop onto a kind-group (or a
-  // machine inside one) files under its nearest NORMAL ancestor group, so the
+  // asset inside one) files under its nearest NORMAL ancestor group, so the
   // kind-group is a SIBLING, never nested inside another kind-group.
   function normalParentOf(targetId: string): string | null {
     let cur = nodeById.get(targetId);
     while (cur) {
-      if (cur.kind !== "machine" && !isPrefixedLevel(cur.level)) return cur.id;
+      if (cur.kind !== "asset" && !isPrefixedLevel(cur.level)) return cur.id;
       cur = cur.parentId ? nodeById.get(cur.parentId) : undefined;
     }
     return null;
@@ -208,7 +208,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
 
   // Drop a component from the Library onto a facility node: prompt for a name,
   // ensure its KIND group (Technology / Stream / Levers & MACC) under the
-  // target, then place it there. A technology becomes a real machine (recipe
+  // target, then place it there. A technology becomes a real asset (recipe
   // hard-copied via placeTechnology) carrying physical data; other kinds become
   // a named real-world entry under their group.
   async function dropComponent(scope: LibScope, libId: string, kind: DragKind, compId: string, parentId: string) {
@@ -245,7 +245,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         const leafId = genId("c");
         const next = setSheet(wb, "nodes", [
           ...(wb.nodes ?? []),
-          { node_id: leafId, parent_id: kgId, kind: "machine", label: name, level: kindWord },
+          { node_id: leafId, parent_id: kgId, kind: "asset", label: name, level: kindWord },
         ]);
         setWorkbook(next);
         await putModel(sessionId, next);
@@ -257,11 +257,11 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     }
   }
 
-  // Edit a machine's real-world fields on the shared `machines` row.
-  function editMachine(id: string, patch: Record<string, Row[string]>) {
-    setWorkbook(setSheet(workbook, "machines", (workbook.machines ?? []).map((r) => (s(r.machine_id) === id ? { ...r, ...patch } : r))));
+  // Edit a asset's real-world fields on the shared `assets` row.
+  function editAsset(id: string, patch: Record<string, Row[string]>) {
+    setWorkbook(setSheet(workbook, "assets", (workbook.assets ?? []).map((r) => (s(r.asset_id) === id ? { ...r, ...patch } : r))));
   }
-  // Edit this machine's OWN technology instance (its private copy in the
+  // Edit this asset's OWN technology instance (its private copy in the
   // `technologies` sheet) — capex / renewal / opex / lifespan / availability.
   function editTech(techId: string, patch: Record<string, Row[string]>) {
     setWorkbook(setSheet(workbook, "technologies", (workbook.technologies ?? []).map((r) => (s(r.technology_id) === techId ? { ...r, ...patch } : r))));
@@ -277,11 +277,11 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         out.push({
           id: nd.id,
           parentId: nd.parentId,
-          kind: nd.kind === "machine" ? "machine" : "group",
+          kind: nd.kind === "asset" ? "asset" : "group",
           label: nd.label,
           level: nd.level || undefined,
           hasChildren: kids.length > 0,
-          droppable: nd.kind !== "machine",
+          droppable: nd.kind !== "asset",
         });
         walk(nd.id);
       }
@@ -331,14 +331,14 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     return out;
   }, [allLibs, libBodies]);
 
-  // Duplicate a facility machine — a BUNDLE: the node + its machines row, and (when
-  // its technology is PRIVATE — used by no other machine) the technology + its recipe
+  // Duplicate a facility asset — a BUNDLE: the node + its assets row, and (when
+  // its technology is PRIVATE — used by no other asset) the technology + its recipe
   // (io / io_t) and temporal-cost rows too, all with fresh, consistently-rewired ids.
   // A shared (library) technology is referenced, not cloned.
-  function duplicateMachine(id: string, times: number) {
+  function duplicateAsset(id: string, times: number) {
     const node = (workbook.nodes ?? []).find((r) => s(r.node_id) === id);
     if (!node) return;
-    const mach = (workbook.machines ?? []).find((r) => s(r.machine_id) === id);
+    const mach = (workbook.assets ?? []).find((r) => s(r.asset_id) === id);
     const cloneByTech = (wb: Workbook, sheet: string, from: string, to: string): Workbook => {
       const extra = (wb[sheet] ?? []).filter((r) => s(r.technology_id) === from).map((r) => ({ ...r, technology_id: to }));
       return extra.length ? setSheet(wb, sheet, [...(wb[sheet] ?? []), ...extra]) : wb;
@@ -350,7 +350,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
       wb = setSheet(wb, "nodes", [...(wb.nodes ?? []), { ...node, node_id: newId, label }]);
       if (mach) {
         let techId = s(mach.baseline_technology);
-        const refs = (wb.machines ?? []).filter((r) => s(r.baseline_technology) === techId).length;
+        const refs = (wb.assets ?? []).filter((r) => s(r.baseline_technology) === techId).length;
         if (techId && refs <= 1) {
           // private technology → clone it + its recipe / temporal rows under a new id
           const newTech = genId("t");
@@ -359,14 +359,14 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
           for (const sh of ["io", "io_t", ...Object.keys(wb).filter((k) => k.startsWith("technologies_t__"))]) wb = cloneByTech(wb, sh, techId, newTech);
           techId = newTech;
         }
-        wb = setSheet(wb, "machines", [...(wb.machines ?? []), { ...mach, machine_id: newId, baseline_technology: techId }]);
+        wb = setSheet(wb, "assets", [...(wb.assets ?? []), { ...mach, asset_id: newId, baseline_technology: techId }]);
       }
     }
     setWorkbook(wb);
   }
 
   function actionsFor(node: TreeNode): TreeAction[] {
-    if (node.kind === "machine")
+    if (node.kind === "asset")
       return [{ id: "edit", label: "Edit" }, { id: "dup", label: "Duplicate" }, { id: "dupN", label: "Duplicate ×N…" }, { id: "delete", label: "Delete", danger: true }];
     // A kind-group (Technology / Stream / Levers & MACC) is leaf-level — you
     // can't add a sub-group inside it, only drop components.
@@ -383,7 +383,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   const canDrop = (dragId: string, newParentId: string | null): boolean => {
     if (!newParentId) return true;
     const np = nodeById.get(newParentId);
-    if (np && isPrefixedLevel(np.level)) return nodeById.get(dragId)?.kind === "machine";
+    if (np && isPrefixedLevel(np.level)) return nodeById.get(dragId)?.kind === "asset";
     return true;
   };
   function onContextAction(actionId: string, node: TreeNode) {
@@ -392,8 +392,8 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     else if (actionId === "delete") void deleteNode(node.id);
     else if (actionId === "edit") setSelId(node.id);
     else if (actionId === "see-table") { setTableGroup(node.id); setTableOpen(true); }
-    else if (actionId === "dup") duplicateMachine(node.id, 1);
-    else if (actionId === "dupN") void (async () => { const x = await prompt({ title: "Duplicate ×N", label: "how many copies", defaultValue: "10" }); const t = Math.max(1, Math.round(Number(x) || 0)); if (t) duplicateMachine(node.id, t); })();
+    else if (actionId === "dup") duplicateAsset(node.id, 1);
+    else if (actionId === "dupN") void (async () => { const x = await prompt({ title: "Duplicate ×N", label: "how many copies", defaultValue: "10" }); const t = Math.max(1, Math.round(Number(x) || 0)); if (t) duplicateAsset(node.id, t); })();
   }
 
   const tableResult = useMemo(() => (tableGroup ? flattenFacilityGroup(workbook, tableGroup) : null), [tableGroup, workbook]);
@@ -415,7 +415,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         </section>
       );
     }
-    if (sel.kind === "machine") {
+    if (sel.kind === "asset") {
       const r = machineRow(sel.id);
       if (!r) {
         // A non-technology real-world entry (stream / lever / MACC leaf).
@@ -464,13 +464,13 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
           u ? `${u}/${thru}` : undefined);
       };
       return (
-        <section className="detail-col machine-detail">
+        <section className="detail-col asset-detail">
           <h2 className="view-title">{sel.label}</h2>
           <p className="detail-sub muted">asset · {techLabel}</p>
           {/* One panel — every attribute is a name-on-top / value-below cell,
               separated only by grid lines; the four groups are inline bands. */}
-          <div className="machine-fields">
-            <div className="mf-sec">technology · {techLabel}<span className="mf-sec-note">this machine's own copy — edits here don't affect other machines</span></div>
+          <div className="asset-fields">
+            <div className="mf-sec">technology · {techLabel}<span className="mf-sec-note">this asset's own copy — edits here don't affect other assets</span></div>
             {techRow ? (
               <>
                 {cell("lifespan", "lifespan",
@@ -493,23 +493,23 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
                     onChange={(v) => setWorkbook(setInstAttr(workbook, "technologies", "technology_id", tech, "min_capacity_factor", "technologies_t__min_capacity_factor", v))} />, "×cap")}
               </>
             ) : (
-              <div className="mf-empty">No technology instance for this machine.</div>
+              <div className="mf-empty">No technology instance for this asset.</div>
             )}
 
-            <div className="mf-sec">machine</div>
+            <div className="mf-sec">asset</div>
             {cell("capacity", "capacity",
-              <input className="field-input" type="number" min={0} value={s(r?.capacity)} onChange={(e) => editMachine(sel.id, { capacity: e.target.value === "" ? 0 : Number(e.target.value) })} />, `${thru}/yr`)}
+              <input className="field-input" type="number" min={0} value={s(r?.capacity)} onChange={(e) => editAsset(sel.id, { capacity: e.target.value === "" ? 0 : Number(e.target.value) })} />, `${thru}/yr`)}
             {cell("owner", "owner (company)",
-              <input className="field-input" value={s(r?.owner)} placeholder="e.g. POSCO" onChange={(e) => editMachine(sel.id, { owner: e.target.value })} />)}
+              <input className="field-input" value={s(r?.owner)} placeholder="e.g. POSCO" onChange={(e) => editAsset(sel.id, { owner: e.target.value })} />)}
             {cell("build", "build year",
-              <input className="field-input" type="number" value={s(r?.introduced_year)} onChange={(e) => editMachine(sel.id, { introduced_year: e.target.value === "" ? null : Number(e.target.value) })} />, "year")}
+              <input className="field-input" type="number" value={s(r?.introduced_year)} onChange={(e) => editAsset(sel.id, { introduced_year: e.target.value === "" ? null : Number(e.target.value) })} />, "year")}
             {cell("close", "close year",
-              <input className="field-input" type="number" placeholder="(exclusive)" value={s(r?.decommission_year)} onChange={(e) => editMachine(sel.id, { decommission_year: e.target.value === "" ? null : Number(e.target.value) })} />, "year")}
+              <input className="field-input" type="number" placeholder="(exclusive)" value={s(r?.decommission_year)} onChange={(e) => editAsset(sel.id, { decommission_year: e.target.value === "" ? null : Number(e.target.value) })} />, "year")}
             {cell("maxcf", "max cap. factor",
-              <TemporalValue value={instAttr(workbook, "machines", "machine_id", sel.id, "max_capacity_factor", "processes_t__max_capacity_factor")} baseYear={baseYear} periods={periods} variant="text" placeholder="1 (no ceiling)" label={`${sel.label} · max capacity factor`}
-                onChange={(v) => setWorkbook(setInstAttr(workbook, "machines", "machine_id", sel.id, "max_capacity_factor", "processes_t__max_capacity_factor", v))} />, "×cap")}
+              <TemporalValue value={instAttr(workbook, "assets", "asset_id", sel.id, "max_capacity_factor", "processes_t__max_capacity_factor")} baseYear={baseYear} periods={periods} variant="text" placeholder="1 (no ceiling)" label={`${sel.label} · max capacity factor`}
+                onChange={(v) => setWorkbook(setInstAttr(workbook, "assets", "asset_id", sel.id, "max_capacity_factor", "processes_t__max_capacity_factor", v))} />, "×cap")}
             {cell("maxren", "max renewals",
-              <input className="field-input" type="number" min={0} step={1} placeholder="∞ (unlimited)" value={s(r?.max_renewals)} onChange={(e) => editMachine(sel.id, { max_renewals: e.target.value === "" ? null : Number(e.target.value) })} />)}
+              <input className="field-input" type="number" min={0} step={1} placeholder="∞ (unlimited)" value={s(r?.max_renewals)} onChange={(e) => editAsset(sel.id, { max_renewals: e.target.value === "" ? null : Number(e.target.value) })} />)}
 
             <div className="mf-sec">input streams · per {thru}</div>
             {inputs.length === 0 ? <div className="mf-empty">no inputs</div> : inputs.map(coeffCell)}
@@ -539,9 +539,9 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     const kids = childrenOf(nodes, sel.id);
     const childCard = (k: (typeof kids)[number]) => {
       const grandkids = childrenOf(nodes, k.id);
-      const isMachine = k.kind === "machine";
-      const r = isMachine ? machineRow(k.id) : undefined;
-      const sub = isMachine
+      const isAsset = k.kind === "asset";
+      const r = isAsset ? machineRow(k.id) : undefined;
+      const sub = isAsset
         ? r
           ? `${s(r.source_technology) || s(r.baseline_technology)}${r.capacity ? ` · ${r.capacity}` : ""}`
           : k.level || "component"

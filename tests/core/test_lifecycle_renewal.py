@@ -127,9 +127,9 @@ def test_baseline_rebuild_after_t0_is_priced_not_free() -> None:
     assert {r["period"] for r in res["outputs"]["renewals"]} == {2030, 2035}
 
 
-# ── Per-machine renewal-count cap ─────────────────────────────────────────────
+# ── Per-asset renewal-count cap ─────────────────────────────────────────────
 # 5-yr steps with a 5-yr lifespan installed 2020: every horizon year needs its
-# own rebuild, so an uncapped machine renews once per period (three rebuilds).
+# own rebuild, so an uncapped asset renews once per period (three rebuilds).
 _CAP_YEARS = [2025, 2030, 2035]
 
 
@@ -179,7 +179,7 @@ def _run_cap(max_renewals: int | None) -> dict:
 
 @pytest.mark.parametrize("cap,expected", [(None, 3), (2, 2), (1, 1), (0, 0)])
 def test_max_renewals_caps_the_rebuild_count(cap: int | None, expected: int) -> None:
-    # Uncapped the machine rebuilds once per period (3). ``max_renewals`` caps the
+    # Uncapped the asset rebuilds once per period (3). ``max_renewals`` caps the
     # total over the horizon; the remaining expiries go unserved (demand slack),
     # so the realised renewal count equals the cap. ``0`` forbids renewal outright.
     res = _run_cap(cap)
@@ -189,7 +189,7 @@ def test_max_renewals_caps_the_rebuild_count(cap: int | None, expected: int) -> 
     assert all(r["process"] == "P" and r["technology"] == "T" for r in renewals)
 
 
-def test_uncapped_machine_renews_every_period() -> None:
+def test_uncapped_asset_renews_every_period() -> None:
     # Sanity on the uncapped baseline: opex (3·100·1) + 3 renewals (3·200) = 900.
     res = _run_cap(None)
     assert res["objective"] == pytest.approx(900.0, rel=1e-6)

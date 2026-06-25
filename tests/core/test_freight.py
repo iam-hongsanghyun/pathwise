@@ -51,14 +51,14 @@ def _wb() -> dict:
         ],
         "nodes": [
             {"node_id": "vc", "kind": "group", "level": "value_chain", "label": "Freight test"},
-            {"node_id": "vc/a", "kind": "machine", "level": "machine", "parent_id": "vc"},
-            {"node_id": "vc/b", "kind": "machine", "level": "machine", "parent_id": "vc"},
-            {"node_id": "vc/sink", "kind": "machine", "level": "machine", "parent_id": "vc"},
+            {"node_id": "vc/a", "kind": "asset", "level": "asset", "parent_id": "vc"},
+            {"node_id": "vc/b", "kind": "asset", "level": "asset", "parent_id": "vc"},
+            {"node_id": "vc/sink", "kind": "asset", "level": "asset", "parent_id": "vc"},
         ],
-        "machines": [
-            {"machine_id": "vc/a", "baseline_technology": "Prod", "capacity": 1000},
-            {"machine_id": "vc/b", "baseline_technology": "Prod", "capacity": 1000},
-            {"machine_id": "vc/sink", "baseline_technology": "Make", "capacity": 1000},
+        "assets": [
+            {"asset_id": "vc/a", "baseline_technology": "Prod", "capacity": 1000},
+            {"asset_id": "vc/b", "baseline_technology": "Prod", "capacity": 1000},
+            {"asset_id": "vc/sink", "baseline_technology": "Make", "capacity": 1000},
         ],
         "connections": [
             {

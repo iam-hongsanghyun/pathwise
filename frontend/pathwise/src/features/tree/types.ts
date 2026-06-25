@@ -2,7 +2,7 @@
 // Component and Value Chain tabs. The host adapts its domain (libraries, or the
 // session node hierarchy) into a flat TreeNode[] and handles the callbacks.
 
-export type TreeNodeKind = "library" | "group" | "machine" | "leaf";
+export type TreeNodeKind = "library" | "group" | "asset" | "leaf";
 
 export interface TreeNode {
   /** Stable, unique across the whole tree. */
@@ -17,7 +17,7 @@ export interface TreeNode {
   order?: number;
   /** Show a twisty even before the subtree is materialised (cheap, from data). */
   hasChildren: boolean;
-  /** Render dimmed/secondary (e.g. an alternative technology under a machine). */
+  /** Render dimmed/secondary (e.g. an alternative technology under a asset). */
   muted?: boolean;
   /** Can be dragged (default true). */
   draggable?: boolean;

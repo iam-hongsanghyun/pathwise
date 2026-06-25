@@ -1,4 +1,4 @@
-"""Per-machine max capacity factor: throughput ≤ max_cf × capacity (the
+"""Per-asset max capacity factor: throughput ≤ max_cf × capacity (the
 utilisation ceiling mirror of the must-run min_capacity_factor floor)."""
 
 from __future__ import annotations
@@ -74,27 +74,27 @@ def test_max_cf_caps_throughput() -> None:
 
 
 def test_max_cf_zero_locks_the_machine() -> None:
-    # An authored 0 means "do not run this machine" and must survive assembly.
+    # An authored 0 means "do not run this asset" and must survive assembly.
     # (The old `_num(...) or 1.0` turned a falsy 0.0 into the 1.0 default, so a
-    # locked-out machine silently ran at full capacity.)
+    # locked-out asset silently ran at full capacity.)
     assert assemble_problem(_flat(0.0), _sc()).processes[0].max_capacity_factor == 0.0
     res = _solve(_flat(0.0))
     assert res["status"] == "optimal"
     np.testing.assert_allclose(_produced(res, "steel"), 0.0, atol=1e-6)
 
 
-# ── Node model: machine max_capacity_factor carried through _expand_hierarchy ──
+# ── Node model: asset max_capacity_factor carried through _expand_hierarchy ──
 
 
-def test_hierarchy_machine_max_cf_caps_throughput() -> None:
+def test_hierarchy_asset_max_cf_caps_throughput() -> None:
     wb = {
         "nodes": [
             {"node_id": "co", "parent_id": None, "kind": "group", "level": "company"},
-            {"node_id": "co/m", "parent_id": "co", "kind": "machine"},
+            {"node_id": "co/m", "parent_id": "co", "kind": "asset"},
         ],
-        "machines": [
+        "assets": [
             {
-                "machine_id": "co/m",
+                "asset_id": "co/m",
                 "baseline_technology": "EAF",
                 "capacity": 100,
                 "max_capacity_factor": 0.5,

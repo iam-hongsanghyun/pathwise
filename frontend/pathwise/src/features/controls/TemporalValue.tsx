@@ -6,7 +6,7 @@
 // Re-opening compresses the dense rows back to the minimal anchor set and detects
 // whether the shape was linear or step, so editing stays clean.
 //
-// Used for the Optimisation constraints and the machine output / input bounds.
+// Used for the Optimisation constraints and the asset output / input bounds.
 
 import { useMemo, useState } from "react";
 import type { ByYear } from "../../lib/api/components";

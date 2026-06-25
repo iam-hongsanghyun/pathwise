@@ -1,14 +1,14 @@
-"""Structural normalisation: wrap bare machines under a ``Technology`` kind-group.
+"""Structural normalisation: wrap bare assets under a ``Technology`` kind-group.
 
 The value-chain rule is that every component sits under a Technology / Stream /
-Measures & MACC group; older example models placed machines directly under a
+Measures & MACC group; older example models placed assets directly under a
 company / facility. ``regroup_machines`` inserts the missing ``Technology`` group
-and reparents the machines to it.
+and reparents the assets to it.
 
 It is **engine-equivalent**: scope resolution walks the ancestor chain (which still
 contains the original company / facility), and ``company_of`` keys off the
 child-of-root, so inserting a deeper group changes neither. Connections key off
-machine ids, which are unchanged, so wiring is preserved.
+asset ids, which are unchanged, so wiring is preserved.
 """
 
 from __future__ import annotations
@@ -16,15 +16,15 @@ from __future__ import annotations
 import copy
 from typing import Any
 
-#: The kind-group level that machines (technology instances) live under.
+#: The kind-group level that assets (technology instances) live under.
 TECHNOLOGY_LEVEL = "Technology"
 
 
 def regroup_machines(workbook: dict[str, Any]) -> dict[str, Any]:
-    """Return a copy of ``workbook`` with every bare machine under a Technology group.
+    """Return a copy of ``workbook`` with every bare asset under a Technology group.
 
-    A machine whose parent is already a ``Technology`` group is left alone. One
-    group is created per parent that holds machines, shared by its machines.
+    A asset whose parent is already a ``Technology`` group is left alone. One
+    group is created per parent that holds assets, shared by its assets.
     """
     nodes = workbook.get("nodes")
     if not nodes:
@@ -35,7 +35,7 @@ def regroup_machines(workbook: dict[str, Any]) -> dict[str, Any]:
     group_for: dict[Any, str] = {}  # parent id → its Technology group id
     new_groups: list[dict[str, Any]] = []
     for n in nodes:
-        if n.get("kind") != "machine":
+        if n.get("kind") != "asset":
             continue
         parent = n.get("parent_id")
         pnode = by_id.get(parent)

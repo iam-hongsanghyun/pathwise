@@ -1,5 +1,5 @@
 // Pure layout for the multi-level result map: turn the node hierarchy
-// (country → company → facility → machine) into absolutely-positioned boxes for
+// (country → company → facility → asset) into absolutely-positioned boxes for
 // three render modes — nested containers, swimlanes-by-level, and an expandable
 // (collapsible) nested view. No React, no I/O; mirrors the .topo-* sizing.
 
@@ -13,11 +13,11 @@ export type MapMode = "nested" | "swimlane" | "expandable";
  *  in x). The title strip stays at the TOP of every box in both. */
 export type Orientation = "h" | "v";
 
-/** A positioned box for any node (group container or machine leaf). */
+/** A positioned box for any node (group container or asset leaf). */
 export interface LaidNode {
   id: string;
   parentId: string | null;
-  kind: "group" | "machine";
+  kind: "group" | "asset";
   level: string;
   label: string;
   depth: number;
@@ -29,9 +29,9 @@ export interface LaidNode {
   collapsed: boolean;
 }
 
-/** A machine→machine flow to draw, resolved to the deepest VISIBLE endpoints.
+/** A asset→asset flow to draw, resolved to the deepest VISIBLE endpoints.
  *  `origFrom`/`origTo` keep the real connection endpoints so the per-year
- *  overlay (keyed by the actual machine ids) can be looked up even when the
+ *  overlay (keyed by the actual asset ids) can be looked up even when the
  *  drawn endpoints are collapsed group boxes. */
 export interface LaidEdge {
   id: string;
@@ -84,7 +84,7 @@ function columnsOf(ids: string[], edges: { from: string; to: string }[]): Map<st
 }
 
 /** Map every node id to the nearest visible ancestor (itself if visible). Used
- *  to route machine-level flows to collapsed-group boxes in expandable mode. */
+ *  to route asset-level flows to collapsed-group boxes in expandable mode. */
 function visibleAncestor(
   nodes: GroupNode[],
   visible: Set<string>,
@@ -299,7 +299,7 @@ export function layoutSwimlane(wb: Workbook): Laid {
   };
 }
 
-// ── Edge resolution (machine flows → visible endpoints) ───────────────────────
+// ── Edge resolution (asset flows → visible endpoints) ───────────────────────
 
 function resolveEdges(wb: Workbook, nodes: GroupNode[], laid: LaidNode[]): LaidEdge[] {
   const visible = new Set(laid.map((n) => n.id));
@@ -325,9 +325,9 @@ function resolveEdges(wb: Workbook, nodes: GroupNode[], laid: LaidNode[]): LaidE
  *
  *  Expands the tree breadth-first, one whole level at a time, while the visible
  *  node count stays within `budget`. Small models (green steel, steel) fall under
- *  budget and fully expand — unchanged behaviour. Large ones (the 248-machine
+ *  budget and fully expand — unchanged behaviour. Large ones (the 248-asset
  *  petrochemical chain) stop a level or two down, so the canvas never tries to
- *  paint hundreds of machine boxes and their source-stream fan-out lines at once
+ *  paint hundreds of asset boxes and their source-stream fan-out lines at once
  *  (which froze the browser). The ▦ Expand-all button still forces the full tree.
  *
  *  All-or-nothing per level keeps the result predictable: you never see one
@@ -374,7 +374,7 @@ export function layoutFor(
  *  the read-only `Laid.edges`, which dedupes for display. */
 export interface EditEdge {
   /** The connections-sheet row, or -1 when this is an AGGREGATE of several rows
-   *  (many machine→machine links, or several commodities, folded onto one arrow). */
+   *  (many asset→asset links, or several commodities, folded onto one arrow). */
   rowIndex: number;
   from: string;
   to: string;
@@ -393,7 +393,7 @@ export interface EditEdge {
 
 /** A source stream: a commodity consumed by a facility but produced by none
  *  (a raw material / external input — iron ore, coal). `consumers` are the
- *  machine-node ids whose baseline technology consumes it. */
+ *  asset-node ids whose baseline technology consumes it. */
 export interface SourceStream {
   id: string;
   consumers: string[];
@@ -431,7 +431,7 @@ export function sourceStreams(wb: Workbook): SourceStream[] {
   const impacts = new Set((wb.impacts ?? []).map((r) => s(r.impact_id)).filter(Boolean));
   const sources = [...candidates].filter((c) => !outputs.has(c) && !impacts.has(c)).sort();
 
-  // A machine can consume a stream via ANY feasible technology — its baseline or
+  // A asset can consume a stream via ANY feasible technology — its baseline or
   // a transition target (e.g. scrap is consumed only after switching to EAF).
   const transTargets = new Map<string, string[]>();
   for (const tr of wb.transitions ?? []) {
@@ -442,10 +442,10 @@ export function sourceStreams(wb: Workbook): SourceStream[] {
     if (!arr) transTargets.set(from, (arr = []));
     arr.push(to);
   }
-  // machine/process id → baseline technology (machines for hierarchy models).
+  // asset/process id → baseline technology (assets for hierarchy models).
   const baseline = new Map<string, string>();
-  for (const m of wb.machines ?? []) {
-    const id = s(m.machine_id);
+  for (const m of wb.assets ?? []) {
+    const id = s(m.asset_id);
     if (id) baseline.set(id, s(m.baseline_technology));
   }
   for (const p of wb.processes ?? []) {
@@ -470,7 +470,7 @@ export function editEdges(wb: Workbook, laid: LaidNode[], flowLevel: string | nu
     v == null || String(v).trim() === "" ? null : Number(v);
   // Flow-aggregation level (independent of expand/collapse): roll an endpoint up to
   // its ancestor whose `level` === flowLevel, else leave it (it's already at/above
-  // that level). null ⇒ "Component" (the machine itself).
+  // that level). null ⇒ "Component" (the asset itself).
   const levelOf = new Map(nodes.map((n) => [n.id, n.level]));
   const parentOf = new Map(nodes.map((n) => [n.id, n.parentId]));
   const atLevel = (id: string): string => {
@@ -498,7 +498,7 @@ export function editEdges(wb: Workbook, laid: LaidNode[], flowLevel: string | nu
   };
   // The two endpoints rolled up to the level where they first DIVERGE: the
   // children of their lowest common ancestor that contain each side. So a flow
-  // between two machines in different companies is drawn company→company; between
+  // between two assets in different companies is drawn company→company; between
   // two companies in different countries, country→country. Returns null when one
   // is an ancestor of the other or the trees are disjoint.
   const divergingEndpoints = (from: string, to: string): [string, string] | null => {
@@ -524,7 +524,7 @@ export function editEdges(wb: Workbook, laid: LaidNode[], flowLevel: string | nu
   //                level so it is still shown rather than dropped. The top
   //                "Value Chain" level therefore draws every link at its natural
   //                diverging point (children of the lowest common ancestor);
-  //   • null     → the machines themselves (Component).
+  //   • null     → the assets themselves (Component).
   const endpointsFor = (rawFrom: string, rawTo: string): [string | null, string | null] => {
     if (flowLevel) {
       const fx = atLevel(rawFrom);

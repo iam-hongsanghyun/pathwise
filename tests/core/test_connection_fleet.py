@@ -121,8 +121,8 @@ def _wb(
             },
             {
                 "node_id": "vc/kr/plant",
-                "kind": "machine",
-                "level": "machine",
+                "kind": "asset",
+                "level": "asset",
                 "label": "plant",
                 "parent_id": "vc/kr",
             },
@@ -137,15 +137,15 @@ def _wb(
             },
             {
                 "node_id": "vc/dst/term",
-                "kind": "machine",
-                "level": "machine",
+                "kind": "asset",
+                "level": "asset",
                 "label": "term",
                 "parent_id": "vc/dst",
             },
         ],
-        "machines": [
-            {"machine_id": "vc/kr/plant", "baseline_technology": "make", "capacity": 1e7},
-            {"machine_id": "vc/dst/term", "baseline_technology": "deliver", "capacity": 1e7},
+        "assets": [
+            {"asset_id": "vc/kr/plant", "baseline_technology": "make", "capacity": 1e7},
+            {"asset_id": "vc/dst/term", "baseline_technology": "deliver", "capacity": 1e7},
         ],
         "connections": [{"from_node": "vc/kr", "to_node": "vc/dst", "commodity_id": "cargo"}],
         "routes": [

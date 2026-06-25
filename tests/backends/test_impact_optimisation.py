@@ -1,9 +1,9 @@
 """Impact-aware optimisation: minimise a characterised category, and the Pareto front.
 
-Two parallel machines feed one demand — a dirty one (2 tCO2/unit, free) and a clean
+Two parallel assets feed one demand — a dirty one (2 tCO2/unit, free) and a clean
 one (0.5 tCO2/unit, $5/unit). The optimiser splits production; capping or pricing the
-GWP category shifts the split. (Parallel machines avoid the period-0 baseline lock a
-single-machine transition would hit.)
+GWP category shifts the split. (Parallel assets avoid the period-0 baseline lock a
+single-asset transition would hit.)
 """
 
 from __future__ import annotations
@@ -30,12 +30,12 @@ def _dirty_clean() -> dict:
         ],
         "nodes": [
             {"node_id": "co", "kind": "group", "level": "company", "label": "Co"},
-            {"node_id": "co/dirty", "kind": "machine", "level": "machine", "parent_id": "co"},
-            {"node_id": "co/clean", "kind": "machine", "level": "machine", "parent_id": "co"},
+            {"node_id": "co/dirty", "kind": "asset", "level": "asset", "parent_id": "co"},
+            {"node_id": "co/clean", "kind": "asset", "level": "asset", "parent_id": "co"},
         ],
-        "machines": [
-            {"machine_id": "co/dirty", "baseline_technology": "Dirty", "capacity": 1000},
-            {"machine_id": "co/clean", "baseline_technology": "Clean", "capacity": 1000},
+        "assets": [
+            {"asset_id": "co/dirty", "baseline_technology": "Dirty", "capacity": 1000},
+            {"asset_id": "co/clean", "baseline_technology": "Clean", "capacity": 1000},
         ],
         "io": [
             {"technology_id": "Dirty", "target": "feed", "role": "input", "coefficient": 1.0},
@@ -81,7 +81,7 @@ def test_minimise_impact_objective() -> None:
         },
     )
     assert least_cost["status"] == "optimal" and min_gwp["status"] == "optimal"
-    # Least-cost runs the dirty machine (free) ⇒ GWP 200; min-GWP runs clean ⇒ GWP 50.
+    # Least-cost runs the dirty asset (free) ⇒ GWP 200; min-GWP runs clean ⇒ GWP 50.
     assert _gwp(least_cost) == pytest.approx(200.0)
     assert _gwp(min_gwp) == pytest.approx(50.0)
 

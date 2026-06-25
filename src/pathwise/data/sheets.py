@@ -168,8 +168,8 @@ COMPANY_CONFIG = "company_config"
 #: LCA (inherited by descendants); used by the LCA interpretation view.
 NODES = "nodes"
 
-#: Leaf-machine detail rows (machine_id, baseline_technology, capacity, …).
-MACHINES = "machines"
+#: Leaf-asset detail rows (asset_id, baseline_technology, capacity, …).
+ASSETS = "assets"
 
 #: Directed commodity flows between sibling nodes (from_node, to_node, commodity_id,
 #: lag_years, min_flow, max_flow). Optional spatial-transport physics per stream
@@ -266,10 +266,10 @@ MIN_PRODUCTION = "min_production"
 #: Per-year maximum production ceilings (company, commodity_id, year?, amount?).
 MAX_PRODUCTION = "max_production"
 
-#: Per-machine minimum consumption / required offtake (company, commodity_id, year?, amount?).
+#: Per-asset minimum consumption / required offtake (company, commodity_id, year?, amount?).
 MIN_CONSUMPTION = "min_consumption"
 
-#: Per-machine maximum consumption / max purchase (company, commodity_id, year?, amount?).
+#: Per-asset maximum consumption / max purchase (company, commodity_id, year?, amount?).
 MAX_CONSUMPTION = "max_consumption"
 
 #: Per-year environmental impact caps (company, impact_id, year?, limit?, soft?, …).
@@ -277,7 +277,7 @@ IMPACT_CAPS = "impact_caps"
 
 # ── Component library (round-trip sheets for ComponentLibrary) ────────────────
 
-#: Legacy composite-machine components (name, label, technology, capacity, …).
+#: Legacy composite-asset components (name, label, technology, capacity, …).
 GROUPS = "groups"
 
 # ── PyPSA-style wide temporal sheets (entity × year matrix) ───────────────────
@@ -326,7 +326,7 @@ PROCESSES_T_FIXED_OPEX = "processes_t__fixed_opex"
 #: Wide temporal facility forced-outage (failure-rate) overrides.
 PROCESSES_T_FAILURE_RATE = "processes_t__failure_rate"
 
-#: Wide temporal per-machine utilisation-ceiling (max capacity factor) overrides.
+#: Wide temporal per-asset utilisation-ceiling (max capacity factor) overrides.
 PROCESSES_T_MAX_CF = "processes_t__max_capacity_factor"
 
 #: Wide temporal market buy-volume caps.
@@ -364,7 +364,7 @@ VARIANTS = "variants"
 
 #: Timed interventions per variant: one row per edit
 #: (variant_id, kind, target, value, forced_year, field?).
-#: ``tech`` → force ``target`` machine onto technology ``value`` from ``forced_year``;
+#: ``tech`` → force ``target`` asset onto technology ``value`` from ``forced_year``;
 #: ``stream`` → set commodity ``target`` price to ``value`` from ``forced_year``;
 #: ``lever`` → toggle lever ``target`` (``value`` truthy = on);
 #: ``tech_cost`` → set technology ``target``'s ``field`` (capex|opex) to ``value``;

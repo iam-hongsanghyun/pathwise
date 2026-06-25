@@ -1,6 +1,6 @@
 """The engine privileges no impact id — a model with NO ``CO2`` runs end-to-end.
 
-Two parallel machines feed one demand: dirty (2 SOx/unit, free) and clean
+Two parallel assets feed one demand: dirty (2 SOx/unit, free) and clean
 (0.5 SOx/unit, $5/unit). The only impact is ``SOx``. The frontier backend, given
 no explicit impact, must default to the model's first impact (SOx, not a hardcoded
 CO2); the simulate backend must key its headline on SOx. Guards the de-CO2 work.
@@ -28,12 +28,12 @@ def _sox_model() -> dict:
         ],
         "nodes": [
             {"node_id": "co", "kind": "group", "level": "company", "label": "Co"},
-            {"node_id": "co/dirty", "kind": "machine", "level": "machine", "parent_id": "co"},
-            {"node_id": "co/clean", "kind": "machine", "level": "machine", "parent_id": "co"},
+            {"node_id": "co/dirty", "kind": "asset", "level": "asset", "parent_id": "co"},
+            {"node_id": "co/clean", "kind": "asset", "level": "asset", "parent_id": "co"},
         ],
-        "machines": [
-            {"machine_id": "co/dirty", "baseline_technology": "Dirty", "capacity": 1000},
-            {"machine_id": "co/clean", "baseline_technology": "Clean", "capacity": 1000},
+        "assets": [
+            {"asset_id": "co/dirty", "baseline_technology": "Dirty", "capacity": 1000},
+            {"asset_id": "co/clean", "baseline_technology": "Clean", "capacity": 1000},
         ],
         "io": [
             {"technology_id": "Dirty", "target": "feed", "role": "input", "coefficient": 1.0},

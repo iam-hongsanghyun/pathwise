@@ -42,6 +42,7 @@ from pathwise.data.aliases import normalize_workbook
 from pathwise.data.hierarchy import Hierarchy, load_hierarchy
 from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.sheets import (
+    ASSETS,
     CHARACTERISATION,
     COMMODITIES,
     COMMODITIES_T_MAX_PURCHASE,
@@ -76,7 +77,6 @@ from pathwise.data.sheets import (
     LEVERS,
     MACC_LINKS,
     MACCS,
-    MACHINES,
     MARKET_PRICES,
     MARKETS,
     MARKETS_T_ALLOCATION,
@@ -268,7 +268,7 @@ def _temporal_dict(
     When ``base_years`` is given, a row carrying a value but NO ``year`` (and no
     named-component id) is a **base** that applies to every one of those years; a
     year-specific row for the same key overrides the base for that year. This lets
-    a single annual cap (e.g. a per-machine max output) hold across the whole run
+    a single annual cap (e.g. a per-asset max output) hold across the whole run
     without authoring one row per period.
     """
     wide = _wide_temporal(wb, temporal_sheet)
@@ -306,12 +306,12 @@ def _actions(value: Any) -> frozenset[TransitionAction]:
 def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
     """Synthesize flat ``processes`` + ``edges`` from a node hierarchy.
 
-    Each machine becomes one ``Process`` — so a facility is the *sum of its
-    machines* and can run **multiple technologies in parallel** — and
-    machine↔machine connections become edges. ``company`` is set to the machine's
+    Each asset becomes one ``Process`` — so a facility is the *sum of its
+    assets* and can run **multiple technologies in parallel** — and
+    asset↔asset connections become edges. ``company`` is set to the asset's
     top-level subdivision (the child of the root, e.g. the company/sector) and
     ``group`` to its parent (the facility), so the existing facility/company/
-    machine scope still resolves for the canonical depth; arbitrary mid-levels are
+    asset scope still resolves for the canonical depth; arbitrary mid-levels are
     handled by the hierarchy-aware scope added later.
     """
     roots = set(h.roots())
@@ -323,7 +323,7 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
         return h.nodes[mid].parent_id or mid
 
     procs: list[dict[str, Any]] = []
-    for mid, m in h.machines.items():
+    for mid, m in h.assets.items():
         node = h.nodes.get(mid)
         if node is None:
             continue
@@ -331,7 +331,7 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
             "process_id": mid,
             "company": company_of(mid),
             "group": node.parent_id or company_of(mid),
-            # Every designed level the machine sits under, so a market / demand /
+            # Every designed level the asset sits under, so a market / demand /
             # cap scoped to ANY ancestor (sector, company, facility…) resolves.
             "scopes": [mid, *h.ancestors(mid), "all"],
             "baseline_technology": m.baseline_technology,
@@ -346,9 +346,9 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
             row["max_renewals"] = m.max_renewals
         procs.append(row)
 
-    # Connections (machine↔machine or group↔group) become machine edges: the
+    # Connections (asset↔asset or group↔group) become asset edges: the
     # producers of the commodity in the source subtree → its consumers in the
-    # destination subtree (resolved via each machine's technology I/O).
+    # destination subtree (resolved via each asset's technology I/O).
     io_out: dict[str, set[str]] = {}
     io_in: dict[str, set[str]] = {}
     for r in workbook.get(IO, []):
@@ -360,27 +360,25 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
             io_out.setdefault(tech, set()).add(tgt)
         elif role == "input" and coef > 0.0:
             io_in.setdefault(tech, set()).add(tgt)
-    machine_tech = {mid: m.baseline_technology for mid, m in h.machines.items()}
+    asset_tech = {mid: m.baseline_technology for mid, m in h.assets.items()}
 
     def producers(node: str, commodity: str) -> list[str]:
         return [
             m
             for m in h.leaf_machines(node)
-            if commodity in io_out.get(machine_tech.get(m, ""), set())
+            if commodity in io_out.get(asset_tech.get(m, ""), set())
         ]
 
     def consumers(node: str, commodity: str) -> list[str]:
         return [
-            m
-            for m in h.leaf_machines(node)
-            if commodity in io_in.get(machine_tech.get(m, ""), set())
+            m for m in h.leaf_machines(node) if commodity in io_in.get(asset_tech.get(m, ""), set())
         ]
 
     edges = list(workbook.get(EDGES, []))
     edges_t = list(workbook.get(EDGES_T, []))
     edge_impacts = list(workbook.get(EDGE_IMPACTS, []))
-    # Seed with any pre-authored machine→machine edge (e.g. a per-provider bound set
-    # in the machine popup): the fan-out then skips that triple, so the authored row
+    # Seed with any pre-authored asset→asset edge (e.g. a per-provider bound set
+    # in the asset popup): the fan-out then skips that triple, so the authored row
     # — carrying its bounds — IS the edge, rather than a duplicate parallel channel.
     seen_edges: set[tuple[str, str, str]] = {
         (f, t, ci)
@@ -547,7 +545,7 @@ def _assemble_fleet(
             fleet_available[(fid, y)] = fl.available_at(y)
 
     coords: dict[str, Point] = {}
-    for sheet, idcol in ((NODES, "node_id"), (MACHINES, "machine_id"), (PROCESSES, "process_id")):
+    for sheet, idcol in ((NODES, "node_id"), (ASSETS, "asset_id"), (PROCESSES, "process_id")):
         for r in _rows(workbook, sheet):
             nid = _str(r.get(idcol))
             lon, lat = _num(r.get("lon")), _num(r.get("lat"))
@@ -1573,7 +1571,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         "min_id",
         ["company", "commodity_id"],
         "amount",
-        base_years=years,  # a year-less floor (per-machine min output) holds every year
+        base_years=years,  # a year-less floor (per-asset min output) holds every year
     )
     max_production = _temporal_dict(
         workbook,
@@ -1582,7 +1580,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         "max_id",
         ["company", "commodity_id"],
         "amount",
-        base_years=years,  # a year-less cap (per-machine / per-stream) holds every year
+        base_years=years,  # a year-less cap (per-asset / per-stream) holds every year
     )
     min_consumption = _temporal_dict(
         workbook,
@@ -1591,7 +1589,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         "min_cons_id",
         ["company", "commodity_id"],
         "amount",
-        base_years=years,  # a year-less required offtake (per-machine intake floor) holds every year
+        base_years=years,  # a year-less required offtake (per-asset intake floor) holds every year
     )
     max_consumption = _temporal_dict(
         workbook,
@@ -1600,7 +1598,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         "max_cons_id",
         ["company", "commodity_id"],
         "amount",
-        base_years=years,  # a year-less max purchase (per-machine intake cap) holds every year
+        base_years=years,  # a year-less max purchase (per-asset intake cap) holds every year
     )
     demand = _temporal_dict(
         workbook,

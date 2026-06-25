@@ -1,4 +1,4 @@
-"""A year-less max_production cap (per-machine / per-stream) applies to every run
+"""A year-less max_production cap (per-asset / per-stream) applies to every run
 year, and a year-specific row overrides the base for its own year."""
 
 from __future__ import annotations
@@ -15,9 +15,9 @@ def _wb(max_rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
     return {
         "nodes": [
             {"node_id": "co", "parent_id": None, "kind": "group", "level": "company"},
-            {"node_id": "co/bf", "parent_id": "co", "kind": "machine"},
+            {"node_id": "co/bf", "parent_id": "co", "kind": "asset"},
         ],
-        "machines": [{"machine_id": "co/bf", "baseline_technology": "BF", "capacity": 100}],
+        "assets": [{"asset_id": "co/bf", "baseline_technology": "BF", "capacity": 100}],
         "technologies": [{"technology_id": "BF", "io": []}],
         "io": [
             {

@@ -70,7 +70,7 @@ class TechnologyTemplate(BaseModel):
 
     ``maccs`` lists the ids of the MACC bundles that apply to this technology
     (Component-library authoring); placing the technology stamps their levers
-    onto the machine.
+    onto the asset.
     """
 
     technology_id: str

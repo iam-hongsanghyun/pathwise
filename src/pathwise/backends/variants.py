@@ -21,7 +21,7 @@ def read_model_variants(model: Workbook) -> list[dict[str, Any]]:
     """Compile the ``variants`` + ``variant_interventions`` sheets into variant
     dicts ``{variant_id, label, overrides, forced}``.
 
-    A ``tech`` intervention becomes a forced timed switch ``forced[machine] =
+    A ``tech`` intervention becomes a forced timed switch ``forced[asset] =
     (to_tech, year)`` (default year = the first modelled year — a whole-horizon
     swap — when ``forced_year`` is blank); a ``stream`` intervention a ``set_price``
     override; a ``lever`` intervention a ``toggle_lever`` override. Returns
@@ -118,7 +118,7 @@ def compile_variant(
     *as-is* (stripped) view.
 
     Returns:
-        The edited workbook and the forced-switch map ``{machine: (to_tech, year)}``.
+        The edited workbook and the forced-switch map ``{asset: (to_tech, year)}``.
     """
     edited = apply_overrides(base, variant.get("overrides") or [], source=source)
     forced: dict[str, tuple[str, int]] = dict(variant.get("forced") or {})

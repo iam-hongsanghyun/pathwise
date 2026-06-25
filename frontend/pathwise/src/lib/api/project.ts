@@ -9,7 +9,7 @@ import { getFullModel } from "./session";
 /** Discriminator the backend stamps on an export (import rejects other JSON). */
 export const PROJECT_BUNDLE_FORMAT = "pathwise.project";
 
-/** A self-contained project — re-opens and re-edits on any machine. */
+/** A self-contained project — re-opens and re-edits on any asset. */
 export interface ProjectBundle {
   format: string;
   version: number;

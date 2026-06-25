@@ -57,9 +57,9 @@ def _base_lib() -> ComponentLibrary:
 
 def test_referenced_ids_from_machines_and_transitions() -> None:
     model = {
-        "machines": [
-            {"machine_id": "m1", "baseline_technology": "BF"},
-            {"machine_id": "m2", "baseline_technology": ""},  # blank baseline dropped
+        "assets": [
+            {"asset_id": "m1", "baseline_technology": "BF"},
+            {"asset_id": "m2", "baseline_technology": ""},  # blank baseline dropped
         ],
         "transitions": [{"from_technology": "BF", "to_technology": "EAF"}],
     }

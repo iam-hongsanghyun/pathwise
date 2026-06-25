@@ -120,7 +120,7 @@ def test_examples_are_sqlite_node_hierarchies() -> None:
         sid = _new_session()
         res = client.post(f"/api/session/{sid}/example/{e['id']}").json()
         assert res["sheets"].get("nodes", 0) >= 1, f"{e['id']} should be a node hierarchy"
-        assert res["sheets"].get("machines", 0) >= 1
+        assert res["sheets"].get("assets", 0) >= 1
 
 
 def test_load_sqlite_value_chain_example() -> None:

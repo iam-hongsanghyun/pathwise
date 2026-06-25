@@ -16,7 +16,7 @@ def test_sqlite_round_trips_sheets_and_sparse_rows() -> None:
     wb = {
         "nodes": [
             {"node_id": "a", "parent_id": None, "kind": "group", "level": "vc"},
-            {"node_id": "a/m", "parent_id": "a", "kind": "machine"},
+            {"node_id": "a/m", "parent_id": "a", "kind": "asset"},
         ],
         "io": [
             {

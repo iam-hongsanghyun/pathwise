@@ -1,6 +1,6 @@
 """Back-compat name normalization for the generic-rename migration.
 
-pathwise's domain vocabulary is being renamed to generic terms (machine→asset,
+pathwise's domain vocabulary is being renamed to generic terms (asset→asset,
 commodity→flow, connection→link, measure→lever, value chain→network). Models on
 disk — the bundled example ``.sqlite`` files and any user model saved before the
 rename — still carry the OLD sheet / column / enum names. Rather than migrate those
@@ -23,17 +23,21 @@ SHEET_RENAMES: dict[str, str] = {
     "measure_blocks": "lever_blocks",
     "measure_blocks_t": "lever_blocks_t",
     "measure_links": "lever_links",
+    "machines": "assets",
 }
 
 #: OLD column name -> NEW column name, applied to every row of every sheet (the
 #: ids are globally unique enough that a blanket rename is safe).
 COLUMN_RENAMES: dict[str, str] = {
     "measure_id": "lever_id",
+    "machine_id": "asset_id",
 }
 
 #: (sheet, column) -> {OLD cell value -> NEW cell value} for enum-like columns
-#: (e.g. ``nodes.kind`` "machine" -> "asset" once that term lands).
-VALUE_RENAMES: dict[tuple[str, str], dict[str, str]] = {}
+#: (e.g. ``nodes.kind`` "machine" -> "asset": a placed asset's node kind).
+VALUE_RENAMES: dict[tuple[str, str], dict[str, str]] = {
+    ("nodes", "kind"): {"machine": "asset"},
+}
 
 
 def normalize_workbook(wb: Any) -> Any:

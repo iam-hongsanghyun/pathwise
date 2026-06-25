@@ -6,12 +6,12 @@
 //   CENTER: the relationship canvas for the selected group — how its children's
 //           streams flow (drill by selecting a deeper group).
 //   RIGHT : details of the selected item — a group's purchasing + targets, or a
-//           machine's required-stream satisfaction.
+//           asset's required-stream satisfaction.
 
 import { useEffect, useMemo, useState } from "react";
 import { HierarchyMap } from "../features/topology/HierarchyMap";
 import { sourceStreams } from "../lib/hierarchyLayout";
-import { Alternatives, FlowContext, MachineInspector, PortsPanel, SourceStreamInspector } from "../features/valuechain/panels";
+import { Alternatives, FlowContext, AssetInspector, PortsPanel, SourceStreamInspector } from "../features/valuechain/panels";
 import { VariantsPanel } from "../features/valuechain/VariantsPanel";
 import { ModelHealth } from "../features/valuechain/ModelHealth";
 import { indexIssues, rollUpBadges, validateModel, type FixDescriptor, type Issue } from "../lib/validate";
@@ -50,8 +50,8 @@ const s = (v: unknown): string => (v == null ? "" : String(v));
 let _ctr = 0;
 const genId = (p: string): string => `${p}_${Date.now().toString(36)}${(_ctr++).toString(36)}`;
 // Alternative technologies are shown as synthetic, muted child rows under a
-// machine (they are not real nodes — they live in the `transitions` sheet). The
-// row id encodes which machine + which target technology so the context menu can
+// asset (they are not real nodes — they live in the `transitions` sheet). The
+// row id encodes which asset + which target technology so the context menu can
 // act on it without a separate lookup.
 const ALT_PREFIX = "alt:";
 const altRowId = (machineId: string, technology: string): string => `${ALT_PREFIX}${machineId}::${technology}`;
@@ -124,7 +124,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     const doomed = descendantsOf(id);
     const deadLevers = new Set((workbook.levers ?? []).filter((r) => doomed.has(s(r.facility))).map((r) => s(r.lever_id)));
     let wb = setSheet(workbook, "nodes", (workbook.nodes ?? []).filter((r) => !doomed.has(s(r.node_id))));
-    wb = setSheet(wb, "machines", (wb.machines ?? []).filter((r) => !doomed.has(s(r.machine_id))));
+    wb = setSheet(wb, "assets", (wb.assets ?? []).filter((r) => !doomed.has(s(r.asset_id))));
     wb = setSheet(wb, "connections", (wb.connections ?? []).filter((r) => !doomed.has(s(r.from_node)) && !doomed.has(s(r.to_node))));
     wb = setSheet(wb, "levers", (wb.levers ?? []).filter((r) => !doomed.has(s(r.facility))));
     wb = setSheet(wb, "lever_blocks", (wb.lever_blocks ?? []).filter((r) => !deadLevers.has(s(r.lever_id))));
@@ -164,7 +164,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     setWorkbook(setSheet(workbook, "nodes", (workbook.nodes ?? []).map((r) => (s(r.node_id) === e.dragId ? { ...r, parent_id: newParent } : r))));
   }
 
-  async function dropPick(library: string, name: string, kind: "technology" | "machine" | "group", parentId: string, scope: LibScope) {
+  async function dropPick(library: string, name: string, kind: "technology" | "asset" | "group", parentId: string, scope: LibScope) {
     if (!sessionId) return;
     setError(null);
     try {
@@ -184,13 +184,13 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     }
   }
 
-  // ── Alternatives (technologies the optimiser may switch a machine to) ─────────
+  // ── Alternatives (technologies the optimiser may switch a asset to) ─────────
   async function addAlt(machineId: string, technology: string, library: string, scope: "base" | "session") {
     if (!sessionId) return;
     setError(null);
     try {
       await putModel(sessionId, workbook); // the endpoint operates on the stored model
-      await addAlternative(sessionId, { library, technology, machine_id: machineId, scope });
+      await addAlternative(sessionId, { library, technology, asset_id: machineId, scope });
       adoptServerModel(await getFullModel(sessionId));
     } catch (e) {
       setError(String(e));
@@ -201,8 +201,8 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
       (workbook.transitions ?? []).filter((r) => !(s(r.from_technology) === baseline && s(r.to_technology) === technology))));
   }
 
-  // ── Connections (pure wiring — flow limits are machine→machine, set in the
-  //    machine popup per provider machine; a group connection just routes flow). ──
+  // ── Connections (pure wiring — flow limits are asset→asset, set in the
+  //    asset popup per provider asset; a group connection just routes flow). ──
   function addConnection(from: string, to: string, commodity: string, lag: number) {
     if (!from || !to || from === to || !commodity) return;
     setWorkbook(setSheet(workbook, "connections", [...(workbook.connections ?? []), { from_node: from, to_node: to, commodity_id: commodity, lag_years: lag }]));
@@ -298,7 +298,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
       { id: "rename", label: "Rename", separatorBefore: true },
       { id: "delete", label: "Delete", danger: true },
     ];
-    if (node.kind === "machine") return [{ id: "add-alternative", label: "Add alternative…" }, ...common];
+    if (node.kind === "asset") return [{ id: "add-alternative", label: "Add alternative…" }, ...common];
     return [
       { id: "add-subgroup", label: "Add subgroup" },
       { id: "add-component", label: "Add component…" },
@@ -310,7 +310,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     const alt = parseAltId(node.id);
     if (alt) {
       if (actionId === "remove-alternative") {
-        const baseline = s((workbook.machines ?? []).find((m) => s(m.machine_id) === alt.machineId)?.baseline_technology);
+        const baseline = s((workbook.assets ?? []).find((m) => s(m.asset_id) === alt.machineId)?.baseline_technology);
         removeAlt(baseline, alt.technology);
       }
       setSelId(alt.machineId);
@@ -330,7 +330,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
 
   const treeNodes = useMemo<TreeNode[]>(() => {
     const baselineOf = new Map<string, string>();
-    for (const m of workbook.machines ?? []) baselineOf.set(s(m.machine_id), s(m.baseline_technology));
+    for (const m of workbook.assets ?? []) baselineOf.set(s(m.asset_id), s(m.baseline_technology));
     const altsOf = (machineId: string): string[] => {
       const base = baselineOf.get(machineId);
       if (!base) return [];
@@ -338,7 +338,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     };
     const out: TreeNode[] = [];
     for (const n of nodes) {
-      const alts = n.kind === "machine" ? altsOf(n.id) : [];
+      const alts = n.kind === "asset" ? altsOf(n.id) : [];
       out.push({
         id: n.id, parentId: n.parentId, kind: n.kind, label: n.label,
         level: n.level || undefined, order: n.order,
@@ -346,7 +346,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
         droppable: n.kind === "group",
         badge: badges.get(n.id),
       });
-      // Alternatives the optimiser may switch this machine to — greyed-out leaves.
+      // Alternatives the optimiser may switch this asset to — greyed-out leaves.
       alts.forEach((tech, i) =>
         out.push({ id: altRowId(n.id, tech), parentId: n.id, kind: "leaf", label: tech, level: "alternative", order: i, hasChildren: false, muted: true, draggable: false, droppable: false }),
       );
@@ -354,8 +354,8 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     return out;
   }, [nodes, workbook, badges]);
 
-  // Selecting an alternative leaf selects its owning machine (alternatives are
-  // not real nodes), so the right-hand inspector shows the machine + its options.
+  // Selecting an alternative leaf selects its owning asset (alternatives are
+  // not real nodes), so the right-hand inspector shows the asset + its options.
   function selectNode(id: string) {
     const alt = parseAltId(id);
     setSelId(alt ? alt.machineId : id);
@@ -467,13 +467,13 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
             </FloatingPanel>
           );
         })()
-      ) : selNode?.kind === "machine" ? (
+      ) : selNode?.kind === "asset" ? (
         (() => {
-          const baseline = s((workbook.machines ?? []).find((m) => s(m.machine_id) === selId)?.baseline_technology);
+          const baseline = s((workbook.assets ?? []).find((m) => s(m.asset_id) === selId)?.baseline_technology);
           const alts = (workbook.transitions ?? []).filter((r) => s(r.from_technology) === baseline).map((r) => s(r.to_technology));
           return (
-            <FloatingPanel title="machine" width={420} onClose={() => setSelId(null)}>
-              <MachineInspector
+            <FloatingPanel title="asset" width={420} onClose={() => setSelId(null)}>
+              <AssetInspector
                 wb={workbook}
                 machineId={selId!}
                 baseYear={baseYear}
@@ -536,7 +536,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
 
       {picker && <ComponentPicker sessionId={sessionId} libs={libs} onPick={(lib, name, kind, scope) => { void dropPick(lib, name, kind, picker.parentId, scope); setPicker(null); }} onClose={() => setPicker(null)} />}
       {altPicker && (() => {
-        const baseline = s((workbook.machines ?? []).find((m) => s(m.machine_id) === altPicker.machineId)?.baseline_technology);
+        const baseline = s((workbook.assets ?? []).find((m) => s(m.asset_id) === altPicker.machineId)?.baseline_technology);
         const existing = new Set((workbook.transitions ?? []).filter((r) => s(r.from_technology) === baseline).map((r) => s(r.to_technology)));
         return (
           <AltPicker
@@ -564,11 +564,11 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
 }
 
 // ── Library → component/technology picker ─────────────────────────────────────
-// Place a Component — a single machine or a composite group (e.g. CCGT = GT+ST) —
-// or a raw technology (as a single machine).
-interface PickItem { library: string; libLabel: string; scope: LibScope; name: string; label: string; kind: "technology" | "machine" | "group" }
+// Place a Component — a single asset or a composite group (e.g. CCGT = GT+ST) —
+// or a raw technology (as a single asset).
+interface PickItem { library: string; libLabel: string; scope: LibScope; name: string; label: string; kind: "technology" | "asset" | "group" }
 
-function ComponentPicker({ sessionId, libs, onPick, onClose }: { sessionId: string | null; libs: LibrarySummary[]; onPick: (library: string, name: string, kind: "technology" | "machine" | "group", scope: LibScope) => void; onClose: () => void }) {
+function ComponentPicker({ sessionId, libs, onPick, onClose }: { sessionId: string | null; libs: LibrarySummary[]; onPick: (library: string, name: string, kind: "technology" | "asset" | "group", scope: LibScope) => void; onClose: () => void }) {
   const [q, setQ] = useState("");
   // Flatten EVERY library's components into one searchable list (cross-library),
   // base + this project's own, so you don't have to know which library a
@@ -586,7 +586,7 @@ function ComponentPicker({ sessionId, libs, onPick, onClose }: { sessionId: stri
           if (!r) continue;
           const { l, b } = r;
           for (const g of b.groups) out.push({ library: l.id, libLabel: l.label, scope: l.scope, name: g.name, label: g.label || g.name, kind: "group" });
-          for (const m of b.machines) out.push({ library: l.id, libLabel: l.label, scope: l.scope, name: m.name, label: m.label || m.name, kind: "machine" });
+          for (const m of b.assets) out.push({ library: l.id, libLabel: l.label, scope: l.scope, name: m.name, label: m.label || m.name, kind: "asset" });
           for (const t of b.technologies) out.push({ library: l.id, libLabel: l.label, scope: l.scope, name: t.technology_id, label: t.technology_id, kind: "technology" });
         }
         setItems(out);
@@ -595,7 +595,7 @@ function ComponentPicker({ sessionId, libs, onPick, onClose }: { sessionId: stri
   }, [libs, sessionId]);
   const ql = q.toLowerCase();
   const filtered = (items ?? []).filter((it) => !ql || it.label.toLowerCase().includes(ql) || it.libLabel.toLowerCase().includes(ql));
-  const glyph = (k: PickItem["kind"]) => (k === "group" ? "▦" : k === "machine" ? "▪" : "▫");
+  const glyph = (k: PickItem["kind"]) => (k === "group" ? "▦" : k === "asset" ? "▪" : "▫");
   return (
     <Modal onClose={onClose} title="Add a component">
       {libs.length === 0 && <p className="muted">No component libraries — build one in the Component tab.</p>}
@@ -611,9 +611,9 @@ function ComponentPicker({ sessionId, libs, onPick, onClose }: { sessionId: stri
   );
 }
 
-// ── Alternative picker (right-click a machine → attach an alternative tech) ─────
+// ── Alternative picker (right-click a asset → attach an alternative tech) ─────
 // The pool is every technology across the base + session libraries, minus the
-// machine's current technology and ones already attached.
+// asset's current technology and ones already attached.
 function AltPicker({ machineLabel, baseline, available, exclude, onPick, onClose }: {
   machineLabel: string;
   baseline: string;

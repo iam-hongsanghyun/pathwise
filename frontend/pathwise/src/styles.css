@@ -155,24 +155,24 @@
   border-top: 1px solid var(--border);
   padding-top: 6px;
 }
-.measure-blocks {
+.lever-blocks {
   border-top: 1px solid var(--border);
   padding-top: 6px;
 }
-.measure-block-head,
-.measure-block-row {
+.lever-block-head,
+.lever-block-row {
   display: grid;
   grid-template-columns: 54px 1fr 1fr 1fr 28px;
   align-items: center;
   gap: 4px;
   margin: 3px 0;
 }
-.measure-block-head {
+.lever-block-head {
   color: var(--muted);
   font-family: var(--font-mono);
   font-size: 0.66rem;
 }
-.measure-block-row input {
+.lever-block-row input {
   min-width: 0;
 }
 .ef-row {
@@ -1158,10 +1158,10 @@
 }
 /* ── Machine instance editor (Facility tab): main + recipe rail ─────────── */
 /* A resizable, independently-scrolling layout: main column (technology top /
-   machine bottom) beside a recipe rail (input streams top / products bottom).
+   asset bottom) beside a recipe rail (input streams top / products bottom).
    The width (main↔rail) and each column's top↔bottom split are drag-adjustable;
    every zone scrolls on its own. Fills the panel height so the splits can size. */
-.machine-detail {
+.asset-detail {
   max-width: 1100px;
   flex: 1;
   min-height: 0;
@@ -1171,7 +1171,7 @@
 /* One flowing panel: every attribute is a name-on-top / value-below cell, laid
    out in an auto-filling grid so they wrap horizontally; the only separators are
    the grid lines (cell borders) and the inline section bands. No boxed sections. */
-.machine-fields {
+.asset-fields {
   flex: 1;
   min-height: 0;
   margin-top: 12px;
@@ -2142,7 +2142,7 @@ th.col-optional {
 /* ── Builder views (Component + Value Chain) ─────────────────────────────────
    The reframed builder surface. Chips are the subgroup toggles at the top of
    the Value-Chain builder; .grid is the compact editor table used for io
-   streams, measure blocks, and demand. */
+   streams, lever blocks, and demand. */
 .builder .rail-add {
   border: none;
   background: transparent;

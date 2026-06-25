@@ -134,7 +134,7 @@ def _technology(ctx: BuildContext) -> None:
     # Phase-out binds every technology (including the installed baseline) —
     # after it the facility must transition or switch off.
     def _feas(p: str, k: str, t: int) -> float:
-        # Forced switch (simulate only): the machine may run ONLY its baseline
+        # Forced switch (simulate only): the asset may run ONLY its baseline
         # before the forced year and ONLY the target technology from it. With the
         # one-active-technology constraint this alone pins the timed schedule, and
         # it overrides the normal availability gating (the switch is a user decree,
@@ -211,7 +211,7 @@ def _technology(ctx: BuildContext) -> None:
             name="mincf",
         )
 
-    # Utilisation ceiling (per-machine max capacity factor): x ≤ max_cf · cap · u.
+    # Utilisation ceiling (per-asset max capacity factor): x ≤ max_cf · cap · u.
     # Per process (broadcasts over tech); only where max_cf < 1 (1.0 ⇒ the plain
     # `cap` constraint already binds, so skip to avoid a redundant row).
     max_cf_arr = np.array([[avail[p].max_cf_at(t) for t in ctx.years] for p in ctx.procs])
@@ -229,7 +229,7 @@ def _technology(ctx: BuildContext) -> None:
         )
 
     # ── Active window: on[p,t] == 0 outside [build_year, close_year) ─────────
-    # A machine exists only within its build/close window: off before its build
+    # A asset exists only within its build/close window: off before its build
     # year (introduced_year) and off from its close year (decommission_year,
     # EXCLUSIVE — close 2038 ⇒ runs through 2037). This window overrides the
     # technical lifespan. Either bound is optional (None ⇒ unbounded that side).
@@ -350,7 +350,7 @@ def _lifecycle(ctx: BuildContext) -> None:
     if ctx.ren is None:
         return
     m, prob = ctx.model, ctx.problem
-    # Forced (simulate) machines are exempt from end-of-life vintage gating — the
+    # Forced (simulate) assets are exempt from end-of-life vintage gating — the
     # forced switch is a decree, and its stranded-asset cost is booked separately.
     tracked = [
         p
@@ -416,8 +416,8 @@ def _lifecycle(ctx: BuildContext) -> None:
     if bool(renfeas_mask.any()):
         m.add_constraints(ctx.ren == 0, mask=renfeas_mask, name="renfeas")
 
-    # ── Per-machine renewal-count cap ─────────────────────────────────────────
-    # A machine that declares ``max_renewals`` may rebuild (renew) at most that
+    # ── Per-asset renewal-count cap ─────────────────────────────────────────
+    # A asset that declares ``max_renewals`` may rebuild (renew) at most that
     # many times over the whole horizon, summed across every technology it runs:
     #     Σ_{k, t} ren[p, k, t] <= max_renewals[p]
     # ``0`` forbids renewal (it must replace at end of life); ``None`` (the
@@ -503,7 +503,7 @@ def _lifecycle(ctx: BuildContext) -> None:
     # and only lower-bounded by the switch event, so allowing it into the covering
     # sum would let an expired baseline vintage rebuild itself FOR FREE in any year
     # past t0 (w == 1 costs nothing and satisfies the window), bypassing both the
-    # renewal cost and the per-machine renewal cap. Zeroing w's coefficient on the
+    # renewal cost and the per-asset renewal cap. Zeroing w's coefficient on the
     # baseline (p, k) forces those rebuilds through the priced, capped `ren`.
     # w_coeff[p,k] = 0 iff k == baseline[p], else 1.
     w_coeff_arr = np.ones((len(ctx.procs), len(ctx.techs)), dtype=float)
@@ -1593,7 +1593,7 @@ def _controls(ctx: BuildContext) -> None:
         if delivered is not None:
             m.add_constraints(delivered <= amount, name=f"maxprod[{c},{q},{y}]")
 
-    # Per-machine intake bounds (the consumer side): the machine's gross consumption
+    # Per-asset intake bounds (the consumer side): the asset's gross consumption
     # of a commodity, summed over its providers. min = required offtake (take-or-pay
     # floor), max = maximum purchase (intake ceiling).
     for (c, q, y), amount in prob.min_consumption.items():
@@ -1679,7 +1679,7 @@ def _fleet(ctx: BuildContext) -> None:
     ``available_{f, t}`` is the fleet's in-service count that year (zero outside
     its build/close lifecycle window). So a fleet's carriers reallocate across its
     routes year by year — the "which carriers on which lane" decision. Inert unless
-    a ``fleet_routes`` sheet is present (the machine's own ``capacity`` should be
+    a ``fleet_routes`` sheet is present (the asset's own ``capacity`` should be
     set high enough that the fleet is the binding limit).
     """
     prob = ctx.problem

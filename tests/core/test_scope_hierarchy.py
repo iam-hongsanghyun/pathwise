@@ -1,7 +1,7 @@
-"""Hierarchy-aware scope: a machine is in-scope for every ancestor level.
+"""Hierarchy-aware scope: a asset is in-scope for every ancestor level.
 
 This is what lets a market / demand / cap scoped to ANY designed level (sector,
-company, facility…) resolve to the right machines — e.g. "this company purchases
+company, facility…) resolve to the right assets — e.g. "this company purchases
 coal" pools exactly that company's furnaces.
 """
 
@@ -31,11 +31,11 @@ def _model() -> dict[str, list[dict[str, Any]]]:
             {
                 "node_id": "chain/steelco/mill/bf",
                 "parent_id": "chain/steelco/mill",
-                "kind": "machine",
+                "kind": "asset",
             },
         ],
-        "machines": [
-            {"machine_id": "chain/steelco/mill/bf", "baseline_technology": "BF", "capacity": 100}
+        "assets": [
+            {"asset_id": "chain/steelco/mill/bf", "baseline_technology": "BF", "capacity": 100}
         ],
         "technologies": [{"technology_id": "BF", "io": []}],
         "io": [

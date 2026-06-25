@@ -1,4 +1,4 @@
-// Side panels for the Value-Chain tab: machine inspector (required streams +
+// Side panels for the Value-Chain tab: asset inspector (required streams +
 // how each is satisfied), ports/purchasing, demand targets, and the per-level
 // cascade result summary. Presentational; the host mutates the workbook.
 
@@ -49,12 +49,12 @@ function chain(wb: Workbook, nodeId: string): string[] {
   return out;
 }
 
-// ── Machine inspector ─────────────────────────────────────────────────────────
+// ── Asset inspector ─────────────────────────────────────────────────────────
 // A single technology shows its full recipe — every input / output stream with
 // its per-unit coefficient AND who provides / consumes it (the connected group,
 // a purchase, or final demand) — plus impacts and the years it is available. This
 // is the detailed view; groups get the lighter Flow context instead.
-export function MachineInspector({
+export function AssetInspector({
   wb,
   machineId,
   onWorkbookChange,
@@ -70,11 +70,11 @@ export function MachineInspector({
   /** The model's run periods (years) — the temporal fill materialises onto these. */
   periods?: number[];
 }) {
-  const machine = (wb.machines ?? []).find((m) => s(m.machine_id) === machineId);
-  const tech = s(machine?.baseline_technology);
-  // `tech` is the (per-machine) instance id used for lookups; show the friendlier
+  const asset = (wb.assets ?? []).find((m) => s(m.asset_id) === machineId);
+  const tech = s(asset?.baseline_technology);
+  // `tech` is the (per-asset) instance id used for lookups; show the friendlier
   // source-component name to the user.
-  const techLabel = s(machine?.source_technology) || tech;
+  const techLabel = s(asset?.source_technology) || tech;
   const techRow = (wb.technologies ?? []).find((t) => s(t.technology_id) === tech);
   const io = (wb.io ?? []).filter((r) => s(r.technology_id) === tech);
   const inputs = io.filter((r) => s(r.role) === "input");
@@ -127,10 +127,10 @@ export function MachineInspector({
       .map((x) => lab(s(x[far])));
     return [...new Set(g)];
   };
-  // The actual provider MACHINES feeding input commodity `c` to THIS machine —
-  // resolved through connections (at any level) down to the producing machines, so
-  // a per-provider limit is genuinely machine→machine. Groups are visual only.
-  const providerMachines = (c: string): { id: string; label: string; via: string }[] => {
+  // The actual provider ASSETS feeding input commodity `c` to THIS asset —
+  // resolved through connections (at any level) down to the producing assets, so
+  // a per-provider limit is genuinely asset→asset. Groups are visual only.
+  const providerAssets = (c: string): { id: string; label: string; via: string }[] => {
     const techMakes = (techId: string): boolean =>
       (wb.io ?? []).some(
         (r) => s(r.technology_id) === techId && s(r.role) === "output" && s(r.target) === c,
@@ -141,9 +141,9 @@ export function MachineInspector({
       if (s(x.commodity_id) !== c) continue;
       const from = s(x.from_node);
       const to = s(x.to_node);
-      if (!scope.has(to) || scope.has(from)) continue; // `to` feeds this machine; `from` is outside
-      for (const m of wb.machines ?? []) {
-        const mid = s(m.machine_id);
+      if (!scope.has(to) || scope.has(from)) continue; // `to` feeds this asset; `from` is outside
+      for (const m of wb.assets ?? []) {
+        const mid = s(m.asset_id);
         if (seen.has(mid)) continue;
         const anc = chain(wb, mid); // [self, parent, …]
         if (anc.includes(from) && techMakes(s(m.baseline_technology))) {
@@ -170,7 +170,7 @@ export function MachineInspector({
     return isProduct ? "final product (demand)" : "—";
   };
 
-  if (!machine) return <p className="muted" style={{ padding: 16 }}>Machine not found.</p>;
+  if (!asset) return <p className="muted" style={{ padding: 16 }}>Asset not found.</p>;
 
   // Units come from the streams (commodities sheet); throughput is measured in the
   // product output's unit. Each coefficient is "per unit of throughput".
@@ -223,7 +223,7 @@ export function MachineInspector({
   );
 
   // One stream (an io commodity): a grid of [name | min | max]. OUTPUT bounds the
-  // machine's production; INPUT bounds the pooled intake (min = required offtake,
+  // asset's production; INPUT bounds the pooled intake (min = required offtake,
   // max = max purchase) AND lists each provider connection so the buyer can cap
   // purchase per producer.
   const streamFlow = (r: Record<string, Cell>, role: "IN" | "OUT") => {
@@ -237,7 +237,7 @@ export function MachineInspector({
       onWorkbookChange?.(isOut ? setMinOutputCap(wb, machineId, c, v) : setMinConsumptionCap(wb, machineId, c, v));
     const setMax = (v: TemporalVal | null) =>
       onWorkbookChange?.(isOut ? setMaxOutputCap(wb, machineId, c, v) : setMaxConsumptionCap(wb, machineId, c, v));
-    const provs = !isOut && onWorkbookChange ? providerMachines(c) : [];
+    const provs = !isOut && onWorkbookChange ? providerAssets(c) : [];
     return (
       <div className="mi-flow" key={`${role}:${c}`}>
         <div className="mi-flow-grid">
@@ -287,8 +287,8 @@ export function MachineInspector({
 
   return (
     <div className="mi" style={{ padding: "16px 20px", overflow: "auto" }}>
-      <div className="eyebrow">machine</div>
-      <h2 className="mi-title">{s(machine.label) || machineId.split("/").pop()}</h2>
+      <div className="eyebrow">asset</div>
+      <h2 className="mi-title">{s(asset.label) || machineId.split("/").pop()}</h2>
       <div className="mi-chips">
         {tech && <span className="mi-chip">runs {techLabel}</span>}
         <span className="mi-avail">{avail}</span>
@@ -301,19 +301,19 @@ export function MachineInspector({
         {io.length === 0 && <div className="muted" style={{ padding: "8px 0", fontSize: "0.8rem" }}>no recipe</div>}
       </div>
 
-      {/* Machine-level facts are FIXED properties of the machine, shown read-only
+      {/* Asset-level facts are FIXED properties of the asset, shown read-only
           here (dense). They are edited in the Facility view; the value-chain map is
           the market — connections, prices and per-stream limits (above). */}
-      <div className="mi-section-head"><span>machine</span><span className="muted">fixed — edit in Facility</span></div>
+      <div className="mi-section-head"><span>asset</span><span className="muted">fixed — edit in Facility</span></div>
       <div className="mi-note" style={{ display: "flex", flexWrap: "wrap", gap: "2px 14px", marginTop: 4 }}>
-        <span>capacity <b>{fmt(Number(machine.capacity) || 0)}</b> {thru}/yr</span>
-        <span>max&nbsp;cf <b>{fmt(machine.max_capacity_factor ?? 1)}</b></span>
-        <span>renewals <b>{machine.max_renewals == null ? "∞" : Number(machine.max_renewals)}</b></span>
-        {machine.introduced_year != null && <span>built <b>{Number(machine.introduced_year)}</b></span>}
+        <span>capacity <b>{fmt(Number(asset.capacity) || 0)}</b> {thru}/yr</span>
+        <span>max&nbsp;cf <b>{fmt(asset.max_capacity_factor ?? 1)}</b></span>
+        <span>renewals <b>{asset.max_renewals == null ? "∞" : Number(asset.max_renewals)}</b></span>
+        {asset.introduced_year != null && <span>built <b>{Number(asset.introduced_year)}</b></span>}
         {co2Intensity != null && <span>CO₂ <b>{fmt(co2Intensity)}</b> {s(co2?.unit)}/{thru}</span>}
       </div>
 
-      <p className="muted mi-note">Recipe coefficients are edited in the Component tab; capacity &amp; lifecycle in the Facility tab. Per-stream min/max here are market limits on this machine's flows (min offtake = required purchase). ★ = a final product (can meet demand).</p>
+      <p className="muted mi-note">Recipe coefficients are edited in the Component tab; capacity &amp; lifecycle in the Facility tab. Per-stream min/max here are market limits on this asset's flows (min offtake = required purchase). ★ = a final product (can meet demand).</p>
 
       {otherImpacts.length > 0 && (
         <div className="mi-block">
@@ -331,8 +331,8 @@ export function MachineInspector({
             const t = leverTarget.get(mid);
             const verb = leverType.get(mid) === "energy_efficiency" ? "saves" : "cuts";
             return (
-              <div className="mi-measure" key={mid}>
-                <span className="mi-measure-name">{leverName(mid)}</span>
+              <div className="mi-lever" key={mid}>
+                <span className="mi-lever-name">{leverName(mid)}</span>
                 <span className="mi-sub">{t ? `${verb} ${t}` : leverType.get(mid) || ""}</span>
               </div>
             );
@@ -346,7 +346,7 @@ export function MachineInspector({
 // ── Flow context: what feeds a node, and what it feeds ────────────────────────
 // Reads the raw `connections` (which may be wired at any level — e.g. a
 // country→country link), and shows every connection touching the selected node
-// OR an ancestor of it, so even a lone machine displays its upstream/downstream.
+// OR an ancestor of it, so even a lone asset displays its upstream/downstream.
 // When one input commodity has MORE THAN ONE supplier, it lists them as N
 // "sources" (distinct from the alternative-technologies feature).
 export function FlowContext({ wb, nodeId }: { wb: Workbook; nodeId: string }) {
@@ -369,7 +369,7 @@ export function FlowContext({ wb, nodeId }: { wb: Workbook; nodeId: string }) {
     const subtree = new Set<string>([nodeId]);
     const stack = [nodeId];
     while (stack.length) for (const ch of childrenOf.get(stack.pop()!) ?? []) if (!subtree.has(ch)) { subtree.add(ch); stack.push(ch); }
-    const techOf = new Map((wb.machines ?? []).map((m) => [s(m.machine_id), s(m.baseline_technology)]));
+    const techOf = new Map((wb.assets ?? []).map((m) => [s(m.asset_id), s(m.baseline_technology)]));
     const techs = new Set([...subtree].map((id) => techOf.get(id)).filter(Boolean));
     const prod = new Set<string>(), cons = new Set<string>();
     for (const r of wb.io ?? []) {
@@ -415,9 +415,9 @@ export function FlowContext({ wb, nodeId }: { wb: Workbook; nodeId: string }) {
   );
 }
 
-// ── Alternatives: technologies the optimiser may switch this machine to ───────
+// ── Alternatives: technologies the optimiser may switch this asset to ───────
 // Pure value-chain choice (not baked into the Component library). The list is the
-// transitions out of the machine's baseline technology; the picker draws from the
+// transitions out of the asset's baseline technology; the picker draws from the
 // pool of all library technologies.
 export function Alternatives({
   baseline,
@@ -456,7 +456,7 @@ export function Alternatives({
         <span>alternatives</span>
         <button className="mi-add" onClick={() => setAdding((v) => !v)}>+ add…</button>
       </div>
-      <p className="muted mi-note" style={{ marginTop: 0 }}>Technologies the optimiser may switch this machine to.</p>
+      <p className="muted mi-note" style={{ marginTop: 0 }}>Technologies the optimiser may switch this asset to.</p>
       {alternatives.length === 0 && !adding && (
         <div className="rail-empty" style={{ fontSize: "0.78rem" }}>none — the optimiser only runs {baseline || "the baseline"}.</div>
       )}
@@ -562,11 +562,11 @@ export interface CascadeResult {
 
 /** What a single year's result looks like, resolved per node / edge id. */
 export interface YearOverlay {
-  /** Active technology of a machine that year (``undefined`` if it isn't running). */
+  /** Active technology of a asset that year (``undefined`` if it isn't running). */
   tech: (id: string) => string | undefined;
-  /** If the machine switched technology that year, the technology it switched to. */
+  /** If the asset switched technology that year, the technology it switched to. */
   transitionedTo: (id: string) => string | undefined;
-  /** Throughput of a machine that year. */
+  /** Throughput of a asset that year. */
   throughput: (id: string) => number | undefined;
   /** Flow along a ``from → to`` link for a commodity that year. */
   flow: (from: string, to: string, commodity: string) => number | undefined;
@@ -581,7 +581,7 @@ function _resultsOf(r: RunResult | CascadeResult): RunResult[] {
 /** Index a run / cascade result by ``(node, year)`` so the map can read any year.
 
     Works for both a joint solve (one result) and a cascade (one per stage); the
-    process ids in the result are the machine-node ids on the map. */
+    process ids in the result are the asset-node ids on the map. */
 export function buildOverlay(r: RunResult | CascadeResult): {
   years: number[];
   at: (year: number) => YearOverlay;

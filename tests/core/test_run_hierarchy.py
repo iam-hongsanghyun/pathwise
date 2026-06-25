@@ -1,6 +1,6 @@
 """A node-hierarchy model validates and runs through the unified front door.
 
-`validate()` accepts a hierarchy (machines stand in for processes), and the
+`validate()` accepts a hierarchy (assets stand in for processes), and the
 linopy backend routes such a model through `run_model` (joint solve at the
 root/system level; per-level partition otherwise).
 """
@@ -20,12 +20,12 @@ def _hierarchy_model() -> dict[str, list[dict[str, Any]]]:
         "nodes": [
             {"node_id": "chain", "parent_id": None, "kind": "group", "level": "value_chain"},
             {"node_id": "chain/mill", "parent_id": "chain", "kind": "group", "level": "facility"},
-            {"node_id": "chain/mill/bf", "parent_id": "chain/mill", "kind": "machine"},
-            {"node_id": "chain/mill/bof", "parent_id": "chain/mill", "kind": "machine"},
+            {"node_id": "chain/mill/bf", "parent_id": "chain/mill", "kind": "asset"},
+            {"node_id": "chain/mill/bof", "parent_id": "chain/mill", "kind": "asset"},
         ],
-        "machines": [
-            {"machine_id": "chain/mill/bf", "baseline_technology": "BF", "capacity": 100},
-            {"machine_id": "chain/mill/bof", "baseline_technology": "BOF", "capacity": 100},
+        "assets": [
+            {"asset_id": "chain/mill/bf", "baseline_technology": "BF", "capacity": 100},
+            {"asset_id": "chain/mill/bof", "baseline_technology": "BOF", "capacity": 100},
         ],
         "connections": [
             {"from_node": "chain/mill/bf", "to_node": "chain/mill/bof", "commodity_id": "iron"}
@@ -61,9 +61,9 @@ def test_validate_accepts_a_hierarchy_without_processes() -> None:
     assert report.ok, report.errors
 
 
-def test_validate_flags_unknown_machine_technology() -> None:
+def test_validate_flags_unknown_asset_technology() -> None:
     model = _hierarchy_model()
-    model["machines"][0]["baseline_technology"] = "GHOST"
+    model["assets"][0]["baseline_technology"] = "GHOST"
     report = validate(model)
     assert any("GHOST" in e for e in report.errors)
 

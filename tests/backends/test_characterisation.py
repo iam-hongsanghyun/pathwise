@@ -38,9 +38,9 @@ def _gwp_model() -> dict:
         "technologies": [{"technology_id": "Plant", "actions": "continue"}],
         "nodes": [
             {"node_id": "plantco", "kind": "group", "level": "company", "label": "Plant"},
-            {"node_id": "plantco/p", "kind": "machine", "level": "machine", "parent_id": "plantco"},
+            {"node_id": "plantco/p", "kind": "asset", "level": "asset", "parent_id": "plantco"},
         ],
-        "machines": [{"machine_id": "plantco/p", "baseline_technology": "Plant", "capacity": 1000}],
+        "assets": [{"asset_id": "plantco/p", "baseline_technology": "Plant", "capacity": 1000}],
         "io": [
             {"technology_id": "Plant", "target": "ore", "role": "input", "coefficient": 1.0},
             {

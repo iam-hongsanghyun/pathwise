@@ -1,7 +1,7 @@
 """Auto-discovered, importable libraries — the sector-agnostic model catalogue.
 
 A *library* is a single **SQLite** workbook bundling **components** (streams /
-technologies / levers) and a **value chain** (nodes / machines / connections /
+technologies / levers) and a **value chain** (nodes / assets / connections /
 demand / caps). They live under ``<libraries_dir>/<tier>/<id>.sqlite`` where
 ``tier`` is the parent folder — ``base`` (reference-confirmed building blocks),
 ``example`` (illustrative models) or ``project`` (specific real projects). A

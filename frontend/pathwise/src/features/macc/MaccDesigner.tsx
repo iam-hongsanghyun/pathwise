@@ -7,7 +7,7 @@ const num = (v: unknown, d = 0): number => (v == null || v === "" ? d : Number(v
 
 export interface MaccBar {
   lever: string;
-  machine: string;
+  asset: string;
   type: string;
   target: string;
   potential: number; // abatement / energy-saving potential (per year)
@@ -102,7 +102,7 @@ export function maccBars(wb: Workbook, macc?: string): MaccBar[] {
       const lifetimeCost = capex + opex * lifetime;
       out.push({
         lever: id,
-        machine: p,
+        asset: p,
         type,
         target,
         potential,
@@ -157,9 +157,9 @@ export function MaccChart({
   const usable = data.filter((b) => Number.isFinite(b.cost) && b.potential > 0);
   if (!usable.length) return <p className="muted">No levers with a positive potential yet.</p>;
   // Colors stay keyed to the FULL facility list so toggling doesn't reshuffle.
-  const machines = [...new Set(usable.map((b) => b.machine))];
-  const color = (m: string) => PALETTE[machines.indexOf(m) % PALETTE.length];
-  const toggleMachine = (m: string) =>
+  const assets = [...new Set(usable.map((b) => b.asset))];
+  const color = (m: string) => PALETTE[assets.indexOf(m) % PALETTE.length];
+  const toggleAsset = (m: string) =>
     setHidden((prev) => {
       const next = new Set(prev);
       if (next.has(m)) next.delete(m);
@@ -168,11 +168,11 @@ export function MaccChart({
     });
   const legend = (
     <div className="legend">
-      {machines.map((m) => (
+      {assets.map((m) => (
         <button
           key={m}
           className={`legend-item${hidden.has(m) ? " is-off" : ""}`}
-          onClick={() => toggleMachine(m)}
+          onClick={() => toggleAsset(m)}
           title={hidden.has(m) ? "show this facility" : "hide this facility"}
         >
           <span className="swatch" style={{ background: color(m) }} /> {m}
@@ -180,7 +180,7 @@ export function MaccChart({
       ))}
     </div>
   );
-  const sorted = usable.filter((b) => !hidden.has(b.machine)).sort((a, b) => a.cost - b.cost);
+  const sorted = usable.filter((b) => !hidden.has(b.asset)).sort((a, b) => a.cost - b.cost);
   if (!sorted.length)
     return (
       <div className="macc-chart-shell">
@@ -208,7 +208,7 @@ export function MaccChart({
     const x0 = cursor;
     const x1 = cursor + b.potential;
     cursor = x1;
-    const key = `${b.lever}|${b.machine}|${i}`;
+    const key = `${b.lever}|${b.asset}|${i}`;
     return {
       ...b,
       key,
@@ -263,11 +263,11 @@ export function MaccChart({
               y={b.y}
               width={b.width}
               height={b.height}
-              fill={color(b.machine)}
+              fill={color(b.asset)}
               className={`macc-bar${activeBar ? " is-active" : ""}`}
               tabIndex={0}
               role="button"
-              aria-label={`${b.lever} at ${b.machine}: ${b.potential.toFixed(
+              aria-label={`${b.lever} at ${b.asset}: ${b.potential.toFixed(
                 1,
               )} potential, ${b.cost.toFixed(1)} dollars per unit`}
               onFocus={() => setActiveKey(b.key)}
@@ -275,7 +275,7 @@ export function MaccChart({
               onClick={() => setActiveKey(b.key)}
             >
               <title>
-                {b.lever} @ {b.machine}: {b.potential.toFixed(1)} potential, {b.cost.toFixed(1)} $/unit
+                {b.lever} @ {b.asset}: {b.potential.toFixed(1)} potential, {b.cost.toFixed(1)} $/unit
               </title>
             </rect>
             );
@@ -302,7 +302,7 @@ export function MaccChart({
         <dl>
           <div>
             <dt>facility</dt>
-            <dd>{active.machine}</dd>
+            <dd>{active.asset}</dd>
           </div>
           <div>
             <dt>target</dt>
@@ -330,16 +330,16 @@ export function MaccChart({
 }
 
 export function MaccMeasureTable({ data }: { data: MaccBar[] }) {
-  const byMachine = new Map<string, MaccBar[]>();
-  for (const b of data) byMachine.set(b.machine, [...(byMachine.get(b.machine) ?? []), b]);
+  const byAsset = new Map<string, MaccBar[]>();
+  for (const b of data) byAsset.set(b.asset, [...(byAsset.get(b.asset) ?? []), b]);
 
   if (!data.length) return <p className="muted">No deployed levers yet.</p>;
 
   return (
     <div>
-      {[...byMachine.entries()].map(([machine, bs]) => (
-        <div key={machine} className="macc-machine">
-          <strong>{machine}</strong>
+      {[...byAsset.entries()].map(([asset, bs]) => (
+        <div key={asset} className="macc-asset">
+          <strong>{asset}</strong>
           <table>
             <thead>
               <tr>
@@ -374,7 +374,7 @@ interface Props {
   macc?: string;
 }
 
-/** Per-machine MACC summary + the aggregate MACC curve (whole model, or one
+/** Per-asset MACC summary + the aggregate MACC curve (whole model, or one
  *  MACC's members when `macc` is given). */
 export function MaccDesigner({ workbook, macc }: Props) {
   const data = useMemo(() => maccBars(workbook, macc), [workbook, macc]);
@@ -383,7 +383,7 @@ export function MaccDesigner({ workbook, macc }: Props) {
     <div>
       <h3>Aggregate MACC (whole process)</h3>
       <MaccChart data={data} />
-      <h3>Per-machine levers</h3>
+      <h3>Per-asset levers</h3>
       <MaccMeasureTable data={data} />
       {!data.length && <p className="muted">Add levers and cost blocks to build MACC curves.</p>}
     </div>

@@ -12,6 +12,7 @@ from pathwise.data.aliases import normalize_workbook
 from pathwise.data.hierarchy import load_hierarchy
 from pathwise.data.schema import REQUIRED_SHEETS
 from pathwise.data.sheets import (
+    ASSETS,
     COMMODITIES,
     COMMODITY_PROPERTIES,
     CONNECTIONS,
@@ -20,7 +21,6 @@ from pathwise.data.sheets import (
     IMPACTS,
     IO,
     LEVERS,
-    MACHINES,
     NODES,
     PROCESS_INPUTS,
     PROCESS_OUTPUTS,
@@ -74,14 +74,14 @@ def validate(workbook: Workbook) -> ValidationReport:
     workbook = normalize_workbook(workbook)
     report = ValidationReport()
 
-    # A node hierarchy synthesises its `processes` from `machines` at assemble
+    # A node hierarchy synthesises its `processes` from `assets` at assemble
     # time, so a hierarchy model is valid without a `processes` sheet.
     has_hierarchy = bool(workbook.get(NODES))
 
     for sheet in REQUIRED_SHEETS:
         if sheet == PROCESSES and has_hierarchy:
-            if not workbook.get(MACHINES):
-                report.errors.append("hierarchy model has no 'machines'")
+            if not workbook.get(ASSETS):
+                report.errors.append("hierarchy model has no 'assets'")
             continue
         if sheet not in workbook or not workbook[sheet]:
             report.errors.append(f"missing required sheet '{sheet}'")
@@ -97,19 +97,19 @@ def validate(workbook: Workbook) -> ValidationReport:
 
     techs = _ids(workbook, TECHNOLOGIES, "technology_id")
     commodities = _ids(workbook, COMMODITIES, "commodity_id")
-    # In a hierarchy model the machines are the facilities (one process each).
-    processes = _ids(workbook, PROCESSES, "process_id") | _ids(workbook, MACHINES, "machine_id")
+    # In a hierarchy model the assets are the facilities (one process each).
+    processes = _ids(workbook, PROCESSES, "process_id") | _ids(workbook, ASSETS, "asset_id")
     impacts = _ids(workbook, IMPACTS, "impact_id")
 
-    for r in workbook.get(MACHINES, []):
+    for r in workbook.get(ASSETS, []):
         bt = str(r.get("baseline_technology", ""))
         if bt and bt not in techs:
             report.errors.append(
-                f"machine '{r.get('machine_id')}' references unknown technology '{bt}'"
+                f"asset '{r.get('asset_id')}' references unknown technology '{bt}'"
             )
 
     # Node hierarchy: structural integrity (dangling parents, parent cycles,
-    # machine/kind mismatches, connection endpoints) + connection stream refs.
+    # asset/kind mismatches, connection endpoints) + connection stream refs.
     if has_hierarchy:
         h = load_hierarchy(workbook)
         if h is not None:
@@ -118,12 +118,12 @@ def validate(workbook: Workbook) -> ValidationReport:
                 c = str(r.get("commodity_id", ""))
                 if c and c not in commodities:
                     report.errors.append(f"connection references unknown stream '{c}'")
-            # A connection only flows if some machine in the source subtree OUTPUTS
-            # the commodity and some machine in the target subtree INPUTS it; else
+            # A connection only flows if some asset in the source subtree OUTPUTS
+            # the commodity and some asset in the target subtree INPUTS it; else
             # it silently expands to zero edges (assemble._expand_hierarchy).
-            machine_tech = {
-                str(r.get("machine_id")): str(r.get("baseline_technology") or "")
-                for r in workbook.get(MACHINES, [])
+            asset_tech = {
+                str(r.get("asset_id")): str(r.get("baseline_technology") or "")
+                for r in workbook.get(ASSETS, [])
             }
             io_out: dict[str, set[str]] = {}
             io_in: dict[str, set[str]] = {}
@@ -140,15 +140,15 @@ def validate(workbook: Workbook) -> ValidationReport:
                 if not (fn in h.nodes and tn in h.nodes and com):
                     continue
                 makes = any(
-                    com in io_out.get(machine_tech.get(m, ""), set()) for m in h.leaf_machines(fn)
+                    com in io_out.get(asset_tech.get(m, ""), set()) for m in h.leaf_machines(fn)
                 )
                 takes = any(
-                    com in io_in.get(machine_tech.get(m, ""), set()) for m in h.leaf_machines(tn)
+                    com in io_in.get(asset_tech.get(m, ""), set()) for m in h.leaf_machines(tn)
                 )
                 if not (makes and takes):
                     report.warnings.append(
                         f"connection '{fn}'→'{tn}' on '{com}' expands to no edges "
-                        "(no producing/consuming machine in the subtrees)"
+                        "(no producing/consuming asset in the subtrees)"
                     )
 
     # Blend / slate share bounds must admit a feasible mix: per (technology,

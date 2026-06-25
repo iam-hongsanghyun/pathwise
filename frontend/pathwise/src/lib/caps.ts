@@ -1,7 +1,7 @@
-// Per-machine annual production bounds. A bound is a YEAR-LESS row on the
+// Per-asset annual production bounds. A bound is a YEAR-LESS row on the
 // `max_production` / `min_production` sheet: the engine (assemble._temporal_dict
 // base_years) applies it to every run year, so one value = an annual ceiling /
-// floor across the whole horizon. Scope is a node id (a machine, a group) or
+// floor across the whole horizon. Scope is a node id (a asset, a group) or
 // "all" (system / national).
 
 import type { ByYear } from "./api/components";
@@ -13,10 +13,10 @@ export type Bound = number | ByYear;
 const s = (v: Cell | undefined): string => (v == null ? "" : String(v));
 const isYearless = (r: Row): boolean => r.year == null || String(r.year).trim() === "";
 
-/** The product commodity a per-machine output bound limits: the `is_product`
- *  output of the machine's baseline technology (else its first output), or null. */
+/** The product commodity a per-asset output bound limits: the `is_product`
+ *  output of the asset's baseline technology (else its first output), or null. */
 export function machineProduct(wb: Workbook, machineId: string): string | null {
-  const m = (wb.machines ?? []).find((r) => s(r.machine_id) === machineId);
+  const m = (wb.assets ?? []).find((r) => s(r.asset_id) === machineId);
   const tech = s(m?.baseline_technology);
   if (!tech) return null;
   const outs = (wb.io ?? []).filter((r) => s(r.technology_id) === tech && s(r.role) === "output");
@@ -117,7 +117,7 @@ export const minOutputCap = (wb: Workbook, scope: string, commodity: string): Bo
 export const setMinOutputCap = (wb: Workbook, scope: string, commodity: string, value: Bound | null): Workbook =>
   setCap(wb, "min_production", scope, commodity, value);
 
-// Per-machine intake bounds on a consumed commodity (the consumer-side mirror of
+// Per-asset intake bounds on a consumed commodity (the consumer-side mirror of
 // the output caps): min = required offtake (a floor), max = maximum purchase.
 export const minConsumptionCap = (wb: Workbook, scope: string, commodity: string): Bound | null =>
   cap(wb, "min_consumption", scope, commodity);
@@ -281,9 +281,9 @@ export function setConnectionBounds(
   return setConnectionTemporal(withStatic, from, to, commodity, min, max);
 }
 
-// ── Per-machine→machine edge flow bounds (the machine-only per-provider model) ──
-// "How much THIS machine buys from THAT provider machine" is a bound between two
-// machines — machine-specific by construction. Stored on the `edges` row (static
+// ── Per-asset→asset edge flow bounds (the asset-only per-provider model) ──
+// "How much THIS asset buys from THAT provider asset" is a bound between two
+// assets — asset-specific by construction. Stored on the `edges` row (static
 // columns) + `edges_t` (per-year). The engine seeds these edges so the hierarchy
 // fan-out doesn't duplicate the channel.
 
@@ -307,7 +307,7 @@ function edgeBound(wb: Workbook, from: string, to: string, commodity: string, si
   return v == null || String(v).trim() === "" ? null : Number(v) || 0;
 }
 
-/** Both flow bounds for one provider→consumer machine edge (the popup's initial state). */
+/** Both flow bounds for one provider→consumer asset edge (the popup's initial state). */
 export const edgeFlow = (
   wb: Workbook,
   from: string,
@@ -318,7 +318,7 @@ export const edgeFlow = (
   max: edgeBound(wb, from, to, commodity, "max_flow"),
 });
 
-/** Set the per-provider bound on the machine→machine edge. Authors an `edges` row
+/** Set the per-provider bound on the asset→asset edge. Authors an `edges` row
  *  (static columns; suppresses the fanned duplicate) + `edges_t` rows for any
  *  by-year part. Clearing both removes the authored edge so the fan-out restores it. */
 export function setEdgeBounds(
@@ -413,7 +413,7 @@ function writeEdgeRow(
   return next;
 }
 
-// ── Static-or-temporal per-instance attributes (Facility machine editor) ─────
+// ── Static-or-temporal per-instance attributes (Facility asset editor) ─────
 // Each numeric field is STATIC (a column on a base-sheet row) or TEMPORAL (a wide
 // `_t__` sheet: one row per year, a column named by the id). Mutually exclusive,
 // mirroring setSupplyCap, so the engine reads one source of truth.

@@ -68,9 +68,9 @@ def test_background_splits_foreground_vs_background() -> None:
         "technologies": [{"technology_id": "Plant", "actions": "continue"}],
         "nodes": [
             {"node_id": "co", "kind": "group", "level": "company", "label": "Co"},
-            {"node_id": "co/p", "kind": "machine", "level": "machine", "parent_id": "co"},
+            {"node_id": "co/p", "kind": "asset", "level": "asset", "parent_id": "co"},
         ],
-        "machines": [{"machine_id": "co/p", "baseline_technology": "Plant", "capacity": 1000}],
+        "assets": [{"asset_id": "co/p", "baseline_technology": "Plant", "capacity": 1000}],
         "io": [
             {"technology_id": "Plant", "target": "grid", "role": "input", "coefficient": 1.0},
             {
@@ -112,9 +112,9 @@ def test_apply_lcia_then_run_characterises() -> None:
         "technologies": [{"technology_id": "Plant", "actions": "continue"}],
         "nodes": [
             {"node_id": "co", "kind": "group", "level": "company", "label": "Co"},
-            {"node_id": "co/p", "kind": "machine", "level": "machine", "parent_id": "co"},
+            {"node_id": "co/p", "kind": "asset", "level": "asset", "parent_id": "co"},
         ],
-        "machines": [{"machine_id": "co/p", "baseline_technology": "Plant", "capacity": 1000}],
+        "assets": [{"asset_id": "co/p", "baseline_technology": "Plant", "capacity": 1000}],
         "io": [
             {"technology_id": "Plant", "target": "ore", "role": "input", "coefficient": 1.0},
             {

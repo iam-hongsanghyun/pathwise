@@ -1,5 +1,5 @@
 // HierarchyMap — one multi-level map for the WHOLE node hierarchy (country →
-// company → facility → machine) in a single chart. Groups expand/collapse on
+// company → facility → asset) in a single chart. Groups expand/collapse on
 // click (drill-down); Expand all / Collapse all are in the top-left toolbar.
 //
 // Read-only (Analytics result map): pass `result` → a year slider scrubs active
@@ -84,7 +84,7 @@ export function HierarchyMap({
     return ns.filter((n) => n.kind === "group" && parents.has(n.id)).map((n) => n.id);
   }, [workbook]);
   // Default: expand as much as fits a node budget — small models open fully, large
-  // ones (e.g. the 248-machine petrochemical chain) open a level or two down so the
+  // ones (e.g. the 248-asset petrochemical chain) open a level or two down so the
   // canvas doesn't paint hundreds of boxes + source-flow lines at once and freeze.
   const initialExpanded = useMemo(() => defaultExpanded(workbook), [workbook]);
   const [expanded, setExpanded] = useState<Set<string>>(initialExpanded);
@@ -93,7 +93,7 @@ export function HierarchyMap({
   const collapseAll = () => setExpanded(new Set());
 
   // Flow-aggregation level (independent of expand/collapse): null = Component (every
-  // machine→machine link). The selectable group levels come from the TREE itself
+  // asset→asset link). The selectable group levels come from the TREE itself
   // (never hardcoded), ordered deepest→shallowest (least→most aggregation).
   const [flowLevel, setFlowLevel] = useState<string | null>(null);
   const flowLevels = useMemo(() => {
@@ -108,7 +108,7 @@ export function HierarchyMap({
     };
     const minDepth = new Map<string, number>();
     for (const n of ns) {
-      if (n.kind === "machine" || !n.level) continue;
+      if (n.kind === "asset" || !n.level) continue;
       const d = depth(n.id);
       if (!minDepth.has(n.level) || d < (minDepth.get(n.level) as number)) minDepth.set(n.level, d);
     }
@@ -161,7 +161,7 @@ export function HierarchyMap({
   const outPt = (b: LaidNode) => (horiz ? { x: b.x + b.w, y: b.y + b.h / 2 } : { x: b.x + b.w / 2, y: b.y + b.h });
   const inPt = (b: LaidNode) => (horiz ? { x: b.x, y: b.y + b.h / 2 } : { x: b.x + b.w / 2, y: b.y });
   // Nearest VISIBLE ancestor — routes a source→consumer arrow to a collapsed
-  // group when the consuming machine is hidden (expandable mode).
+  // group when the consuming asset is hidden (expandable mode).
   const parentOf = useMemo(
     () => new Map(parseNodes(workbook).map((n) => [n.id, n.parentId])),
     [workbook],
@@ -466,7 +466,7 @@ export function HierarchyMap({
   const containers = placed
     .filter((n) => n.kind === "group" && !n.collapsed)
     .sort((a, b) => a.depth - b.depth);
-  const leaves = placed.filter((n) => n.kind === "machine" || n.collapsed);
+  const leaves = placed.filter((n) => n.kind === "asset" || n.collapsed);
 
   // Port circles (left = input, right = output) for editing every node box.
   const ports = (n: LaidNode) =>
@@ -729,12 +729,12 @@ export function HierarchyMap({
         })()}
 
         {leaves.map((n: LaidNode) => {
-          const isMachine = n.kind === "machine";
-          const tech = isMachine ? overlay?.tech(n.id) : undefined;
-          const toTech = isMachine ? overlay?.transitionedTo(n.id) : undefined;
-          const tput = isMachine ? overlay?.throughput(n.id) : undefined;
-          const idle = isMachine && !!overlay && tech == null;
-          const sub = isMachine ? (tech ? (toTech ? `⇄ ${tech}` : tech) : n.level || "idle") : n.level || "group";
+          const isAsset = n.kind === "asset";
+          const tech = isAsset ? overlay?.tech(n.id) : undefined;
+          const toTech = isAsset ? overlay?.transitionedTo(n.id) : undefined;
+          const tput = isAsset ? overlay?.throughput(n.id) : undefined;
+          const idle = isAsset && !!overlay && tech == null;
+          const sub = isAsset ? (tech ? (toTech ? `⇄ ${tech}` : tech) : n.level || "idle") : n.level || "group";
           const isSel = selectedId === n.id;
           const stroke = toTech ? "var(--warn)" : isSel ? "var(--brand)" : undefined;
           // White, slightly translucent fill so a flow line passing BEHIND the box
@@ -744,13 +744,13 @@ export function HierarchyMap({
             <g
               key={`n-${n.id}`}
               data-node={n.id}
-              className={`topo-node ${isMachine ? "topo-commodity" : "topo-process"}`}
+              className={`topo-node ${isAsset ? "topo-commodity" : "topo-process"}`}
               transform={`translate(${n.x},${n.y})`}
               opacity={idle ? 0.45 : 1}
               style={{ cursor: "pointer" }}
             >
               <rect width={n.w} height={n.h} rx={3} fill={fill} fillOpacity={isSel ? 1 : 0.92} stroke={stroke} strokeWidth={isSel || toTech ? 2.5 : undefined} />
-              <text className="topo-kind" x={8} y={14}>{isMachine ? "machine" : !editable && n.collapsed ? "group ▸" : "group"}</text>
+              <text className="topo-kind" x={8} y={14}>{isAsset ? "asset" : !editable && n.collapsed ? "group ▸" : "group"}</text>
               {tput != null && <text className="topo-kind" x={n.w - 8} y={14} textAnchor="end">{fmtVal(tput)}</text>}
               <text className="topo-label" x={8} y={31}>{clip(n.label, 22)}</text>
               <text className="topo-sub" x={8} y={46} fill={toTech ? "var(--warn-text)" : undefined}>{clip(sub, 24)}</text>
@@ -941,7 +941,7 @@ function ConnectForm({
         <input type="number" value={lag} onChange={(e) => setLag(Number(e.target.value) || 0)} style={{ width: 70, padding: "3px 6px", border: "1px solid var(--border-strong)", borderRadius: 4, font: "inherit" }} />
       </label>
       <p className="muted" style={{ fontSize: "0.72rem", margin: "0 0 8px" }}>
-        Min/max offtake is set per machine in the machine popup (per provider machine).
+        Min/max offtake is set per asset in the asset popup (per provider asset).
       </p>
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
         <button className="ghost" onClick={onCancel}>cancel</button>

@@ -1,6 +1,6 @@
-"""Per-machine intake bounds (the consumer-side mirror of min/max_production).
+"""Per-asset intake bounds (the consumer-side mirror of min/max_production).
 
-``max_consumption`` caps how much of a commodity a machine may take in (a max
+``max_consumption`` caps how much of a commodity a asset may take in (a max
 purchase); ``min_consumption`` forces a minimum (a required offtake / take-or-pay).
 Tested on a fuel blend (coal cheap, H2 dear) so the bound is non-trivial: capping
 one input shifts the optimiser onto the other.

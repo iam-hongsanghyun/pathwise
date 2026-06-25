@@ -50,8 +50,8 @@ export const FIELD_META: Record<string, FieldMeta> = {
   level: { info: "The designed level this group sits at (free text, e.g. facility, company)." },
   notes: { info: "Free-text notes / references for your own use. The optimiser ignores it." },
 
-  // ── Value-chain (placed machines, links, purchasing, demand) ─────────────────
-  capacity: { info: "Nameplate throughput this machine can run at full load.", unit: "throughput / yr" },
+  // ── Value-chain (placed assets, links, purchasing, demand) ─────────────────
+  capacity: { info: "Nameplate throughput this asset can run at full load.", unit: "throughput / yr" },
   lag_years: { info: "Years the commodity takes to traverse this link (0 = same year).", unit: "years" },
   amount: { info: "Quantity of the product this node must deliver to demand each year.", unit: "stream unit / yr" },
   max_purchase: { info: "Ceiling on how much of this stream may be bought externally per year (blank = no cap).", unit: "stream unit / yr" },

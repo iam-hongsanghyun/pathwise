@@ -1,15 +1,15 @@
 // Pure graph logic for the recursive group/component hierarchy.
-// No React, no I/O. Mirrors the workbook sheets: nodes, connections, machines.
+// No React, no I/O. Mirrors the workbook sheets: nodes, connections, assets.
 
 import type { Workbook } from "../types";
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
-/** A node in the group hierarchy (group = composite, machine = leaf). */
+/** A node in the group hierarchy (group = composite, asset = leaf). */
 export interface GroupNode {
   id: string;
   parentId: string | null;
-  kind: "group" | "machine";
+  kind: "group" | "asset";
   /** The level string from the workbook row (informational). */
   level: string;
   label: string;
@@ -60,7 +60,7 @@ export function parseNodes(wb: Workbook): GroupNode[] {
     out.push({
       id,
       parentId: parentId === id ? null : parentId,
-      kind: s(r.kind) === "machine" ? ("machine" as const) : ("group" as const),
+      kind: s(r.kind) === "asset" ? ("asset" as const) : ("group" as const),
       level: s(r.level),
       label: s(r.label) || id,
       order: n(r.order),

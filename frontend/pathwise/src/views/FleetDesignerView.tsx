@@ -419,7 +419,7 @@ export function FleetDesignerView({
 
   // ── tree actions ─────────────────────────────────────────────────────────────
   const leftActions = (n: TreeNode): TreeAction[] =>
-    n.kind === "machine"
+    n.kind === "asset"
       ? [{ id: "edit", label: "Edit" }, { id: "dup", label: "Duplicate" }, { id: "dupN", label: "Duplicate ×N…" }, { id: "rename", label: "Rename" }, { id: "delete", label: "Delete", danger: true }]
       : [{ id: "add-fleet", label: "Add fleet" }, { id: "add-group", label: "Add group inside" }, { id: "see-table", label: "See in a table", separatorBefore: true }, { id: "rename", label: "Rename", separatorBefore: true }, { id: "delete", label: "Delete", danger: true }];
   const onLeftAction = (a: string, n: TreeNode) => {

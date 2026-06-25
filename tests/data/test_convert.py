@@ -75,8 +75,8 @@ def test_to_hierarchy_builds_companies_facilities_machines() -> None:
     assert by_id["vc"]["kind"] == "group" and by_id["vc"]["parent_id"] is None
     assert by_id["SteelCo"]["parent_id"] == "vc" and by_id["SteelCo"]["level"] == "company"
     assert by_id["SteelCo/mill"]["parent_id"] == "SteelCo"  # facility group
-    assert by_id["bf"]["parent_id"] == "SteelCo/mill" and by_id["bf"]["kind"] == "machine"
-    assert {m["machine_id"] for m in h["machines"]} == {"bf", "bof", "gen"}
+    assert by_id["bf"]["parent_id"] == "SteelCo/mill" and by_id["bf"]["kind"] == "asset"
+    assert {m["asset_id"] for m in h["assets"]} == {"bf", "bof", "gen"}
     # the edge became a connection
     assert h["connections"] == [{"from_node": "bf", "to_node": "bof", "commodity_id": "iron"}]
 
@@ -93,14 +93,14 @@ def test_converted_hierarchy_solves() -> None:
 
 
 def test_to_hierarchy_is_noop_when_already_hierarchy() -> None:
-    wb = {"nodes": [{"node_id": "x", "kind": "group"}], "machines": []}
+    wb = {"nodes": [{"node_id": "x", "kind": "group"}], "assets": []}
     assert to_hierarchy(wb) is wb
 
 
-def test_to_hierarchy_never_collides_machine_with_its_own_group() -> None:
+def test_to_hierarchy_never_collides_asset_with_its_own_group() -> None:
     # Regression: when a process' company is named after the process itself
     # (each process its own singleton "company"), the old code emitted a group
-    # AND a machine with the same id and parented the machine to itself — a
+    # AND a asset with the same id and parented the asset to itself — a
     # self-parent cycle that froze every downstream tree walk in the UI.
     flat = {
         "processes": [
@@ -112,9 +112,9 @@ def test_to_hierarchy_never_collides_machine_with_its_own_group() -> None:
     ids = [n["node_id"] for n in nodes]
     assert len(ids) == len(set(ids)), "node ids must be unique"
     assert all(n["parent_id"] != n["node_id"] for n in nodes), "no node is its own parent"
-    # the degenerate same-named company is collapsed: machines sit under the root
+    # the degenerate same-named company is collapsed: assets sit under the root
     by_id = {n["node_id"]: n for n in nodes}
-    assert by_id["ABS"]["kind"] == "machine" and by_id["ABS"]["parent_id"] == "vc"
+    assert by_id["ABS"]["kind"] == "asset" and by_id["ABS"]["parent_id"] == "vc"
 
 
 def test_dedupe_nodes_breaks_duplicate_ids_and_self_parents() -> None:
@@ -123,7 +123,7 @@ def test_dedupe_nodes_breaks_duplicate_ids_and_self_parents() -> None:
     raw = [
         {"node_id": "vc", "parent_id": None, "kind": "group"},
         {"node_id": "a", "parent_id": "vc", "kind": "group"},
-        {"node_id": "a", "parent_id": "a", "kind": "machine"},  # dup id + self-parent
+        {"node_id": "a", "parent_id": "a", "kind": "asset"},  # dup id + self-parent
     ]
     out = _dedupe_nodes(raw, "vc")
     assert [n["node_id"] for n in out] == ["vc", "a"]  # duplicate dropped (first wins)

@@ -11,7 +11,7 @@ def _model() -> dict:
     return {
         "commodities": [{"commodity_id": "ore", "price": 10}],
         "technologies": [{"technology_id": "A"}, {"technology_id": "B"}],
-        "machines": [{"machine_id": "m1", "baseline_technology": "A"}],
+        "assets": [{"asset_id": "m1", "baseline_technology": "A"}],
         "impact_prices": [{"impact_id": "CO2", "year": 2025, "price": 0}],
         "levers": [{"lever_id": "HP", "type": "emission_reduction", "target": "CO2"}],
         "lever_blocks": [{"lever_id": "HP", "block": 0, "reduction": 0.1}],
@@ -20,22 +20,20 @@ def _model() -> dict:
 
 def test_apply_overrides_does_not_mutate_input() -> None:
     base = _model()
-    apply_overrides(base, [{"op": "set_machine_tech", "machine": "m1", "technology": "B"}])
-    assert base["machines"][0]["baseline_technology"] == "A"  # original untouched
+    apply_overrides(base, [{"op": "set_asset_tech", "asset": "m1", "technology": "B"}])
+    assert base["assets"][0]["baseline_technology"] == "A"  # original untouched
 
 
-def test_set_machine_tech() -> None:
-    out = apply_overrides(
-        _model(), [{"op": "set_machine_tech", "machine": "m1", "technology": "B"}]
-    )
-    assert out["machines"][0]["baseline_technology"] == "B"
+def test_set_asset_tech() -> None:
+    out = apply_overrides(_model(), [{"op": "set_asset_tech", "asset": "m1", "technology": "B"}])
+    assert out["assets"][0]["baseline_technology"] == "B"
 
 
-def test_set_machine_tech_rejects_unknown() -> None:
+def test_set_asset_tech_rejects_unknown() -> None:
     with pytest.raises(OverrideError, match="technology"):
-        apply_overrides(_model(), [{"op": "set_machine_tech", "machine": "m1", "technology": "Z"}])
-    with pytest.raises(OverrideError, match="machine"):
-        apply_overrides(_model(), [{"op": "set_machine_tech", "machine": "mX", "technology": "B"}])
+        apply_overrides(_model(), [{"op": "set_asset_tech", "asset": "m1", "technology": "Z"}])
+    with pytest.raises(OverrideError, match="asset"):
+        apply_overrides(_model(), [{"op": "set_asset_tech", "asset": "mX", "technology": "B"}])
 
 
 def test_set_price_static_and_year() -> None:

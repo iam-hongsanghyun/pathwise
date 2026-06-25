@@ -11,12 +11,12 @@ def _model() -> dict[str, list[dict[str, Any]]]:
     return {
         "nodes": [
             {"node_id": "mill", "parent_id": None, "kind": "group", "level": "facility"},
-            {"node_id": "mill/bf", "parent_id": "mill", "kind": "machine"},
-            {"node_id": "mill/bof", "parent_id": "mill", "kind": "machine"},
+            {"node_id": "mill/bf", "parent_id": "mill", "kind": "asset"},
+            {"node_id": "mill/bof", "parent_id": "mill", "kind": "asset"},
         ],
-        "machines": [
-            {"machine_id": "mill/bf", "baseline_technology": "BF", "capacity": 100},
-            {"machine_id": "mill/bof", "baseline_technology": "BOF", "capacity": 100},
+        "assets": [
+            {"asset_id": "mill/bf", "baseline_technology": "BF", "capacity": 100},
+            {"asset_id": "mill/bof", "baseline_technology": "BOF", "capacity": 100},
         ],
         "connections": [
             {"from_node": "mill/bf", "to_node": "mill/bof", "commodity_id": "iron"},

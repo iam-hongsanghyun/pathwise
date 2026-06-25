@@ -82,7 +82,7 @@ export interface MaccGroup {
   notes?: string;
 }
 
-export interface MachineComponent {
+export interface AssetComponent {
   name: string;
   label: string;
   technology: string;
@@ -137,7 +137,7 @@ export interface ComponentLibrary {
   /** MACC bundles grouping levers. */
   maccs: MaccGroup[];
   /** Legacy composite components (no longer authored). */
-  machines: MachineComponent[];
+  assets: AssetComponent[];
   groups: GroupComponent[];
   /** Free-text notes / references keyed by derived sector name. */
   notes_by_sector?: Record<string, string>;
@@ -158,13 +158,13 @@ export interface LibrarySummary {
   technologies: number;
   levers: number;
   maccs: number;
-  machines: number;
+  assets: number;
   groups: number;
 }
 
 /** A blank library — every list defaults to empty. */
 export function emptyLibrary(label = ""): ComponentLibrary {
-  return { label, commodities: [], technologies: [], measures: [], maccs: [], machines: [], groups: [] }; // `measures` = lever list (field name unchanged)
+  return { label, commodities: [], technologies: [], measures: [], maccs: [], assets: [], groups: [] }; // `measures` = lever list (field name unchanged)
 }
 
 // ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -323,10 +323,10 @@ export async function listAvailableTechnologies(sessionId: string): Promise<Avai
   return json<AvailableTechnology[]>(await fetch(`/api/session/${sessionId}/technologies`));
 }
 
-/** Offer a technology as an alternative the optimiser may switch a machine to. */
+/** Offer a technology as an alternative the optimiser may switch a asset to. */
 export async function addAlternative(
   sessionId: string,
-  body: { library: string; technology: string; machine_id: string; scope: LibScope },
+  body: { library: string; technology: string; asset_id: string; scope: LibScope },
 ): Promise<{ from_technology: string; to_technology: string }> {
   return json<{ from_technology: string; to_technology: string }>(
     await fetch(`/api/session/${sessionId}/alternative`, {
@@ -337,7 +337,7 @@ export async function addAlternative(
   );
 }
 
-/** Place a technology as a fresh machine under a group node of the session. */
+/** Place a technology as a fresh asset under a group node of the session. */
 export async function placeTechnology(
   sessionId: string,
   body: {

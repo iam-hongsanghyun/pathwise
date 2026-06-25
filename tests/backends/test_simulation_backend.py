@@ -38,16 +38,16 @@ def _two_stage_model() -> dict:
             {"node_id": "steelco", "kind": "group", "level": "company", "label": "Steel"},
             {
                 "node_id": "steelco/sm",
-                "kind": "machine",
-                "level": "machine",
+                "kind": "asset",
+                "level": "asset",
                 "parent_id": "steelco",
             },
             {"node_id": "autoco", "kind": "group", "level": "company", "label": "Auto"},
-            {"node_id": "autoco/cm", "kind": "machine", "level": "machine", "parent_id": "autoco"},
+            {"node_id": "autoco/cm", "kind": "asset", "level": "asset", "parent_id": "autoco"},
         ],
-        "machines": [
-            {"machine_id": "steelco/sm", "baseline_technology": "SteelMaker", "capacity": 1000},
-            {"machine_id": "autoco/cm", "baseline_technology": "CarMaker", "capacity": 1000},
+        "assets": [
+            {"asset_id": "steelco/sm", "baseline_technology": "SteelMaker", "capacity": 1000},
+            {"asset_id": "autoco/cm", "baseline_technology": "CarMaker", "capacity": 1000},
         ],
         "io": [
             {"technology_id": "SteelMaker", "target": "ore", "role": "input", "coefficient": 1.0},
@@ -128,8 +128,8 @@ def test_variant_comparison_abatement_and_breakeven() -> None:
                     "label": "green steel",
                     "overrides": [
                         {
-                            "op": "set_machine_tech",
-                            "machine": "steelco/sm",
+                            "op": "set_asset_tech",
+                            "asset": "steelco/sm",
                             "technology": "GreenSteelMaker",
                         }
                     ],
@@ -204,8 +204,8 @@ def test_policy_sweep_traces_cost_curves() -> None:
                     "label": "green steel",
                     "overrides": [
                         {
-                            "op": "set_machine_tech",
-                            "machine": "steelco/sm",
+                            "op": "set_asset_tech",
+                            "asset": "steelco/sm",
                             "technology": "GreenSteelMaker",
                         }
                     ],
@@ -249,8 +249,8 @@ def test_cap_compliance_flags_the_over_config() -> None:
                     "label": "green steel",
                     "overrides": [
                         {
-                            "op": "set_machine_tech",
-                            "machine": "steelco/sm",
+                            "op": "set_asset_tech",
+                            "asset": "steelco/sm",
                             "technology": "GreenSteelMaker",
                         }
                     ],
@@ -279,7 +279,7 @@ def _three_stage_with_use() -> dict:
     """Cradle-to-grave chain: ore→steel→car→mobility, the use phase a real process.
 
     Per the design decision, the use phase is just another value-chain stage: a
-    ``UsePhase`` machine consuming the car and emitting 20 tCO2 over its life. With
+    ``UsePhase`` asset consuming the car and emitting 20 tCO2 over its life. With
     100 units of mobility demanded: steel 200 + auto 50 + use 2000 = 2250 tCO2.
     """
     return {
@@ -300,19 +300,19 @@ def _three_stage_with_use() -> dict:
             {"node_id": "steelco", "kind": "group", "level": "company", "label": "Steel"},
             {
                 "node_id": "steelco/sm",
-                "kind": "machine",
-                "level": "machine",
+                "kind": "asset",
+                "level": "asset",
                 "parent_id": "steelco",
             },
             {"node_id": "autoco", "kind": "group", "level": "company", "label": "Auto"},
-            {"node_id": "autoco/cm", "kind": "machine", "level": "machine", "parent_id": "autoco"},
+            {"node_id": "autoco/cm", "kind": "asset", "level": "asset", "parent_id": "autoco"},
             {"node_id": "useco", "kind": "group", "level": "company", "label": "Use"},
-            {"node_id": "useco/up", "kind": "machine", "level": "machine", "parent_id": "useco"},
+            {"node_id": "useco/up", "kind": "asset", "level": "asset", "parent_id": "useco"},
         ],
-        "machines": [
-            {"machine_id": "steelco/sm", "baseline_technology": "SteelMaker", "capacity": 1000},
-            {"machine_id": "autoco/cm", "baseline_technology": "CarMaker", "capacity": 1000},
-            {"machine_id": "useco/up", "baseline_technology": "UsePhase", "capacity": 1000},
+        "assets": [
+            {"asset_id": "steelco/sm", "baseline_technology": "SteelMaker", "capacity": 1000},
+            {"asset_id": "autoco/cm", "baseline_technology": "CarMaker", "capacity": 1000},
+            {"asset_id": "useco/up", "baseline_technology": "UsePhase", "capacity": 1000},
         ],
         "io": [
             {"technology_id": "SteelMaker", "target": "ore", "role": "input", "coefficient": 1.0},
@@ -441,16 +441,16 @@ def _two_period_green() -> dict:
             {"node_id": "steelco", "kind": "group", "level": "company", "label": "Steel"},
             {
                 "node_id": "steelco/sm",
-                "kind": "machine",
-                "level": "machine",
+                "kind": "asset",
+                "level": "asset",
                 "parent_id": "steelco",
             },
             {"node_id": "autoco", "kind": "group", "level": "company", "label": "Auto"},
-            {"node_id": "autoco/cm", "kind": "machine", "level": "machine", "parent_id": "autoco"},
+            {"node_id": "autoco/cm", "kind": "asset", "level": "asset", "parent_id": "autoco"},
         ],
-        "machines": [
-            {"machine_id": "steelco/sm", "baseline_technology": "SteelMaker", "capacity": 1000},
-            {"machine_id": "autoco/cm", "baseline_technology": "CarMaker", "capacity": 1000},
+        "assets": [
+            {"asset_id": "steelco/sm", "baseline_technology": "SteelMaker", "capacity": 1000},
+            {"asset_id": "autoco/cm", "baseline_technology": "CarMaker", "capacity": 1000},
         ],
         "io": [
             {"technology_id": "SteelMaker", "target": "ore", "role": "input", "coefficient": 1.0},
@@ -564,7 +564,7 @@ def test_sunk_cost_of_an_early_forced_switch() -> None:
     model = _two_period_green()
     # SteelMaker built 2025, $10/unit capex, 10-yr life, 1000 capacity; forced off in 2030.
     model["technologies"][0].update({"capex": 10, "lifespan": 10})
-    model["machines"][0]["introduced_year"] = 2025
+    model["assets"][0]["introduced_year"] = 2025
     model["variants"] = [{"variant_id": "g", "label": "g"}]
     model["variant_interventions"] = [
         {
