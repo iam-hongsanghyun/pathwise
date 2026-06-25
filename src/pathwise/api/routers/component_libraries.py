@@ -3,7 +3,7 @@
 Unlike the read-only facility ``library`` (bundled ``assets``), component
 libraries are **user-owned**: there are *many* named libraries, each a
 :class:`~pathwise.data.components.ComponentLibrary` (flows, technologies,
-assets with their MACC measures, groups). They are stored as **SQLite** (one
+assets with their MACC levers, groups). They are stored as **SQLite** (one
 table per kind, like the example workbooks) under the writable
 ``<data_dir>/component_libraries`` (gitignored), seeded once from the bundled
 starters so a fresh install opens with real, editable content.
@@ -240,7 +240,7 @@ def _library_template_columns() -> dict[str, list[str]]:
 @router.get("/component-library/template.xlsx")
 def download_library_template() -> Response:
     """A blank component-library template: one sheet per kind (streams,
-    technologies, io, measures, …) with column headers, to fill in and import."""
+    technologies, io, levers, …) with column headers, to fill in and import."""
     return Response(
         content=write_template_xlsx(_library_template_columns()),
         media_type=_XLSX_MIME,
@@ -375,7 +375,7 @@ async def import_session_component_library(
 class CopyComponentInsert(BaseModel):
     """Body for ``POST /api/session/{sid}/component-library/{dst}/copy``.
 
-    Hard-copy ``component_id`` (a ``kind`` of technology/stream/measure/macc) from
+    Hard-copy ``component_id`` (a ``kind`` of technology/stream/lever/macc) from
     the ``src_id`` library — ``src_scope`` ``base`` (shared) or ``session`` — into
     the destination session project ``dst`` (created empty if it doesn't exist).
     """
@@ -561,7 +561,7 @@ class PlaceTechnology(BaseModel):
     """Body for ``POST /api/session/{sid}/place-technology``.
 
     Place ``technology`` from ``library`` as a fresh ASSET under ``parent_id``,
-    with its ``capacity``; the technology's MACC measures come along.
+    with its ``capacity``; the technology's MACC levers come along.
     """
 
     library: str

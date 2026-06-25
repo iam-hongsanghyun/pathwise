@@ -288,32 +288,6 @@ export function clearLayout(wb: Workbook): Workbook {
   return { ...wb, node_layout: [] };
 }
 
-/** Register `toTech` as a transition option of `fromTech` (deduped). */
-export function addTransitionOption(
-  wb: Workbook,
-  fromTech: string,
-  toTech: string,
-  capexPerCapacity = 0,
-): Workbook {
-  if (!fromTech || !toTech || fromTech === toTech) return wb;
-  const exists = (wb.transitions ?? []).some(
-    (r) => s(r.from_technology) === fromTech && s(r.to_technology) === toTech,
-  );
-  if (exists) return wb;
-  return {
-    ...wb,
-    transitions: [
-      ...(wb.transitions ?? []),
-      {
-        from_technology: fromTech,
-        to_technology: toTech,
-        action: "replace",
-        capex_per_capacity: capexPerCapacity,
-      },
-    ],
-  };
-}
-
 /** Create a technology row if it does not exist yet (a blank recipe to edit). */
 export function ensureTechnology(wb: Workbook, techId: string): Workbook {
   if (!techId || (wb.technologies ?? []).some((r) => s(r.technology_id) === techId)) return wb;
@@ -453,25 +427,4 @@ export function resolveLevers(
       });
   }
   return out;
-}
-
-/** Deploy a named MACC on a facility, technology, stream or store (deduped). */
-export function applyMacc(
-  wb: Workbook,
-  macc: string,
-  target: Partial<Record<MaccLinkKind, string>>,
-): Workbook {
-  if (!macc || !MACC_LINK_KINDS.some((k) => target[k])) return wb;
-  const exists = (wb.macc_links ?? []).some(
-    (r) => s(r.macc) === macc && MACC_LINK_KINDS.every((k) => s(r[k]) === (target[k] ?? "")),
-  );
-  if (exists) return wb;
-  const row: Row = { macc };
-  for (const k of MACC_LINK_KINDS) row[k] = target[k] ?? null;
-  return { ...wb, macc_links: [...(wb.macc_links ?? []), row] };
-}
-
-/** Distinct MACC names with members (built in the maccs sheet). */
-export function maccNames(wb: Workbook): string[] {
-  return [...new Set((wb.maccs ?? []).map((r) => s(r.macc)).filter(Boolean))];
 }

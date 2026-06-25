@@ -82,3 +82,11 @@ def test_copy_macc_brings_levers() -> None:
     assert {g.macc_id for g in out.maccs} == {"M"}
     assert {m.lever_id for m in out.measures} == {"eff1"}
     assert {c.flow_id for c in out.flows} == {"elec"}  # lever target
+
+
+def test_copy_lever_only() -> None:
+    # The frontend ComponentCatalogKind sends "lever" (the renamed term); the copy
+    # dispatch must accept it (regression: it used to check the old "measure" key).
+    out = copy_component_into(_empty(), _src(), "lever", "eff1")
+    assert {m.lever_id for m in out.measures} == {"eff1"}
+    assert {c.flow_id for c in out.flows} == {"elec"}  # the lever's target flow rides along

@@ -285,7 +285,7 @@ def copy_component_into(
         add_tech(component_id)
     elif kind == "stream":
         add_flow(component_id)
-    elif kind == "measure":
+    elif kind == "lever":
         add_measure(component_id)
     elif kind == "macc":
         add_macc(component_id)

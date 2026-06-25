@@ -69,11 +69,6 @@ export function parseNodes(wb: Workbook): GroupNode[] {
   return out;
 }
 
-/** Return the ids of all root nodes (those with no parent). */
-export function rootIds(nodes: GroupNode[]): string[] {
-  return nodes.filter((nd) => nd.parentId === null).map((nd) => nd.id);
-}
-
 /** Return the direct children of a parent id (or roots when parentId is null),
  *  ordered by `order` then `id`. */
 export function childrenOf(nodes: GroupNode[], parentId: string | null): GroupNode[] {
