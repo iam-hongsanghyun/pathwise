@@ -29,7 +29,7 @@ import {
   routeTree,
   type RouteLeaf,
 } from "../features/fleet/fleetGraph";
-import { routePath } from "../lib/api/routing";
+import { routeExposure, routePath, type CorridorExposure } from "../lib/api/routing";
 import { FlatTablePanel } from "../features/table/FlatTablePanel";
 import { flattenFleetGroup } from "../features/table/flatten.fleet";
 import type { Row, Workbook } from "../types";
@@ -86,10 +86,24 @@ export function FleetDesignerView({
   const commodities = useMemo(() => (workbook.commodities ?? []).map((r) => s(r.commodity_id)).filter(Boolean), [workbook]);
   const coord = useMemo(() => buildCoordMap(workbook), [workbook]);
   const fleetByNode = useMemo(() => new Map(fleets.map((f) => [fleetId(f), f])), [fleets]);
-  // Blocked maritime corridors (the disruption what-if): sea routes reroute around them.
+  // Per-corridor ANNUAL CLOSURE PROBABILITY [0,1] — the chokepoint-risk input.
+  // Legacy boolean `blocked` reads as 1 (always shut) for back-compat.
+  const corridorProbs = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of workbook.corridors ?? []) {
+      const id = s(r.corridor);
+      if (!id) continue;
+      const legacy = r.blocked === true || s(r.blocked) === "true" ? 1 : 0;
+      const raw = r.disruption_prob == null || s(r.disruption_prob) === "" ? legacy : Number(r.disruption_prob);
+      m.set(id, Number.isFinite(raw) ? Math.max(0, Math.min(1, raw)) : legacy);
+    }
+    return m;
+  }, [workbook]);
+  // Corridors CLOSED in the base case (prob >= 1 = "assume shut"): the displayed map
+  // reroutes around these and the deterministic solve does too. Sub-100% is risk-only.
   const blockedCorridors = useMemo(
-    () => (workbook.corridors ?? []).filter((r) => r.blocked === true || s(r.blocked) === "true").map((r) => s(r.corridor)).filter(Boolean),
-    [workbook],
+    () => [...corridorProbs.entries()].filter(([, p]) => p >= 1).map(([id]) => id),
+    [corridorProbs],
   );
 
   const connections = useMemo(() => parseConnections(workbook), [workbook]);
@@ -98,6 +112,16 @@ export function FleetDesignerView({
   const leftTree = useMemo(() => fleetRegistryTree(fleetGroups, fleets), [fleetGroups, fleets]);
   const routesTree = useMemo(() => routeTree(routeLeaves, (id) => nodeById.get(id)?.label ?? id), [routeLeaves, nodeById]);
   const facilityNodes = useMemo(() => facilityTree(nodes, coord), [nodes, coord]);
+  // Friendly "from → to" label for a route (process id), for the chokepoint panel.
+  const routeLabelByProc = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of routes) {
+      const f = nodeById.get(s(r.from_node))?.label ?? s(r.from_node);
+      const t = nodeById.get(s(r.to_node))?.label ?? s(r.to_node);
+      m.set(s(r.process), `${f} → ${t}`);
+    }
+    return m;
+  }, [routes, nodeById]);
   const periods = useMemo(() => [...new Set((workbook.periods ?? []).map((r) => Number(r.year)).filter(Number.isFinite))].sort((a, b) => a - b), [workbook]);
   const baseYear = periods[0] ?? 2025;
   const tableResult = useMemo(() => (tableGroup ? flattenFleetGroup(workbook, tableGroup) : null), [tableGroup, workbook]);
@@ -126,6 +150,13 @@ export function FleetDesignerView({
   const mapRoutes = useMemo<MapRoute[]>(
     () => drawRoutes.map((r) => ({ ...r, path: paths.get(r.key) })),
     [drawRoutes, paths],
+  );
+  // Sea routes (located) fed to the chokepoint-exposure analysis. Memoised so its
+  // identity only changes with the geometry — the panel refetches on that, not on
+  // every probability edit (probability is applied client-side).
+  const exposureRoutes = useMemo(
+    () => drawRoutes.filter((r) => r.mode === "sea").map((r) => ({ id: r.process, from: r.from, to: r.to, mode: "sea" })),
+    [drawRoutes],
   );
   // Fetch any missing route polylines (debounced, so dragging a port doesn't spam).
   useEffect(() => {
@@ -228,11 +259,21 @@ export function FleetDesignerView({
     patchNode(id, { lon, lat });
     setSelId(id);
   }
-  // Open/close a maritime corridor (the disruption what-if). Blocking writes the
-  // `corridors` sheet; the engine then reroutes every sea route through it on re-run.
-  function setCorridor(name: string, on: boolean) {
+  // Set a maritime corridor's annual closure probability [0,1]. Writes the
+  // `corridors` sheet (and keeps the legacy `blocked` flag in sync at 100% so the
+  // engine's old reader still hard-blocks). prob 0 drops the row entirely.
+  function setCorridorProb(name: string, prob: number) {
+    const clamped = Math.max(0, Math.min(1, Number.isFinite(prob) ? prob : 0));
     const rows = (workbook.corridors ?? []).filter((r) => s(r.corridor) !== name);
-    setWorkbook(setSheet(workbook, "corridors", on ? [...rows, { corridor: name, blocked: true }] : rows));
+    setWorkbook(
+      setSheet(
+        workbook,
+        "corridors",
+        clamped > 0
+          ? [...rows, { corridor: name, disruption_prob: clamped, blocked: clamped >= 1 ? "true" : "" }]
+          : rows,
+      ),
+    );
   }
   // Block/unblock a corridor (scenario). The engine forces a blocked route's flow
   // to 0; candidate fleets stay attached (inert while blocked), so unblocking just
@@ -257,6 +298,8 @@ export function FleetDesignerView({
     else if (a === "see-table") { setTableGroup(n.id); setTableOpen(true); }
   };
   const editRoute = edit?.kind === "route" ? routes.find((r) => s(r.process) === edit.id) : undefined;
+  // Corridors carrying a sub-100% closure probability (the risk inputs; 100% = shut).
+  const corridorAtRisk = useMemo(() => [...corridorProbs.values()].filter((p) => p > 0 && p < 1).length, [corridorProbs]);
 
   return (
     <div className="view-full builder">
@@ -280,11 +323,11 @@ export function FleetDesignerView({
             <span style={{ flex: 1 }} />
             <button
               className="ghost"
-              style={{ fontSize: "0.74rem", color: blockedCorridors.length ? "var(--danger)" : "var(--muted)" }}
-              title="Close maritime chokepoints (Suez / Hormuz / …) — sea routes reroute around them"
+              style={{ fontSize: "0.74rem", color: blockedCorridors.length ? "var(--danger)" : corridorAtRisk ? "var(--text)" : "var(--muted)" }}
+              title="Chokepoint risk — annual closure probability per maritime corridor + detour exposure"
               onClick={() => setEdit({ kind: "corridors", id: "" })}
             >
-              ⚠ Corridors{blockedCorridors.length ? ` (${blockedCorridors.length} closed)` : ""}
+              ⚠ Chokepoints{blockedCorridors.length ? ` (${blockedCorridors.length} shut)` : corridorAtRisk ? ` (${corridorAtRisk})` : ""}
             </button>
           </div>
           <div style={{ flex: 1, minHeight: 0, display: "flex", padding: "10px 14px" }}>
@@ -344,26 +387,111 @@ export function FleetDesignerView({
           onClose={() => setEdit(null)} />
       )}
       {edit?.kind === "corridors" && (
-        <CorridorsPanel blocked={new Set(blockedCorridors)} onToggle={setCorridor} onClose={() => setEdit(null)} />
+        <CorridorsPanel probs={corridorProbs} onProb={setCorridorProb} routes={exposureRoutes}
+          routeLabel={(p) => routeLabelByProc.get(p) ?? p} onClose={() => setEdit(null)} />
       )}
       {dialogNode}
     </div>
   );
 }
 
-function CorridorsPanel({ blocked, onToggle, onClose }: { blocked: Set<string>; onToggle: (name: string, on: boolean) => void; onClose: () => void }) {
+// Chokepoint-risk panel: each maritime corridor carries an annual closure
+// probability; the panel shows its detour EXPOSURE (which sea routes it hits, how
+// far they'd reroute, or whether any are stranded) and the expected annual detour
+// (prob × total detour km). Geometry comes from /api/route-exposure; probability is
+// applied client-side, so a probability edit recomputes locally without re-fetching.
+const _km = (km: number): string => (km >= 1000 ? `${(km / 1000).toFixed(1)}k` : Math.round(km).toString());
+
+function CorridorsPanel({
+  probs,
+  onProb,
+  routes,
+  routeLabel,
+  onClose,
+}: {
+  probs: Map<string, number>;
+  onProb: (name: string, prob: number) => void;
+  routes: { id: string; from: { lon: number; lat: number }; to: { lon: number; lat: number }; mode?: string }[];
+  routeLabel: (proc: string) => string;
+  onClose: () => void;
+}) {
+  const [exp, setExp] = useState<Map<string, CorridorExposure>>(new Map());
+  const [loading, setLoading] = useState(false);
+  // Re-fetch the geometric exposure only when the routes change or a corridor
+  // crosses the 100% line (which moves the baseline). Plain probability edits don't.
+  const hardKey = CORRIDORS.filter(([id]) => (probs.get(id) ?? 0) >= 1).map(([id]) => id).join(",");
+  useEffect(() => {
+    let alive = true;
+    if (routes.length === 0) { setExp(new Map()); return; }
+    setLoading(true);
+    routeExposure(routes, CORRIDORS.map(([id]) => ({ id, prob: probs.get(id) ?? 0 })))
+      .then((list) => { if (alive) setExp(new Map(list.map((e) => [e.id, e]))); })
+      .catch(() => { if (alive) setExp(new Map()); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routes, hardKey]);
+
+  // Rank corridors worst-first: stranded routes float to the top, then by expected
+  // annual detour (probability × total reroute distance).
+  const ranked = CORRIDORS.map(([id, label]) => {
+    const e = exp.get(id);
+    const p = probs.get(id) ?? 0;
+    return { id, label, p, e, expected: e ? p * e.total_delta_km : 0 };
+  }).sort((a, b) => {
+    const sa = (a.e?.n_stranded ?? 0) > 0 ? 1 : 0;
+    const sb = (b.e?.n_stranded ?? 0) > 0 ? 1 : 0;
+    return sb !== sa ? sb - sa : b.expected - a.expected;
+  });
+
   return (
-    <FloatingPanel title="corridors" width={320} onClose={onClose}>
+    <FloatingPanel title="chokepoint risk" width={384} onClose={onClose}>
       <div style={{ padding: "12px 14px" }}>
-        <p className="rail-empty" style={{ margin: "0 0 8px" }}>
-          Close a maritime chokepoint to test a disruption. Every sea route through it reroutes (longer ⇒ more carriers, fuel + emissions) on the next run — or goes undelivered if there's no way around.
+        <p className="rail-empty" style={{ margin: "0 0 10px" }}>
+          Each maritime chokepoint has an annual closure probability. Sub-100% is a
+          sensitivity input — the base run stays open; 100% assumes it shut (reroutes
+          every run). Exposure = the detour a closure forces × its probability.
         </p>
-        {CORRIDORS.map(([id, label]) => (
-          <label key={id} className="field-row" style={{ marginTop: 4 }}>
-            <input type="checkbox" checked={blocked.has(id)} onChange={(e) => onToggle(id, e.target.checked)} />
-            <span style={{ color: blocked.has(id) ? "var(--danger)" : "var(--text)" }}>{label}</span>
-          </label>
-        ))}
+        {routes.length === 0 ? (
+          <p className="rail-empty">Place both ends of a sea route on the map to see exposure.</p>
+        ) : (
+          ranked.map(({ id, label, p, e, expected }) => {
+            const used = !!e && e.n_routes > 0;
+            const stranded = (e?.n_stranded ?? 0) > 0;
+            const detail = e?.routes
+              .map((r) => `${routeLabel(r.route_id)} — ${r.detour_km == null ? "no alternative" : `+${Math.round(r.delta_pct ?? 0)}% (+${_km(r.delta_km ?? 0)} km)`}`)
+              .join("\n");
+            return (
+              <div key={id} className={`corridor-row${stranded ? " is-stranded" : ""}`}>
+                <div className="corridor-row-head">
+                  <span className="corridor-name">{label}</span>
+                  <span className="corridor-prob">
+                    <input className="field-input" type="number" min={0} max={100} step={0.5}
+                      value={p ? Number((p * 100).toFixed(2)) : ""} placeholder="0"
+                      onChange={(ev) => onProb(id, ev.target.value === "" ? 0 : Number(ev.target.value) / 100)} />
+                    <span className="field-unit">%/yr</span>
+                  </span>
+                </div>
+                <div className="corridor-exposure" title={detail || undefined}>
+                  {!used ? (
+                    <span className="muted">no route uses this chokepoint</span>
+                  ) : stranded ? (
+                    <span style={{ color: "var(--danger)" }}>
+                      ⚠ {e!.n_stranded} route{e!.n_stranded > 1 ? "s" : ""} stranded — no way around
+                      {e!.n_routes > e!.n_stranded ? ` · ${e!.n_routes - e!.n_stranded} reroute` : ""}
+                    </span>
+                  ) : (
+                    <span>
+                      {e!.n_routes} route{e!.n_routes > 1 ? "s" : ""} · +{_km(e!.total_delta_km)} km if shut
+                      {p > 0 ? <span className="corridor-expected"> · ~{_km(expected)} km/yr expected</span> : null}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+        {loading && <p className="muted" style={{ fontSize: "0.72rem", marginTop: 8 }}>computing exposure…</p>}
       </div>
     </FloatingPanel>
   );

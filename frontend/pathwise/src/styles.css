@@ -753,6 +753,24 @@
 .fleet-port-dot { fill: var(--brand); stroke: var(--surface); stroke-width: 1.6; }
 .fleet-port.is-selected .fleet-port-dot { stroke: var(--brand); stroke-width: 2.4; }
 .fleet-port-label { font-size: 11px; fill: var(--text); pointer-events: none; }
+/* Chokepoint-risk panel: one corridor = a probability input + its detour exposure. */
+.corridor-row {
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+.corridor-row:last-child { border-bottom: 0; }
+.corridor-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.corridor-name { flex: 1; font-size: 0.84rem; }
+.corridor-prob { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+.corridor-prob .field-input { width: 56px; text-align: right; }
+.corridor-exposure { margin-top: 3px; font-size: 0.74rem; color: var(--muted); }
+.corridor-expected { color: var(--brand); }
+.corridor-row.is-stranded { background: color-mix(in srgb, var(--danger) 7%, transparent); }
+
 /* A single fleet row (route editor's "Candidate fleets" list). */
 .fleet-ep {
   display: flex;

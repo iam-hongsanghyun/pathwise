@@ -545,12 +545,17 @@ def _assemble_fleet(
             lon, lat = _num(r.get("lon")), _num(r.get("lat"))
             if nid is not None and lon is not None and lat is not None:
                 coords[nid] = (lon, lat)
-    # Blocked maritime corridors (a disruption what-if): every sea route is forced
+    # Maritime corridors assumed CLOSED in the base case: every sea route is forced
     # to avoid them, so a derived distance reroutes (longer) — Hormuz/Suez closure.
+    # A corridor counts as closed when its annual disruption probability is >= 1
+    # (100% = "assume shut"), or via the legacy boolean ``blocked`` flag. A sub-100%
+    # probability is a *sensitivity* input only (the UI's chokepoint-risk panel); it
+    # leaves the base solve untouched, so we ignore it here.
     avoid = tuple(
         c
         for r in _rows(workbook, CORRIDORS)
-        if _bool(r.get("blocked"), False) and (c := _str(r.get("corridor")))
+        if (_bool(r.get("blocked"), False) or (_num(r.get("disruption_prob"), 0.0) or 0.0) >= 1.0)
+        and (c := _str(r.get("corridor")))
     )
 
     def _derived_distance(a: Point, b: Point, mode: str) -> float:
