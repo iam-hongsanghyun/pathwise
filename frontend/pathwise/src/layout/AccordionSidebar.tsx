@@ -106,10 +106,22 @@ export function AccordionSidebar({
                 borderTop: "1px solid var(--border)",
               }}
             >
-              {/* Section header — behaves like .rail-head-row.is-divided */}
-              <button
+              {/* Section header — behaves like .rail-head-row.is-divided. A
+                  <div role="button"> rather than a <button> so the optional
+                  headAction (often itself a <button>) doesn't nest button-in-button. */}
+              <div
                 className="acc-head"
+                role="button"
+                tabIndex={0}
                 onClick={() => toggleSection(sec.id)}
+                onKeyDown={(e) => {
+                  // Only the header itself toggles; ignore keys from the headAction.
+                  if (e.target !== e.currentTarget) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    toggleSection(sec.id);
+                  }
+                }}
                 title={`${isOpen ? "collapse" : "expand"} ${sec.title}`}
               >
                 <span className="acc-chevron">{isOpen ? "▾" : "▸"}</span>
@@ -133,7 +145,7 @@ export function AccordionSidebar({
                     {sec.headAction}
                   </span>
                 )}
-              </button>
+              </div>
 
               {/* Section body — only rendered when open */}
               {isOpen && (
