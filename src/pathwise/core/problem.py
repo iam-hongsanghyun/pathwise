@@ -185,6 +185,10 @@ class ConnectionRoute:
         legs: Candidate fleets (the optimiser chooses among them).
         blocked: Scenario switch — close this corridor (its flow is forced to 0, so
             the stream must reroute or go undelivered: the Hormuz/Suez what-if).
+        toll: Per-voyage transit fee [currency / voyage], summed over every maritime
+            chokepoint this route traverses. Priced into the objective as
+            ``toll · legflow / ship_size`` (voyages ≈ cargo / cargo-per-voyage),
+            independent of the chokepoint's closure probability.
     """
 
     process: str
@@ -193,6 +197,7 @@ class ConnectionRoute:
     edges: tuple[int, ...]
     legs: tuple[ConnectionLeg, ...] = ()
     blocked: bool = False
+    toll: float = 0.0
     #: Scope ids this route's emissions attribute to (its origin node + every ancestor),
     #: so a group/company/region impact cap that contains the origin also binds the
     #: transport leaving it. ``"all"`` always matches (sector-wide).

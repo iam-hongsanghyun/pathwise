@@ -124,7 +124,7 @@ from pathwise.data.sheets import (
 )
 from pathwise.data.trajectory import interpolate
 from pathwise.data.workbook import Workbook
-from pathwise.routing import Point, great_circle_km, route_distance_km
+from pathwise.routing import Point, great_circle_km, route_distance_km, route_passages
 from pathwise.units import CoefficientConverter, load_units_config
 
 Rows = list[dict[str, Any]]
@@ -447,7 +447,13 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
 
 def _assemble_fleet(
     workbook: Workbook, years: list[int], inputs: dict[str, dict[str, float]]
-) -> tuple[dict[str, Fleet], dict[tuple[str, int], float], dict[str, FleetRoute], dict[str, Route]]:
+) -> tuple[
+    dict[str, Fleet],
+    dict[tuple[str, int], float],
+    dict[str, FleetRoute],
+    dict[str, Route],
+    dict[str, float],
+]:
     """Assemble fleets + physical routes and inject distance-driven fuel use.
 
     A fleet (Layer 1b) is a carrier asset class (cargo, capacity, lifecycle); a
@@ -557,6 +563,13 @@ def _assemble_fleet(
         if (_bool(r.get("blocked"), False) or (_num(r.get("disruption_prob"), 0.0) or 0.0) >= 1.0)
         and (c := _str(r.get("corridor")))
     )
+    # Per-voyage transit fees by chokepoint (independent of disruption probability):
+    # a route pays Σ toll for every maritime corridor it traverses, per voyage.
+    corridor_tolls: dict[str, float] = {
+        c: t
+        for r in _rows(workbook, CORRIDORS)
+        if (c := _str(r.get("corridor"))) and (t := _numd(r.get("toll"), 0.0)) > 0
+    }
 
     def _derived_distance(a: Point, b: Point, mode: str) -> float:
         """Route distance honouring blocked corridors; on an unroutable reroute fall
@@ -567,6 +580,7 @@ def _assemble_fleet(
             return great_circle_km(a, b) * 4.0
 
     routes: dict[str, Route] = {}
+    route_tolls: dict[str, float] = {}  # process -> Σ per-voyage toll over corridors crossed
     for r in _rows(workbook, ROUTES):
         rproc = _str(r.get("process"))
         if rproc is None:
@@ -581,6 +595,13 @@ def _assemble_fleet(
         routes[rproc] = Route(
             process=rproc, from_node=rfrom, to_node=rto, mode=rmode, distance=rdist or 0.0
         )
+        # Per-voyage toll: Σ over the maritime chokepoints this lane traverses (only
+        # when tolls are defined AND both ends are located — pure geometry).
+        if corridor_tolls and rfrom in coords and rto in coords:
+            route_tolls[rproc] = sum(
+                corridor_tolls.get(c, 0.0)
+                for c in route_passages(coords[rfrom], coords[rto], avoid)
+            )
 
     fleet_routes: dict[str, FleetRoute] = {}
     for r in _rows(workbook, FLEET_ROUTES):
@@ -615,7 +636,7 @@ def _assemble_fleet(
             recipe = inputs.setdefault(tech, {})
             recipe[ffleet.fuel] = recipe.get(ffleet.fuel, 0.0) + ffleet.efficiency * rgeo.distance
 
-    return fleets, fleet_available, fleet_routes, routes
+    return fleets, fleet_available, fleet_routes, routes, route_tolls
 
 
 def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
@@ -946,7 +967,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     # collide with the rest of assembly; it also injects each fleet's distance×
     # efficiency fuel into the transport process's recipe (so fuel cost + emissions
     # flow through the normal pipeline — no privileged fuel/impact).
-    fleets, fleet_available, fleet_routes, routes = _assemble_fleet(workbook, years, inputs)
+    fleets, fleet_available, fleet_routes, routes, route_tolls = _assemble_fleet(
+        workbook, years, inputs
+    )
 
     technologies: dict[str, Technology] = {}
     for r in _rows(workbook, TECHNOLOGIES):
@@ -1155,6 +1178,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         )
         geo = routes.get(rproc)
         distance = geo.distance if geo is not None else (_num(r.get("distance"), 0.0) or 0.0)
+        route_toll = route_tolls.get(rproc, 0.0)  # Σ per-voyage toll over corridors crossed
         # Explicit candidate fleets win; otherwise "optimiser chooses" ⇒ every fleet
         # that carries this stream is a candidate (none compatible ⇒ stays teleport).
         legs = legs_by_route.get(rproc) or [
@@ -1173,6 +1197,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 edges=eidx,
                 legs=tuple(legs),
                 blocked=_bool(r.get("blocked"), False),
+                toll=route_toll,
                 scope_chain=tuple(x for x in scope_chain if x),
             )
         )

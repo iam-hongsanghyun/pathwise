@@ -142,13 +142,15 @@ FLEET_GROUPS = "fleet_groups"
 #: great-circle × mode factor).
 ROUTES = "routes"
 
-#: Maritime chokepoint risk (Layer 1c+): (corridor, disruption_prob[, blocked]). Each
-#: maritime chokepoint (suez / ormuz=Hormuz / panama / malacca / …) carries an annual
-#: closure probability in [0, 1]. ``disruption_prob >= 1`` (100% = "assume shut") — or
-#: the legacy boolean ``blocked`` — closes the passage in the BASE solve, so every sea
-#: route through it reroutes (longer, costlier, more fuel/emissions) or becomes
+#: Maritime chokepoint risk (Layer 1c+): (corridor, disruption_prob[, toll][, blocked]).
+#: Each maritime chokepoint (suez / ormuz=Hormuz / panama / malacca / …) carries an
+#: annual closure probability in [0, 1]. ``disruption_prob >= 1`` (100% = "assume shut")
+#: — or the legacy boolean ``blocked`` — closes the passage in the BASE solve, so every
+#: sea route through it reroutes (longer, costlier, more fuel/emissions) or becomes
 #: infeasible. A sub-100% probability is a sensitivity input only (the chokepoint-risk
 #: panel weights each corridor's detour exposure by it); it never alters the base solve.
+#: ``toll`` is a per-voyage transit fee [currency/voyage] charged on every route that
+#: traverses the corridor (priced as toll·legflow/ship_size); independent of probability.
 CORRIDORS = "corridors"
 
 #: Long-format per-year transition capex (from_technology, to_technology, year,

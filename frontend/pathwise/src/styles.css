@@ -765,9 +765,21 @@
   gap: 8px;
 }
 .corridor-name { flex: 1; font-size: 0.84rem; }
-.corridor-prob { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
-.corridor-prob .field-input { width: 56px; text-align: right; }
-.corridor-exposure { margin-top: 3px; font-size: 0.74rem; color: var(--muted); }
+.corridor-inputs { display: flex; gap: 10px; margin-top: 4px; }
+.corridor-field { display: flex; align-items: center; gap: 4px; }
+.corridor-field .field-input { width: 64px; text-align: right; }
+.corridor-exposure { margin-top: 4px; font-size: 0.74rem; color: var(--muted); }
+/* The collapsible chokepoint section header (a full-width toggle button). */
+.choke-toggle {
+  width: 100%;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+}
+.choke-toggle:hover { background: var(--bg-hover); }
 .corridor-expected { color: var(--brand); }
 .corridor-row.is-stranded { background: color-mix(in srgb, var(--danger) 7%, transparent); }
 

@@ -1989,6 +1989,22 @@ def _objective(ctx: BuildContext) -> None:
                 )
                 obj_terms.append((w_da * cop_da * ctx.cunits).sum(["leg", "period"]))
 
+            # Per-voyage chokepoint TOLL: a transit fee on every voyage through a
+            # corridor. voyages ≈ legflow / ship_size, so cost = (toll/ship_size)·legflow
+            # — linear in cargo, independent of the corridor's closure probability.
+            def _toll_coeff(cr: Any, leg: Any) -> float:
+                fl = prob.fleets.get(leg.fleet_id)
+                if not cr.toll or fl is None or fl.ship_size <= 0:
+                    return 0.0
+                return float(cr.toll / fl.ship_size)
+
+            toll_arr = np.array([[_toll_coeff(cr, leg) for _ in ctx.years] for cr, leg in legs])
+            if toll_arr.any():
+                toll_da = xr.DataArray(
+                    toll_arr, coords={"leg": leg_ids, "period": ctx.years}, dims=["leg", "period"]
+                )
+                obj_terms.append((w_da * toll_da * ctx.legflow).sum(["leg", "period"]))
+
     # ── Fleet acquisition capex: capex_charge(year, lifespan) * capex * built ──
     # A built carrier's overnight cost is discounted/annuitised over its lifespan via
     # the shared capex_charge (NPV lump or capital-recovery), exactly like a facility.

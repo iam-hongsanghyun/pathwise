@@ -31,6 +31,7 @@ import {
   type RouteLeaf,
 } from "../features/fleet/fleetGraph";
 import { routeExposure, routePath, type CorridorExposure } from "../lib/api/routing";
+import { modelCurrency } from "../lib/caps";
 import { FlatTablePanel } from "../features/table/FlatTablePanel";
 import { flattenFleetGroup } from "../features/table/flatten.fleet";
 import type { Row, Workbook } from "../types";
@@ -62,7 +63,7 @@ function polyKm(line: [number, number][]): number {
   return total;
 }
 
-type Edit = { kind: "fleet" | "node" | "route" | "corridors"; id: string } | null;
+type Edit = { kind: "fleet" | "node" | "route"; id: string } | null;
 
 // Major maritime chokepoints (searoute passage ids → friendly labels) a user can close.
 const CORRIDORS: [string, string][] = [
@@ -89,6 +90,8 @@ export function FleetDesignerView({
   const [expR, setExpR] = useState<Set<string>>(new Set());
   const [expF, setExpF] = useState<Set<string>>(new Set());
   const [facilityH, setFacilityH] = useState(220); // right-rail Routes↕Facility split
+  const [chokeOpen, setChokeOpen] = useState(false); // left-rail chokepoint designer
+  const [chokeH, setChokeH] = useState(280);
   const [leftW, setLeftW] = useState(240);
   const [rightW, setRightW] = useState(260);
   const [leftOpen, setLeftOpen] = useState(true);
@@ -121,6 +124,18 @@ export function FleetDesignerView({
     }
     return m;
   }, [workbook]);
+  // Per-corridor PER-VOYAGE TOLL [currency/voyage] — a transit fee, independent of
+  // the closure probability; a route pays it for every chokepoint it traverses.
+  const corridorTolls = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of workbook.corridors ?? []) {
+      const id = s(r.corridor);
+      const t = id && r.toll != null && s(r.toll) !== "" ? Number(r.toll) : 0;
+      if (id && Number.isFinite(t) && t > 0) m.set(id, t);
+    }
+    return m;
+  }, [workbook]);
+  const currency = useMemo(() => modelCurrency(workbook), [workbook]);
   // Corridors CLOSED in the base case (prob >= 1 = "assume shut"): the displayed map
   // reroutes around these and the deterministic solve does too. Sub-100% is risk-only.
   const blockedCorridors = useMemo(
@@ -155,6 +170,17 @@ export function FleetDesignerView({
   // Each map route carries a cache key (rounded endpoints + mode) so a port's sea
   // polyline is fetched once and re-used; the polyline itself lives in `paths`.
   const [paths, setPaths] = useState<Map<string, [number, number][]>>(new Map());
+  // The dotted ALTERNATIVE (detour) polyline per route (process), drawn when a lane
+  // traverses an "active" chokepoint (a sub-100% closure probability OR a toll).
+  const [altPaths, setAltPaths] = useState<Map<string, [number, number][]>>(new Map());
+  // Chokepoints worth showing a detour for: a closure probability in (0,1) — 100% is
+  // already the base reroute — OR a per-voyage toll (here's the toll-free way round).
+  const activeCorridorIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const [id, p] of corridorProbs) if (p > 0 && p < 1) ids.add(id);
+    for (const id of corridorTolls.keys()) ids.add(id);
+    return [...ids].sort();
+  }, [corridorProbs, corridorTolls]);
   // Candidate fleets per route — pinned (fleet_routes) first, else any fleet whose
   // cargo matches the route's commodity (the optimiser's candidate set).
   const fleetsByProc = useMemo(() => {
@@ -201,9 +227,9 @@ export function FleetDesignerView({
   const mapRoutes = useMemo<MapRoute[]>(
     () => drawRoutes.map((r) => {
       const path = paths.get(r.key);
-      return { ...r, path, distanceKm: path ? polyKm(path) : undefined };
+      return { ...r, path, distanceKm: path ? polyKm(path) : undefined, altPath: altPaths.get(r.process) };
     }),
-    [drawRoutes, paths],
+    [drawRoutes, paths, altPaths],
   );
   // Sea routes (located) fed to the chokepoint-exposure analysis. Memoised so its
   // identity only changes with the geometry — the panel refetches on that, not on
@@ -227,6 +253,41 @@ export function FleetDesignerView({
     }, 250);
     return () => clearTimeout(t);
   }, [drawRoutes, paths, blockedCorridors]);
+
+  // Dotted ALTERNATIVE paths: for every sea route that traverses an active chokepoint,
+  // fetch the detour it would take if those corridors were avoided. The exposure call
+  // tells us which active corridors each route uses; we then route around exactly those
+  // (plus any already-shut). Recomputes only when geometry or the active set changes.
+  const activeKey = activeCorridorIds.join(",");
+  const blockedKey = blockedCorridors.join(",");
+  useEffect(() => {
+    let alive = true;
+    if (exposureRoutes.length === 0 || activeCorridorIds.length === 0) { setAltPaths(new Map()); return; }
+    const t = setTimeout(() => {
+      void routeExposure(exposureRoutes, activeCorridorIds.map((id) => ({ id, prob: corridorProbs.get(id) ?? 0 })))
+        .then((list) => {
+          const used = new Map<string, string[]>(); // process -> active corridors it crosses
+          for (const c of list) for (const r of c.routes) (used.get(r.route_id) ?? used.set(r.route_id, []).get(r.route_id)!).push(c.id);
+          return Promise.all(
+            [...used.entries()].map(([proc, cors]) => {
+              const r = drawRoutes.find((d) => d.process === proc);
+              if (!r) return null;
+              return routePath(r.from, r.to, r.mode, [...blockedCorridors, ...cors])
+                .then((coords) => [proc, coords] as const)
+                .catch(() => null);
+            }),
+          );
+        })
+        .then((pairs) => {
+          if (!alive || !pairs) return;
+          const ok = pairs.filter((p): p is readonly [string, [number, number][]] => p !== null);
+          setAltPaths(new Map(ok));
+        })
+        .catch(() => { if (alive) setAltPaths(new Map()); });
+    }, 300);
+    return () => { alive = false; clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exposureRoutes, activeKey, blockedKey]);
 
   // ── writes ───────────────────────────────────────────────────────────────────
   const setSheet = (wb: Workbook, sheet: string, rows: Row[]): Workbook => ({ ...wb, [sheet]: rows });
@@ -313,22 +374,30 @@ export function FleetDesignerView({
     patchNode(id, { lon, lat });
     setSelId(id);
   }
-  // Set a maritime corridor's annual closure probability [0,1]. Writes the
-  // `corridors` sheet (and keeps the legacy `blocked` flag in sync at 100% so the
-  // engine's old reader still hard-blocks). prob 0 drops the row entirely.
-  function setCorridorProb(name: string, prob: number) {
-    const clamped = Math.max(0, Math.min(1, Number.isFinite(prob) ? prob : 0));
+  // Upsert a corridor's probability and/or per-voyage toll on the `corridors` sheet
+  // (each setter preserves the other field). `blocked` stays synced at 100% so the
+  // engine's legacy reader still hard-blocks. A row with neither prob nor toll is
+  // dropped so the sheet stays clean.
+  function patchCorridor(name: string, patch: { prob?: number; toll?: number }) {
+    const prob = patch.prob != null
+      ? Math.max(0, Math.min(1, Number.isFinite(patch.prob) ? patch.prob : 0))
+      : corridorProbs.get(name) ?? 0;
+    const toll = patch.toll != null
+      ? Math.max(0, Number.isFinite(patch.toll) ? patch.toll : 0)
+      : corridorTolls.get(name) ?? 0;
     const rows = (workbook.corridors ?? []).filter((r) => s(r.corridor) !== name);
     setWorkbook(
       setSheet(
         workbook,
         "corridors",
-        clamped > 0
-          ? [...rows, { corridor: name, disruption_prob: clamped, blocked: clamped >= 1 ? "true" : "" }]
+        prob > 0 || toll > 0
+          ? [...rows, { corridor: name, disruption_prob: prob || "", toll: toll || "", blocked: prob >= 1 ? "true" : "" }]
           : rows,
       ),
     );
   }
+  const setCorridorProb = (name: string, prob: number) => patchCorridor(name, { prob });
+  const setCorridorToll = (name: string, toll: number) => patchCorridor(name, { toll });
   // Block/unblock a corridor (scenario). The engine forces a blocked route's flow
   // to 0; candidate fleets stay attached (inert while blocked), so unblocking just
   // clears the flag — no stashing needed.
@@ -359,15 +428,34 @@ export function FleetDesignerView({
     <div className="view-full builder">
       <div className="builder-body">
         <CollapsibleRail side="left" open={leftOpen} setOpen={setLeftOpen} width={leftW} setWidth={setLeftW} min={200} max={420}
-          title="Fleets"
+          title="Fleets" scroll={false}
           headAction={<button className="rail-add" title="add an alliance / company group" onClick={() => void addFleetGroup(null)}>＋</button>}
           collapsedExtras={<button className="rail-add" title="add an alliance / company group" onClick={() => void addFleetGroup(null)}>＋</button>}
           foot="A separate transport layer · right-click a group to add a company or fleet">
-          <TreeExplorer nodes={leftTree} selectedId={selId} expandedIds={expL}
-            onToggle={(id, e) => setExpL((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
-            onSelect={(id) => { setSelId(id); if (fleetByNode.has(id)) setEdit({ kind: "fleet", id }); }}
-            actionsFor={leftActions} onContextAction={onLeftAction} onMove={onMoveLeft}
-            emptyHint="Empty — ＋ to add an alliance / company, then add fleets inside." />
+          <div className="rail-scroll" style={{ flex: 1, minHeight: 80 }}>
+            <TreeExplorer nodes={leftTree} selectedId={selId} expandedIds={expL}
+              onToggle={(id, e) => setExpL((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
+              onSelect={(id) => { setSelId(id); if (fleetByNode.has(id)) setEdit({ kind: "fleet", id }); }}
+              actionsFor={leftActions} onContextAction={onLeftAction} onMove={onMoveLeft}
+              emptyHint="Empty — ＋ to add an alliance / company, then add fleets inside." />
+          </div>
+          {/* Chokepoint designer — collapsible + height-adjustable bottom section. */}
+          {chokeOpen && <Resizer side="top" width={chokeH} setWidth={setChokeH} min={140} max={620} />}
+          <div style={{ flex: chokeOpen ? `0 0 ${chokeH}px` : "0 0 auto", display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <button className="rail-head-row is-divided choke-toggle" onClick={() => setChokeOpen((o) => !o)}
+              title="Maritime chokepoint risk + per-voyage tolls">
+              <span className="rail-head">{chokeOpen ? "▾" : "▸"} Chokepoint risk</span>
+              <span className="rail-foot" style={{ padding: "0 10px" }}>
+                {blockedCorridors.length ? `${blockedCorridors.length} shut` : corridorAtRisk ? `${corridorAtRisk} at risk` : ""}
+              </span>
+            </button>
+            {chokeOpen && (
+              <div className="rail-scroll" style={{ flex: 1, minHeight: 0 }}>
+                <ChokepointDesigner probs={corridorProbs} tolls={corridorTolls} onProb={setCorridorProb} onToll={setCorridorToll}
+                  routes={exposureRoutes} routeLabel={(p) => routeLabelByProc.get(p) ?? p} currency={currency} />
+              </div>
+            )}
+          </div>
         </CollapsibleRail>
 
         <main className="builder-canvas">
@@ -378,8 +466,8 @@ export function FleetDesignerView({
             <button
               className="ghost"
               style={{ fontSize: "0.74rem", color: blockedCorridors.length ? "var(--danger)" : corridorAtRisk ? "var(--text)" : "var(--muted)" }}
-              title="Chokepoint risk — annual closure probability per maritime corridor + detour exposure"
-              onClick={() => setEdit({ kind: "corridors", id: "" })}
+              title="Chokepoint risk — open the designer in the left rail (probability + per-voyage toll + detour exposure)"
+              onClick={() => { setLeftOpen(true); setChokeOpen(true); }}
             >
               ⚠ Chokepoints{blockedCorridors.length ? ` (${blockedCorridors.length} shut)` : corridorAtRisk ? ` (${corridorAtRisk})` : ""}
             </button>
@@ -443,39 +531,40 @@ export function FleetDesignerView({
           onDelete={() => { setWorkbook(setSheet(setSheet(workbook, "routes", routes.filter((r) => s(r.process) !== edit!.id)), "fleet_routes", fleetRoutes.filter((r) => s(r.process) !== edit!.id))); setEdit(null); }}
           onClose={() => setEdit(null)} />
       )}
-      {edit?.kind === "corridors" && (
-        <CorridorsPanel probs={corridorProbs} onProb={setCorridorProb} routes={exposureRoutes}
-          routeLabel={(p) => routeLabelByProc.get(p) ?? p} onClose={() => setEdit(null)} />
-      )}
       {dialogNode}
     </div>
   );
 }
 
-// Chokepoint-risk panel: each maritime corridor carries an annual closure
-// probability; the panel shows its detour EXPOSURE (which sea routes it hits, how
-// far they'd reroute, or whether any are stranded) and the expected annual detour
-// (prob × total detour km). Geometry comes from /api/route-exposure; probability is
-// applied client-side, so a probability edit recomputes locally without re-fetching.
+// Chokepoint designer (left-rail section): each maritime corridor carries an annual
+// closure PROBABILITY and an optional per-voyage TOLL. It shows each corridor's detour
+// EXPOSURE (which sea routes it hits, how far they'd reroute, or whether any are
+// stranded) + the expected annual detour (prob × total detour km). Geometry comes from
+// /api/route-exposure; probability + toll are applied client-side, so editing either
+// recomputes locally without re-fetching.
 const _km = (km: number): string => (km >= 1000 ? `${(km / 1000).toFixed(1)}k` : Math.round(km).toString());
 
-function CorridorsPanel({
+function ChokepointDesigner({
   probs,
+  tolls,
   onProb,
+  onToll,
   routes,
   routeLabel,
-  onClose,
+  currency,
 }: {
   probs: Map<string, number>;
+  tolls: Map<string, number>;
   onProb: (name: string, prob: number) => void;
+  onToll: (name: string, toll: number) => void;
   routes: { id: string; from: { lon: number; lat: number }; to: { lon: number; lat: number }; mode?: string }[];
   routeLabel: (proc: string) => string;
-  onClose: () => void;
+  currency: string;
 }) {
   const [exp, setExp] = useState<Map<string, CorridorExposure>>(new Map());
   const [loading, setLoading] = useState(false);
   // Re-fetch the geometric exposure only when the routes change or a corridor
-  // crosses the 100% line (which moves the baseline). Plain probability edits don't.
+  // crosses the 100% line (which moves the baseline). Plain prob/toll edits don't.
   const hardKey = CORRIDORS.filter(([id]) => (probs.get(id) ?? 0) >= 1).map(([id]) => id).join(",");
   useEffect(() => {
     let alive = true;
@@ -494,7 +583,7 @@ function CorridorsPanel({
   const ranked = CORRIDORS.map(([id, label]) => {
     const e = exp.get(id);
     const p = probs.get(id) ?? 0;
-    return { id, label, p, e, expected: e ? p * e.total_delta_km : 0 };
+    return { id, label, p, toll: tolls.get(id) ?? 0, e, expected: e ? p * e.total_delta_km : 0 };
   }).sort((a, b) => {
     const sa = (a.e?.n_stranded ?? 0) > 0 ? 1 : 0;
     const sb = (b.e?.n_stranded ?? 0) > 0 ? 1 : 0;
@@ -502,55 +591,61 @@ function CorridorsPanel({
   });
 
   return (
-    <FloatingPanel title="chokepoint risk" width={384} onClose={onClose}>
-      <div style={{ padding: "12px 14px" }}>
-        <p className="rail-empty" style={{ margin: "0 0 10px" }}>
-          Each maritime chokepoint has an annual closure probability. Sub-100% is a
-          sensitivity input — the base run stays open; 100% assumes it shut (reroutes
-          every run). Exposure = the detour a closure forces × its probability.
-        </p>
-        {routes.length === 0 ? (
-          <p className="rail-empty">Place both ends of a sea route on the map to see exposure.</p>
-        ) : (
-          ranked.map(({ id, label, p, e, expected }) => {
-            const used = !!e && e.n_routes > 0;
-            const stranded = (e?.n_stranded ?? 0) > 0;
-            const detail = e?.routes
-              .map((r) => `${routeLabel(r.route_id)} — ${r.detour_km == null ? "no alternative" : `+${Math.round(r.delta_pct ?? 0)}% (+${_km(r.delta_km ?? 0)} km)`}`)
-              .join("\n");
-            return (
-              <div key={id} className={`corridor-row${stranded ? " is-stranded" : ""}`}>
-                <div className="corridor-row-head">
-                  <span className="corridor-name">{label}</span>
-                  <span className="corridor-prob">
-                    <input className="field-input" type="number" min={0} max={100} step={0.5}
-                      value={p ? Number((p * 100).toFixed(2)) : ""} placeholder="0"
-                      onChange={(ev) => onProb(id, ev.target.value === "" ? 0 : Number(ev.target.value) / 100)} />
-                    <span className="field-unit">%/yr</span>
-                  </span>
-                </div>
-                <div className="corridor-exposure" title={detail || undefined}>
-                  {!used ? (
-                    <span className="muted">no route uses this chokepoint</span>
-                  ) : stranded ? (
-                    <span style={{ color: "var(--danger)" }}>
-                      ⚠ {e!.n_stranded} route{e!.n_stranded > 1 ? "s" : ""} stranded — no way around
-                      {e!.n_routes > e!.n_stranded ? ` · ${e!.n_routes - e!.n_stranded} reroute` : ""}
-                    </span>
-                  ) : (
-                    <span>
-                      {e!.n_routes} route{e!.n_routes > 1 ? "s" : ""} · +{_km(e!.total_delta_km)} km if shut
-                      {p > 0 ? <span className="corridor-expected"> · ~{_km(expected)} km/yr expected</span> : null}
-                    </span>
-                  )}
-                </div>
+    <div style={{ padding: "8px 12px" }}>
+      <p className="rail-empty" style={{ margin: "0 0 8px" }}>
+        Each chokepoint has an annual closure probability (sub-100% = sensitivity only;
+        100% reroutes every run) and a per-voyage toll. Exposure = the detour a closure
+        forces × its probability.
+      </p>
+      {routes.length === 0 ? (
+        <p className="rail-empty">Place both ends of a sea route on the map to see exposure.</p>
+      ) : (
+        ranked.map(({ id, label, p, toll, e, expected }) => {
+          const used = !!e && e.n_routes > 0;
+          const stranded = (e?.n_stranded ?? 0) > 0;
+          const detail = e?.routes
+            .map((r) => `${routeLabel(r.route_id)} — ${r.detour_km == null ? "no alternative" : `+${Math.round(r.delta_pct ?? 0)}% (+${_km(r.delta_km ?? 0)} km)`}`)
+            .join("\n");
+          return (
+            <div key={id} className={`corridor-row${stranded ? " is-stranded" : ""}`}>
+              <div className="corridor-row-head">
+                <span className="corridor-name">{label}</span>
               </div>
-            );
-          })
-        )}
-        {loading && <p className="muted" style={{ fontSize: "0.72rem", marginTop: 8 }}>computing exposure…</p>}
-      </div>
-    </FloatingPanel>
+              <div className="corridor-inputs">
+                <label className="corridor-field">
+                  <input className="field-input" type="number" min={0} max={100} step={0.5}
+                    value={p ? Number((p * 100).toFixed(2)) : ""} placeholder="0"
+                    onChange={(ev) => onProb(id, ev.target.value === "" ? 0 : Number(ev.target.value) / 100)} />
+                  <span className="field-unit">%/yr</span>
+                </label>
+                <label className="corridor-field">
+                  <input className="field-input" type="number" min={0} step={1000}
+                    value={toll || ""} placeholder="0"
+                    onChange={(ev) => onToll(id, ev.target.value === "" ? 0 : Number(ev.target.value))} />
+                  <span className="field-unit">{currency}/voyage</span>
+                </label>
+              </div>
+              <div className="corridor-exposure" title={detail || undefined}>
+                {!used ? (
+                  <span className="muted">no route uses this chokepoint</span>
+                ) : stranded ? (
+                  <span style={{ color: "var(--danger)" }}>
+                    ⚠ {e!.n_stranded} route{e!.n_stranded > 1 ? "s" : ""} stranded — no way around
+                    {e!.n_routes > e!.n_stranded ? ` · ${e!.n_routes - e!.n_stranded} reroute` : ""}
+                  </span>
+                ) : (
+                  <span>
+                    {e!.n_routes} route{e!.n_routes > 1 ? "s" : ""} · +{_km(e!.total_delta_km)} km if shut
+                    {p > 0 ? <span className="corridor-expected"> · ~{_km(expected)} km/yr expected</span> : null}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })
+      )}
+      {loading && <p className="muted" style={{ fontSize: "0.72rem", marginTop: 8 }}>computing exposure…</p>}
+    </div>
   );
 }
 
