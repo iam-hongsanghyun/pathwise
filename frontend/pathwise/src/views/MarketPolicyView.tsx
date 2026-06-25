@@ -1,4 +1,4 @@
-// Market & Policy — the institutional layer over the physical value chain.
+// Market & Policy — the institutional layer over the physical network.
 // Author the economic/regulatory environment: supply/offtake POOLS (flow
 // markets), EMISSIONS TRADING (ETS: a free allowance + buy/sell of the deficit/
 // surplus), and a blanket CARBON PRICE (a tax on every tonne of an impact). All

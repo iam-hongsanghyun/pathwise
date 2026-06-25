@@ -1,5 +1,5 @@
 // Shared, domain-agnostic model for the directory TreeExplorer used by both the
-// Component and Value Chain tabs. The host adapts its domain (libraries, or the
+// Component and Network tabs. The host adapts its domain (libraries, or the
 // session node hierarchy) into a flat TreeNode[] and handles the callbacks.
 
 export type TreeNodeKind = "library" | "group" | "asset" | "leaf";

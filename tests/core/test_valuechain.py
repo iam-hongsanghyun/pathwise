@@ -1,4 +1,4 @@
-"""Value-chain cascade: an upstream policy reshapes the downstream pathway.
+"""Network cascade: an upstream policy reshapes the downstream pathway.
 
 The driving requirement: a carbon policy on an *upstream* stage (electricity)
 must raise the price the *downstream* stage (steel) pays for it and change the
@@ -10,16 +10,16 @@ from __future__ import annotations
 
 import pytest
 
-from pathwise.core.valuechain import (
+from pathwise.core.network import (
     _inject_price,
     _price_signal,
     _shift,
     marginal_price,
-    run_value_chain,
+    run_network,
     sweep_value_chain,
 )
+from pathwise.data.network import CouplingLink, NetworkSpec, Stage
 from pathwise.data.scenario import ScenarioConfig
-from pathwise.data.valuechain import CouplingLink, Stage, ValueChainSpec
 
 SC = ScenarioConfig.from_dict({"economics": {"base_year": 2025, "discount_rate": 0.0}})
 
@@ -123,8 +123,8 @@ def _steel_wb() -> dict:
     }
 
 
-def _spec(lag: int = 0) -> ValueChainSpec:
-    return ValueChainSpec(
+def _spec(lag: int = 0) -> NetworkSpec:
+    return NetworkSpec(
         id="vc",
         label="elec → steel",
         stages=[Stage(id="elec"), Stage(id="steel")],
@@ -151,8 +151,8 @@ def _switched(res: dict) -> bool:
 
 def test_upstream_carbon_policy_raises_downstream_price_and_flips_pathway() -> None:
     spec = _spec()
-    low = run_value_chain(spec, {"elec": _electricity_wb(10.0), "steel": _steel_wb()}, SC)
-    high = run_value_chain(spec, {"elec": _electricity_wb(200.0), "steel": _steel_wb()}, SC)
+    low = run_network(spec, {"elec": _electricity_wb(10.0), "steel": _steel_wb()}, SC)
+    high = run_network(spec, {"elec": _electricity_wb(200.0), "steel": _steel_wb()}, SC)
 
     assert low["status"] == "optimal" and high["status"] == "optimal"
     # Stricter upstream carbon policy ⇒ higher electricity price injected downstream.
@@ -167,12 +167,12 @@ def test_upstream_carbon_policy_raises_downstream_price_and_flips_pathway() -> N
 def test_forced_switch_is_honoured_in_the_cascade() -> None:
     # With cheap electricity the free cascade keeps the baseline Arc (no switch)…
     spec = _spec()
-    free = run_value_chain(spec, {"elec": _electricity_wb(10.0), "steel": _steel_wb()}, SC)
+    free = run_network(spec, {"elec": _electricity_wb(10.0), "steel": _steel_wb()}, SC)
     assert free["status"] == "optimal"
     assert not _switched(free)
     # …but pinning the Mill to Arc_HR forces the switch even so — the cascade now
     # threads forced_switches into each stage's problem (previously a silent no-op).
-    pinned = run_value_chain(
+    pinned = run_network(
         spec,
         {"elec": _electricity_wb(10.0), "steel": _steel_wb()},
         SC,
@@ -185,7 +185,7 @@ def test_forced_switch_is_honoured_in_the_cascade() -> None:
 def test_carbon_intensity_signal_couples_into_downstream_emissions() -> None:
     # Electricity emits 1,000 tCO2 for 1,000 MWh ⇒ CI = 1.0 tCO2/MWh, injected
     # into steel's electricity input so the mill's emissions reflect the grid.
-    spec = ValueChainSpec(
+    spec = NetworkSpec(
         id="vc",
         stages=[Stage(id="elec"), Stage(id="steel")],
         links=[
@@ -200,7 +200,7 @@ def test_carbon_intensity_signal_couples_into_downstream_emissions() -> None:
     )
     steel = _steel_wb()
     steel["impacts"] = [{"impact_id": "CO2", "unit": "tCO2"}]
-    res = run_value_chain(spec, {"elec": _electricity_wb(0.0), "steel": steel}, SC)
+    res = run_network(spec, {"elec": _electricity_wb(0.0), "steel": steel}, SC)
 
     assert res["status"] == "optimal"
     ci = [c for c in res["couplings"] if c["signal"] == "carbon_intensity"]
@@ -222,7 +222,7 @@ def test_feedback_sizes_upstream_to_downstream_consumption() -> None:
         {"company": "Grid", "flow_id": "electricity", "year": y, "amount": 10.0}
         for y in (2025, 2030)
     ]
-    spec = ValueChainSpec(
+    spec = NetworkSpec(
         id="vc",
         stages=[Stage(id="elec"), Stage(id="steel")],
         links=[
@@ -235,7 +235,7 @@ def test_feedback_sizes_upstream_to_downstream_consumption() -> None:
             )
         ],
     )
-    res = run_value_chain(spec, {"elec": elec, "steel": _steel_wb()}, SC, iterations=6, damping=1.0)
+    res = run_network(spec, {"elec": elec, "steel": _steel_wb()}, SC, iterations=6, damping=1.0)
 
     assert res["status"] == "optimal"
     prod = {
@@ -266,7 +266,7 @@ def test_profit_objective_stage_composes_in_cascade() -> None:
     for c in steel["flows"]:
         if c["flow_id"] == "steel":
             c["sale_price"] = 10000.0
-    res = run_value_chain(_spec(), {"elec": _electricity_wb(10.0), "steel": steel}, SC)
+    res = run_network(_spec(), {"elec": _electricity_wb(10.0), "steel": steel}, SC)
 
     assert res["status"] == "optimal"
     produced = {
@@ -285,7 +285,7 @@ def test_marginal_price_equals_known_marginal_cost() -> None:
 
 
 def test_marginal_price_signal_couples_downstream() -> None:
-    spec = ValueChainSpec(
+    spec = NetworkSpec(
         id="vc",
         stages=[Stage(id="elec"), Stage(id="steel")],
         links=[
@@ -297,7 +297,7 @@ def test_marginal_price_signal_couples_downstream() -> None:
             )
         ],
     )
-    res = run_value_chain(spec, {"elec": _electricity_wb(10.0), "steel": _steel_wb()}, SC)
+    res = run_network(spec, {"elec": _electricity_wb(10.0), "steel": _steel_wb()}, SC)
     mp = [c for c in res["couplings"] if c["signal"] == "marginal_price"]
     assert mp and mp[0]["by_year"][0]["value"] == pytest.approx(30.0, abs=0.5)
 
@@ -327,7 +327,7 @@ def test_inject_price_upserts_without_clobbering_other_columns() -> None:
 
 
 def test_topological_order_is_upstream_first() -> None:
-    spec = ValueChainSpec(
+    spec = NetworkSpec(
         id="c",
         stages=[Stage(id="a"), Stage(id="b"), Stage(id="c")],
         links=[
@@ -344,12 +344,12 @@ def test_shipped_asset_loads_runs_and_couples() -> None:
 
     from pathwise.api.workbook_io import parse_sqlite
     from pathwise.config import get_settings
-    from pathwise.data.valuechain import load_value_chain
+    from pathwise.data.network import load_network
 
     vdir = Path(get_settings().value_chains_dir)
-    spec = load_value_chain(vdir / "elec_steel.json")
+    spec = load_network(vdir / "elec_steel.json")
     workbooks = {s.id: parse_sqlite((vdir / s.model).read_bytes()) for s in spec.stages}
-    res = run_value_chain(spec, workbooks, SC)
+    res = run_network(spec, workbooks, SC)
 
     assert res["status"] == "optimal"
     assert res["couplings"], "the electricity price should flow downstream to steel"
@@ -361,7 +361,7 @@ def test_shipped_asset_loads_runs_and_couples() -> None:
 
 def test_cyclic_chain_is_rejected() -> None:
     with pytest.raises(ValueError, match="cycle"):
-        ValueChainSpec(
+        NetworkSpec(
             id="c",
             stages=[Stage(id="a"), Stage(id="b")],
             links=[

@@ -62,10 +62,10 @@ class Settings(BaseSettings):
     # the frontend never parses files itself and never serves them statically).
     examples_dir: str = str(_ASSETS / "examples")
     # Importable libraries, auto-discovered: <libraries_dir>/<tier>/<id>.json, each
-    # a workbook bundling components + a value chain. Tier = the subfolder name
+    # a workbook bundling components + a network. Tier = the subfolder name
     # (base / example / project). Dropping a JSON in here is enough — no index.
     libraries_dir: str = str(_ASSETS / "libraries")
-    # Value-chain specs (a DAG of coupled stage-models) + their stage workbooks.
+    # Network specs (a DAG of coupled stage-models) + their stage workbooks.
     value_chains_dir: str = str(_ASSETS / "value_chains")
     # Read-only STARTER component libraries that ship with the package; copied
     # into the writable <data_dir>/component_libraries on first access so a fresh

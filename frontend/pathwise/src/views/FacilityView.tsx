@@ -1,5 +1,5 @@
 // Facility tab — the REAL-WORLD layer between Component (scientific spec) and
-// Value Chain (flows). Left sidebar = AccordionSidebar with two sections:
+// Network (flows). Left sidebar = AccordionSidebar with two sections:
 //   1. Structure — the shared node tree (drop target for library items)
 //   2. Templates — the base Library catalogue (READ-ONLY drag source)
 // Never edits the component library: the base Library tree is a READ-ONLY drag source.
@@ -71,7 +71,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   const [tableH, setTableH] = useState(260);
   const [error, setError] = useState<string | null>(null);
 
-  // The shared node tree (same workbook the Value Chain edits).
+  // The shared node tree (same workbook the Network edits).
   const nodes = useMemo(() => parseNodes(workbook), [workbook]);
   const periods = useMemo(
     () => (workbook.periods ?? []).map((r) => Number(r.year)).filter(Number.isFinite),

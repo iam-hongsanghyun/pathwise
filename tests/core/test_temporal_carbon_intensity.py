@@ -3,7 +3,7 @@
 ``flow_impacts`` is the static factor; an optional long-format
 ``flow_impacts_t`` (flow_id, impact_id, year, factor) overrides it per
 year (interpolated between points, flat-held beyond). This is what lets an
-upstream value-chain stage's pathway — or a greening grid — change a downstream
+upstream network stage's pathway — or a greening grid — change a downstream
 input's carbon intensity over time.
 """
 

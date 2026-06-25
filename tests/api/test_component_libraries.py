@@ -1,7 +1,7 @@
 """Component-library API: many writable libraries + drop fresh copies.
 
 The writable catalogue the Component builder edits — seeded once from the
-bundled starters, then full CRUD. The Value-Chain builder's ``/instantiate``
+bundled starters, then full CRUD. The Network builder's ``/instantiate``
 drops a fresh, non-shared copy of a component into a session node.
 """
 

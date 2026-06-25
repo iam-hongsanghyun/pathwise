@@ -139,7 +139,7 @@ export function TargetsTabView({
   const [objImpact, setObjImpact] = useState("");
   const [costWeight, setCostWeight] = useState(0);
   const [perCompany, setPerCompany] = useState(false);
-  // Optional forced variant (authored in the Value chain): the optimiser pins its
+  // Optional forced variant (authored in the Network): the optimiser pins its
   // changes and optimises the rest. "" = free optimisation.
   const [variant, setVariant] = useState("");
   const variants = useMemo(() => (workbook.variants ?? []) as Row[], [workbook]);

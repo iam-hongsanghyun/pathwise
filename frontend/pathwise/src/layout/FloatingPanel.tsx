@@ -1,5 +1,5 @@
 // A draggable, resizable floating panel — drag its header to move it, drag the
-// bottom-right grip to resize. Used by the Value Chain to show a clicked item's
+// bottom-right grip to resize. Used by the Network to show a clicked item's
 // inspector over the canvas instead of a fixed right rail.
 
 import { useRef, useState } from "react";

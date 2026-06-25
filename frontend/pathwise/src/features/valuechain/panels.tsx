@@ -1,4 +1,4 @@
-// Side panels for the Value-Chain tab: asset inspector (required streams +
+// Side panels for the Network tab: asset inspector (required streams +
 // how each is satisfied), ports/purchasing, demand targets, and the per-level
 // cascade result summary. Presentational; the host mutates the workbook.
 
@@ -302,7 +302,7 @@ export function AssetInspector({
       </div>
 
       {/* Asset-level facts are FIXED properties of the asset, shown read-only
-          here (dense). They are edited in the Facility view; the value-chain map is
+          here (dense). They are edited in the Facility view; the network map is
           the market — links, prices and per-stream limits (above). */}
       <div className="mi-section-head"><span>asset</span><span className="muted">fixed — edit in Facility</span></div>
       <div className="mi-note" style={{ display: "flex", flexWrap: "wrap", gap: "2px 14px", marginTop: 4 }}>
@@ -416,7 +416,7 @@ export function FlowContext({ wb, nodeId }: { wb: Workbook; nodeId: string }) {
 }
 
 // ── Alternatives: technologies the optimiser may switch this asset to ───────
-// Pure value-chain choice (not baked into the Component library). The list is the
+// Pure network choice (not baked into the Component library). The list is the
 // transitions out of the asset's baseline technology; the picker draws from the
 // pool of all library technologies.
 export function Alternatives({
@@ -622,7 +622,7 @@ export function buildOverlay(r: RunResult | CascadeResult): {
 
 /** Right-rail READ-ONLY summary of a source stream (a raw material bought
  *  externally). Streams are components — defined and priced in the Component
- *  view (the "Streams" sheet); the value-chain map only shows their use here. */
+ *  view (the "Streams" sheet); the network map only shows their use here. */
 export function SourceStreamInspector({
   wb,
   flowId,

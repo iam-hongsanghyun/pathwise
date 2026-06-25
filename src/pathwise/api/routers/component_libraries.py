@@ -10,7 +10,7 @@ starters so a fresh install opens with real, editable content.
 
 The Component builder reads/writes whole libraries here (list / get / save /
 delete); copy and move between libraries are plain client-side edits that PUT
-both libraries back. The Value-Chain builder calls ``/instantiate`` to drop a
+both libraries back. The Network builder calls ``/instantiate`` to drop a
 **fresh copy** of a component into a company node of the session model.
 """
 
@@ -425,7 +425,7 @@ def _project_name(model: dict[str, list[dict[str, Any]]]) -> str:
 @router.get("/session/{session_id}/project/export")
 def export_project(session_id: str) -> Response:
     """Download the whole project as one self-contained ``.pathwise.json`` bundle:
-    the name, the full Facility + Value-Chain model, the project's own component
+    the name, the full Facility + Network model, the project's own component
     libraries, and every referenced base component (sliced to the closure used) so
     it re-opens and re-edits on any host."""
     try:
@@ -604,9 +604,9 @@ def place_technology_route(session_id: str, body: PlaceTechnology) -> dict[str, 
     }
 
 
-# ── Value-chain alternatives ──────────────────────────────────────────────────
+# ── Network alternatives ──────────────────────────────────────────────────
 # An "alternative" is another technology the optimiser may switch a asset to.
-# It's a VALUE-CHAIN choice (not baked into the Component library): adding one
+# It's a NETWORK choice (not baked into the Component library): adding one
 # merges the technology's recipe into the session and records a transition.
 
 

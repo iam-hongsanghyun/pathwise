@@ -1,10 +1,10 @@
 // Authoring of model-resident **variants** (simulate what-if scenarios) in the
-// value chain. A variant is a named key; each row under it is a timed
+// network. A variant is a named key; each row under it is a timed
 // intervention — force a asset onto an alternative technology, change a
 // flow's price, or enable a lever, from a given year. Writes the
 // `variants` + `variant_interventions` sheets the simulate backend reads (the
 // optimiser ignores them). No API call — edits flow through the workbook like
-// every other value-chain edit.
+// every other network edit.
 
 import { useState } from "react";
 import { SearchSelect } from "../controls/SearchSelect";
@@ -63,7 +63,7 @@ export function VariantsPanel({
 
   // A tech intervention may only force an EXISTING alternative of the asset —
   // the transition targets defined for its baseline (added via "Add alternative…"
-  // in the value chain / Facility first). Not the whole technology library.
+  // in the network / Facility first). Not the whole technology library.
   const baselineOf = (m: string): string =>
     s((workbook.assets ?? []).find((x) => s(x.asset_id) === m)?.baseline_technology);
   const altsFor = (m: string): string[] => {
@@ -158,7 +158,7 @@ export function VariantsPanel({
       const opts = altsFor(s(r.target));
       if (opts.length === 0)
         return (
-          <span className="muted" style={{ fontSize: ".72rem" }} title="Add an alternative to this asset in the value chain first">
+          <span className="muted" style={{ fontSize: ".72rem" }} title="Add an alternative to this asset in the network first">
             add an alternative first
           </span>
         );

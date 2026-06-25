@@ -1,7 +1,7 @@
 """MACC backend: greedy marginal-cost abatement over the framework's *levers*.
 
 A standalone optimisation *mode* — selectable alongside the MILP (``linopy``) and
-``portfolio`` backends. It is a SOLVE METHOD over the same value-chain model, not
+``portfolio`` backends. It is a SOLVE METHOD over the same network model, not
 a separate data format: it reuses the front of the pipeline (validate → assemble
 the :class:`~pathwise.core.problem.Problem`), then — instead of building a MILP —
 reads the model's **levers** (abatement actions applied to a facility WITHOUT
@@ -95,7 +95,7 @@ class MaccBackend:
         pass is fast and reports no incremental progress).
 
         Args:
-            model: The in-memory workbook (a value-chain model with levers + an
+            model: The in-memory workbook (a network model with levers + an
                 impact cap).
             scenario: The run definition (a :class:`ScenarioConfig` as a dict).
             options: ``domain`` override and ``impact`` (the capped impact to

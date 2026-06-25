@@ -1,6 +1,6 @@
 """Greedy-MACC backend: cheapest-first deployment of the model's *levers*.
 
-The MACC mode is a solve method over the framework value-chain model — it reads
+The MACC mode is a solve method over the framework network model — it reads
 the model's levers (abatement without a technology change) and an emission cap,
 not a bolt-on schema. The expected numbers are hand-computed from the algorithm
 in ``pathwise.backends.macc_backend`` (see its module docstring).

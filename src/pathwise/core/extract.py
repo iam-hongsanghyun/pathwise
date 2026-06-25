@@ -224,7 +224,7 @@ def extract_results(
             )
 
     # Connection-fleet (Layer 1c+): the carriers the optimiser CHOSE for each
-    # physicalised value-chain connection — which candidate fleet won the lane, the
+    # physicalised network connection — which candidate fleet won the lane, the
     # cargo it carried and the fuel it burned. Reported into the same fleet table.
     if ctx.cunits is not None:
         cargo = {
@@ -414,7 +414,7 @@ def extract_results(
     for (_p, i, t), v in emit.items():
         by_period_impact[(int(t), i)] = by_period_impact.get((int(t), i), 0.0) + v
     # Transport-route fuel emissions (fuel_used × flow_impacts — never hardcoded)
-    # join the same totals so reported impacts span the value chain + its transport.
+    # join the same totals so reported impacts span the network + its transport.
     if ctx.legflow is not None and prob.connection_routes:
         legmap = {
             leg_key(cr.process, leg.fleet_id): (cr, leg)

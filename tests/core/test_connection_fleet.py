@@ -1,4 +1,4 @@
-"""Layer 1c+: a physicalised value-chain connection carried by a chosen fleet.
+"""Layer 1c+: a physicalised network connection carried by a chosen fleet.
 
 A virtual stream connection (an Edge — free, instant "teleport") is made physical:
 its flow must be carried by carriers drawn from a CANDIDATE set of fleets, with the

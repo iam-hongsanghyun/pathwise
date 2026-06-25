@@ -4,7 +4,7 @@
 ``optimisation_scope == "system"``, or a level that is the root / a single node)
 it runs the ordinary joint solve and returns the standard
 :func:`pathwise.core.extract.extract_results` dict. Otherwise it cuts the tree at
-the chosen level into independent problems and couples them with the value-chain
+the chosen level into independent problems and couples them with the network
 cascade, returning that combined result (per-stage results + couplings).
 """
 
@@ -14,9 +14,9 @@ from typing import Any
 
 from pathwise.core.build import build
 from pathwise.core.extract import extract_results
+from pathwise.core.network import run_network
 from pathwise.core.partition import is_partitionable, partition, subset_workbook
 from pathwise.core.solve import options_from_scenario, solve
-from pathwise.core.valuechain import run_value_chain
 from pathwise.data.assemble import assemble_problem
 from pathwise.data.hierarchy import load_hierarchy
 from pathwise.data.scenario import ScenarioConfig
@@ -33,7 +33,7 @@ def run_model(
 ) -> dict[str, Any]:
     """Solve a model, jointly or partitioned at ``scenario.optimisation_scope``.
 
-    Returns the standard result for a joint solve, or the value-chain combined
+    Returns the standard result for a joint solve, or the network combined
     result (``{"status", "stages", "couplings", ...}``) when partitioned.
     ``terminology`` / ``report`` are folded into the joint result (the cascade
     result carries its own per-stage shape).
@@ -42,7 +42,7 @@ def run_model(
     a selected variant compiled by :mod:`pathwise.backends.variants`) on every
     assembled :class:`Problem` before the build, so both the optimiser and the
     simulator honour them. Applied to ALL paths — joint, subset, independent, and
-    the value-chain *cascade* (each stage's problem is pinned; keys for assets not
+    the network *cascade* (each stage's problem is pinned; keys for assets not
     in a stage are inert).
     """
     hierarchy = load_hierarchy(workbook)
@@ -98,7 +98,7 @@ def run_model(
     spec, workbooks = partition(
         workbook, hierarchy, level, signals=c.signals, default_lag=c.default_lag, targets=units
     )
-    return run_value_chain(
+    return run_network(
         spec,
         workbooks,
         scenario,

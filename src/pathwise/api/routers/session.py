@@ -27,13 +27,13 @@ from pathwise.api.workbook_io import (
     write_xlsx,
 )
 from pathwise.config import get_settings
-from pathwise.core.valuechain import run_value_chain
+from pathwise.core.network import run_network
 from pathwise.data.aliases import normalize_workbook
 from pathwise.data.components import extract_library_from_workbook, load_component_library
 from pathwise.data.libraries import discover_libraries, load_library_workbook
+from pathwise.data.network import NetworkSpec, load_network
 from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.schema import template_columns
-from pathwise.data.valuechain import ValueChainSpec, load_value_chain
 from pathwise.logger import get_logger
 
 logger = get_logger(__name__)
@@ -336,8 +336,8 @@ def load_example(session_id: str, example_id: str) -> dict[str, Any]:
     else:
         model = parse_xlsx(fpath.read_bytes())
     counts = store.put_model(session_id, model)
-    # Split the import: the value-chain STRUCTURE (nodes / connections) stays in
-    # the session model (shown in the Value-chain view); the component DETAILS
+    # Split the import: the network STRUCTURE (nodes / connections) stays in
+    # the session model (shown in the Network view); the component DETAILS
     # (streams / technologies / measures) populate the session's OWN component
     # library (shown in the Component view), distinct from the shared base set.
     lib_id = "".join(c for c in example_id if c.isalnum() or c in "-_.") or "scenario"
@@ -378,7 +378,7 @@ def list_libraries() -> list[dict[str, Any]]:
 @router.post("/session/{session_id}/library/{tier}/{library_id}/import")
 def import_library(session_id: str, tier: str, library_id: str) -> dict[str, Any]:
     """Import a library into the session: components → the session component
-    library, and (when the workbook carries a node hierarchy) the value chain →
+    library, and (when the workbook carries a node hierarchy) the network →
     the session model."""
     store = _store()
     if not store.exists(session_id):
@@ -396,7 +396,7 @@ def import_library(session_id: str, tier: str, library_id: str) -> dict[str, Any
 
     has_chain = bool(wb.get("nodes"))
     sheets: dict[str, int] = {}
-    if has_chain:  # a value chain → load the structure into the session model
+    if has_chain:  # a network → load the structure into the session model
         sheets = store.put_model(session_id, wb)
     return {
         "sessionId": session_id,
@@ -409,36 +409,36 @@ def import_library(session_id: str, tier: str, library_id: str) -> dict[str, Any
 # ── Value chains (coupled multi-stage models, solved as a forward cascade) ─────
 
 
-class ValueChainRun(BaseModel):
-    """Body for ``POST /api/value-chain/{name}/run`` (scenario optional)."""
+class NetworkRun(BaseModel):
+    """Body for ``POST /api/network/{name}/run`` (scenario optional)."""
 
     scenario: dict[str, Any] = Field(default_factory=dict)
 
 
-def _load_chain(name: str) -> ValueChainSpec:
+def _load_chain(name: str) -> NetworkSpec:
     path = Path(get_settings().value_chains_dir) / f"{name}.json"
     if not path.exists():
-        raise HTTPException(status_code=404, detail=f"unknown value chain '{name}'")
-    return load_value_chain(path)
+        raise HTTPException(status_code=404, detail=f"unknown network '{name}'")
+    return load_network(path)
 
 
-@router.get("/value-chains")
+@router.get("/networks")
 def list_value_chains() -> list[dict[str, Any]]:
-    """The value-chain index."""
+    """The network index."""
     index = Path(get_settings().value_chains_dir) / "index.json"
     if not index.exists():
         return []
     return json.loads(index.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
 
 
-@router.get("/value-chain/{name}")
+@router.get("/network/{name}")
 def value_chain_detail(name: str) -> dict[str, Any]:
-    """One value-chain spec (for the designer)."""
+    """One network spec (for the designer)."""
     return _load_chain(name).model_dump()
 
 
-@router.post("/value-chain/{name}/run")
-def run_chain(name: str, body: ValueChainRun | None = None) -> dict[str, Any]:
+@router.post("/network/{name}/run")
+def run_chain(name: str, body: NetworkRun | None = None) -> dict[str, Any]:
     """Resolve each stage's workbook and solve the chain as a forward cascade."""
     spec = _load_chain(name)
     vdir = Path(get_settings().value_chains_dir).resolve()
@@ -457,4 +457,4 @@ def run_chain(name: str, body: ValueChainRun | None = None) -> dict[str, Any]:
     # No scenario ⇒ plain defaults; base_year defers to each stage workbook's
     # first period (don't silently pin a hardcoded calendar year).
     overrides = (body.scenario if body else None) or {}
-    return run_value_chain(spec, workbooks, ScenarioConfig.from_dict(overrides))
+    return run_network(spec, workbooks, ScenarioConfig.from_dict(overrides))

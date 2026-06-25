@@ -139,8 +139,8 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workbook, sessionId]);
 
-  /** Import a tiered library by its "tier/id" key. A library with a value chain
-   *  rebuilds the session model (→ Value-chain view); a components-only library
+  /** Import a tiered library by its "tier/id" key. A library with a network
+   *  rebuilds the session model (→ Network view); a components-only library
    *  (the `base` building blocks) just stocks the session catalogue (→ Component
    *  view). Either way its components land in the Component view. */
   async function onPickLibrary(key: string) {
@@ -213,7 +213,7 @@ export function App() {
       <div className="workspace">
         <header className="topbar">
           <div className="topbar-title">
-            <div className="eyebrow">process value-chain optimiser</div>
+            <div className="eyebrow">process network optimiser</div>
             <h1>
               pathwise
               {config ? <span className="build-tag">build {config.buildId}</span> : null}

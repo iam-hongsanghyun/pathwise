@@ -2,7 +2,7 @@
 
 The model + assembler already supported time-varying coefficients; the component
 library projection dropped them. These cover the closed round-trip and that a
-placed technology carries its io_t into the value-chain workbook.
+placed technology carries its io_t into the network workbook.
 """
 
 from __future__ import annotations

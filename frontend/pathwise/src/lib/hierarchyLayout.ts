@@ -522,7 +522,7 @@ export function editEdges(wb: Workbook, laid: LaidNode[], flowLevel: string | nu
   //   • a level  → that level if the two sides sit in DIFFERENT level-groups;
   //                otherwise (an intra-group link) fall back to the diverging
   //                level so it is still shown rather than dropped. The top
-  //                "Value Chain" level therefore draws every link at its natural
+  //                "Network" level therefore draws every link at its natural
   //                diverging point (children of the lowest common ancestor);
   //   • null     → the assets themselves (Component).
   const endpointsFor = (rawFrom: string, rawTo: string): [string | null, string | null] => {

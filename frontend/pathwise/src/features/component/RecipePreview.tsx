@@ -1,6 +1,6 @@
 // Read-only "what does this technology actually do" preview: deploy N units of
 // throughput → what it consumes, produces, and emits. Built from the tech's IO
-// rows via summarizeRecipe; shared by the Component and Value-chain builders.
+// rows via summarizeRecipe; shared by the Component and Network builders.
 
 import { useState } from "react";
 import { summarizeRecipe, type IoLike, type RecipeLine } from "./recipe";

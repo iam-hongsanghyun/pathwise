@@ -1,7 +1,7 @@
-// Fleet designer — a NEW transport layer, SEPARATE from facility / value chain.
+// Fleet designer — a NEW transport layer, SEPARATE from facility / network.
 // LEFT sidebar = AccordionSidebar with four sections:
 //   1. Fleets  — fleet registry (fleet_groups + fleet; NEVER nodes)
-//   2. Routes  — value-chain stream links whose two endpoints are located
+//   2. Routes  — network stream links whose two endpoints are located
 //   3. Facility — drag an endpoint onto the map to give it a location
 //   4. Chokepoint risk — maritime chokepoint probability + per-voyage toll editor
 // CENTER = the world map. Pop-ups (FloatingPanel) edit a fleet / port / route.
@@ -472,7 +472,7 @@ export function FleetDesignerView({
                   actionsFor={() => []}
                   onContextAction={() => undefined}
                   onMove={() => undefined}
-                  emptyHint="Place both ends of a value-chain stream to see it here as a route."
+                  emptyHint="Place both ends of a network stream to see it here as a route."
                 />
               ),
             },
@@ -495,7 +495,7 @@ export function FleetDesignerView({
                     onContextAction={() => undefined}
                     onMove={() => undefined}
                     canDrop={() => false}
-                    emptyHint="The facility / value-chain structure — drag a node onto the map to place it."
+                    emptyHint="The facility / network structure — drag a node onto the map to place it."
                   />
                   <div className="rail-foot">Drag a facility node onto the map to give it a location.</div>
                 </>

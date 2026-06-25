@@ -1,8 +1,8 @@
 """Simulation backend: evaluate a pinned configuration's lifecycle inventory.
 
-The simulator is a *what-if / LCA* lens over the same value-chain model (not a new
+The simulator is a *what-if / LCA* lens over the same network model (not a new
 schema): it pins the configuration, evaluates it, and decomposes the emissions by
-value-chain stage. The minimal model below has hand-computable emissions; the
+network stage. The minimal model below has hand-computable emissions; the
 green-steel case guards it on a realistic multi-stage chain.
 """
 
@@ -278,7 +278,7 @@ def test_cap_compliance_flags_the_over_config() -> None:
 def _three_stage_with_use() -> dict:
     """Cradle-to-grave chain: ore→steel→car→mobility, the use phase a real process.
 
-    Per the design decision, the use phase is just another value-chain stage: a
+    Per the design decision, the use phase is just another network stage: a
     ``UsePhase`` asset consuming the car and emitting 20 tCO2 over its life. With
     100 units of mobility demanded: steel 200 + auto 50 + use 2000 = 2250 tCO2.
     """

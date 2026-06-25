@@ -11,7 +11,7 @@ constant marginal abatement cost:
 Under a binding shared cap the planner abates cheapest-first, so the sectors
 "compete" for the scarce allowance. The **clearing carbon price** is the cost of
 the marginal tonne — recovered here as the slope of total cost vs the cap
-(a finite difference, the same primal route ``valuechain.marginal_price`` and the
+(a finite difference, the same primal route ``network.marginal_price`` and the
 frontier backend use; LP-dual extraction is a later increment). It equals the
 marginal abater's cost: 20 when only power abates, 50 once power is exhausted and
 steel sets the margin.

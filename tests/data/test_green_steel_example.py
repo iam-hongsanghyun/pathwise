@@ -1,9 +1,9 @@
-"""The cross-border green-steel example solves and exercises the value chain.
+"""The cross-border green-steel example solves and exercises the network.
 
 Guards the shipped ``green_steel_chain.sqlite``: it must build, solve at both
 ``system`` and ``value_chain`` scope, meet demand, draw hydrogen from all three
 producing geographies (the cross-border chain), and fire the iron-making
-transition — i.e. the facility-transition + MACC + value-chain machinery all work
+transition — i.e. the facility-transition + MACC + network machinery all work
 together on a non-trivial multi-geography model.
 
 These are by far the heaviest solves in the suite, so: the (identical) system
@@ -57,7 +57,7 @@ def test_solves_system_and_meets_demand(system_result: dict) -> None:
 
 
 def test_solves_value_chain_scope() -> None:
-    res = run_model(_WB, _scenario("value_chain", "valuechain"))
+    res = run_model(_WB, _scenario("value_chain", "network"))
     assert res["status"] == "optimal"
 
 

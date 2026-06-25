@@ -1,4 +1,4 @@
-// Flatten a facility / value-chain group into editable rows — one per asset leaf
+// Flatten a facility / network group into editable rows — one per asset leaf
 // in its subtree, located by its sub-group path. Columns bind to the SAME caps.ts
 // bridges the asset editor uses (so the static-scalar vs wide `*_t__` split never
 // corrupts): asset economics, the distance/lifecycle attrs, and the technology

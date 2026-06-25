@@ -4,7 +4,7 @@
 //
 // Read-only (Analytics result map): pass `result` → a year slider scrubs active
 // technology / throughput / flows per year.
-// Editable (Value-chain map): pass `editable` + the link callbacks → links
+// Editable (Network map): pass `editable` + the link callbacks → links
 // are drawn between nodes; drag a node's right port to another's left port to add
 // a link, click a link to delete it, click a node to select it (right rail).
 
@@ -41,7 +41,7 @@ interface Props {
   workbook: Workbook;
   /** A solved run (joint or cascade) → show the year slider and per-year overlay. */
   result?: RunResult | CascadeResult | null;
-  /** Enable link editing + node selection on the canvas (the value-chain map). */
+  /** Enable link editing + node selection on the canvas (the network map). */
   editable?: boolean;
   selectedId?: string | null;
   onSelect?: (id: string) => void;
@@ -572,7 +572,7 @@ export function HierarchyMap({
           <span>Flow</span>
         </button>
         {editable && (
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "0.74rem" }} title="Aggregate the flows to this level (independent of expand/collapse). The top 'Value Chain' level draws each flow where its two sides first diverge.">
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "0.74rem" }} title="Aggregate the flows to this level (independent of expand/collapse). The top 'Network' level draws each flow where its two sides first diverge.">
             <span className="muted">flows by</span>
             <select
               value={flowLevel ?? ""}

@@ -1,6 +1,6 @@
-"""Value-chain alternatives — offering a asset an alternative technology.
+"""Network alternatives — offering a asset an alternative technology.
 
-An alternative is a value-chain choice (not baked into the Component library):
+An alternative is a network choice (not baked into the Component library):
 adding one merges the technology's recipe into the session and records a
 transition the optimiser may switch the asset to.
 """

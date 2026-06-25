@@ -1118,7 +1118,7 @@ def _purchase_caps(ctx: BuildContext) -> None:
         Σ_p buy[p, r, t] <= max_purchase_r(t)
 
     Unset flows/years are unconstrained, so this is inert unless a model
-    (or a value-chain ``volume`` link) supplies a cap.
+    (or a network ``volume`` link) supplies a cap.
     """
     m, prob = ctx.model, ctx.problem
     stored = {s.flow_id: s for s in prob.storages}
@@ -1721,7 +1721,7 @@ def _fleet(ctx: BuildContext) -> None:
 
 
 def _connection_fleet(ctx: BuildContext) -> None:
-    r"""Layer 1c+: carry a physicalised value-chain connection's flow with a fleet.
+    r"""Layer 1c+: carry a physicalised network connection's flow with a fleet.
 
     A virtual connection is an :class:`Edge` (free, instant — teleport). A
     :class:`ConnectionRoute` makes it physical: its summed edge flow must be carried

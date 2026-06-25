@@ -1,7 +1,7 @@
 """Per-level optimisation: cut the node tree, solve each cut, couple across cuts.
 
 Choosing a finer optimisation level partitions the hierarchy into independent
-problems coupled by the value-chain cascade. Decomposed solving is never better
+problems coupled by the network cascade. Decomposed solving is never better
 than the joint optimum (it adds internal transfer payments + loses joint
 trade-offs), which is the headline correctness invariant.
 """

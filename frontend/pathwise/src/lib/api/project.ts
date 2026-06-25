@@ -1,5 +1,5 @@
 // Project-bundle API client — a self-contained, portable project: the name, the
-// Facility/Value-Chain model, the project's own (project-specific) component
+// Facility/Network model, the project's own (project-specific) component
 // libraries, and every base component the model references. Pure logic, no React.
 
 import type { Workbook } from "../../types";

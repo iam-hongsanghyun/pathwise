@@ -1,4 +1,4 @@
-// Value Chain tab — a 3-pane builder.
+// Network tab — a 3-pane builder.
 //   LEFT  : the structure tree ONLY. Single click = select (shows detail on the
 //           right); the twisty expands/collapses; RIGHT-CLICK carries every
 //           action (add subgroup / add component / connect / add target / move
@@ -396,7 +396,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                     actionsFor={actionsFor}
                     onContextAction={onContextAction}
                     onMove={onMove}
-                    emptyHint="Empty — click ＋ (or right-click) to add a value chain / sector."
+                    emptyHint="Empty — click ＋ (or right-click) to add a network / sector."
                   />
                   <div className="rail-foot">Right-click an item for actions · drag to move</div>
                 </>

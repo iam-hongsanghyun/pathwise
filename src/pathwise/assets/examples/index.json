@@ -10,26 +10,26 @@
     "label": "Steel LCIA — cradle-to-gate (multi-impact)",
     "file": "steel_lcia.sqlite",
     "backend": "simulate",
-    "description": "A focused steel value chain for life-cycle impact assessment (LCIA), run under the Scenario simulator. Mining + coking (materials phase) feed a blast furnace + basic-oxygen furnace (manufacturing phase) to make 1 t of steel. Each process carries multi-gas FOREGROUND emissions (CO2, CH4, N2O, SO2, NOx, PM2.5); the purchased carriers (grid electricity, natural gas, coal, limestone) carry BACKGROUND cradle-to-gate factors, so the inventory spans cradle-to-gate and splits foreground vs background. An EF-3.1-style characterisation rolls the flows up into five impact categories — GWP, acidification (AP), marine eutrophication, particulate matter and photochemical ozone — reported per functional unit and by lifecycle phase. A green what-if variant (H2 direct reduction + electric-arc furnace) is compared against the blast-furnace baseline."
+    "description": "A focused steel network for life-cycle impact assessment (LCIA), run under the Scenario simulator. Mining + coking (materials phase) feed a blast furnace + basic-oxygen furnace (manufacturing phase) to make 1 t of steel. Each process carries multi-gas FOREGROUND emissions (CO2, CH4, N2O, SO2, NOx, PM2.5); the purchased carriers (grid electricity, natural gas, coal, limestone) carry BACKGROUND cradle-to-gate factors, so the inventory spans cradle-to-gate and splits foreground vs background. An EF-3.1-style characterisation rolls the flows up into five impact categories — GWP, acidification (AP), marine eutrophication, particulate matter and photochemical ozone — reported per functional unit and by lifecycle phase. A green what-if variant (H2 direct reduction + electric-arc furnace) is compared against the blast-furnace baseline."
   },
   {
     "id": "green_steel_chain",
     "label": "Green steel — AU/Qatar → Korea (cross-border)",
     "file": "green_steel_chain.sqlite",
     "library": "green_steel",
-    "description": "A cross-border value chain: iron ore + green H2 (Australia), blue H2 (Qatar), and in Korea grid/renewable power, local green H2 (wind→electrolyser), an integrated steel mill, an automaker and a shipbuilder. Imported gas/coal/scrap and capped HBI are buyable. Each facility carries a MACC; the mill can transition iron-making (blast furnace → H2 direct reduction) and steel-making (BOF → EAF). A rising carbon price and declining CO2 cap drive the 2025→2050 transition. Solve jointly (system) or as a value chain (upstream → downstream)."
+    "description": "A cross-border network: iron ore + green H2 (Australia), blue H2 (Qatar), and in Korea grid/renewable power, local green H2 (wind→electrolyser), an integrated steel mill, an automaker and a shipbuilder. Imported gas/coal/scrap and capped HBI are buyable. Each facility carries a MACC; the mill can transition iron-making (blast furnace → H2 direct reduction) and steel-making (BOF → EAF). A rising carbon price and declining CO2 cap drive the 2025→2050 transition. Solve jointly (system) or as a network (upstream → downstream)."
   },
   {
     "id": "value_chain_ccgt",
-    "label": "Value chain — CCGT power + steel (KR)",
+    "label": "Network — CCGT power + steel (KR)",
     "file": "value_chain_ccgt.sqlite",
-    "description": "A value chain (node hierarchy): a Power company owning a CCGT (a GROUP of GT + ST wired by steam) AND a Solar farm (a single component) supplying electricity to a Steel company's integrated mill. Solve jointly, per-company (value chain, upstream→downstream), or pick units."
+    "description": "A network (node hierarchy): a Power company owning a CCGT (a GROUP of GT + ST wired by steam) AND a Solar farm (a single component) supplying electricity to a Steel company's integrated mill. Solve jointly, per-company (network, upstream→downstream), or pick units."
   },
   {
     "id": "value_chain_demo",
-    "label": "Value chain demo — Korea (group/component)",
+    "label": "Network demo — Korea (group/component)",
     "file": "value_chain_demo.sqlite",
-    "description": "A recursive group hierarchy: value chain → Korea Power / Korea Steel → facilities → machines (the mill runs a blast furnace, BOF and an EAF in parallel). Electricity couples the two companies. Open it in the Chain view to drill the levels; it solves jointly or per-company."
+    "description": "A recursive group hierarchy: network → Korea Power / Korea Steel → facilities → assets (the mill runs a blast furnace, BOF and an EAF in parallel). Electricity couples the two companies. Open it in the Chain view to drill the levels; it solves jointly or per-company."
   },
   {
     "id": "steel",
@@ -60,13 +60,13 @@
     "id": "fleet_distance",
     "label": "Fleet distance — ships scale with route length (KR→AU/EU)",
     "file": "fleet_distance.sqlite",
-    "description": "The Layer-1c demonstration: a carrier delivers the SAME 1,200 kt from Busan to a near market (Sydney) and a far market (Rotterdam, routed via Suez). Sea distances come from the searoute provider (Sydney ≈8,600 km, Rotterdam ≈20,200 km) and a ship's annual capacity falls with distance — fewer round trips — so the far lane needs twice the ships (8 vs 4) for identical demand. Any node carries lon/lat; a routes row gives each lane its endpoints + mode (sea via searoute, land via great-circle × a mode factor); capacity/ship = ship_size · operating_days / (2·distance/speed + turnaround). This is the physical-transport cost the value-chain optimiser sees — longer route ⇒ more carriers ⇒ more cost."
+    "description": "The Layer-1c demonstration: a carrier delivers the SAME 1,200 kt from Busan to a near market (Sydney) and a far market (Rotterdam, routed via Suez). Sea distances come from the searoute provider (Sydney ≈8,600 km, Rotterdam ≈20,200 km) and a ship's annual capacity falls with distance — fewer round trips — so the far lane needs twice the ships (8 vs 4) for identical demand. Any node carries lon/lat; a routes row gives each lane its endpoints + mode (sea via searoute, land via great-circle × a mode factor); capacity/ship = ship_size · operating_days / (2·distance/speed + turnaround). This is the physical-transport cost the network optimiser sees — longer route ⇒ more carriers ⇒ more cost."
   },
   {
     "id": "fleet_candidates",
     "label": "Fleet candidates — optimiser picks the fleet per lane (KR→AU/EU)",
     "file": "fleet_candidates.sqlite",
-    "description": "The Layer-1c+ demonstration: value-chain stream connections made PHYSICAL and carried by a fleet the optimiser CHOOSES from a candidate set. A Korean exporter ships one cargo to Australia (near, ≈8,600 km) and Europe (far via Suez, ≈20,200 km); each lane is a connection physicalised into a route, and the carrier owns three fleet types (HFO / LNG / ammonia) of which only SOME may run each lane — AU: HFO or LNG; EU: LNG or ammonia. Distance sets carriers needed (4 on the near lane, 9 on the far one for the same 2,000 kt) and fuel burned (efficiency × distance × cargo), priced at the fuel's price + the carbon price on its CO2. As the CO2 price climbs 30→200 $/t over 2025→2050 the optimiser switches fleets — HFO→LNG on the AU lane, LNG→ammonia on the EU lane — the 'which fleet on which lane, and when' decision. A connection with no fleet assigned stays virtual (teleport); a blocked corridor (Hormuz/Suez what-if) forces its flow to reroute or go undelivered."
+    "description": "The Layer-1c+ demonstration: network flow links made PHYSICAL and carried by a fleet the optimiser CHOOSES from a candidate set. A Korean exporter ships one cargo to Australia (near, ≈8,600 km) and Europe (far via Suez, ≈20,200 km); each lane is a link physicalised into a route, and the carrier owns three fleet types (HFO / LNG / ammonia) of which only SOME may run each lane — AU: HFO or LNG; EU: LNG or ammonia. Distance sets carriers needed (4 on the near lane, 9 on the far one for the same 2,000 kt) and fuel burned (efficiency × distance × cargo), priced at the fuel's price + the carbon price on its CO2. As the CO2 price climbs 30→200 $/t over 2025→2050 the optimiser switches fleets — HFO→LNG on the AU lane, LNG→ammonia on the EU lane — the 'which fleet on which lane, and when' decision. A link with no fleet assigned stays virtual (teleport); a blocked corridor (Hormuz/Suez what-if) forces its flow to reroute or go undelivered."
   },
   {
     "id": "petrochemical",

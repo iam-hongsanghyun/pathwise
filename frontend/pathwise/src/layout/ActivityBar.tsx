@@ -81,7 +81,7 @@ const I = {
   ),
 };
 
-// Component / Value-chain / Targets / Analytics live at the top; Settings is
+// Component / Network / Targets / Analytics live at the top; Settings is
 // pinned to the bottom of the strip (separated by a flex spacer).
 const TOP: Entry[] = [
   { id: "project", label: "Project — name, import/export the whole project (templates + systems + network)", icon: I.project },

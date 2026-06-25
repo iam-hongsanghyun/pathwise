@@ -90,7 +90,7 @@ class Coupling(BaseModel):
     """How independently-optimised hierarchy nodes couple across their boundary.
 
     Used when ``optimisation_scope`` cuts a node tree into independent problems:
-    cross-cut connections become value-chain coupling links carrying these
+    cross-cut connections become network coupling links carrying these
     signals, resolved by ``iterations`` of damped feedback.
 
     Attributes:
@@ -130,7 +130,7 @@ class ScenarioConfig(BaseModel):
     slack_penalty: float = Field(default=1.0e9, ge=0.0)
     portfolio: PortfolioConfig = Field(default_factory=PortfolioConfig)
     coupling: Coupling = Field(default_factory=Coupling)
-    # The designed level the optimisation is performed at (a value-chain level
+    # The designed level the optimisation is performed at (a network level
     # name, or ``system`` for the whole model). Each node at that level is an
     # optimisation *unit* carrying its whole subtree (downstream is part of its
     # problem; upper levels roll up the sum). Free text so any level is selectable.
@@ -138,12 +138,12 @@ class ScenarioConfig(BaseModel):
     # Which units (node ids) at ``optimisation_scope`` to optimise; empty ⇒ all.
     optimisation_targets: list[str] = Field(default_factory=list)
     # How the selected units are solved:
-    #   ``valuechain``  — in series, upstream → downstream, coupled (the cascade:
+    #   ``network``  — in series, upstream → downstream, coupled (the cascade:
     #                     a unit is optimised before the units it feeds);
     #   ``joint``       — all selected units solved together as one problem;
     #   ``independent`` — each unit solved on its own, no coupling (it trades with
     #                     the market). A single unit is always solved on its own.
-    optimisation_mode: str = Field(default="valuechain", pattern="^(valuechain|joint|independent)$")
+    optimisation_mode: str = Field(default="network", pattern="^(network|joint|independent)$")
     # Default optimisation goal applied to every company that doesn't override it via
     # the ``company_config`` sheet: ``cost`` (minimise discounted cost) or ``profit``
     # (maximise revenue − cost). The Optimisation tab's "goal" selector sets this.

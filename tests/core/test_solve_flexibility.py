@@ -68,7 +68,7 @@ def test_joint_solves_selected_units_as_one_problem() -> None:
 
 
 def test_value_chain_solves_as_a_coupled_cascade() -> None:
-    res = run_model(_model(), _sc(optimisation_scope="company", optimisation_mode="valuechain"))
+    res = run_model(_model(), _sc(optimisation_scope="company", optimisation_mode="network"))
     assert "stages" in res  # cascade result shape
     assert set(res["stages"]) == {"chain/a", "chain/b"}
 

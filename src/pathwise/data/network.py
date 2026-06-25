@@ -1,11 +1,11 @@
-"""Value-chain spec — a DAG of stage-models coupled by lagged signals.
+"""Network spec — a DAG of stage-models coupled by lagged signals.
 
-A *value chain* links several otherwise-independent pathwise models (each a
+A *network* links several otherwise-independent pathwise models (each a
 stage — typically a sector in a region: coal · electricity · steel · auto) into a
 directed graph. A **coupling link** says that an upstream stage's solved outcome
 for a shared flow (its price, carbon intensity, or produced volume) feeds
 the downstream stage's inputs, optionally **lagged** by a number of years. The
-orchestrator in :mod:`pathwise.core.valuechain` consumes this spec.
+orchestrator in :mod:`pathwise.core.network` consumes this spec.
 
 The format is plain JSON validated by pydantic, kept sector-agnostic (a stage
 references a model by an opaque id the caller resolves; nothing here is
@@ -31,7 +31,7 @@ SIGNALS = ("price", "marginal_price", "carbon_intensity", "volume")
 
 
 class Stage(BaseModel):
-    """One node of the value chain — a model to solve at a point in the chain.
+    """One node of the network — a model to solve at a point in the chain.
 
     Attributes:
         id: Unique stage id within the chain.
@@ -78,7 +78,7 @@ class CouplingLink(BaseModel):
 
     from_stage: str
     to_stage: str
-    # ``commodity`` is the pre-rename input key — accept it so value-chain JSON saved
+    # ``commodity`` is the pre-rename input key — accept it so network JSON saved
     # before commodity→flow still validates.
     flow: str = Field(validation_alias=AliasChoices("flow", "commodity"))
     signals: list[str] = Field(default_factory=lambda: ["price"])
@@ -96,8 +96,8 @@ class CouplingLink(BaseModel):
         return v
 
 
-class ValueChainSpec(BaseModel):
-    """A whole value chain: stages plus the coupling links between them."""
+class NetworkSpec(BaseModel):
+    """A whole network: stages plus the coupling links between them."""
 
     id: str
     label: str = ""
@@ -105,10 +105,10 @@ class ValueChainSpec(BaseModel):
     links: list[CouplingLink] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def _check(self) -> ValueChainSpec:
+    def _check(self) -> NetworkSpec:
         ids = [s.id for s in self.stages]
         if len(ids) != len(set(ids)):
-            raise ValueError("duplicate stage id in value chain")
+            raise ValueError("duplicate stage id in network")
         known = set(ids)
         for link in self.links:
             for end in (link.from_stage, link.to_stage):
@@ -152,11 +152,11 @@ class ValueChainSpec(BaseModel):
                     if not ups and other not in order and other not in ready:
                         ready.append(other)
         if len(order) != len(self.stages):
-            raise ValueError("value-chain links contain a cycle (no forward solve order)")
+            raise ValueError("network links contain a cycle (no forward solve order)")
         return order
 
 
-def load_value_chain(path: str | Path) -> ValueChainSpec:
-    """Load and validate one value-chain JSON file."""
+def load_network(path: str | Path) -> NetworkSpec:
+    """Load and validate one network JSON file."""
     with open(path, encoding="utf-8") as fh:
-        return ValueChainSpec.model_validate(json.load(fh))
+        return NetworkSpec.model_validate(json.load(fh))

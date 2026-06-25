@@ -211,7 +211,7 @@ export function ComponentTabView({
   const [dirty, setDirty] = useState<Set<string>>(new Set());
   const [sel, setSel] = useState<Sel | null>(null);
   // Which catalogue the rail shows: "base" (shared) or "session" (this project's
-  // own components — never written to base, but usable by Facility & Value Chain).
+  // own components — never written to base, but usable by Facility & Network).
   const [scope, setScope] = useState<LibScope>("base");
   // Within base scope, which group the rail shows: shipped read-only "starter"
   // libraries vs the user's own "user" libraries (the hard split).
@@ -761,7 +761,7 @@ export function ComponentTabView({
             </h2>
             <p className="muted lib-landing-sub">
               {session
-                ? "Project-specific component libraries — kept with this project, never written to the base catalogue, and usable in the Facility and Value-Chain views."
+                ? "Project-specific component libraries — kept with this project, never written to the base catalogue, and usable in the Facility and Network views."
                 : starters
                   ? "Shipped, read-only reference libraries. Browse them, then duplicate one into your own libraries to customise it."
                   : "Your own reusable libraries — shared across all projects (not tied to one). Build technologies, streams & abatement measures, organised by sector."}

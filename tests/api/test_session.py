@@ -55,9 +55,9 @@ def test_cache_clear_requires_admin_token_when_configured(monkeypatch: pytest.Mo
 
 
 def test_value_chain_list_and_run() -> None:
-    chains = client.get("/api/value-chains").json()
-    assert any(c["id"] == "elec_steel" for c in chains), "shipped value chain missing from index"
-    res = client.post("/api/value-chain/elec_steel/run", json={}).json()
+    chains = client.get("/api/networks").json()
+    assert any(c["id"] == "elec_steel" for c in chains), "shipped network missing from index"
+    res = client.post("/api/network/elec_steel/run", json={}).json()
     assert res["status"] == "optimal"
     assert res["couplings"], "the run should report the electricity price flowing to steel"
 

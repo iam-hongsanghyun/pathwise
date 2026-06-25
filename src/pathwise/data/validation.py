@@ -140,10 +140,10 @@ def validate(workbook: Workbook) -> ValidationReport:
                 if not (fn in h.nodes and tn in h.nodes and com):
                     continue
                 makes = any(
-                    com in io_out.get(asset_tech.get(m, ""), set()) for m in h.leaf_machines(fn)
+                    com in io_out.get(asset_tech.get(m, ""), set()) for m in h.leaf_assets(fn)
                 )
                 takes = any(
-                    com in io_in.get(asset_tech.get(m, ""), set()) for m in h.leaf_machines(tn)
+                    com in io_in.get(asset_tech.get(m, ""), set()) for m in h.leaf_assets(tn)
                 )
                 if not (makes and takes):
                     report.warnings.append(

@@ -1,6 +1,6 @@
 """Simulation backend: evaluate a FIXED configuration's lifecycle inventory.
 
-Not an optimiser — a *what-if / LCA* lens over the **same** value-chain model
+Not an optimiser — a *what-if / LCA* lens over the **same** network model
 (``Workbook`` → ``Problem``), in the spirit of the ``macc`` backend: a different
 SOLVE METHOD, not a new data format. Where ``linopy`` *chooses* technologies,
 transitions, and levers to minimise cost, this backend **evaluates a pinned
@@ -12,7 +12,7 @@ technology switching and no auto-adopted abatement (the *free-choice* sheets
 
 * ``by_impact``  — total emissions per impact (the engine's own totals), per
   functional unit;
-* ``by_stage``   — those emissions decomposed across value-chain **stages**
+* ``by_stage``   — those emissions decomposed across network **stages**
   (company nodes = lifecycle stages), from ``throughput × impact factor``;
 * ``cost``       — total system cost and the carbon cost (Σ emissions × price).
 
@@ -31,7 +31,7 @@ engine change — it is authored as an ordinary process and shows up as its own
 stage.
 
 Variants are **model-resident** (the ``variants`` + ``variant_interventions``
-sheets, authored in the value chain) and compiled by
+sheets, authored in the network) and compiled by
 :mod:`pathwise.backends.variants` — shared with the optimiser, which *forces* a
 selected variant. The simulator evaluates **every** variant against the baseline:
 a ``tech`` intervention is a **forced timed switch** (the asset runs its baseline
@@ -156,7 +156,7 @@ class SimulationBackend:
         }
 
         # Variants: explicit run-form variants win; otherwise read the
-        # model-resident variants authored in the value chain (variants +
+        # model-resident variants authored in the network (variants +
         # variant_interventions sheets). Each = baseline + overrides (+ forced
         # timed tech switches) → evaluate → diff.
         variants = sim["variants"] if "variants" in sim else read_model_variants(model)
@@ -522,8 +522,8 @@ def _compliance(config: dict[str, Any], caps: dict[tuple[str, int], float]) -> d
 
 
 def _stage_map(model: Workbook) -> dict[str, str]:
-    """Map each asset ``process_id`` to its value-chain **stage** — the nearest
-    ancestor node with ``level == "company"`` (a lifecycle stage in a value-chain
+    """Map each asset ``process_id`` to its network **stage** — the nearest
+    ancestor node with ``level == "company"`` (a lifecycle stage in a network
     model). Falls back to the asset id when no company ancestor exists."""
     nodes = model.get("nodes", [])
     parent = {

@@ -1,6 +1,6 @@
 """Per-session component libraries + the scenario import split.
 
-Importing a scenario must (1) keep the value-chain STRUCTURE in the session model
+Importing a scenario must (1) keep the network STRUCTURE in the session model
 and (2) populate the session's OWN component library with the component DETAILS,
 distinct from the shared base libraries.
 """

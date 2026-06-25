@@ -1,5 +1,5 @@
 // Component-library API client — the writable catalogue the Component builder
-// edits, and the source the Value-Chain builder drops fresh copies from.
+// edits, and the source the Network builder drops fresh copies from.
 // Pure logic layer: no React imports.
 
 async function json<T>(resp: Response): Promise<T> {

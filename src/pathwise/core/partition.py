@@ -2,9 +2,9 @@
 
 Choosing an optimisation level cuts the tree there: every node *at* that level
 becomes the root of its own optimisation problem (a flat sub-workbook), and any
-**connection crossing a cut boundary** becomes a value-chain **coupling link**
-(flow + lag + signals). The result is a :class:`ValueChainSpec` plus the
-per-cut workbooks — fed straight into :func:`pathwise.core.valuechain.run_value_chain`,
+**connection crossing a cut boundary** becomes a network **coupling link**
+(flow + lag + signals). The result is a :class:`NetworkSpec` plus the
+per-cut workbooks — fed straight into :func:`pathwise.core.network.run_network`,
 which solves and couples them. Connections *inside* a cut stay edges in that
 sub-workbook (already expanded by the assembler).
 
@@ -18,7 +18,7 @@ from typing import Any
 
 from pathwise.data.assemble import _expand_hierarchy
 from pathwise.data.hierarchy import Hierarchy
-from pathwise.data.valuechain import CouplingLink, Stage, ValueChainSpec
+from pathwise.data.network import CouplingLink, NetworkSpec, Stage
 from pathwise.data.workbook import Workbook
 
 # Catalogue/scenario sheets shared by every cut sub-workbook (not partitioned).
@@ -105,7 +105,7 @@ def partition(
     default_lag: int = 0,
     feedback: bool = True,
     targets: list[str] | None = None,
-) -> tuple[ValueChainSpec, dict[str, Workbook]]:
+) -> tuple[NetworkSpec, dict[str, Workbook]]:
     """Cut ``hierarchy`` at ``level`` → a coupling spec + one workbook per cut node.
 
     Args:
@@ -120,7 +120,7 @@ def partition(
             empty ⇒ every node at ``level``.
 
     Returns:
-        ``(spec, {cut_id: sub_workbook})`` ready for ``run_value_chain``.
+        ``(spec, {cut_id: sub_workbook})`` ready for ``run_network``.
     """
     sig = list(signals or ["price"])
     cut_ids = _cut_ids(hierarchy, level, targets)
@@ -170,7 +170,7 @@ def partition(
         if link.to_stage in workbooks:
             _set_flow(workbooks[link.to_stage], link.flow, purchasable=True)
 
-    spec = ValueChainSpec(
+    spec = NetworkSpec(
         id=f"partition@{level}",
         label=f"{level} partition",
         stages=[Stage(id=c, label=hierarchy.nodes[c].label) for c in cut_ids],

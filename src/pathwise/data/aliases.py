@@ -1,7 +1,7 @@
 """Back-compat name normalization for the generic-rename migration.
 
 pathwise's domain vocabulary is being renamed to generic terms (machine→asset,
-commodity→flow, connection→link, measure→lever, value chain→network). Models on
+commodity→flow, connection→link, measure→lever, network→network). Models on
 disk — the bundled example ``.sqlite`` files and any user model saved before the
 rename — still carry the OLD sheet / column / enum names. Rather than migrate those
 binaries, every model is passed through :func:`normalize_workbook` at the load

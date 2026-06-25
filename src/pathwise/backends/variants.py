@@ -1,6 +1,6 @@
 """Compile model-resident **variants** into engine inputs — shared by both backends.
 
-A variant (authored in the value chain, stored in the ``variants`` +
+A variant (authored in the network, stored in the ``variants`` +
 ``variant_interventions`` sheets) is a named bundle of timed interventions. Both
 the optimiser (``linopy``) and the simulator consume the *same* variant: a ``tech``
 intervention becomes a **forced timed switch** (``Problem.forced_switches``), and

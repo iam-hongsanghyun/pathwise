@@ -5,8 +5,8 @@
 #
 # Two kinds of conversion live in pathwise:
 #   * dimension-universal (MWh<->GJ, kg<->t, KRW<->USD): handled here + by pint.
-#   * commodity-specific  (1 t gas != 1 t coal in GJ; 1 t steel = N currency):
-#     those factors live ON each commodity (its `properties`), not here.
+#   * flow-specific  (1 t gas != 1 t coal in GJ; 1 t steel = N currency):
+#     those factors live ON each flow (its `properties`), not here.
 
 # Canonical base unit per physical dimension, plus the units offered in the UI
 # picker for that dimension. `base` is what aggregate/report figures roll up to.
@@ -33,9 +33,9 @@ custom_units:
   - "ship = [ship]"             # built ships
   - "voyage = [voyage]"         # one ship voyage (shipping service unit)
 
-# Preferred dimension per commodity kind. Advisory, not absolute: a fuel may be
+# Preferred dimension per flow kind. Advisory, not absolute: a fuel may be
 # measured in mass/volume so long as it carries an `energy_content` factor
-# (see Phase 3 commodity-specific conversions).
+# (see Phase 3 flow-specific conversions).
 kind_dimension:
   energy: energy
   # material / product / byproduct / indirect: any pint-parseable unit.

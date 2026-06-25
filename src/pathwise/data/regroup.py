@@ -1,6 +1,6 @@
 """Structural normalisation: wrap bare assets under a ``Technology`` kind-group.
 
-The value-chain rule is that every component sits under a Technology / Stream /
+The network rule is that every component sits under a Technology / Stream /
 Measures & MACC group; older example models placed assets directly under a
 company / facility. ``regroup_machines`` inserts the missing ``Technology`` group
 and reparents the assets to it.

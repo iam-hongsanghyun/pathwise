@@ -13,7 +13,7 @@ import type {
 
 // Settings holds run/appearance parameters only. Project-wide economics
 // (currency, discount, horizon) live in the Project tab; policy/markets are
-// authored in the Value chain.
+// authored in the Network.
 type Section = "appearance" | "method" | "solver";
 
 interface Props {
@@ -154,7 +154,7 @@ export function SettingsView({
                 <p className="muted">
                   <strong>Scenario simulator (LCA what-if)</strong> doesn't optimise — it pins the
                   current configuration and <em>evaluates</em> it, reporting lifecycle emissions by
-                  value-chain stage, cost, and policy sensitivity. Define the baseline, variants
+                  network stage, cost, and policy sensitivity. Define the baseline, variants
                   (e.g. switch to green steel) and an optional carbon-price sweep in the{" "}
                   <strong>Optimisation</strong> tab, then ▶ Run to compare A vs B.
                 </p>

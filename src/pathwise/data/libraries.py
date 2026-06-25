@@ -1,7 +1,7 @@
 """Auto-discovered, importable libraries — the sector-agnostic model catalogue.
 
 A *library* is a single **SQLite** workbook bundling **components** (streams /
-technologies / levers) and a **value chain** (nodes / assets / connections /
+technologies / levers) and a **network** (nodes / assets / connections /
 demand / caps). They live under ``<libraries_dir>/<tier>/<id>.sqlite`` where
 ``tier`` is the parent folder — ``base`` (reference-confirmed building blocks),
 ``example`` (illustrative models) or ``project`` (specific real projects). A
@@ -11,7 +11,7 @@ supplied JSON workbooks import unchanged.
 There is **no index**: dropping a file into a tier folder is enough — the
 catalogue is discovered by globbing, and importing it builds the components (into
 the session component library) and, when the workbook carries a node hierarchy,
-the value chain (into the session model). This keeps pathwise sector-agnostic:
+the network (into the session model). This keeps pathwise sector-agnostic:
 new sectors are data, not code.
 """
 
@@ -44,7 +44,7 @@ def _label(workbook: dict[str, Any], fallback: str) -> str:
 
 
 def _has_value_chain(workbook: dict[str, Any]) -> bool:
-    """Whether the workbook carries a value-chain structure (a node hierarchy)."""
+    """Whether the workbook carries a network structure (a node hierarchy)."""
     return bool(workbook.get("nodes"))
 
 

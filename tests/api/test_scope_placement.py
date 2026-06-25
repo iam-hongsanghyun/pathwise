@@ -1,5 +1,5 @@
 """Placing a SESSION (project-specific) component, not just a base one — the
-Facility / Value-Chain pickers must be able to drop a project's own components."""
+Facility / Network pickers must be able to drop a project's own components."""
 
 from __future__ import annotations
 

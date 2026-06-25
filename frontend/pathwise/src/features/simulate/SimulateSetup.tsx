@@ -1,6 +1,6 @@
 // Simulate run screen — shown when the method is `simulate` (an LCA what-if), in
 // place of the optimisation targets/constraints editor. Variants are now authored
-// IN the value chain (see VariantsPanel) and live on the model, so this screen is
+// IN the network (see VariantsPanel) and live on the model, so this screen is
 // a *selector / summary*: it shows the variants the run will evaluate against the
 // as-is baseline, plus an optional carbon-price sweep, and fires the run. It does
 // NOT pass `simulate.variants`, so the backend reads the model-resident ones.
@@ -32,7 +32,7 @@ export function SimulateSetup({
   const baseYear = years.length ? Math.min(...years) : 2025;
   const endYear = years.length ? Math.max(...years) : baseYear;
 
-  // Model-resident variants (authored in the value chain) + their intervention counts.
+  // Model-resident variants (authored in the network) + their intervention counts.
   const variants = (workbook.variants ?? []) as Row[];
   const interventions = (workbook.variant_interventions ?? []) as Row[];
   const countFor = (vid: string) => interventions.filter((r) => s(r.variant_id) === vid).length;
@@ -78,7 +78,7 @@ export function SimulateSetup({
         <h2 className="view-title">Scenario simulator</h2>
         <p className="view-lead">
           Evaluate the as-is baseline and compare it against the <strong>variants</strong> you
-          defined in the Value chain (per-asset forced switches, price or lever changes).
+          defined in the Network (per-asset forced switches, price or lever changes).
           Optionally sweep a carbon price.
         </p>
 
@@ -94,7 +94,7 @@ export function SimulateSetup({
           <h3 className="section-title" style={{ marginBottom: 2 }}>Variants</h3>
           {variants.length === 0 ? (
             <p className="muted" style={{ fontSize: ".78rem", margin: 0 }}>
-              No variants yet. Add them in the <strong>Value chain</strong> view — select a asset,
+              No variants yet. Add them in the <strong>Network</strong> view — select a asset,
               then “Variants (what-if)” in its panel. The run will still report the baseline LCA.
             </p>
           ) : (

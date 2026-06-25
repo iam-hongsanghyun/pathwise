@@ -2,7 +2,7 @@ import { LineChart } from "./LineChart";
 import type { LcaBlock, RunResult } from "../../types";
 
 /** Result view for a `simulate` (LCA what-if) run. Shows the baseline lifecycle
- *  inventory (emissions by value-chain stage and by impact, per functional unit),
+ *  inventory (emissions by network stage and by impact, per functional unit),
  *  and — when the scenario defined variants — a baseline-vs-variant comparison, a
  *  carbon-price sensitivity curve, and cap compliance. Mirrors MaccResult /
  *  PortfolioResult: the MILP timelines are empty for a simulate run, so this
@@ -45,7 +45,7 @@ export function LcaResult({ result }: { result: RunResult }) {
       <div className="card">
         <h3>Lifecycle assessment · {result.status}</h3>
         <p className="muted">
-          Cradle-to-gate emissions of the pinned configuration, by value-chain stage, normalised
+          Cradle-to-gate emissions of the pinned configuration, by network stage, normalised
           per functional unit. Use-phase emissions appear here too when the model carries a use
           process.
         </p>

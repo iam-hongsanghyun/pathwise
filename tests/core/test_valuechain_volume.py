@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import pytest
 
-from pathwise.core.valuechain import run_value_chain
+from pathwise.core.network import run_network
+from pathwise.data.network import CouplingLink, NetworkSpec, Stage
 from pathwise.data.scenario import ScenarioConfig
-from pathwise.data.valuechain import CouplingLink, Stage, ValueChainSpec
 
 SC = ScenarioConfig.from_dict({"economics": {"base_year": 2025, "discount_rate": 0.0}})
 
@@ -80,22 +80,22 @@ def _buy(result: dict, flow: str) -> float:
 
 
 def test_no_link_lets_downstream_buy_all_it_needs() -> None:
-    spec = ValueChainSpec(id="vc", stages=_stages())
+    spec = NetworkSpec(id="vc", stages=_stages())
     wbs = {"up": _upstream(), "down": _downstream()}
-    res = run_value_chain(spec, wbs, SC)
+    res = run_network(spec, wbs, SC)
     assert res["status"] == "optimal"
     assert _buy(res["stages"]["down"], "mid") == pytest.approx(100.0, rel=1e-6)
     assert res["stages"]["down"]["outputs"]["demand_slack"] == []
 
 
 def test_volume_link_caps_downstream_purchase_at_upstream_output() -> None:
-    spec = ValueChainSpec(
+    spec = NetworkSpec(
         id="vc",
         stages=_stages(),
         links=[CouplingLink(from_stage="up", to_stage="down", flow="mid", signals=["volume"])],
     )
     wbs = {"up": _upstream(), "down": _downstream()}
-    res = run_value_chain(spec, wbs, SC)
+    res = run_network(spec, wbs, SC)
 
     # The upstream produced volume (50) is recorded as the transferred signal.
     vol = [c for c in res["couplings"] if c["signal"] == "volume"]

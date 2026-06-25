@@ -65,7 +65,7 @@ def test_characterisation_gwp_in_inventory() -> None:
     assert by_impact["CH4"] == pytest.approx(10.0)
     assert by_impact["GWP"] == pytest.approx(470.0)  # 200·1 + 10·27
 
-    # GWP is also decomposed onto the value-chain stage.
+    # GWP is also decomposed onto the network stage.
     gwp_stage = {d["stage"]: d["total"] for d in lca["by_stage"] if d["impact"] == "GWP"}
     assert gwp_stage["plantco"] == pytest.approx(470.0)
 

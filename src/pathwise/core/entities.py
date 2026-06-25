@@ -100,7 +100,7 @@ class Flow:
         max_purchase_by_year: Upper bound on the total external purchase of this
             stream across every process in a year [flow unit / yr]; ``None``
             for a year ⇒ unlimited. Used to cap supply availability — e.g. a
-            value-chain link feeding an upstream stage's produced volume in as
+            network link feeding an upstream stage's produced volume in as
             the downstream stage's available supply.
         properties: Free-form physical characteristics of the stream, keyed by
             name → value [property's own unit] — e.g. ``{"temperature_C": 600}``

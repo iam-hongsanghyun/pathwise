@@ -363,12 +363,10 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
     asset_tech = {mid: m.baseline_technology for mid, m in h.assets.items()}
 
     def producers(node: str, flow: str) -> list[str]:
-        return [
-            m for m in h.leaf_machines(node) if flow in io_out.get(asset_tech.get(m, ""), set())
-        ]
+        return [m for m in h.leaf_assets(node) if flow in io_out.get(asset_tech.get(m, ""), set())]
 
     def consumers(node: str, flow: str) -> list[str]:
-        return [m for m in h.leaf_machines(node) if flow in io_in.get(asset_tech.get(m, ""), set())]
+        return [m for m in h.leaf_assets(node) if flow in io_in.get(asset_tech.get(m, ""), set())]
 
     edges = list(workbook.get(EDGES, []))
     edges_t = list(workbook.get(EDGES_T, []))
@@ -765,7 +763,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     # PyPSA-style wide temporal tables override the legacy long-format.
     price_traj.update(_wide_temporal(workbook, FLOWS_T_PRICE))
     sale_traj.update(_wide_temporal(workbook, FLOWS_T_SALE_PRICE))
-    # Per-year external-purchase volume cap (used by value-chain ``volume`` links).
+    # Per-year external-purchase volume cap (used by network ``volume`` links).
     maxbuy_traj: dict[str, dict[int, float]] = _wide_temporal(workbook, FLOWS_T_MAX_PURCHASE)
     # Free-form physical stream properties (long format: flow_id, property, value).
     props_by_flow: dict[str, dict[str, float]] = {}
@@ -980,7 +978,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             flow_impacts[(c, i)] = _num(r.get("factor"), 0.0) or 0.0
 
     # Optional year-varying carbon intensity (long format: flow_id, impact_id,
-    # year, factor) — e.g. a greening grid, or an upstream value-chain stage's
+    # year, factor) — e.g. a greening grid, or an upstream network stage's
     # pathway. Sparse points are interpolated onto the horizon (flat-hold ends).
     ci_points: dict[tuple[str, str], dict[int, float]] = {}
     for r in _rows(workbook, FLOW_IMPACTS_T):
@@ -1203,7 +1201,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             )
         )
 
-    # ── Connection routes: physicalised value-chain stream links ───────
+    # ── Connection routes: physicalised network stream links ───────
     # A ``routes`` row that names a stream (``flow``) and is NOT itself a
     # transport process is a *physicalised connection*: it governs the producer→
     # consumer edges of that connection (under its from/to nodes) and is carried by
@@ -1226,7 +1224,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         )
 
     def _leaves(node: str) -> set[str]:
-        return set(hierarchy.leaf_machines(node)) if hierarchy is not None else {node}
+        return set(hierarchy.leaf_assets(node)) if hierarchy is not None else {node}
 
     connection_routes: list[ConnectionRoute] = []
     for r in _rows(workbook, ROUTES):

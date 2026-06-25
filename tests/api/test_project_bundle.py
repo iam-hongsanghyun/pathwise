@@ -29,7 +29,7 @@ def _new_session() -> str:
 
 
 def _seed(sid: str) -> None:
-    """A minimal Facility/Value-Chain model: one asset running a BASE technology
+    """A minimal Facility/Network model: one asset running a BASE technology
     (BF_BOF from the seeded 'steel' library) + a named project."""
     model = {
         "nodes": [{"node_id": "n1", "kind": "group", "level": "company", "label": "Acme"}],

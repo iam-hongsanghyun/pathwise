@@ -1,4 +1,4 @@
-// Canonical vocabulary for the value-chain + component builders, so labels and
+// Canonical vocabulary for the network + component builders, so labels and
 // tooltips stay consistent across both. Data only — no React.
 
 /** One-line definition per term, surfaced via InfoTooltip and the map legend. */

@@ -1,7 +1,7 @@
 // Importable-library API client — the tiered, auto-discovered catalogue.
 //
 // A *library* is one JSON workbook bundling components (streams / technologies /
-// levers) and optionally a value chain (a node hierarchy). They live under
+// levers) and optionally a network (a node hierarchy). They live under
 // <tier>/<id>.json on the backend: `base` (reference building blocks),
 // `example` (illustrative models), `project` (specific real projects). There is
 // no index — dropping a JSON file into a tier folder is enough.
@@ -21,7 +21,7 @@ export interface LibraryEntry {
   id: string;
   tier: LibraryTier;
   label: string;
-  /** The workbook carries a node hierarchy → importing rebuilds the value chain. */
+  /** The workbook carries a node hierarchy → importing rebuilds the network. */
   has_value_chain: boolean;
   /** The workbook carries streams / technologies / levers → stocks the library. */
   has_components: boolean;
@@ -41,7 +41,7 @@ export interface ImportResult {
 }
 
 /** Import a library into the session: components → the session component
- *  library, and (when it carries a node hierarchy) the value chain → the
+ *  library, and (when it carries a node hierarchy) the network → the
  *  session model. Returns the refreshed model. */
 export async function importLibrary(
   sessionId: string,

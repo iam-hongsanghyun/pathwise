@@ -54,8 +54,8 @@ def test_subtree_scope_membership() -> None:
     assert not h.in_scope("steel", "press")
     assert h.in_scope("vc", "press")  # everything is under the root
     assert h.in_scope("all", "press")
-    assert h.leaf_machines("steel") == ["bf", "eaf"]
-    assert h.leaf_machines("mill") == ["bf", "eaf"]
+    assert h.leaf_assets("steel") == ["bf", "eaf"]
+    assert h.leaf_assets("mill") == ["bf", "eaf"]
 
 
 def test_levels_ordered_root_to_leaf() -> None:
@@ -70,7 +70,7 @@ def test_derive_ports_from_boundary_crossing_connection() -> None:
     assert h is not None
     ports = h.derive_ports()
     # steel→auto on 'steel' crosses both company boundaries: steel exposes an out
-    # port, auto an in port (the value-chain root contains both, so no port there).
+    # port, auto an in port (the network root contains both, so no port there).
     out_ports = {(p.node_id, p.direction) for p in ports if p.flow_id == "steel"}
     assert ("steel", "out") in out_ports
     assert ("auto", "in") in out_ports
@@ -90,7 +90,7 @@ def test_check_flags_dangling_parent_and_missing_asset_row() -> None:
 def test_asset_max_renewals_parses_and_reaches_the_process() -> None:
     # The per-asset renewal cap is authored on the asset row and must survive
     # the hierarchy → flat-process expansion (``_expand_hierarchy``) — the path
-    # the value-chain/project UI uses, distinct from the flat ``processes`` sheet.
+    # the network/project UI uses, distinct from the flat ``processes`` sheet.
     from pathwise.data import ScenarioConfig, assemble_problem
 
     wb = {

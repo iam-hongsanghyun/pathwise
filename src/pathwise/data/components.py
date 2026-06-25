@@ -169,7 +169,7 @@ class ComponentLibrary(BaseModel):
     """A catalogue of the three reusable building blocks — technologies (recipes
     + their streams), streams (flows), and measures (individual + grouped
     into MACCs). ``assets`` / ``groups`` are legacy composite components kept
-    for back-compatibility; the builder no longer authors them (the Value Chain
+    for back-compatibility; the builder no longer authors them (the Network
     places a technology directly as a asset)."""
 
     label: str = ""
@@ -302,12 +302,12 @@ PROJECT_BUNDLE_FORMAT = "pathwise.project"
 
 class ProjectBundle(BaseModel):
     """A self-contained, portable **project** — a named workspace bundling its
-    Facility + Value-Chain model with every component it needs to re-open and
+    Facility + Network model with every component it needs to re-open and
     re-edit on any asset.
 
     Maps onto the three-layer model:
 
-    - ``model``: the shared Facility + Value-Chain workbook
+    - ``model``: the shared Facility + Network workbook
       (nodes / assets / links / … + the ``project`` sheet that carries the
       name). The engine runs off this alone — placed recipes are already inlined.
     - ``session_libraries``: the project's OWN (project-specific) component
@@ -954,7 +954,7 @@ def instantiate_into(
 ) -> Workbook:
     """Drop a FRESH copy of ``component`` into ``model`` under ``parent_id``.
 
-    The "place a facility into a company" operation of the Value-Chain builder:
+    The "place a facility into a company" operation of the Network builder:
     :func:`instantiate` stamps a brand-new instance (path-qualified ids, so two
     companies never share a facility), then this merges that instance into the
     existing workbook — appending ``nodes`` / ``assets`` / ``links`` /
@@ -1142,7 +1142,7 @@ def place_technology(
 ) -> Workbook:
     """Place a technology as a fresh ASSET node under ``parent_id``.
 
-    The Value-Chain builder's "add component": a technology becomes one asset
+    The Network builder's "add component": a technology becomes one asset
     node (a process); its recipe (``technologies`` / ``io``) + referenced streams
     + impacts are merged in, and every lever of the technology's linked MACCs is
     stamped onto the asset (block cost scaled to ``capacity``). Pure — returns a
@@ -1304,9 +1304,9 @@ def extract_library_from_workbook(workbook: Workbook, *, label: str = "") -> Com
 
     The near-inverse of :func:`instantiate`: an imported scenario carries its
     component DEFINITIONS (streams, technology recipes, levers) interleaved with
-    its value-chain STRUCTURE (nodes/assets/links). This pulls the
+    its network STRUCTURE (nodes/assets/links). This pulls the
     definitions back out into a :class:`ComponentLibrary` so the Component view can
-    show the scenario's components, leaving the structure to the Value-chain view.
+    show the scenario's components, leaving the structure to the Network view.
 
     Best-effort: ``io`` is grouped back under its technology, and per-facility
     levers (``"<node> · <lever>"``) are de-duplicated to reusable templates.

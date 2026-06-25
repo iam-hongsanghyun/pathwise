@@ -70,7 +70,7 @@ class SolverOptions:
 def options_from_scenario(scenario: Any) -> SolverOptions:
     """Build :class:`SolverOptions` from a scenario's ``solver`` sub-config.
 
-    Lets the hierarchy / value-chain solve paths honour the scenario's solver
+    Lets the hierarchy / network solve paths honour the scenario's solver
     tuning (name, MIP gap, threads, time limit) instead of always falling back to
     the defaults. Duck-typed (reads attributes, no import) to avoid a
     ``core → data`` dependency cycle; returns the defaults if no solver config.

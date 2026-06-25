@@ -148,7 +148,7 @@ def leg_key(route: str, fleet: str) -> str:
 
 @dataclass(slots=True, frozen=True)
 class ConnectionLeg:
-    """A candidate fleet for a physicalised value-chain connection (Layer 1c+).
+    """A candidate fleet for a physicalised network connection (Layer 1c+).
 
     A connection route lists the fleets that *may* carry its stream; the optimiser
     picks which one(s) actually run it (some fleets per route, not all).
@@ -166,7 +166,7 @@ class ConnectionLeg:
 
 @dataclass(slots=True, frozen=True)
 class ConnectionRoute:
-    """A value-chain stream connection made *physical* (Layer 1c+).
+    """A network stream connection made *physical* (Layer 1c+).
 
     A virtual connection (an :class:`Edge`, instant + free — "teleportation") becomes
     a physical route once its endpoints carry a location and it is given a transport
@@ -290,7 +290,7 @@ class Problem:
     flow_impacts: dict[tuple[str, str], float] = field(default_factory=dict)
     # Optional year-varying override of ``flow_impacts`` (a flow's
     # carbon intensity can change over the horizon — e.g. a greening grid, or an
-    # upstream value-chain stage's pathway). Falls back to the static factor.
+    # upstream network stage's pathway). Falls back to the static factor.
     flow_impacts_by_year: dict[tuple[str, str], dict[int, float]] = field(default_factory=dict)
     # LCIA characterisation: ``{(flow_impact_id, category_id): factor}``. A category
     # impact's emission is the linear combination Σ_flow factor · emit[flow] — so an
@@ -335,7 +335,7 @@ class Problem:
     # mode, distance). Distance drives per-carrier capacity (Layer 1c); the rest is
     # for distance computation + the map. Inert unless transport routes are present.
     routes: dict[str, Route] = field(default_factory=dict)
-    # Physicalised value-chain connections (Layer 1c+): each carries an existing
+    # Physicalised network connections (Layer 1c+): each carries an existing
     # flow Edge's flow with a chosen fleet (from a candidate set), distance →
     # carriers + fuel. Inert unless connection routes are present (then teleport is
     # the default for every connection without one). See ``build._connection_fleet``.

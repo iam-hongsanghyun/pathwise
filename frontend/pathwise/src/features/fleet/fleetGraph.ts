@@ -1,5 +1,5 @@
 // Helpers for the Fleet designer. The transport layer is SEPARATE from the facility
-// / value-chain `nodes` tree: fleets live in their own registry — `fleet_groups`
+// / network `nodes` tree: fleets live in their own registry — `fleet_groups`
 // (the alliance→company→… ownership tree) + `fleet` rows (group = a fleet_groups
 // id). The RIGHT rail just mirrors the facility `nodes` so a user can pull ports
 // onto the map. Adding a fleet NEVER touches `nodes`.
@@ -72,8 +72,8 @@ export function facilityTree(nodes: GroupNode[], coord: Map<string, { lon: numbe
   }));
 }
 
-// ── Routes = physicalised value-chain stream links ──────────────────────
-// A value-chain `link` (from_node → to_node carrying a flow) is a VIRTUAL
+// ── Routes = physicalised network stream links ──────────────────────
+// A network `link` (from_node → to_node carrying a flow) is a VIRTUAL
 // stream flow — "teleportation": free + instant. It becomes a PHYSICAL route once its
 // two endpoints carry a location AND it is given physical info (mode/fleet). The TOP
 // of the right rail lists these grouped by stream; the BOTTOM lets a user drag an

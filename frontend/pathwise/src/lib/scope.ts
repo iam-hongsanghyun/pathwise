@@ -16,7 +16,7 @@ export interface ScopeOption {
 
 /** "all" (system) plus every scope a target can be attached to. */
 export function scopeOptions(wb: Workbook): ScopeOption[] {
-  const out: ScopeOption[] = [{ value: "all", label: "System (whole model)" }];
+  const out: ScopeOption[] = [{ value: "all", label: "Model" }];
   const groups = parseNodes(wb).filter((n) => n.kind === "group");
   if (groups.length > 0) {
     for (const n of groups) {

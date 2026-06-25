@@ -3,7 +3,7 @@
 A pre-hierarchy workbook describes facilities in a flat ``processes`` sheet wired
 by ``edges``, scoped by ``company`` / ``group`` strings. :func:`to_hierarchy`
 turns that into the ``nodes`` / ``assets`` / ``links`` tree the builder
-and per-level solver use: a value-chain root → company groups → facility groups
+and per-level solver use: a network root → company groups → facility groups
 → one asset per process; edges become links. No sector knowledge — it
 reads only the generic scope columns.
 """

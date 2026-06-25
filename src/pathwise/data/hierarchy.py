@@ -5,7 +5,7 @@ depth. Each node is either a ``group`` (a composite — its children are other
 nodes, and it exposes boundary **ports**) or a ``asset`` (a leaf that runs one
 technology with its own capacity). **Connections** wire sibling nodes by a
 flow and may carry a **time gap** (``lag_years``); they generalise the flat
-``edges`` sheet. The fixed chain "value chain → sector → company → facility →
+``edges`` sheet. The fixed chain "network → sector → company → facility →
 asset" is just one example — ``level`` is free text and depth is unbounded, so
 nothing here is sector-specific.
 
@@ -207,7 +207,7 @@ class Hierarchy:
             q.extend(self._children.get(c, ()))
         return out
 
-    def leaf_machines(self, node_id: str) -> list[str]:
+    def leaf_assets(self, node_id: str) -> list[str]:
         """Asset-kind nodes in ``node_id``'s subtree (including itself)."""
         scope = {node_id} | self.descendants(node_id)
         return sorted(n for n in scope if n in self.nodes and self.nodes[n].kind == NodeKind.ASSET)

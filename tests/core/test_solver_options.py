@@ -1,4 +1,4 @@
-"""The hierarchy / value-chain solve paths honour the scenario's solver config."""
+"""The hierarchy / network solve paths honour the scenario's solver config."""
 
 from __future__ import annotations
 

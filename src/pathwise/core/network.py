@@ -1,4 +1,4 @@
-"""Cascade orchestrator for value-chain optimisation (cost-based, forward).
+"""Cascade orchestrator for network optimisation (cost-based, forward).
 
 Solve each stage with the ordinary single-model pipeline
 (``assemble_problem → build → solve → extract_results``) in upstream→downstream
@@ -42,6 +42,7 @@ from pathwise.core.build import build
 from pathwise.core.extract import extract_results
 from pathwise.core.solve import options_from_scenario, solve
 from pathwise.data.assemble import assemble_problem
+from pathwise.data.network import NetworkSpec
 from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.sheets import (
     DEMAND,
@@ -50,22 +51,21 @@ from pathwise.data.sheets import (
     FLOWS_T_PRICE,
 )
 from pathwise.data.trajectory import interpolate
-from pathwise.data.valuechain import ValueChainSpec
 from pathwise.data.workbook import Workbook, default_impact
 
 _EPS = 1e-9
 _TOL = 1e-3  # relative convergence tolerance for the feedback fixed point
 
 
-def run_value_chain(
-    spec: ValueChainSpec,
+def run_network(
+    spec: NetworkSpec,
     workbooks: dict[str, Workbook],
     scenario: ScenarioConfig | None = None,
     iterations: int = 1,
     damping: float = 0.5,
     forced_switches: dict[str, tuple[str, int]] | None = None,
 ) -> dict[str, Any]:
-    """Solve a value chain as a cascade of coupled stages.
+    """Solve a network as a cascade of coupled stages.
 
     A forward pass solves each stage upstream→downstream, injecting the upstream
     price / carbon-intensity signals (lagged) into the downstream inputs. With
@@ -75,7 +75,7 @@ def run_value_chain(
     oscillation.
 
     Args:
-        spec: The value-chain definition (stages + coupling links).
+        spec: The network definition (stages + coupling links).
         workbooks: ``{stage_id: workbook}`` — every stage in ``spec`` must have
             a resolved workbook (the caller does the I/O; this stays pure).
         scenario: Base run scenario; per-stage ``scenario`` overrides are
@@ -127,14 +127,14 @@ def run_value_chain(
 
 
 def sweep_value_chain(
-    spec: ValueChainSpec,
+    spec: NetworkSpec,
     draws: list[dict[str, Workbook]],
     scenario: ScenarioConfig | None = None,
     *,
     iterations: int = 1,
     damping: float = 0.5,
 ) -> dict[str, Any]:
-    """Run the value chain over an ensemble of workbook draws (uncertainty).
+    """Run the network over an ensemble of workbook draws (uncertainty).
 
     Each draw is a full ``{stage_id: workbook}`` variant — e.g. the same chain
     with a different upstream carbon-price trajectory — so the caller expresses
@@ -144,7 +144,7 @@ def sweep_value_chain(
     into each stage's outcomes.
 
     Args:
-        spec: The value-chain definition.
+        spec: The network definition.
         draws: One ``{stage_id: workbook}`` per ensemble member.
         scenario: Base scenario applied to every draw.
         iterations: Forward passes per run (feedback fixed point).
@@ -154,13 +154,12 @@ def sweep_value_chain(
         ``{"runs": [...], "distribution": {stage: {"cost": {...}, "co2": {...}}}}``.
     """
     runs = [
-        run_value_chain(spec, wbs, scenario, iterations=iterations, damping=damping)
-        for wbs in draws
+        run_network(spec, wbs, scenario, iterations=iterations, damping=damping) for wbs in draws
     ]
     return {"runs": runs, "distribution": _distribution(spec, runs)}
 
 
-def _distribution(spec: ValueChainSpec, runs: list[dict[str, Any]]) -> dict[str, Any]:
+def _distribution(spec: NetworkSpec, runs: list[dict[str, Any]]) -> dict[str, Any]:
     # The chain's headline impact (impact-agnostic): the first coupling link that
     # names one, else the first impact any run reports — never a hardcoded CO2.
     primary = next((lnk.impact for lnk in spec.links if lnk.impact), "")
@@ -208,7 +207,7 @@ def _stats(values: list[float]) -> dict[str, float]:
 
 
 def _forward_pass(
-    spec: ValueChainSpec,
+    spec: NetworkSpec,
     wbs: dict[str, Workbook],
     base: ScenarioConfig,
     forced: dict[str, tuple[str, int]] | None = None,
@@ -271,7 +270,7 @@ def _forward_pass(
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 
-def _links_by_source(spec: ValueChainSpec) -> dict[str, list[Any]]:
+def _links_by_source(spec: NetworkSpec) -> dict[str, list[Any]]:
     out: dict[str, list[Any]] = {}
     for link in spec.active_links():
         out.setdefault(link.from_stage, []).append(link)
@@ -435,7 +434,7 @@ def _inject_volume(wb: Workbook, flow: str, by_year: dict[int, float]) -> None:
 
 
 def _feedback_demands(
-    spec: ValueChainSpec,
+    spec: NetworkSpec,
     wbs: dict[str, Workbook],
     results: dict[str, dict[str, Any]],
     feedback_links: list[Any],
@@ -452,7 +451,7 @@ def _feedback_demands(
 
 
 def _apply_feedback_demands(
-    spec: ValueChainSpec, wbs: dict[str, Workbook], demands: dict[tuple[str, str, int], float]
+    spec: NetworkSpec, wbs: dict[str, Workbook], demands: dict[tuple[str, str, int], float]
 ) -> None:
     """Upsert fed-back demand onto the upstream stages' demand sheets."""
     for (stage_id, flow, year), amount in demands.items():

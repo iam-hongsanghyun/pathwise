@@ -1,6 +1,6 @@
 // A builder rail (left or right) that collapses to a slim strip and expands back —
 // the one shared collapse code path for every tab. Formalises the pattern that the
-// Value-chain rail already used. The resize handle sits on the rail's INNER edge, so
+// Network rail already used. The resize handle sits on the rail's INNER edge, so
 // a left rail renders [aside][Resizer] and a right rail renders [Resizer][aside].
 
 import type { ReactNode } from "react";

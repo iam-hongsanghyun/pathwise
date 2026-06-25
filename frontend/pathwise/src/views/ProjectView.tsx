@@ -1,5 +1,5 @@
 // Project tab — the named workspace that bundles the three layers: project-
-// specific Components + Facilities + Value Chain. Name it, export the whole thing
+// specific Components + Facilities + Network. Name it, export the whole thing
 // as one self-contained file, or import one. The name lives on the shared
 // workbook's `project` sheet so it travels with the model (and into the bundle).
 
@@ -220,7 +220,7 @@ export function ProjectView({
         <div className="eyebrow">project</div>
         <h2 className="view-title">Project</h2>
         <p className="view-lead">
-          A project is the whole named workspace — its own components, facilities and value chain.
+          A project is the whole named workspace — its own components, facilities and network.
           Name it, then export it as one self-contained file or import one.
         </p>
 
@@ -324,7 +324,7 @@ export function ProjectView({
         <section style={{ marginBottom: 22 }}>
           <h3 className="section-title">Start from an example</h3>
           <p className="detail-note" style={{ marginBottom: 8 }}>
-            Open a bundled example as a project — its full value chain, facilities and components.
+            Open a bundled example as a project — its full network, facilities and components.
             You can then rename it, edit it, and export it as your own bundle.
           </p>
           <div style={{ maxWidth: 360 }}>

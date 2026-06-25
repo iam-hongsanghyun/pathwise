@@ -21,7 +21,7 @@ Workbook = dict[str, list[dict[str, Any]]]
 
 def default_impact(model: Workbook) -> str:
     """The default target impact for a single-impact operation (MACC, frontier,
-    carbon-price sweep, comparison headline, value-chain signal) when the caller
+    carbon-price sweep, comparison headline, network signal) when the caller
     names none: the first *capped* impact, else the first declared impact, else ``""``.
 
     Deliberately impact-agnostic — never falls back to a hardcoded ``"CO2"``, so a
