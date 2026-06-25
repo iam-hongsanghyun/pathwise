@@ -168,9 +168,7 @@ def _baseline_emission(problem: Problem, process: Any, impact: str, year: int) -
     if tech is not None:
         inputs = set(tech.input_intensity) | set(tech.input_intensity_by_year)
         for r in inputs:
-            total += (
-                problem.commodity_impact(r, impact, year) * cap * tech.input_intensity_at(r, year)
-            )
+            total += problem.flow_impact(r, impact, year) * cap * tech.input_intensity_at(r, year)
     return float(total)
 
 

@@ -2,8 +2,8 @@
 
 The model: ``levers`` is a catalogue (no target needed), ``maccs`` rows
 {macc, lever_id} build named bundles (a lever may sit in several), and
-``macc_links`` rows {macc, facility|technology|commodity|storage} deploy a
-bundle: a commodity (stream) reaches every facility whose baseline technology
+``macc_links`` rows {macc, facility|technology|flow|storage} deploy a
+bundle: a flow (stream) reaches every facility whose baseline technology
 consumes it, a storage reaches the consumers of its stored stream. Direct
 ``facility``/``technology`` columns on a lever remain a one-off shortcut.
 """
@@ -17,9 +17,9 @@ def _wb() -> dict:
     """Two facilities on technology T plus one on technology U."""
     return {
         "periods": [{"year": 2025}],
-        "commodities": [
-            {"commodity_id": "fuel", "kind": "energy", "price": 10.0},
-            {"commodity_id": "widget", "kind": "product"},
+        "flows": [
+            {"flow_id": "fuel", "kind": "energy", "price": 10.0},
+            {"flow_id": "widget", "kind": "product"},
         ],
         "technologies": [{"technology_id": "T"}, {"technology_id": "U"}],
         "io": [
@@ -64,7 +64,7 @@ def _wb() -> dict:
             {"macc": "T pack", "technology": "T"},
             {"macc": "U pack", "facility": "Other"},
         ],
-        "demand": [{"company": "C", "commodity_id": "widget", "year": 2025, "amount": 160}],
+        "demand": [{"company": "C", "flow_id": "widget", "year": 2025, "amount": 160}],
         "impacts": [],
         "markets": [],
         "storage": [],
@@ -115,7 +115,7 @@ def test_direct_facility_and_technology_columns() -> None:
 def test_macc_deploys_via_stream() -> None:
     wb = _wb()
     # Both baseline technologies (T, U) consume fuel → all three facilities.
-    wb["macc_links"] = [{"macc": "T pack", "commodity": "fuel"}]
+    wb["macc_links"] = [{"macc": "T pack", "flow": "fuel"}]
     prob = _problem(wb)
     assert sorted(m.applies_to for m in prob.levers if m.lever_id.startswith("fuel_saver")) == [
         "Big",
@@ -127,7 +127,7 @@ def test_macc_deploys_via_stream() -> None:
 def test_macc_deploys_via_storage() -> None:
     wb = _wb()
     # A store resolves through its stream to the stream's consumers.
-    wb["storage"] = [{"storage_id": "tank", "commodity_id": "fuel"}]
+    wb["storage"] = [{"storage_id": "tank", "flow_id": "fuel"}]
     wb["macc_links"] = [{"macc": "T pack", "storage": "tank"}]
     prob = _problem(wb)
     assert sorted(m.applies_to for m in prob.levers if m.lever_id.startswith("fuel_saver")) == [

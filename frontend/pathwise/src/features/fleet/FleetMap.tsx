@@ -4,7 +4,7 @@
 //             antimeridian so a trans-Pacific lane doesn't streak across the map.
 //   • GLOBE — geoOrthographic (an actual sphere); drag to rotate, wheel to zoom. The
 //             back hemisphere is clipped, so dateline wrapping simply doesn't exist.
-// Routes carry hover tooltips (distance, from→to, fleets, commodity) and an optional
+// Routes carry hover tooltips (distance, from→to, fleets, flow) and an optional
 // dotted ALTERNATIVE path (the detour a chokepoint closure would force).
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -32,7 +32,7 @@ export interface MapRoute {
   fromLabel?: string;
   toLabel?: string;
   mode?: string;
-  commodity?: string;
+  flow?: string;
   distanceKm?: number;
   fleets?: string[];
   /** Maritime chokepoints this lane crosses that carry a risk/toll (labels). */
@@ -338,7 +338,7 @@ export function FleetMap({
               <tbody>
                 {r.distanceKm != null && <tr><td>Distance</td><td>{Math.round(r.distanceKm).toLocaleString()} km</td></tr>}
                 {r.mode && <tr><td>Mode</td><td>{r.mode}</td></tr>}
-                {r.commodity && <tr><td>Cargo</td><td>{r.commodity}</td></tr>}
+                {r.flow && <tr><td>Cargo</td><td>{r.flow}</td></tr>}
                 <tr><td>Fleets</td><td>{fleets.length ? fleets.join(", ") : "any (optimiser)"}</td></tr>
                 {r.chokepoints && r.chokepoints.length > 0 && (
                   <tr><td>Chokepoints</td><td>{r.chokepoints.join(", ")}</td></tr>

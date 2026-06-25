@@ -23,7 +23,7 @@ import {
 } from "../lib/api/components";
 import { getFullModel, putModel } from "../lib/api/session";
 import {
-  commodityUnit,
+  flowUnit,
   ioCoeff,
   instAttr,
   machineProduct,
@@ -264,7 +264,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     const out: TreeNode[] = [];
     for (const l of allLibs) {
       const key = `${l.scope}/${l.id}`;
-      const total = l.technologies + l.commodities + l.levers + l.maccs;
+      const total = l.technologies + l.flows + l.levers + l.maccs;
       out.push({
         id: `lib:${key}`,
         parentId: null,
@@ -285,9 +285,9 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
       const tg = grp("tech", "Technology", body.technologies.length > 0);
       for (const t of body.technologies)
         out.push({ id: `t:${l.scope}:${l.id}:${t.technology_id}`, parentId: tg, kind: "leaf", label: t.technology_id, hasChildren: false, draggable: true });
-      const sg = grp("stream", "Stream", body.commodities.length > 0);
-      for (const c of body.commodities)
-        out.push({ id: `s:${l.scope}:${l.id}:${c.commodity_id}`, parentId: sg, kind: "leaf", label: c.commodity_id, hasChildren: false, draggable: true });
+      const sg = grp("stream", "Stream", body.flows.length > 0);
+      for (const c of body.flows)
+        out.push({ id: `s:${l.scope}:${l.id}:${c.flow_id}`, parentId: sg, kind: "leaf", label: c.flow_id, hasChildren: false, draggable: true });
       const mg = grp("meas", "Levers & MACC", body.measures.length + body.maccs.length > 0);
       for (const g of body.maccs)
         out.push({ id: `g:${l.scope}:${l.id}:${g.macc_id}`, parentId: mg, kind: "leaf", label: g.label || g.macc_id, hasChildren: false, draggable: true });
@@ -395,7 +395,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
       const outputs = recipe.filter((row) => s(row.role) === "output");
       const impacts = recipe.filter((row) => s(row.role) === "impact");
       const product = machineProduct(workbook, sel.id);
-      const unit = product ? commodityUnit(workbook, product) : "";
+      const unit = product ? flowUnit(workbook, product) : "";
       const maxOut = product ? maxOutputCap(workbook, sel.id, product) : null;
       const minOut = product ? minOutputCap(workbook, sel.id, product) : null;
       const thru = unit || "unit";
@@ -409,7 +409,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
       const coeffCell = (row: Row, i: number) => {
         const role = s(row.role);
         const target = s(row.target);
-        const u = role === "impact" ? impactUnit(target) : commodityUnit(workbook, target);
+        const u = role === "impact" ? impactUnit(target) : flowUnit(workbook, target);
         return cell(`${role}-${target}-${i}`, target,
           <TemporalValue value={ioCoeff(workbook, tech, role, target)} baseYear={baseYear} periods={periods}
             variant="text" placeholder="0" label={`${target} · per ${thru}`}

@@ -203,28 +203,28 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
 
   // ── Links (pure wiring — flow limits are asset→asset, set in the
   //    asset popup per provider asset; a group link just routes flow). ──
-  function addLink(from: string, to: string, commodity: string, lag: number) {
-    if (!from || !to || from === to || !commodity) return;
-    setWorkbook(setSheet(workbook, "links", [...(workbook.links ?? []), { from_node: from, to_node: to, commodity_id: commodity, lag_years: lag }]));
+  function addLink(from: string, to: string, flow: string, lag: number) {
+    if (!from || !to || from === to || !flow) return;
+    setWorkbook(setSheet(workbook, "links", [...(workbook.links ?? []), { from_node: from, to_node: to, flow_id: flow, lag_years: lag }]));
   }
-  function editLink(rowIndex: number, commodity: string, lag: number) {
-    if (!commodity) return;
-    setWorkbook(setSheet(workbook, "links", (workbook.links ?? []).map((r, i) => (i === rowIndex ? { ...r, commodity_id: commodity, lag_years: lag } : r))));
+  function editLink(rowIndex: number, flow: string, lag: number) {
+    if (!flow) return;
+    setWorkbook(setSheet(workbook, "links", (workbook.links ?? []).map((r, i) => (i === rowIndex ? { ...r, flow_id: flow, lag_years: lag } : r))));
   }
   function deleteLink(rowIndex: number) {
     setWorkbook(setSheet(workbook, "links", (workbook.links ?? []).filter((_, i) => i !== rowIndex)));
   }
 
   // ── Purchasing (markets scoped to a node) ───────────────────────────────────
-  function addMarket(nodeId: string, commodity: string, kind: "buy" | "sell") {
+  function addMarket(nodeId: string, flow: string, kind: "buy" | "sell") {
     // A new BUY market defaults to the stream's own price (not 0) so it doesn't
     // silently let the optimiser buy for free — the validation layer flags a 0.
-    const comm = (workbook.commodities ?? []).find((c) => s(c.commodity_id) === commodity);
+    const comm = (workbook.flows ?? []).find((c) => s(c.flow_id) === flow);
     const buyPrice = Number(comm?.price) || 0;
     const sellPrice = Number(comm?.sale_price) || 0;
     const row: Row = kind === "buy"
-      ? { market_id: genId("buy"), target: commodity, company: nodeId, price: buyPrice }
-      : { market_id: genId("sell"), target: commodity, company: nodeId, sell_price: sellPrice };
+      ? { market_id: genId("buy"), target: flow, company: nodeId, price: buyPrice }
+      : { market_id: genId("sell"), target: flow, company: nodeId, sell_price: sellPrice };
     setWorkbook(setSheet(workbook, "markets", [...(workbook.markets ?? []), row]));
   }
   function setMarketPrice(rowIndex: number, field: "price" | "sell_price", value: number) {
@@ -238,13 +238,13 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   const products = useMemo(() => {
     const out = new Set<string>();
     for (const r of workbook.io ?? []) if (s(r.role) === "output" && r.is_product) out.add(s(r.target));
-    for (const c of workbook.commodities ?? []) if (s(c.kind) === "product") out.add(s(c.commodity_id));
+    for (const c of workbook.flows ?? []) if (s(c.kind) === "product") out.add(s(c.flow_id));
     return [...out];
   }, [workbook]);
   const demandFor = (nodeId: string) =>
     (workbook.demand ?? []).map((r, idx) => ({ idx, r })).filter(({ r }) => s(r.company) === nodeId);
   function addTarget(nodeId: string) {
-    setWorkbook(setSheet(workbook, "demand", [...(workbook.demand ?? []), { company: nodeId, commodity_id: products[0] ?? "", year: 2025, amount: 100 }]));
+    setWorkbook(setSheet(workbook, "demand", [...(workbook.demand ?? []), { company: nodeId, flow_id: products[0] ?? "", year: 2025, amount: 100 }]));
   }
   function setDemandRow(idx: number, patch: Record<string, Cell>) {
     setWorkbook(setSheet(workbook, "demand", (workbook.demand ?? []).map((r, j) => (j === idx ? { ...r, ...patch } : r))));
@@ -253,7 +253,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     setWorkbook(setSheet(workbook, "demand", (workbook.demand ?? []).filter((_, j) => j !== idx)));
   }
 
-  const commodities = useMemo(() => (workbook.commodities ?? []).map((c) => s(c.commodity_id)), [workbook]);
+  const flows = useMemo(() => (workbook.flows ?? []).map((c) => s(c.flow_id)), [workbook]);
 
   // ── Validation (live, client-side mirror of the most common model issues) ─────
   const issues = useMemo(() => validateModel(workbook), [workbook]);
@@ -273,12 +273,12 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
       const f = fix.promptFor.field;
       if (d.kind === "patchRow") d = { ...d, patch: { ...d.patch, [f]: val } };
       else if (d.kind === "appendRow") d = { ...d, row: { ...d.row, [f]: val } };
-      else if (d.kind === "setCommodityField") d = { ...d, patch: { ...d.patch, [f]: val } };
+      else if (d.kind === "setFlowField") d = { ...d, patch: { ...d.patch, [f]: val } };
     }
     if (d.kind === "appendRow") setWorkbook(setSheet(workbook, d.sheet, [...(workbook[d.sheet] ?? []), d.row]));
     else if (d.kind === "removeRow") setWorkbook(setSheet(workbook, d.sheet, (workbook[d.sheet] ?? []).filter((_, i) => i !== d.rowIndex)));
     else if (d.kind === "patchRow") setWorkbook(setSheet(workbook, d.sheet, (workbook[d.sheet] ?? []).map((r, i) => (i === d.rowIndex ? { ...r, ...d.patch } : r))));
-    else if (d.kind === "setCommodityField") setWorkbook(setSheet(workbook, "commodities", (workbook.commodities ?? []).map((r) => (s(r.commodity_id) === d.commodityId ? { ...r, ...d.patch } : r))));
+    else if (d.kind === "setFlowField") setWorkbook(setSheet(workbook, "flows", (workbook.flows ?? []).map((r) => (s(r.flow_id) === d.flowId ? { ...r, ...d.patch } : r))));
   }
 
   const hasHierarchy = (workbook.nodes ?? []).length > 0;
@@ -441,7 +441,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 onEditLink={editLink}
                 onDeleteLink={deleteLink}
                 onBackgroundClick={() => { setShowHealth(false); setSelId(null); }}
-                commodities={commodities}
+                flows={flows}
               />
             </div>
           )}
@@ -459,7 +459,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
             <FloatingPanel title="source stream" width={300} onClose={() => setSelId(null)}>
               <SourceStreamInspector
                 wb={workbook}
-                commodityId={cid}
+                flowId={cid}
                 consumerLabels={labels}
                 baseYear={baseYear}
                 periods={periods}
@@ -468,9 +468,9 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                   setWorkbook(
                     setSheet(
                       workbook,
-                      "commodities",
-                      (workbook.commodities ?? []).map((r) =>
-                        s(r.commodity_id) === cid
+                      "flows",
+                      (workbook.flows ?? []).map((r) =>
+                        s(r.flow_id) === cid
                           ? { ...r, available_from: from ?? "", available_to: to ?? "" }
                           : r,
                       ),
@@ -519,7 +519,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
 
             <FlowContext wb={workbook} nodeId={selId!} />
 
-            <PortsPanel wb={workbook} nodeId={selId!} commodities={commodities} onAdd={(c, k) => addMarket(selId!, c, k)} onPrice={setMarketPrice} onRemove={removeMarket} />
+            <PortsPanel wb={workbook} nodeId={selId!} flows={flows} onAdd={(c, k) => addMarket(selId!, c, k)} onPrice={setMarketPrice} onRemove={removeMarket} />
 
             <div className="rail-section">
               <div className="rail-head-row">
@@ -529,7 +529,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
               {demandFor(selId!).map(({ idx, r }) => (
                 <div key={idx} style={{ display: "flex", gap: 4, padding: "2px 8px", alignItems: "center" }}>
                   <span style={{ flex: 1 }}>
-                    <SearchSelect value={s(r.commodity_id)} onChange={(v) => setDemandRow(idx, { commodity_id: v })}
+                    <SearchSelect value={s(r.flow_id)} onChange={(v) => setDemandRow(idx, { flow_id: v })}
                       options={products.map((p) => ({ value: p }))} placeholder="stream…" />
                   </span>
                   <input className="field-input" style={{ width: 70 }} type="number" min={0} value={Number(r.amount) || 0} onChange={(e) => setDemandRow(idx, { amount: Number(e.target.value) || 0 })} />
@@ -567,8 +567,8 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
         <ConnectDialog
           fromLabel={nodeById.get(connectFrom)?.label ?? connectFrom}
           targets={nodes.filter((n) => n.id !== connectFrom).map((n) => ({ id: n.id, label: `${n.label}${n.level ? ` · ${n.level}` : ""}` }))}
-          commodities={commodities}
-          onConfirm={(to, commodity, lag) => { addLink(connectFrom, to, commodity, lag); setConnectFrom(null); }}
+          flows={flows}
+          onConfirm={(to, flow, lag) => { addLink(connectFrom, to, flow, lag); setConnectFrom(null); }}
           onClose={() => setConnectFrom(null)}
         />
       )}
@@ -656,9 +656,9 @@ function AltPicker({ machineLabel, baseline, available, exclude, onPick, onClose
 }
 
 // ── Connect dialog ────────────────────────────────────────────────────────────
-function ConnectDialog({ fromLabel, targets, commodities, onConfirm, onClose }: { fromLabel: string; targets: { id: string; label: string }[]; commodities: string[]; onConfirm: (to: string, commodity: string, lag: number) => void; onClose: () => void }) {
+function ConnectDialog({ fromLabel, targets, flows, onConfirm, onClose }: { fromLabel: string; targets: { id: string; label: string }[]; flows: string[]; onConfirm: (to: string, flow: string, lag: number) => void; onClose: () => void }) {
   const [to, setTo] = useState("");
-  const [commodity, setCommodity] = useState("");
+  const [flow, setFlow] = useState("");
   const [lag, setLag] = useState(0);
   return (
     <Modal onClose={onClose} title={`Connect from ${fromLabel}`}>
@@ -670,7 +670,7 @@ function ConnectDialog({ fromLabel, targets, commodities, onConfirm, onClose }: 
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 3 }}>
           <span className="muted">stream</span>
-          <SearchableSelect value={commodity} options={commodities} onChange={setCommodity} onCreate={setCommodity} placeholder="commodity" />
+          <SearchableSelect value={flow} options={flows} onChange={setFlow} onCreate={setFlow} placeholder="flow" />
         </label>
         <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <span className="muted">lag (yr)</span>
@@ -678,7 +678,7 @@ function ConnectDialog({ fromLabel, targets, commodities, onConfirm, onClose }: 
         </label>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 4 }}>
           <button className="ghost" onClick={onClose}>cancel</button>
-          <button className="run-button" disabled={!to || !commodity} onClick={() => onConfirm(to, commodity, lag)}>↔ Connect</button>
+          <button className="run-button" disabled={!to || !flow} onClick={() => onConfirm(to, flow, lag)}>↔ Connect</button>
         </div>
       </div>
     </Modal>

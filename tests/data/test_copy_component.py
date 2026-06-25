@@ -9,11 +9,11 @@ def _src() -> ComponentLibrary:
     return ComponentLibrary.model_validate(
         {
             "label": "base",
-            "commodities": [
-                {"commodity_id": "steel", "kind": "product", "unit": "t"},
-                {"commodity_id": "elec", "kind": "energy", "unit": "MWh"},
-                {"commodity_id": "scrap", "kind": "material", "unit": "t"},
-                {"commodity_id": "unused", "kind": "material", "unit": "t"},
+            "flows": [
+                {"flow_id": "steel", "kind": "product", "unit": "t"},
+                {"flow_id": "elec", "kind": "energy", "unit": "MWh"},
+                {"flow_id": "scrap", "kind": "material", "unit": "t"},
+                {"flow_id": "unused", "kind": "material", "unit": "t"},
             ],
             "measures": [
                 {
@@ -47,7 +47,7 @@ def _empty() -> ComponentLibrary:
 def test_copy_technology_brings_its_closure() -> None:
     out = copy_component_into(_empty(), _src(), "technology", "EAF")
     assert {t.technology_id for t in out.technologies} == {"EAF"}
-    assert {c.commodity_id for c in out.commodities} == {"steel", "elec", "scrap"}  # not "unused"
+    assert {c.flow_id for c in out.flows} == {"steel", "elec", "scrap"}  # not "unused"
     assert {m.lever_id for m in out.measures} == {"eff1"}
     assert {g.macc_id for g in out.maccs} == {"M"}
 
@@ -63,17 +63,17 @@ def test_existing_dependency_is_reused_not_overwritten() -> None:
     dst = ComponentLibrary.model_validate(
         {
             "label": "p",
-            "commodities": [{"commodity_id": "elec", "kind": "energy", "unit": "GJ", "price": 7.0}],
+            "flows": [{"flow_id": "elec", "kind": "energy", "unit": "GJ", "price": 7.0}],
         }
     )
     out = copy_component_into(dst, _src(), "technology", "EAF")
-    elec = [c for c in out.commodities if c.commodity_id == "elec"]
+    elec = [c for c in out.flows if c.flow_id == "elec"]
     assert len(elec) == 1 and elec[0].unit == "GJ" and elec[0].price == 7.0
 
 
 def test_copy_stream_only() -> None:
     out = copy_component_into(_empty(), _src(), "stream", "steel")
-    assert {c.commodity_id for c in out.commodities} == {"steel"}
+    assert {c.flow_id for c in out.flows} == {"steel"}
     assert out.technologies == []
 
 
@@ -81,4 +81,4 @@ def test_copy_macc_brings_levers() -> None:
     out = copy_component_into(_empty(), _src(), "macc", "M")
     assert {g.macc_id for g in out.maccs} == {"M"}
     assert {m.lever_id for m in out.measures} == {"eff1"}
-    assert {c.commodity_id for c in out.commodities} == {"elec"}  # lever target
+    assert {c.flow_id for c in out.flows} == {"elec"}  # lever target

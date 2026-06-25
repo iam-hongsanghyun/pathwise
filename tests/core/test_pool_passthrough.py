@@ -1,4 +1,4 @@
-"""A pool asset = a 100%-pass-through node (input commodity X → output X). The
+"""A pool asset = a 100%-pass-through node (input flow X → output X). The
 node balance makes it route (inflow = outflow), so sources feed it and consumers
 draw from it, and a buy limit on a source→pool edge caps that source's supply."""
 
@@ -17,21 +17,21 @@ def _solve(wb: dict[str, Any]) -> dict[str, Any]:
     return extract_results(solve(build(assemble_problem(wb, sc))))
 
 
-def _produced(res: dict[str, Any], commodity: str) -> float:
-    return sum(s["produced"] for s in res["summary"]["commodity"] if s["commodity"] == commodity)
+def _produced(res: dict[str, Any], flow: str) -> float:
+    return sum(s["produced"] for s in res["summary"]["flow"] if s["flow"] == flow)
 
 
 def _wb(cap_into_pool: float | None = None) -> dict[str, Any]:
     # S makes elec; POOL passes elec through (in elec → out elec); C turns elec→steel.
-    edge_s_pool = {"from_process": "S", "to_process": "POOL", "commodity_id": "elec"}
+    edge_s_pool = {"from_process": "S", "to_process": "POOL", "flow_id": "elec"}
     if cap_into_pool is not None:
         edge_s_pool["max_flow"] = cap_into_pool
     return {
         "periods": [{"year": 2025}],
-        "commodities": [
-            {"commodity_id": "gas", "kind": "energy", "price": 10},
-            {"commodity_id": "elec", "kind": "energy"},
-            {"commodity_id": "steel", "kind": "product"},
+        "flows": [
+            {"flow_id": "gas", "kind": "energy", "price": 10},
+            {"flow_id": "elec", "kind": "energy"},
+            {"flow_id": "steel", "kind": "product"},
         ],
         "technologies": [
             {"technology_id": "ST"},
@@ -49,20 +49,20 @@ def _wb(cap_into_pool: float | None = None) -> dict[str, Any]:
             {"process_id": "C", "company": "X", "baseline_technology": "CT", "capacity": 1000},
         ],
         "process_inputs": [
-            {"technology_id": "ST", "commodity_id": "gas", "intensity": 1.0},
-            {"technology_id": "POOLT", "commodity_id": "elec", "intensity": 1.0},
-            {"technology_id": "CT", "commodity_id": "elec", "intensity": 1.0},
+            {"technology_id": "ST", "flow_id": "gas", "intensity": 1.0},
+            {"technology_id": "POOLT", "flow_id": "elec", "intensity": 1.0},
+            {"technology_id": "CT", "flow_id": "elec", "intensity": 1.0},
         ],
         "process_outputs": [
-            {"technology_id": "ST", "commodity_id": "elec", "yield": 1.0},
-            {"technology_id": "POOLT", "commodity_id": "elec", "yield": 1.0},
-            {"technology_id": "CT", "commodity_id": "steel", "yield": 1.0, "is_product": True},
+            {"technology_id": "ST", "flow_id": "elec", "yield": 1.0},
+            {"technology_id": "POOLT", "flow_id": "elec", "yield": 1.0},
+            {"technology_id": "CT", "flow_id": "steel", "yield": 1.0, "is_product": True},
         ],
         "edges": [
             edge_s_pool,
-            {"from_process": "POOL", "to_process": "C", "commodity_id": "elec"},
+            {"from_process": "POOL", "to_process": "C", "flow_id": "elec"},
         ],
-        "demand": [{"company": "all", "commodity_id": "steel", "amount": 100}],
+        "demand": [{"company": "all", "flow_id": "steel", "amount": 100}],
     }
 
 

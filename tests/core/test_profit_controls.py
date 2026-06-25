@@ -17,19 +17,19 @@ def _profit_wb(sale_price: float) -> dict:
     return {
         "periods": [{"year": 2025, "duration_years": 1}],
         "company_config": [{"company": "C", "objective": "profit"}],
-        "commodities": [
-            {"commodity_id": "gas", "kind": "energy", "price": 10},
-            {"commodity_id": "p", "kind": "product", "sale_price": sale_price},
+        "flows": [
+            {"flow_id": "gas", "kind": "energy", "price": 10},
+            {"flow_id": "p", "kind": "product", "sale_price": sale_price},
         ],
         "technologies": [{"technology_id": "T"}],
         "processes": [
             {"process_id": "P", "company": "C", "baseline_technology": "T", "capacity": 100}
         ],
-        "process_inputs": [{"technology_id": "T", "commodity_id": "gas", "intensity": 1.0}],
+        "process_inputs": [{"technology_id": "T", "flow_id": "gas", "intensity": 1.0}],
         "process_outputs": [
-            {"technology_id": "T", "commodity_id": "p", "yield": 1.0, "is_product": True}
+            {"technology_id": "T", "flow_id": "p", "yield": 1.0, "is_product": True}
         ],
-        "demand": [{"company": "C", "commodity_id": "p", "year": 2025, "amount": 100}],
+        "demand": [{"company": "C", "flow_id": "p", "year": 2025, "amount": 100}],
     }
 
 
@@ -62,9 +62,9 @@ def test_cost_company_must_meet_demand() -> None:
 def _carbon_switch_wb() -> dict:
     return {
         "periods": [{"year": 2025, "duration_years": 1}, {"year": 2030, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "fuel", "kind": "energy", "price": 1},
-            {"commodity_id": "p", "kind": "product"},
+        "flows": [
+            {"flow_id": "fuel", "kind": "energy", "price": 1},
+            {"flow_id": "p", "kind": "product"},
         ],
         "impacts": [{"impact_id": "CO2", "unit": "t"}],
         "technologies": [{"technology_id": "BASE"}, {"technology_id": "CLEAN"}],
@@ -72,12 +72,12 @@ def _carbon_switch_wb() -> dict:
             {"process_id": "P", "company": "C", "baseline_technology": "BASE", "capacity": 100}
         ],
         "process_inputs": [
-            {"technology_id": "BASE", "commodity_id": "fuel", "intensity": 1},
-            {"technology_id": "CLEAN", "commodity_id": "fuel", "intensity": 1},
+            {"technology_id": "BASE", "flow_id": "fuel", "intensity": 1},
+            {"technology_id": "CLEAN", "flow_id": "fuel", "intensity": 1},
         ],
         "process_outputs": [
-            {"technology_id": "BASE", "commodity_id": "p", "yield": 1, "is_product": True},
-            {"technology_id": "CLEAN", "commodity_id": "p", "yield": 1, "is_product": True},
+            {"technology_id": "BASE", "flow_id": "p", "yield": 1, "is_product": True},
+            {"technology_id": "CLEAN", "flow_id": "p", "yield": 1, "is_product": True},
         ],
         "tech_impacts": [{"technology_id": "BASE", "impact_id": "CO2", "factor": 10}],
         "transitions": [
@@ -91,8 +91,8 @@ def _carbon_switch_wb() -> dict:
         ],
         "impact_prices": [{"impact_id": "CO2", "year": 2030, "price": 1000}],
         "demand": [
-            {"company": "C", "commodity_id": "p", "year": 2025, "amount": 10},
-            {"company": "C", "commodity_id": "p", "year": 2030, "amount": 10},
+            {"company": "C", "flow_id": "p", "year": 2025, "amount": 10},
+            {"company": "C", "flow_id": "p", "year": 2030, "amount": 10},
         ],
     }
 

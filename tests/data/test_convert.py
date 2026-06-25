@@ -32,7 +32,7 @@ def _flat() -> dict[str, list[dict[str, object]]]:
                 "capacity": 100,
             },
         ],
-        "edges": [{"from_process": "bf", "to_process": "bof", "commodity_id": "iron"}],
+        "edges": [{"from_process": "bf", "to_process": "bof", "flow_id": "iron"}],
         "technologies": [
             {"technology_id": "BF", "io": []},
             {"technology_id": "BOF", "io": []},
@@ -57,14 +57,14 @@ def _flat() -> dict[str, list[dict[str, object]]]:
                 "is_product": True,
             },
         ],
-        "commodities": [
-            {"commodity_id": "coal", "kind": "material", "price": 100},
-            {"commodity_id": "iron", "kind": "material"},
-            {"commodity_id": "steel", "kind": "product"},
-            {"commodity_id": "electricity", "kind": "energy"},
+        "flows": [
+            {"flow_id": "coal", "kind": "material", "price": 100},
+            {"flow_id": "iron", "kind": "material"},
+            {"flow_id": "steel", "kind": "product"},
+            {"flow_id": "electricity", "kind": "energy"},
         ],
         "periods": [{"year": 2025, "duration_years": 1}],
-        "demand": [{"company": "SteelCo", "commodity_id": "steel", "year": 2025, "amount": 50}],
+        "demand": [{"company": "SteelCo", "flow_id": "steel", "year": 2025, "amount": 50}],
     }
 
 
@@ -78,7 +78,7 @@ def test_to_hierarchy_builds_companies_facilities_machines() -> None:
     assert by_id["bf"]["parent_id"] == "SteelCo/mill" and by_id["bf"]["kind"] == "asset"
     assert {m["asset_id"] for m in h["assets"]} == {"bf", "bof", "gen"}
     # the edge became a connection
-    assert h["connections"] == [{"from_node": "bf", "to_node": "bof", "commodity_id": "iron"}]
+    assert h["links"] == [{"from_node": "bf", "to_node": "bof", "flow_id": "iron"}]
 
 
 def test_converted_hierarchy_solves() -> None:

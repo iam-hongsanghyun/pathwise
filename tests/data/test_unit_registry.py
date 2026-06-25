@@ -42,7 +42,7 @@ def test_custom_unit_coefficient_converts() -> None:
     wb: dict[str, Any] = {
         "units": [{"unit": "kt", "dimension": "mass", "factor_to_base": 1000}],
         "periods": [{"year": 2025}],
-        "commodities": [{"commodity_id": "p", "kind": "product", "unit": "t"}],
+        "flows": [{"flow_id": "p", "kind": "product", "unit": "t"}],
         "technologies": [{"technology_id": "T"}],
         "processes": [
             {"process_id": "P", "company": "C", "baseline_technology": "T", "capacity": 1}

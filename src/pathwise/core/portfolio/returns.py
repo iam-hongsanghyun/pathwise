@@ -22,7 +22,7 @@ Algorithm:
     with bases (all [currency], summed over t as ``DF_t·d_t·(...)``):
       O_k = opex_k·Q ; B_k = Σ_r in_r·Q·price_r ; S_k = Σ_r out_r·Q·sale_r ;
       I_k = Σ_i (direct_i + Σ_r in_r·cf_{r,i})·Q·iprice_i
-    and shocks ``xi_op, xi_cp, xi_sp, xi_ip`` [—] for opex / commodity price /
+    and shocks ``xi_op, xi_cp, xi_sp, xi_ip`` [—] for opex / flow price /
     sale price / impact price. The one-off switch cost is
     ``K = DF_{t0}·capex_per_capacity·Q`` scaled by the capex shock ``xi_cap``.
 
@@ -64,7 +64,7 @@ class _CostBasis:
     """Scenario-independent running-cost components of one technology [currency]."""
 
     opex: float
-    commodity: float
+    flow: float
     sale: float
     impact: float
 
@@ -76,30 +76,30 @@ def _cost_basis(problem: Problem, technology_id: str, capacity: float) -> _CostB
     per-scenario running cost is a linear combination with the shock multipliers.
     """
     tech = problem.technologies[technology_id]
-    opex = commodity = sale = impact = 0.0
+    opex = flow = sale = impact = 0.0
     for period in problem.periods:
         t = period.year
         weight = problem.discount_factor(t) * period.duration_years
         opex += weight * tech.opex(t) * capacity
         for r, intensity in tech.input_intensity.items():
-            commodity += weight * intensity * capacity * problem.commodities[r].price(t)
+            flow += weight * intensity * capacity * problem.flows[r].price(t)
         for r, yld in tech.output_yield.items():
-            sale += weight * yld * capacity * problem.commodities[r].sale_price(t)
+            sale += weight * yld * capacity * problem.flows[r].sale_price(t)
         for i, factor in tech.direct_impact.items():
             impact += weight * factor * capacity * problem.impacts[i].price(t)
         for r, intensity in tech.input_intensity.items():
             for i in problem.impacts:
-                cf = problem.commodity_impacts.get((r, i), 0.0)
+                cf = problem.flow_impacts.get((r, i), 0.0)
                 if cf:
                     impact += weight * intensity * capacity * cf * problem.impacts[i].price(t)
-    return _CostBasis(opex=opex, commodity=commodity, sale=sale, impact=impact)
+    return _CostBasis(opex=opex, flow=flow, sale=sale, impact=impact)
 
 
 def _running_cost(basis: _CostBasis, scen: sc.ScenarioSet) -> npt.NDArray[np.float64]:
     """Vectorised running cost ``C_k(ξ_s)`` over all scenarios [currency]."""
     return (
         basis.opex * scen.multiplier(sc.OPEX)
-        + basis.commodity * scen.multiplier(sc.COMMODITY_PRICE)
+        + basis.flow * scen.multiplier(sc.FLOW_PRICE)
         - basis.sale * scen.multiplier(sc.SALE_PRICE)
         + basis.impact * scen.multiplier(sc.IMPACT_PRICE)
     )

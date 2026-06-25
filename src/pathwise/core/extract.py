@@ -54,7 +54,7 @@ def empty_result(
             "ets": [],
             "demand_slack": [],
         },
-        "summary": {"periods": [], "impacts": [], "commodity": []},
+        "summary": {"periods": [], "impacts": [], "flow": []},
     }
 
 
@@ -246,7 +246,7 @@ def extract_results(
                 "period": int(t),
                 "ships": round(v),
                 "fleet": leg.fleet_id,
-                "commodity": cr.commodity,
+                "flow": cr.flow,
                 "throughput": carried,
                 "distance": cr.distance,
             }
@@ -316,7 +316,7 @@ def extract_results(
                 {
                     "from": edge.from_process,
                     "to": edge.to_process,
-                    "commodity": edge.commodity_id,
+                    "flow": edge.flow_id,
                     "period": int(t),
                     "value": v,
                 }
@@ -329,9 +329,9 @@ def extract_results(
                     {
                         "from": edge.from_process,
                         "to": edge.to_process,
-                        "commodity": edge.commodity_id,
+                        "flow": edge.flow_id,
                         "period": int(t),
-                        "flow": v,
+                        "value": v,
                         "cost": edge.cost * v,
                         "emissions": {i: fac * v for i, fac in edge.emissions.items()},
                         "energy": edge.energy * v,
@@ -340,26 +340,26 @@ def extract_results(
     for (p, r, t), v in _series(ctx.buy).items():
         if v > _EPS:
             out["outputs"]["trade"].append(
-                {"process": p, "commodity": r, "period": int(t), "kind": "buy", "value": v}
+                {"process": p, "flow": r, "period": int(t), "kind": "buy", "value": v}
             )
     for (p, r, t), v in _series(ctx.sell).items():
         if v > _EPS:
             out["outputs"]["trade"].append(
-                {"process": p, "commodity": r, "period": int(t), "kind": "sell", "value": v}
+                {"process": p, "flow": r, "period": int(t), "kind": "sell", "value": v}
             )
     # Storage: built capacity + per-period level/charge/discharge.
     built = _series(ctx.cap_built)
     level = _series(ctx.level)
     charge = _series(ctx.charge)
     discharge = _series(ctx.discharge)
-    commodity_of = {s.storage_id: s.commodity_id for s in prob.storages}
+    flow_of = {s.storage_id: s.flow_id for s in prob.storages}
     for sid, capv in built.items():
         if capv <= _EPS:
             continue
         out["outputs"]["storage"].append(
             {
                 "storage": str(sid),
-                "commodity": commodity_of.get(str(sid)),
+                "flow": flow_of.get(str(sid)),
                 "capacity": capv,
                 "by_period": [
                     {
@@ -373,7 +373,7 @@ def extract_results(
             }
         )
 
-    # Commodity markets: buy/sell per period.
+    # Flow markets: buy/sell per period.
     mbuy, msell = _series(ctx.mbuy), _series(ctx.msell)
     for mk in ctx.cmarkets:
         rows = [
@@ -386,7 +386,7 @@ def extract_results(
         ]
         if any(r["buy"] > _EPS or r["sell"] > _EPS for r in rows):
             out["outputs"]["markets"].append(
-                {"market": mk.market_id, "commodity": mk.target, "tag": mk.tag, "by_period": rows}
+                {"market": mk.market_id, "flow": mk.target, "tag": mk.tag, "by_period": rows}
             )
 
     # ETS allowance markets: bought (deficit) / sold (surplus) per period.
@@ -413,7 +413,7 @@ def extract_results(
     by_period_impact: dict[tuple[int, str], float] = {}
     for (_p, i, t), v in emit.items():
         by_period_impact[(int(t), i)] = by_period_impact.get((int(t), i), 0.0) + v
-    # Transport-route fuel emissions (fuel_used × commodity_impacts — never hardcoded)
+    # Transport-route fuel emissions (fuel_used × flow_impacts — never hardcoded)
     # join the same totals so reported impacts span the value chain + its transport.
     if ctx.legflow is not None and prob.connection_routes:
         legmap = {
@@ -430,7 +430,7 @@ def extract_results(
             if fl is None or not fl.fuel:
                 continue
             fuel_used = v * fl.efficiency * cr.distance
-            for (comm, imp), fac in prob.commodity_impacts.items():
+            for (comm, imp), fac in prob.flow_impacts.items():
                 if comm == fl.fuel and fac:
                     by_period_impact[(int(t), imp)] = (
                         by_period_impact.get((int(t), imp), 0.0) + fuel_used * fac
@@ -442,13 +442,13 @@ def extract_results(
         {"period": y, "cost": cost} for y, cost in _period_costs(ctx).items()
     ]
     out["outputs"]["consumption"] = _consumption_detail(ctx)
-    out["summary"]["commodity"] = _commodity_summary(ctx)
+    out["summary"]["flow"] = _flow_summary(ctx)
     return out
 
 
 def _consumption_detail(ctx: Any) -> list[dict[str, Any]]:
-    """Per (process, commodity, year) input consumption — the facility-level
-    counterpart of :func:`_commodity_summary` (which aggregates over facilities).
+    """Per (process, flow, year) input consumption — the facility-level
+    counterpart of :func:`_flow_summary` (which aggregates over facilities).
 
     Consumption is ``Σ_tech throughput · input_intensity`` plus any blend-group
     mix flow, matching how the gross input is formed in the build.
@@ -467,7 +467,7 @@ def _consumption_detail(ctx: Any) -> list[dict[str, Any]]:
         for (p, _k, r, t), v in _series(ctx.fin).items():
             cons[(p, r, int(t))] = cons.get((p, r, int(t)), 0.0) + v
     return [
-        {"process": p, "commodity": r, "period": t, "value": val}
+        {"process": p, "flow": r, "period": t, "value": val}
         for (p, r, t), val in sorted(cons.items())
         if val > _EPS
     ]
@@ -496,7 +496,7 @@ def _period_costs(ctx: Any) -> dict[int, float]:
         _series(ctx.asell),
     )
     cap_built, extbuy = _series(ctx.cap_built), _series(ctx.extbuy)
-    stored = {s.commodity_id for s in prob.storages}
+    stored = {s.flow_id for s in prob.storages}
     market_comms = {m.target for m in ctx.cmarkets}
     ets_impacts = {m.target for m in ctx.imarkets}
     proc_by_id = {p.process_id: p for p in prob.processes}
@@ -524,17 +524,17 @@ def _period_costs(ctx: Any) -> dict[int, float]:
             fox = proc_by_id[p].fixed_opex_at(int(t))
             if fox:
                 cost[int(t)] += fox * v
-    if tog.commodity_cost:
+    if tog.flow_cost:
         for (_p, r, t), v in buy.items():
             if r not in stored and r not in market_comms:
-                cost[int(t)] += prob.commodities[r].price(int(t)) * v
+                cost[int(t)] += prob.flows[r].price(int(t)) * v
         for (_p, r, t), v in sell.items():
             if r not in stored and r not in market_comms:
-                cost[int(t)] -= prob.commodities[r].sale_price(int(t)) * v
+                cost[int(t)] -= prob.flows[r].sale_price(int(t)) * v
         for (sid, t), v in extbuy.items():
             s = smap[sid]
-            if s.commodity_id not in market_comms:
-                cost[int(t)] += prob.commodities[s.commodity_id].price(int(t)) * v
+            if s.flow_id not in market_comms:
+                cost[int(t)] += prob.flows[s.flow_id].price(int(t)) * v
         for (mid, t), v in mbuy.items():
             cost[int(t)] += cmap[mid].price(int(t)) * v
         for (mid, t), v in msell.items():
@@ -589,8 +589,8 @@ def _period_costs(ctx: Any) -> dict[int, float]:
     return cost
 
 
-def _commodity_summary(ctx: Any) -> list[dict[str, Any]]:
-    """Per (commodity, year) gross consumed and produced — for the line chart."""
+def _flow_summary(ctx: Any) -> list[dict[str, Any]]:
+    """Per (flow, year) gross consumed and produced — for the line chart."""
     prob = ctx.problem
     x = _series(ctx.x)
     cons: dict[tuple[str, int], float] = {}
@@ -619,7 +619,7 @@ def _commodity_summary(ctx: Any) -> list[dict[str, Any]]:
     keys = sorted(set(cons) | set(prod))
     return [
         {
-            "commodity": r,
+            "flow": r,
             "period": t,
             "consumed": cons.get((r, t), 0.0),
             "produced": prod.get((r, t), 0.0),

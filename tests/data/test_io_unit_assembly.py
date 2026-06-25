@@ -17,12 +17,12 @@ _SCN = ScenarioConfig.from_dict({})
 def _wb(io: list[dict[str, object]], *, props: list[dict[str, object]] | None = None) -> dict:
     return {
         "periods": [{"year": 2025, "duration_years": 1}, {"year": 2030, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "electricity", "kind": "energy", "unit": "MWh"},
-            {"commodity_id": "gas", "kind": "energy", "unit": "GJ"},
-            {"commodity_id": "steel", "kind": "product", "unit": "t"},
+        "flows": [
+            {"flow_id": "electricity", "kind": "energy", "unit": "MWh"},
+            {"flow_id": "gas", "kind": "energy", "unit": "GJ"},
+            {"flow_id": "steel", "kind": "product", "unit": "t"},
         ],
-        "commodity_properties": props or [],
+        "flow_properties": props or [],
         "technologies": [{"technology_id": "EAF", "lifespan": 20}],
         "io": io,
         # processes + demand make the workbook pass required-sheet validation, so
@@ -30,7 +30,7 @@ def _wb(io: list[dict[str, object]], *, props: list[dict[str, object]] | None = 
         "processes": [
             {"process_id": "P", "company": "co", "baseline_technology": "EAF", "capacity": 100}
         ],
-        "demand": [{"company": "co", "commodity_id": "steel", "year": 2025, "amount": 1}],
+        "demand": [{"company": "co", "flow_id": "steel", "year": 2025, "amount": 1}],
     }
 
 
@@ -73,7 +73,7 @@ def test_same_dimension_converts_to_stream_unit() -> None:
     np.testing.assert_allclose(t.input_intensity["electricity"], 1.0, rtol=1e-9)
 
 
-def test_cross_dimension_converts_via_commodity_lhv() -> None:
+def test_cross_dimension_converts_via_flow_lhv() -> None:
     # 2 t of gas at 50 MJ/kg = 100 GJ (the gas stream's canonical unit).
     wb = _wb(
         [
@@ -86,7 +86,7 @@ def test_cross_dimension_converts_via_commodity_lhv() -> None:
                 "unit": "t",
             },
         ],
-        props=[{"commodity_id": "gas", "property": "lhv_MJ_per_kg", "value": 50.0}],
+        props=[{"flow_id": "gas", "property": "lhv_MJ_per_kg", "value": 50.0}],
     )
     t = assemble_problem(wb, _SCN).technologies["EAF"]
     np.testing.assert_allclose(t.input_intensity["gas"], 100.0, rtol=1e-9)
@@ -142,7 +142,7 @@ def test_missing_factor_degrades_and_warns() -> None:
 def test_project_override_changes_conversion() -> None:
     # A USD-denominated output authored in KRW; a project FX override changes it.
     wb = _wb([_product()])
-    wb["commodities"].append({"commodity_id": "cash", "kind": "byproduct", "unit": "USD"})
+    wb["flows"].append({"flow_id": "cash", "kind": "byproduct", "unit": "USD"})
     wb["io"].append(
         {
             "technology_id": "EAF",

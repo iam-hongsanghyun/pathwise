@@ -3,7 +3,7 @@
 Choosing an optimisation level cuts the tree there: every node *at* that level
 becomes the root of its own optimisation problem (a flat sub-workbook), and any
 **connection crossing a cut boundary** becomes a value-chain **coupling link**
-(commodity + lag + signals). The result is a :class:`ValueChainSpec` plus the
+(flow + lag + signals). The result is a :class:`ValueChainSpec` plus the
 per-cut workbooks — fed straight into :func:`pathwise.core.valuechain.run_value_chain`,
 which solves and couples them. Connections *inside* a cut stay edges in that
 sub-workbook (already expanded by the assembler).
@@ -22,7 +22,7 @@ from pathwise.data.valuechain import CouplingLink, Stage, ValueChainSpec
 from pathwise.data.workbook import Workbook
 
 # Catalogue/scenario sheets shared by every cut sub-workbook (not partitioned).
-_SHARED_PREFIXES = ("technologies", "commodities", "impacts", "io", "markets", "storage")
+_SHARED_PREFIXES = ("technologies", "flows", "impacts", "io", "markets", "storage")
 _SHARED_SHEETS = {
     "periods",
     "meta",
@@ -32,8 +32,8 @@ _SHARED_SHEETS = {
     "maccs",
     "macc_links",
     "tech_impacts",
-    "commodity_impacts",
-    "commodity_impacts_t",
+    "flow_impacts",
+    "flow_impacts_t",
 }
 
 
@@ -52,20 +52,20 @@ def _scope_in_cut(scope: str, cut: str, h: Hierarchy) -> bool:
     return scope == cut or scope in h.descendants(cut)
 
 
-def _set_commodity(wb: Workbook, commodity: str, **fields: Any) -> None:
-    """Override commodity attributes in ``wb`` (copy-on-write; row added if absent)."""
-    rows = wb.get("commodities", [])
+def _set_flow(wb: Workbook, flow: str, **fields: Any) -> None:
+    """Override flow attributes in ``wb`` (copy-on-write; row added if absent)."""
+    rows = wb.get("flows", [])
     new_rows = []
     found = False
     for r in rows:
-        if str(r.get("commodity_id")) == commodity:
+        if str(r.get("flow_id")) == flow:
             new_rows.append({**r, **fields})
             found = True
         else:
             new_rows.append(r)
     if not found:
-        new_rows.append({"commodity_id": commodity, **fields})
-    wb["commodities"] = new_rows
+        new_rows.append({"flow_id": flow, **fields})
+    wb["flows"] = new_rows
 
 
 def _project(flat: Workbook, members: set[str], cut: str, h: Hierarchy) -> Workbook:
@@ -147,7 +147,7 @@ def partition(
             for tc in _cuts_for(conn.to_node, cut_set, hierarchy):
                 if fc == tc or fc not in cut_set or tc not in cut_set:
                     continue
-                key = (fc, tc, conn.commodity_id)
+                key = (fc, tc, conn.flow_id)
                 if key in seen:
                     continue
                 seen.add(key)
@@ -155,7 +155,7 @@ def partition(
                     CouplingLink(
                         from_stage=fc,
                         to_stage=tc,
-                        commodity=conn.commodity_id,
+                        flow=conn.flow_id,
                         signals=sig,
                         lag_years=conn.lag_years or default_lag,
                         feedback=feedback,
@@ -166,11 +166,9 @@ def partition(
     # meet the fed-back demand) and a purchasable input to the downstream cut.
     for link in links:
         if link.from_stage in workbooks:
-            _set_commodity(
-                workbooks[link.from_stage], link.commodity, kind="product", sellable=True
-            )
+            _set_flow(workbooks[link.from_stage], link.flow, kind="product", sellable=True)
         if link.to_stage in workbooks:
-            _set_commodity(workbooks[link.to_stage], link.commodity, purchasable=True)
+            _set_flow(workbooks[link.to_stage], link.flow, purchasable=True)
 
     spec = ValueChainSpec(
         id=f"partition@{level}",

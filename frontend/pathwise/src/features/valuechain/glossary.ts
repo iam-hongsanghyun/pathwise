@@ -7,7 +7,7 @@ export const GLOSSARY: Record<string, string> = {
   technology: "A recipe: the inputs it consumes and outputs it produces per unit of throughput.",
   asset: "A placed instance of a technology, running at a node (a facility in the chain).",
   node: "A structural container in the hierarchy — sector / country / company / facility.",
-  stream: "A commodity that flows between assets, or is bought / sold at the chain's boundary.",
+  stream: "A flow that flows between assets, or is bought / sold at the chain's boundary.",
   link: "A node→node flow of a stream INSIDE the chain — a free internal transfer.",
   market: "A PRICED point where a node buys a stream from (or sells it to) outside the chain.",
   source: "A raw stream consumed in the chain but produced by no asset — bought externally.",

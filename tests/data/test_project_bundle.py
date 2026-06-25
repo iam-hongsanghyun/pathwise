@@ -16,10 +16,10 @@ def _base_lib() -> ComponentLibrary:
     return ComponentLibrary.model_validate(
         {
             "label": "base",
-            "commodities": [
-                {"commodity_id": "ore", "kind": "material", "unit": "t"},
-                {"commodity_id": "scrap", "kind": "material", "unit": "t"},
-                {"commodity_id": "steel", "kind": "product", "unit": "t"},
+            "flows": [
+                {"flow_id": "ore", "kind": "material", "unit": "t"},
+                {"flow_id": "scrap", "kind": "material", "unit": "t"},
+                {"flow_id": "steel", "kind": "product", "unit": "t"},
             ],
             "technologies": [
                 {
@@ -73,13 +73,13 @@ def test_referenced_ids_tolerates_missing_sheets() -> None:
 def test_slice_keeps_only_referenced_plus_closure() -> None:
     sliced = slice_library_to_technologies(_base_lib(), {"BF"})
     assert [t.technology_id for t in sliced.technologies] == ["BF"]
-    # BF's io-target commodities come along; EAF-only "scrap" does not.
-    assert {c.commodity_id for c in sliced.commodities} == {"ore", "steel"}
+    # BF's io-target flows come along; EAF-only "scrap" does not.
+    assert {c.flow_id for c in sliced.flows} == {"ore", "steel"}
 
 
 def test_slice_unknown_tech_yields_empty_library() -> None:
     sliced = slice_library_to_technologies(_base_lib(), {"NOPE"})
-    assert sliced.technologies == [] and sliced.commodities == []
+    assert sliced.technologies == [] and sliced.flows == []
 
 
 def test_slice_does_not_mutate_source() -> None:

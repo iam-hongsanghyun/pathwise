@@ -53,7 +53,7 @@ def read_model_variants(model: Workbook) -> list[dict[str, Any]]:
             slot["forced"][target] = (str(value), year)
         elif kind == "stream" and target and value not in (None, ""):
             slot["overrides"].append(
-                {"op": "set_price", "commodity": target, "price": float(value or 0.0), **yr_kw}
+                {"op": "set_price", "flow": target, "price": float(value or 0.0), **yr_kw}
             )
         elif kind == "lever" and target:
             on = str(value).strip().lower() not in ("0", "false", "off", "no", "")
@@ -73,7 +73,7 @@ def read_model_variants(model: Workbook) -> list[dict[str, Any]]:
                 {
                     "op": "set_io_coef",
                     "technology": target,
-                    "commodity": field,
+                    "flow": field,
                     "value": float(value or 0.0),
                     **yr_kw,
                 }
@@ -82,7 +82,7 @@ def read_model_variants(model: Workbook) -> list[dict[str, Any]]:
             slot["overrides"].append(
                 {
                     "op": "set_stream_cap",
-                    "commodity": target,
+                    "flow": target,
                     "field": field or "max_purchase",
                     "value": value,
                     **yr_kw,

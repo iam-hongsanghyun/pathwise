@@ -24,10 +24,10 @@ def _two_stage_model() -> dict:
     """
     return {
         "periods": [{"year": 2025, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "ore", "kind": "material", "unit": "t", "price": 10},
-            {"commodity_id": "steel", "kind": "material", "unit": "t"},
-            {"commodity_id": "car", "kind": "product", "unit": "veh"},
+        "flows": [
+            {"flow_id": "ore", "kind": "material", "unit": "t", "price": 10},
+            {"flow_id": "steel", "kind": "material", "unit": "t"},
+            {"flow_id": "car", "kind": "product", "unit": "veh"},
         ],
         "impacts": [{"impact_id": "CO2", "unit": "tCO2"}],
         "technologies": [
@@ -69,8 +69,8 @@ def _two_stage_model() -> dict:
             },
             {"technology_id": "CarMaker", "target": "CO2", "role": "impact", "coefficient": 0.5},
         ],
-        "connections": [{"from_node": "steelco", "to_node": "autoco", "commodity_id": "steel"}],
-        "demand": [{"company": "autoco", "commodity_id": "car", "year": 2025, "amount": 100}],
+        "links": [{"from_node": "steelco", "to_node": "autoco", "flow_id": "steel"}],
+        "demand": [{"company": "autoco", "flow_id": "car", "year": 2025, "amount": 100}],
     }
 
 
@@ -170,7 +170,7 @@ def test_set_price_override_changes_cost_not_emissions() -> None:
             "variants": [
                 {
                     "label": "cheap ore",
-                    "overrides": [{"op": "set_price", "commodity": "ore", "price": 2}],
+                    "overrides": [{"op": "set_price", "flow": "ore", "price": 2}],
                 }
             ]
         },
@@ -284,11 +284,11 @@ def _three_stage_with_use() -> dict:
     """
     return {
         "periods": [{"year": 2025, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "ore", "kind": "material", "unit": "t", "price": 10},
-            {"commodity_id": "steel", "kind": "material", "unit": "t"},
-            {"commodity_id": "car", "kind": "product", "unit": "veh"},
-            {"commodity_id": "mobility", "kind": "product", "unit": "veh-life"},
+        "flows": [
+            {"flow_id": "ore", "kind": "material", "unit": "t", "price": 10},
+            {"flow_id": "steel", "kind": "material", "unit": "t"},
+            {"flow_id": "car", "kind": "product", "unit": "veh"},
+            {"flow_id": "mobility", "kind": "product", "unit": "veh-life"},
         ],
         "impacts": [{"impact_id": "CO2", "unit": "tCO2"}],
         "technologies": [
@@ -343,11 +343,11 @@ def _three_stage_with_use() -> dict:
             },
             {"technology_id": "UsePhase", "target": "CO2", "role": "impact", "coefficient": 20.0},
         ],
-        "connections": [
-            {"from_node": "steelco", "to_node": "autoco", "commodity_id": "steel"},
-            {"from_node": "autoco", "to_node": "useco", "commodity_id": "car"},
+        "links": [
+            {"from_node": "steelco", "to_node": "autoco", "flow_id": "steel"},
+            {"from_node": "autoco", "to_node": "useco", "flow_id": "car"},
         ],
-        "demand": [{"company": "useco", "commodity_id": "mobility", "year": 2025, "amount": 100}],
+        "demand": [{"company": "useco", "flow_id": "mobility", "year": 2025, "amount": 100}],
     }
 
 
@@ -369,7 +369,7 @@ def test_lifecycle_inventory_decomposes_by_stage() -> None:
     assert res["status"] == "optimal"
     lca = res["outputs"]["lca"]
 
-    assert lca["functional_unit"] == {"commodity": "car", "amount": 100.0}
+    assert lca["functional_unit"] == {"flow": "car", "amount": 100.0}
 
     co2 = next(d for d in lca["by_impact"] if d["impact"] == "CO2")
     assert co2["total"] == pytest.approx(250.0)
@@ -400,7 +400,7 @@ def test_green_steel_as_is_lifecycle_inventory() -> None:
     assert res["status"] == "optimal"
     lca = res["outputs"]["lca"]
 
-    assert lca["functional_unit"]["commodity"] == "car"
+    assert lca["functional_unit"]["flow"] == "car"
     co2 = next(d for d in lca["by_impact"] if d["impact"] == "CO2")
     assert co2["total"] > 0 and co2["per_unit"] > 0
 
@@ -426,10 +426,10 @@ def _two_period_green() -> dict:
             {"year": 2025, "duration_years": 1},
             {"year": 2030, "duration_years": 1},
         ],
-        "commodities": [
-            {"commodity_id": "ore", "kind": "material", "unit": "t", "price": 10},
-            {"commodity_id": "steel", "kind": "material", "unit": "t"},
-            {"commodity_id": "car", "kind": "product", "unit": "veh"},
+        "flows": [
+            {"flow_id": "ore", "kind": "material", "unit": "t", "price": 10},
+            {"flow_id": "steel", "kind": "material", "unit": "t"},
+            {"flow_id": "car", "kind": "product", "unit": "veh"},
         ],
         "impacts": [{"impact_id": "CO2", "unit": "tCO2"}],
         "technologies": [
@@ -491,10 +491,10 @@ def _two_period_green() -> dict:
             },
             {"technology_id": "CarMaker", "target": "CO2", "role": "impact", "coefficient": 0.5},
         ],
-        "connections": [{"from_node": "steelco", "to_node": "autoco", "commodity_id": "steel"}],
+        "links": [{"from_node": "steelco", "to_node": "autoco", "flow_id": "steel"}],
         "demand": [
-            {"company": "autoco", "commodity_id": "car", "year": 2025, "amount": 100},
-            {"company": "autoco", "commodity_id": "car", "year": 2030, "amount": 100},
+            {"company": "autoco", "flow_id": "car", "year": 2025, "amount": 100},
+            {"company": "autoco", "flow_id": "car", "year": 2030, "amount": 100},
         ],
     }
 

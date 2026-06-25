@@ -24,7 +24,7 @@ def _workbook(lifespan: int) -> dict:
     """One facility making ``widget`` to a fixed demand; only opex + renewal."""
     return {
         "periods": [{"year": y, "duration_years": 1} for y in YEARS],
-        "commodities": [{"commodity_id": "widget", "kind": "product", "unit": "t"}],
+        "flows": [{"flow_id": "widget", "kind": "product", "unit": "t"}],
         "impacts": [],
         "technologies": [
             {
@@ -53,9 +53,7 @@ def _workbook(lifespan: int) -> dict:
                 "is_product": True,
             }
         ],
-        "demand": [
-            {"company": "C", "commodity_id": "widget", "year": y, "amount": 100} for y in YEARS
-        ],
+        "demand": [{"company": "C", "flow_id": "widget", "year": y, "amount": 100} for y in YEARS],
     }
 
 
@@ -117,8 +115,7 @@ def test_baseline_rebuild_after_t0_is_priced_not_free() -> None:
     wb["periods"] = [{"year": y, "duration_years": 1} for y in [2025, 2030, 2035]]
     wb["processes"][0]["introduced_year"] = 2023
     wb["demand"] = [
-        {"company": "C", "commodity_id": "widget", "year": y, "amount": 100}
-        for y in [2025, 2030, 2035]
+        {"company": "C", "flow_id": "widget", "year": y, "amount": 100} for y in [2025, 2030, 2035]
     ]
     sc = ScenarioConfig.from_dict({"economics": {"base_year": 2020, "discount_rate": 0.0}})
     res = extract_results(solve(build(assemble_problem(wb, sc))))
@@ -136,7 +133,7 @@ _CAP_YEARS = [2025, 2030, 2035]
 def _cap_workbook(max_renewals: int | None) -> dict:
     return {
         "periods": [{"year": y, "duration_years": 1} for y in _CAP_YEARS],
-        "commodities": [{"commodity_id": "widget", "kind": "product", "unit": "t"}],
+        "flows": [{"flow_id": "widget", "kind": "product", "unit": "t"}],
         "impacts": [],
         "technologies": [
             {
@@ -167,7 +164,7 @@ def _cap_workbook(max_renewals: int | None) -> dict:
             }
         ],
         "demand": [
-            {"company": "C", "commodity_id": "widget", "year": y, "amount": 100} for y in _CAP_YEARS
+            {"company": "C", "flow_id": "widget", "year": y, "amount": 100} for y in _CAP_YEARS
         ],
     }
 
@@ -202,7 +199,7 @@ def _bare_problem(years: list[int], rate: float, convention: CapexConvention) ->
         periods=[Period(year=y, duration_years=1.0) for y in years],
         processes=[],
         technologies={},
-        commodities={},
+        flows={},
         impacts={},
         discount_rate=rate,
         base_year=years[0],

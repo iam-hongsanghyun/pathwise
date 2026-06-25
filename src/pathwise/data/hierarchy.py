@@ -4,7 +4,7 @@ A *model* can optionally carry a tree of **nodes** of arbitrary, user-defined
 depth. Each node is either a ``group`` (a composite — its children are other
 nodes, and it exposes boundary **ports**) or a ``asset`` (a leaf that runs one
 technology with its own capacity). **Connections** wire sibling nodes by a
-commodity and may carry a **time gap** (``lag_years``); they generalise the flat
+flow and may carry a **time gap** (``lag_years``); they generalise the flat
 ``edges`` sheet. The fixed chain "value chain → sector → company → facility →
 asset" is just one example — ``level`` is free text and depth is unbounded, so
 nothing here is sector-specific.
@@ -82,12 +82,12 @@ class Asset:
 
 @dataclass(frozen=True, slots=True)
 class Link:
-    """A directed commodity flow between two sibling nodes (generalises an edge).
+    """A directed flow flow between two sibling nodes (generalises an edge).
 
     Attributes:
         from_node: Producer node id.
         to_node: Consumer node id.
-        commodity_id: The routed stream.
+        flow_id: The routed stream.
         lag_years: Time gap on the link [yr] — used when the connection crosses
             an optimisation boundary (becomes a coupling-link lag).
         max_flow: Optional per-period cap.
@@ -98,7 +98,7 @@ class Link:
 
     from_node: str
     to_node: str
-    commodity_id: str
+    flow_id: str
     lag_years: int = 0
     max_flow: float | None = None
     min_flow: float | None = None
@@ -117,13 +117,13 @@ class Port:
 
     Attributes:
         node_id: The group exposing the port.
-        commodity_id: The stream.
+        flow_id: The stream.
         direction: ``"in"`` (the group consumes it) or ``"out"`` (it produces it).
         bind_node: The descendant the port resolves to inside the group.
     """
 
     node_id: str
-    commodity_id: str
+    flow_id: str
     direction: str
     bind_node: str | None = None
 
@@ -247,21 +247,21 @@ class Hierarchy:
         For each connection, every group that contains exactly one of its two
         endpoints exposes a port (``out`` for the producer side, ``in`` for the
         consumer side). Explicitly authored :attr:`ports` are kept as-is and take
-        precedence on ``(node_id, commodity_id, direction)``.
+        precedence on ``(node_id, flow_id, direction)``.
         """
-        explicit = {(p.node_id, p.commodity_id, p.direction) for p in self.ports}
+        explicit = {(p.node_id, p.flow_id, p.direction) for p in self.ports}
         derived: dict[tuple[str, str, str], Port] = {}
         for c in self.links:
             up = {c.from_node} | set(self.ancestors(c.from_node))
             down = {c.to_node} | set(self.ancestors(c.to_node))
             for g in up - down:  # groups containing the producer but not the consumer
-                key = (g, c.commodity_id, "out")
+                key = (g, c.flow_id, "out")
                 if key not in explicit:
-                    derived.setdefault(key, Port(g, c.commodity_id, "out", c.from_node))
+                    derived.setdefault(key, Port(g, c.flow_id, "out", c.from_node))
             for g in down - up:  # groups containing the consumer but not the producer
-                key = (g, c.commodity_id, "in")
+                key = (g, c.flow_id, "in")
                 if key not in explicit:
-                    derived.setdefault(key, Port(g, c.commodity_id, "in", c.to_node))
+                    derived.setdefault(key, Port(g, c.flow_id, "in", c.to_node))
         return list(self.ports) + list(derived.values())
 
     def check(self) -> list[str]:
@@ -338,7 +338,7 @@ def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
     minflow_t: dict[tuple[str, str, str], dict[int, float]] = {}
     maxflow_t: dict[tuple[str, str, str], dict[int, float]] = {}
     for r in workbook.get(LINKS_T, []):
-        f, t, c = _str(r.get("from_node")), _str(r.get("to_node")), _str(r.get("commodity_id"))
+        f, t, c = _str(r.get("from_node")), _str(r.get("to_node")), _str(r.get("flow_id"))
         yr = _int(r.get("year"))
         if not (f and t and c) or yr is None:
             continue
@@ -347,23 +347,23 @@ def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
         if (mx := _num(r.get("max_flow"))) is not None:
             maxflow_t.setdefault((f, t, c), {})[yr] = mx
 
-    # Per-impact freight emissions, keyed by (from, to, commodity) — impact-agnostic.
+    # Per-impact freight emissions, keyed by (from, to, flow) — impact-agnostic.
     conn_emissions: dict[tuple[str, str, str], dict[str, float]] = {}
     for r in workbook.get(LINK_IMPACTS, []):
-        f, t, c = _str(r.get("from_node")), _str(r.get("to_node")), _str(r.get("commodity_id"))
+        f, t, c = _str(r.get("from_node")), _str(r.get("to_node")), _str(r.get("flow_id"))
         imp, fac = _str(r.get("impact_id")), _num(r.get("factor"))
         if f and t and c and imp and fac:
             conn_emissions.setdefault((f, t, c), {})[imp] = fac
 
     links: list[Link] = []
     for r in workbook.get(LINKS, []):
-        f, t, c = _str(r.get("from_node")), _str(r.get("to_node")), _str(r.get("commodity_id"))
+        f, t, c = _str(r.get("from_node")), _str(r.get("to_node")), _str(r.get("flow_id"))
         if f and t and c:
             links.append(
                 Link(
                     from_node=f,
                     to_node=t,
-                    commodity_id=c,
+                    flow_id=c,
                     lag_years=_int(r.get("lag_years")) or 0,
                     max_flow=_num(r.get("max_flow")),
                     min_flow=_num(r.get("min_flow")),
@@ -377,7 +377,7 @@ def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
 
     ports: list[Port] = []
     for r in workbook.get(PORTS, []):
-        nid, c = _str(r.get("node_id")), _str(r.get("commodity_id"))
+        nid, c = _str(r.get("node_id")), _str(r.get("flow_id"))
         direction = (_str(r.get("direction")) or "in").lower()
         if nid and c and direction in {"in", "out"}:
             ports.append(Port(nid, c, direction, _str(r.get("bind_node"))))

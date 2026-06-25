@@ -12,10 +12,10 @@ first edit via the API. **Reads fall back to the bundled seed** when no writable
 copy exists, so importing this module never writes to disk — only an explicit
 edit (:func:`ensure_writable_config` / the units router) materialises the copy.
 
-A unit here is the physical *measure* (``t``, ``GJ``, ``MWh``); the *commodity*
+A unit here is the physical *measure* (``t``, ``GJ``, ``MWh``); the *flow*
 supplies the substance, so the real unit is the pair — ``t``+hydrogen is
 ``t-H2``, distinct and non-interchangeable from ``t``+steel (``t-steel``) even
-though both are mass. Conversion is therefore only ever **within one commodity**
+though both are mass. Conversion is therefore only ever **within one flow**
 (change the measure: ``t-H2 <-> kg-H2``, or ``t-H2 <-> GJ`` via H2's own LHV);
 ``t-steel -> t-H2`` is never valid.
 
@@ -23,10 +23,10 @@ Two kinds of conversion exist in pathwise:
 
 * **dimension-universal** (``MWh<->GJ``, ``kg<->t``, ``KRW<->USD``) — one factor
   for everyone, resolved here against the canonical base per dimension. These
-  helpers handle this kind; callers apply them within a single commodity.
-* **commodity-specific** (``1 t`` of gas and of coal hold different ``GJ``;
+  helpers handle this kind; callers apply them within a single flow.
+* **flow-specific** (``1 t`` of gas and of coal hold different ``GJ``;
   ``1 t`` of steel is worth some currency) — those factors belong on the
-  commodity and are layered on in a later phase, not here.
+  flow and are layered on in a later phase, not here.
 """
 
 from __future__ import annotations
@@ -266,10 +266,10 @@ def merged_custom_units(unit_overrides: dict[str, Any] | list[Any] | None) -> li
 
 # ── Coefficient conversion (recipe IO → the stream's canonical unit) ──────────
 
-#: Property-key prefixes recognised as per-commodity conversion factors. Convention
+#: Property-key prefixes recognised as per-flow conversion factors. Convention
 #: A (no library migration): a key ``<measure>_<NUM>_per_<DEN>`` with scalar value
 #: ``V`` means ``V <NUM>/<DEN>`` — e.g. ``lhv_MJ_per_kg = 45`` is 45 MJ/kg, an
-#: energy-per-mass factor that bridges this commodity's [mass] <-> [energy]. This
+#: energy-per-mass factor that bridges this flow's [mass] <-> [energy]. This
 #: reads keys libraries already use (``lhv_*``) and the generalised names.
 _FACTOR_PREFIXES: tuple[str, ...] = ("energy_content", "lhv", "density", "value", "price")
 
@@ -312,9 +312,9 @@ def _parse_factor_key(key: str) -> tuple[str, str] | None:
 class CoefficientConverter:
     """Convert an authored IO coefficient to its target stream's canonical unit.
 
-    Built once per assemble from the model's commodity/impact units (plus each
-    commodity's conversion-factor properties) and the project's optional
-    ``unit_overrides``. It owns its own pint registry and per-commodity Contexts,
+    Built once per assemble from the model's flow/impact units (plus each
+    flow's conversion-factor properties) and the project's optional
+    ``unit_overrides``. It owns its own pint registry and per-flow Contexts,
     so nothing leaks onto the process-wide registry and editing ``units.yaml`` can
     never collide with it.
 
@@ -328,7 +328,7 @@ class CoefficientConverter:
     Two conversion lanes, selected automatically by ``(row_unit, canonical_unit)``:
 
     * **universal** (same dimension, e.g. ``MWh -> GJ``): the registry factor.
-    * **commodity-specific** (cross dimension, e.g. ``t -> GJ``): that commodity's
+    * **flow-specific** (cross dimension, e.g. ``t -> GJ``): that flow's
       own ``energy_content``/``density``/``value`` factor, via a pint Context.
       Impacts are universal-only (emissions is its own dimension with no factors).
     """
@@ -336,16 +336,16 @@ class CoefficientConverter:
     def __init__(
         self,
         *,
-        commodity_units: dict[str, str],
-        commodity_props: dict[str, dict[str, float]] | None = None,
+        flow_units: dict[str, str],
+        flow_props: dict[str, dict[str, float]] | None = None,
         impact_units: dict[str, str] | None = None,
         unit_overrides: dict[str, Any] | list[Any] | None = None,
     ) -> None:
         self._ureg = _build_registry(merged_custom_units(unit_overrides))
-        self._commodity_units = commodity_units
-        self._commodity_props = commodity_props or {}
+        self._flow_units = flow_units
+        self._flow_props = flow_props or {}
         self._impact_units = impact_units or {}
-        self._ctx_cache: dict[str, Any] = {}  # commodity_id -> pint.Context | None
+        self._ctx_cache: dict[str, Any] = {}  # flow_id -> pint.Context | None
         self.issues: list[str] = []
 
     def to_canonical(
@@ -379,7 +379,7 @@ class CoefficientConverter:
                 f"({row_unit!r} -> {canonical!r}); left as authored"
             )
             return coefficient
-        ctx = self._commodity_context(target_id)
+        ctx = self._flow_context(target_id)
         if ctx is None:
             self._note(
                 f"no conversion factor on {target_id!r} for {row_unit!r} -> {canonical!r}; "
@@ -405,7 +405,7 @@ class CoefficientConverter:
         unit = (
             self._impact_units.get(target_id)
             if role == "impact"
-            else self._commodity_units.get(target_id)
+            else self._flow_units.get(target_id)
         )
         return unit or None
 
@@ -429,17 +429,17 @@ class CoefficientConverter:
             self._note(f"conversion {from_unit!r} -> {to_unit!r} for {target_id!r} failed: {exc}")
             return coef
 
-    def _commodity_context(self, commodity_id: str) -> Any:
-        if commodity_id not in self._ctx_cache:
-            self._ctx_cache[commodity_id] = self._build_context(commodity_id)
-        return self._ctx_cache[commodity_id]
+    def _flow_context(self, flow_id: str) -> Any:
+        if flow_id not in self._ctx_cache:
+            self._ctx_cache[flow_id] = self._build_context(flow_id)
+        return self._ctx_cache[flow_id]
 
-    def _build_context(self, commodity_id: str) -> Any:
+    def _build_context(self, flow_id: str) -> Any:
         from pint import Context
 
-        ctx = Context(f"cmdty_{commodity_id}")
+        ctx = Context(f"cmdty_{flow_id}")
         added = False
-        for key, value in self._commodity_props.get(commodity_id, {}).items():
+        for key, value in self._flow_props.get(flow_id, {}).items():
             parsed = _parse_factor_key(str(key))
             if parsed is None:
                 continue
@@ -454,7 +454,7 @@ class CoefficientConverter:
                 continue
             if num_dim == den_dim:  # not a cross-dimension bridge — skip
                 continue
-            # q has dimensionality [num]/[den]: bridge this commodity's measures.
+            # q has dimensionality [num]/[den]: bridge this flow's measures.
             ctx.add_transformation(den_dim, num_dim, _scale_to(q))
             ctx.add_transformation(num_dim, den_dim, _scale_by_inverse(q))
             added = True

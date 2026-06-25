@@ -10,7 +10,7 @@ Supported ops (P2):
 
 * ``set_asset_tech`` — ``{op, asset, technology}``: pin a asset to a
   different baseline technology (e.g. switch a steel mill ``BOF`` → ``EAF``).
-* ``set_price`` — ``{op, commodity, price, year?}``: change a commodity's
+* ``set_price`` — ``{op, flow, price, year?}``: change a flow's
   purchase price; a static ``price`` (all years) unless ``year`` is given, in
   which case the wide temporal price sheet is edited for that year.
 * ``set_carbon_price`` — ``{op, impact, price, year?}``: set an impact (carbon)
@@ -23,9 +23,9 @@ Supported ops (P2):
 Value edits (change an existing entity's number, static or per-``year``):
 
 * ``set_tech_cost`` — ``{op, technology, field: capex|opex, value, year?}``.
-* ``set_io_coef`` — ``{op, technology, commodity, value, year?, role?}``: a
-  technology's input/output coefficient for ``commodity`` (``io`` / ``io_t``).
-* ``set_stream_cap`` — ``{op, commodity, field: max_purchase|available_from|
+* ``set_io_coef`` — ``{op, technology, flow, value, year?, role?}``: a
+  technology's input/output coefficient for ``flow`` (``io`` / ``io_t``).
+* ``set_stream_cap`` — ``{op, flow, field: max_purchase|available_from|
   available_to, value, year?}`` (year only for ``max_purchase``).
 """
 
@@ -109,27 +109,27 @@ def _set_asset_tech(wb: Workbook, ov: dict[str, Any], _src: Workbook) -> None:
 
 
 def _set_price(wb: Workbook, ov: dict[str, Any], _src: Workbook) -> None:
-    commodity, price = str(ov.get("commodity") or ""), ov.get("price")
-    if not commodity or price is None:
-        raise OverrideError("set_price needs 'commodity' and 'price'")
+    flow, price = str(ov.get("flow") or ""), ov.get("price")
+    if not flow or price is None:
+        raise OverrideError("set_price needs 'flow' and 'price'")
     price = float(price)
-    rows = _rows(wb, sheets.COMMODITIES)
-    hit = [r for r in rows if str(r.get("commodity_id")) == commodity]
+    rows = _rows(wb, sheets.FLOWS)
+    hit = [r for r in rows if str(r.get("flow_id")) == flow]
     if not hit:
-        raise OverrideError(f"set_price: unknown commodity {commodity!r}")
+        raise OverrideError(f"set_price: unknown flow {flow!r}")
     year = ov.get("year")
     if year is None:
         for r in hit:
             r["price"] = price
         return
-    # Year-specific: edit the wide temporal price sheet (year column + per-commodity).
-    trows = _rows(wb, sheets.COMMODITIES_T_PRICE)
+    # Year-specific: edit the wide temporal price sheet (year column + per-flow).
+    trows = _rows(wb, sheets.FLOWS_T_PRICE)
     yr = int(year)
     for r in trows:
         if int(r.get("year") or 0) == yr:
-            r[commodity] = price
+            r[flow] = price
             return
-    trows.append({"year": yr, commodity: price})
+    trows.append({"year": yr, flow: price})
 
 
 def _set_carbon_price(wb: Workbook, ov: dict[str, Any], _src: Workbook) -> None:
@@ -199,9 +199,9 @@ def _set_tech_cost(wb: Workbook, ov: dict[str, Any], _src: Workbook) -> None:
 
 
 def _set_io_coef(wb: Workbook, ov: dict[str, Any], _src: Workbook) -> None:
-    tech, commodity = str(ov.get("technology") or ""), str(ov.get("commodity") or "")
-    if not tech or not commodity or ov.get("value") is None:
-        raise OverrideError("set_io_coef needs 'technology', 'commodity', 'value'")
+    tech, flow = str(ov.get("technology") or ""), str(ov.get("flow") or "")
+    if not tech or not flow or ov.get("value") is None:
+        raise OverrideError("set_io_coef needs 'technology', 'flow', 'value'")
     value, year = float(ov["value"]), ov.get("year")
     # Match the io row(s) for (technology, target); narrow by role when given.
     role = ov.get("role")
@@ -209,18 +209,18 @@ def _set_io_coef(wb: Workbook, ov: dict[str, Any], _src: Workbook) -> None:
         r
         for r in wb.get(sheets.IO, [])
         if str(r.get("technology_id")) == tech
-        and str(r.get("target")) == commodity
+        and str(r.get("target")) == flow
         and (role is None or str(r.get("role")) == str(role))
     ]
     if not matches:
-        raise OverrideError(f"set_io_coef: no io row for {tech!r} → {commodity!r}")
+        raise OverrideError(f"set_io_coef: no io row for {tech!r} → {flow!r}")
     roles = {str(r.get("role")) for r in matches}
     if year is None:
         rows = _rows(wb, sheets.IO)
         for r in rows:
             if (
                 str(r.get("technology_id")) == tech
-                and str(r.get("target")) == commodity
+                and str(r.get("target")) == flow
                 and (role is None or str(r.get("role")) == str(role))
             ):
                 r["coefficient"] = value
@@ -234,7 +234,7 @@ def _set_io_coef(wb: Workbook, ov: dict[str, Any], _src: Workbook) -> None:
                 r
                 for r in trows
                 if str(r.get("technology_id")) == tech
-                and str(r.get("target")) == commodity
+                and str(r.get("target")) == flow
                 and str(r.get("role")) == rl
                 and int(r.get("year") or 0) == yr
             ),
@@ -246,7 +246,7 @@ def _set_io_coef(wb: Workbook, ov: dict[str, Any], _src: Workbook) -> None:
             trows.append(
                 {
                     "technology_id": tech,
-                    "target": commodity,
+                    "target": flow,
                     "role": rl,
                     "year": yr,
                     "coefficient": value,
@@ -255,22 +255,22 @@ def _set_io_coef(wb: Workbook, ov: dict[str, Any], _src: Workbook) -> None:
 
 
 def _set_stream_cap(wb: Workbook, ov: dict[str, Any], _src: Workbook) -> None:
-    commodity, field = str(ov.get("commodity") or ""), str(ov.get("field") or "max_purchase")
-    if not commodity or field not in ("max_purchase", "available_from", "available_to"):
+    flow, field = str(ov.get("flow") or ""), str(ov.get("field") or "max_purchase")
+    if not flow or field not in ("max_purchase", "available_from", "available_to"):
         raise OverrideError(
-            "set_stream_cap needs 'commodity' and a 'field' of "
+            "set_stream_cap needs 'flow' and a 'field' of "
             "max_purchase / available_from / available_to"
         )
     if ov.get("value") is None:
         raise OverrideError("set_stream_cap needs 'value'")
     year = ov.get("year")
     if field == "max_purchase" and year is not None:
-        _set_wide(wb, sheets.COMMODITIES_T_MAX_PURCHASE, int(year), commodity, float(ov["value"]))
+        _set_wide(wb, sheets.FLOWS_T_MAX_PURCHASE, int(year), flow, float(ov["value"]))
         return
-    rows = _rows(wb, sheets.COMMODITIES)
-    hit = [r for r in rows if str(r.get("commodity_id")) == commodity]
+    rows = _rows(wb, sheets.FLOWS)
+    hit = [r for r in rows if str(r.get("flow_id")) == flow]
     if not hit:
-        raise OverrideError(f"set_stream_cap: unknown commodity {commodity!r}")
+        raise OverrideError(f"set_stream_cap: unknown flow {flow!r}")
     # availability years are ints; max_purchase is a float.
     cast = int if field in ("available_from", "available_to") else float
     for r in hit:

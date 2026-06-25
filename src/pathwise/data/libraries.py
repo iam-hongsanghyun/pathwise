@@ -78,7 +78,7 @@ def discover_libraries(root: str | Path) -> list[dict[str, Any]]:
                     "has_value_chain": _has_value_chain(wb),
                     "has_components": bool(
                         wb.get("technologies")
-                        or wb.get("commodities")
+                        or wb.get("flows")
                         or wb.get("levers")
                         or wb.get("measures")
                     ),

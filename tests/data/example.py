@@ -18,13 +18,13 @@ def example_workbook() -> Workbook:
             {"year": 2025, "duration_years": 1},
             {"year": 2030, "duration_years": 1},
         ],
-        "commodities": [
-            {"commodity_id": "coal", "kind": "energy", "unit": "MWh", "price": 30.0},
-            {"commodity_id": "elec", "kind": "energy", "unit": "MWh", "price": 80.0},
-            {"commodity_id": "ore", "kind": "material", "unit": "t", "price": 100.0},
-            {"commodity_id": "iron", "kind": "material", "unit": "t", "price": 0.0},
-            {"commodity_id": "steel", "kind": "product", "unit": "t", "price": 0.0},
-            {"commodity_id": "slag", "kind": "byproduct", "unit": "t", "sale_price": 5.0},
+        "flows": [
+            {"flow_id": "coal", "kind": "energy", "unit": "MWh", "price": 30.0},
+            {"flow_id": "elec", "kind": "energy", "unit": "MWh", "price": 80.0},
+            {"flow_id": "ore", "kind": "material", "unit": "t", "price": 100.0},
+            {"flow_id": "iron", "kind": "material", "unit": "t", "price": 0.0},
+            {"flow_id": "steel", "kind": "product", "unit": "t", "price": 0.0},
+            {"flow_id": "slag", "kind": "byproduct", "unit": "t", "sale_price": 5.0},
         ],
         "impacts": [
             {"impact_id": "CO2", "unit": "tCO2e"},
@@ -64,25 +64,25 @@ def example_workbook() -> Workbook:
             },
         ],
         "process_inputs": [
-            {"technology_id": "BF", "commodity_id": "coal", "intensity": 4.0},
-            {"technology_id": "BF", "commodity_id": "ore", "intensity": 1.6},
-            {"technology_id": "EAF", "commodity_id": "iron", "intensity": 1.1},
-            {"technology_id": "EAF", "commodity_id": "elec", "intensity": 0.6},
+            {"technology_id": "BF", "flow_id": "coal", "intensity": 4.0},
+            {"technology_id": "BF", "flow_id": "ore", "intensity": 1.6},
+            {"technology_id": "EAF", "flow_id": "iron", "intensity": 1.1},
+            {"technology_id": "EAF", "flow_id": "elec", "intensity": 0.6},
         ],
         "process_outputs": [
-            {"technology_id": "BF", "commodity_id": "iron", "yield": 1.0, "is_product": False},
-            {"technology_id": "BF", "commodity_id": "slag", "yield": 0.3, "is_product": False},
-            {"technology_id": "EAF", "commodity_id": "steel", "yield": 1.0, "is_product": True},
+            {"technology_id": "BF", "flow_id": "iron", "yield": 1.0, "is_product": False},
+            {"technology_id": "BF", "flow_id": "slag", "yield": 0.3, "is_product": False},
+            {"technology_id": "EAF", "flow_id": "steel", "yield": 1.0, "is_product": True},
         ],
-        "commodity_impacts": [
-            {"commodity_id": "coal", "impact_id": "CO2", "factor": 0.34},
-            {"commodity_id": "elec", "impact_id": "CO2", "factor": 0.05},
+        "flow_impacts": [
+            {"flow_id": "coal", "impact_id": "CO2", "factor": 0.34},
+            {"flow_id": "elec", "impact_id": "CO2", "factor": 0.05},
         ],
         "tech_impacts": [
             {"technology_id": "BF", "impact_id": "CO2", "factor": 1.2},
         ],
         "edges": [
-            {"from_process": "F1", "to_process": "F2", "commodity_id": "iron"},
+            {"from_process": "F1", "to_process": "F2", "flow_id": "iron"},
         ],
         "levers": [
             {
@@ -106,8 +106,8 @@ def example_workbook() -> Workbook:
             },
         ],
         "demand": [
-            {"company": "Acme", "commodity_id": "steel", "year": 2025, "amount": 800.0},
-            {"company": "Acme", "commodity_id": "steel", "year": 2030, "amount": 900.0},
+            {"company": "Acme", "flow_id": "steel", "year": 2025, "amount": 800.0},
+            {"company": "Acme", "flow_id": "steel", "year": 2030, "amount": 900.0},
         ],
         "impact_caps": [
             {"company": "all", "impact_id": "CO2", "year": 2030, "limit": 5000.0},

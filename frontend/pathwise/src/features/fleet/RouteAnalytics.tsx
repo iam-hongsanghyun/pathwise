@@ -1,7 +1,7 @@
 // Read-only analytics map for the solved physical routes. Draws each physicalised
 // corridor on the world basemap, weighted by a chosen metric (cargo / ships / fuel /
 // emissions), with a YEAR slider and HOVER tooltips showing that route's allocation.
-// Emissions are derived from the model's own commodity_impacts (fuel_used × factor) —
+// Emissions are derived from the model's own flow_impacts (fuel_used × factor) —
 // never hardcoded.
 
 import { useEffect, useMemo, useState } from "react";
@@ -43,11 +43,11 @@ export function RouteAnalytics({ workbook, result }: { workbook: Workbook; resul
     for (const nd of workbook.nodes ?? []) m.set(s(nd.node_id), s(nd.label) || s(nd.node_id));
     return (id: string) => m.get(id) ?? id;
   }, [workbook]);
-  // commodity -> {impact: factor} (the model's own factors; never hardcoded here).
+  // flow -> {impact: factor} (the model's own factors; never hardcoded here).
   const fuelFactors = useMemo(() => {
     const m = new Map<string, Record<string, number>>();
-    for (const r of workbook.commodity_impacts ?? []) {
-      const c = s(r.commodity_id);
+    for (const r of workbook.flow_impacts ?? []) {
+      const c = s(r.flow_id);
       if (!c) continue;
       (m.get(c) ?? m.set(c, {}).get(c)!)[s(r.impact_id)] = n(r.factor);
     }

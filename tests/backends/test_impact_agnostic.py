@@ -17,9 +17,9 @@ _SCENARIO = {"economics": {"base_year": 2025, "discount_rate": 0.0}, "optimisati
 def _sox_model() -> dict:
     return {
         "periods": [{"year": 2025, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "feed", "kind": "material", "unit": "t", "price": 1},
-            {"commodity_id": "widget", "kind": "product", "unit": "ea"},
+        "flows": [
+            {"flow_id": "feed", "kind": "material", "unit": "t", "price": 1},
+            {"flow_id": "widget", "kind": "product", "unit": "ea"},
         ],
         "impacts": [{"impact_id": "SOx", "unit": "t"}],  # NOTE: no CO2 anywhere
         "technologies": [
@@ -55,7 +55,7 @@ def _sox_model() -> dict:
             },
             {"technology_id": "Clean", "target": "SOx", "role": "impact", "coefficient": 0.5},
         ],
-        "demand": [{"company": "co", "commodity_id": "widget", "year": 2025, "amount": 100}],
+        "demand": [{"company": "co", "flow_id": "widget", "year": 2025, "amount": 100}],
     }
 
 

@@ -27,9 +27,7 @@ def _hierarchy_model() -> dict[str, list[dict[str, Any]]]:
             {"asset_id": "chain/mill/bf", "baseline_technology": "BF", "capacity": 100},
             {"asset_id": "chain/mill/bof", "baseline_technology": "BOF", "capacity": 100},
         ],
-        "connections": [
-            {"from_node": "chain/mill/bf", "to_node": "chain/mill/bof", "commodity_id": "iron"}
-        ],
+        "links": [{"from_node": "chain/mill/bf", "to_node": "chain/mill/bof", "flow_id": "iron"}],
         "technologies": [
             {"technology_id": "BF", "io": []},
             {"technology_id": "BOF", "io": []},
@@ -46,13 +44,13 @@ def _hierarchy_model() -> dict[str, list[dict[str, Any]]]:
                 "is_product": True,
             },
         ],
-        "commodities": [
-            {"commodity_id": "power", "kind": "energy", "price": 1.0},
-            {"commodity_id": "iron", "kind": "material"},
-            {"commodity_id": "steel", "kind": "product"},
+        "flows": [
+            {"flow_id": "power", "kind": "energy", "price": 1.0},
+            {"flow_id": "iron", "kind": "material"},
+            {"flow_id": "steel", "kind": "product"},
         ],
         "periods": [{"year": 2025, "duration_years": 1}],
-        "demand": [{"company": "all", "commodity_id": "steel", "year": 2025, "amount": 80}],
+        "demand": [{"company": "all", "flow_id": "steel", "year": 2025, "amount": 80}],
     }
 
 

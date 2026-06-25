@@ -51,18 +51,18 @@ def _wb() -> dict[str, Any]:
                 "is_product": True,
             },
         ],
-        "commodities": [
-            {"commodity_id": "gas", "kind": "energy", "price": 10},
-            {"commodity_id": "gas2", "kind": "energy", "price": 100},
-            {"commodity_id": "elec", "kind": "energy"},
-            {"commodity_id": "steel", "kind": "product"},
+        "flows": [
+            {"flow_id": "gas", "kind": "energy", "price": 10},
+            {"flow_id": "gas2", "kind": "energy", "price": 100},
+            {"flow_id": "elec", "kind": "energy"},
+            {"flow_id": "steel", "kind": "product"},
         ],
-        "connections": [
-            {"from_node": "co/p1", "to_node": "co/c", "commodity_id": "elec"},
-            {"from_node": "co/p2", "to_node": "co/c", "commodity_id": "elec"},
+        "links": [
+            {"from_node": "co/p1", "to_node": "co/c", "flow_id": "elec"},
+            {"from_node": "co/p2", "to_node": "co/c", "flow_id": "elec"},
         ],
         "periods": [{"year": 2025}],
-        "demand": [{"company": "all", "commodity_id": "steel", "amount": 100}],
+        "demand": [{"company": "all", "flow_id": "steel", "amount": 100}],
     }
 
 
@@ -78,7 +78,7 @@ def test_authored_asset_edge_bound_binds_without_duplication() -> None:
     # If the fan-out also created an unbounded co/p1→co/c edge, this cap would be
     # bypassed and cost would stay $1000; seeding seen_edges makes it bind.
     wb["edges"] = [
-        {"from_process": "co/p1", "to_process": "co/c", "commodity_id": "elec", "max_flow": 30}
+        {"from_process": "co/p1", "to_process": "co/c", "flow_id": "elec", "max_flow": 30}
     ]
     res = _solve(wb)
     assert res["status"] == "optimal"

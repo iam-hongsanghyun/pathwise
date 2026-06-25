@@ -23,21 +23,17 @@ def _solve(wb: dict, sc: ScenarioConfig = SC) -> dict:
     return extract_results(solve(build(assemble_problem(wb, sc))))
 
 
-def _consumed(res: dict, commodity: str) -> dict[int, float]:
-    return {
-        r["period"]: r["consumed"]
-        for r in res["summary"]["commodity"]
-        if r["commodity"] == commodity
-    }
+def _consumed(res: dict, flow: str) -> dict[int, float]:
+    return {r["period"]: r["consumed"] for r in res["summary"]["flow"] if r["flow"] == flow}
 
 
 def test_input_intensity_can_decline_over_the_horizon() -> None:
     # `fuel` use per unit `widget` falls 2 → 1 across the horizon (efficiency).
     wb = {
         "periods": [{"year": y, "duration_years": 1} for y in YEARS],
-        "commodities": [
-            {"commodity_id": "fuel", "kind": "energy", "unit": "MWh", "price": 1.0},
-            {"commodity_id": "widget", "kind": "product", "unit": "t"},
+        "flows": [
+            {"flow_id": "fuel", "kind": "energy", "unit": "MWh", "price": 1.0},
+            {"flow_id": "widget", "kind": "product", "unit": "t"},
         ],
         "impacts": [],
         "technologies": [{"technology_id": "T", "actions": "continue"}],
@@ -69,9 +65,7 @@ def test_input_intensity_can_decline_over_the_horizon() -> None:
                 "coefficient": 1,
             },
         ],
-        "demand": [
-            {"company": "C", "commodity_id": "widget", "year": y, "amount": 100} for y in YEARS
-        ],
+        "demand": [{"company": "C", "flow_id": "widget", "year": y, "amount": 100} for y in YEARS],
     }
     res = _solve(wb)
     assert res["status"] == "optimal"
@@ -86,7 +80,7 @@ def test_emission_factor_can_decline_over_the_horizon() -> None:
     # A process's direct CO2 per unit throughput falls 1.0 → 0.2.
     wb = {
         "periods": [{"year": y, "duration_years": 1} for y in YEARS],
-        "commodities": [{"commodity_id": "widget", "kind": "product", "unit": "t"}],
+        "flows": [{"flow_id": "widget", "kind": "product", "unit": "t"}],
         "impacts": [{"impact_id": "CO2", "unit": "tCO2e"}],
         "technologies": [{"technology_id": "T", "actions": "continue"}],
         # Capacity == demand pins throughput to 100 (production is otherwise
@@ -119,9 +113,7 @@ def test_emission_factor_can_decline_over_the_horizon() -> None:
                 "coefficient": 0.2,
             },
         ],
-        "demand": [
-            {"company": "C", "commodity_id": "widget", "year": y, "amount": 100} for y in YEARS
-        ],
+        "demand": [{"company": "C", "flow_id": "widget", "year": y, "amount": 100} for y in YEARS],
     }
     res = _solve(wb)
     co2 = {s["period"]: s["total"] for s in res["summary"]["impacts"] if s["impact"] == "CO2"}
@@ -132,7 +124,7 @@ def test_emission_factor_can_decline_over_the_horizon() -> None:
 def _transition_wb(with_temporal: bool) -> dict:
     wb = {
         "periods": [{"year": y, "duration_years": 1} for y in YEARS],
-        "commodities": [{"commodity_id": "widget", "kind": "product", "unit": "t"}],
+        "flows": [{"flow_id": "widget", "kind": "product", "unit": "t"}],
         "impacts": [],
         "technologies": [
             {"technology_id": "B", "actions": "continue,replace", "phase_out_year": 2030},
@@ -165,9 +157,7 @@ def _transition_wb(with_temporal: bool) -> dict:
                 "capex_per_capacity": 50,
             },
         ],
-        "demand": [
-            {"company": "C", "commodity_id": "widget", "year": y, "amount": 100} for y in YEARS
-        ],
+        "demand": [{"company": "C", "flow_id": "widget", "year": y, "amount": 100} for y in YEARS],
     }
     if with_temporal:
         wb["transitions_t"] = [
@@ -195,7 +185,7 @@ def test_transition_capex_can_be_year_varying() -> None:
 def _fixed_opex_wb(with_temporal: bool) -> dict:
     wb = {
         "periods": [{"year": y, "duration_years": 1} for y in YEARS],
-        "commodities": [{"commodity_id": "widget", "kind": "product", "unit": "t"}],
+        "flows": [{"flow_id": "widget", "kind": "product", "unit": "t"}],
         "impacts": [],
         "technologies": [{"technology_id": "T", "actions": "continue"}],
         "processes": [
@@ -216,9 +206,7 @@ def _fixed_opex_wb(with_temporal: bool) -> dict:
                 "is_product": True,
             },
         ],
-        "demand": [
-            {"company": "C", "commodity_id": "widget", "year": y, "amount": 100} for y in YEARS
-        ],
+        "demand": [{"company": "C", "flow_id": "widget", "year": y, "amount": 100} for y in YEARS],
     }
     if with_temporal:
         wb["processes_t__fixed_opex"] = [{"year": 2025, "P": 10}, {"year": 2030, "P": 20}]
@@ -237,9 +225,9 @@ def test_market_buy_volume_cap_can_be_year_varying() -> None:
     # 2030 only 40 widgets can be made (60 short of the 100 demand).
     wb = {
         "periods": [{"year": y, "duration_years": 1} for y in YEARS],
-        "commodities": [
-            {"commodity_id": "mid", "kind": "material", "unit": "t"},
-            {"commodity_id": "widget", "kind": "product", "unit": "t"},
+        "flows": [
+            {"flow_id": "mid", "kind": "material", "unit": "t"},
+            {"flow_id": "widget", "kind": "product", "unit": "t"},
         ],
         "impacts": [],
         "technologies": [{"technology_id": "T", "actions": "continue"}],
@@ -256,11 +244,9 @@ def test_market_buy_volume_cap_can_be_year_varying() -> None:
                 "is_product": True,
             },
         ],
-        "markets": [{"market_id": "M", "target": "mid", "target_kind": "commodity", "price": 1}],
+        "markets": [{"market_id": "M", "target": "mid", "target_kind": "flow", "price": 1}],
         "markets_t__max_buy": [{"year": 2025, "M": 100}, {"year": 2030, "M": 40}],
-        "demand": [
-            {"company": "C", "commodity_id": "widget", "year": y, "amount": 100} for y in YEARS
-        ],
+        "demand": [{"company": "C", "flow_id": "widget", "year": y, "amount": 100} for y in YEARS],
     }
     res = _solve(wb)
     assert res["status"] == "optimal"

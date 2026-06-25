@@ -32,16 +32,16 @@ def _electricity_wb(co2_price: float) -> dict:
     """
     return {
         "periods": [{"year": 2025, "duration_years": 1}, {"year": 2030, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "fuel", "kind": "energy", "price": 10.0},
-            {"commodity_id": "electricity", "kind": "product"},
+        "flows": [
+            {"flow_id": "fuel", "kind": "energy", "price": 10.0},
+            {"flow_id": "electricity", "kind": "product"},
         ],
         "impacts": [{"impact_id": "CO2", "unit": "tCO2"}],
         "impact_prices": [
             {"impact_id": "CO2", "year": 2025, "price": co2_price},
             {"impact_id": "CO2", "year": 2030, "price": co2_price},
         ],
-        "commodity_impacts": [{"commodity_id": "fuel", "impact_id": "CO2", "factor": 0.5}],
+        "flow_impacts": [{"flow_id": "fuel", "impact_id": "CO2", "factor": 0.5}],
         "technologies": [{"technology_id": "gen"}],
         "io": [
             {"technology_id": "gen", "target": "fuel", "role": "input", "coefficient": 2},
@@ -62,7 +62,7 @@ def _electricity_wb(co2_price: float) -> dict:
             }
         ],
         "demand": [
-            {"company": "Grid", "commodity_id": "electricity", "year": y, "amount": 1000}
+            {"company": "Grid", "flow_id": "electricity", "year": y, "amount": 1000}
             for y in (2025, 2030)
         ],
     }
@@ -77,9 +77,9 @@ def _steel_wb() -> dict:
     """
     return {
         "periods": [{"year": 2025, "duration_years": 1}, {"year": 2030, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "electricity", "kind": "energy"},
-            {"commodity_id": "steel", "kind": "product"},
+        "flows": [
+            {"flow_id": "electricity", "kind": "energy"},
+            {"flow_id": "steel", "kind": "product"},
         ],
         "technologies": [{"technology_id": "Arc"}, {"technology_id": "Arc_HR"}],
         "io": [
@@ -117,7 +117,7 @@ def _steel_wb() -> dict:
             }
         ],
         "demand": [
-            {"company": "SteelCo", "commodity_id": "steel", "year": y, "amount": 100}
+            {"company": "SteelCo", "flow_id": "steel", "year": y, "amount": 100}
             for y in (2025, 2030)
         ],
     }
@@ -132,7 +132,7 @@ def _spec(lag: int = 0) -> ValueChainSpec:
             CouplingLink(
                 from_stage="elec",
                 to_stage="steel",
-                commodity="electricity",
+                flow="electricity",
                 signals=["price"],
                 lag_years=lag,
             )
@@ -192,7 +192,7 @@ def test_carbon_intensity_signal_couples_into_downstream_emissions() -> None:
             CouplingLink(
                 from_stage="elec",
                 to_stage="steel",
-                commodity="electricity",
+                flow="electricity",
                 signals=["carbon_intensity"],
                 impact="CO2",
             )
@@ -219,7 +219,7 @@ def test_feedback_sizes_upstream_to_downstream_consumption() -> None:
     # to the steel mill's actual electricity consumption (4 MWh/t · 100 t = 400).
     elec = _electricity_wb(10.0)
     elec["demand"] = [
-        {"company": "Grid", "commodity_id": "electricity", "year": y, "amount": 10.0}
+        {"company": "Grid", "flow_id": "electricity", "year": y, "amount": 10.0}
         for y in (2025, 2030)
     ]
     spec = ValueChainSpec(
@@ -229,7 +229,7 @@ def test_feedback_sizes_upstream_to_downstream_consumption() -> None:
             CouplingLink(
                 from_stage="elec",
                 to_stage="steel",
-                commodity="electricity",
+                flow="electricity",
                 signals=["price"],
                 feedback=True,
             )
@@ -240,8 +240,8 @@ def test_feedback_sizes_upstream_to_downstream_consumption() -> None:
     assert res["status"] == "optimal"
     prod = {
         r["period"]: r["produced"]
-        for r in res["stages"]["elec"]["summary"]["commodity"]
-        if r["commodity"] == "electricity"
+        for r in res["stages"]["elec"]["summary"]["flow"]
+        if r["flow"] == "electricity"
     }
     assert prod[2025] == pytest.approx(400.0, abs=1.0)
     assert res["iterations"] <= 6, "the fixed point should converge well within the cap"
@@ -263,16 +263,16 @@ def test_profit_objective_stage_composes_in_cascade() -> None:
     # A downstream profit-maximiser (with a sale price) sells up to its demand.
     steel = _steel_wb()
     steel["company_config"] = [{"company": "SteelCo", "objective": "profit"}]
-    for c in steel["commodities"]:
-        if c["commodity_id"] == "steel":
+    for c in steel["flows"]:
+        if c["flow_id"] == "steel":
             c["sale_price"] = 10000.0
     res = run_value_chain(_spec(), {"elec": _electricity_wb(10.0), "steel": steel}, SC)
 
     assert res["status"] == "optimal"
     produced = {
         r["period"]: r["produced"]
-        for r in res["stages"]["steel"]["summary"]["commodity"]
-        if r["commodity"] == "steel"
+        for r in res["stages"]["steel"]["summary"]["flow"]
+        if r["flow"] == "steel"
     }
     assert produced[2025] == pytest.approx(100.0)
 
@@ -292,7 +292,7 @@ def test_marginal_price_signal_couples_downstream() -> None:
             CouplingLink(
                 from_stage="elec",
                 to_stage="steel",
-                commodity="electricity",
+                flow="electricity",
                 signals=["marginal_price"],
             )
         ],
@@ -312,16 +312,16 @@ def test_price_signal_is_cost_over_production() -> None:
     result = {
         "summary": {
             "periods": [{"period": 2025, "cost": 40000.0}],
-            "commodity": [{"commodity": "electricity", "period": 2025, "produced": 1000.0}],
+            "flow": [{"flow": "electricity", "period": 2025, "produced": 1000.0}],
         }
     }
     assert _price_signal(result, "electricity") == {2025: 40.0}
 
 
 def test_inject_price_upserts_without_clobbering_other_columns() -> None:
-    wb = {"commodities_t__price": [{"year": 2025, "fuel": 10.0}]}
+    wb = {"flows_t__price": [{"year": 2025, "fuel": 10.0}]}
     _inject_price(wb, "electricity", {2025: 30.0, 2030: 35.0})
-    rows = {int(r["year"]): r for r in wb["commodities_t__price"]}
+    rows = {int(r["year"]): r for r in wb["flows_t__price"]}
     assert rows[2025] == {"year": 2025, "fuel": 10.0, "electricity": 30.0}
     assert rows[2030] == {"year": 2030, "electricity": 35.0}
 
@@ -331,8 +331,8 @@ def test_topological_order_is_upstream_first() -> None:
         id="c",
         stages=[Stage(id="a"), Stage(id="b"), Stage(id="c")],
         links=[
-            CouplingLink(from_stage="a", to_stage="b", commodity="x"),
-            CouplingLink(from_stage="b", to_stage="c", commodity="y"),
+            CouplingLink(from_stage="a", to_stage="b", flow="x"),
+            CouplingLink(from_stage="b", to_stage="c", flow="y"),
         ],
     )
     order = spec.order()
@@ -365,7 +365,7 @@ def test_cyclic_chain_is_rejected() -> None:
             id="c",
             stages=[Stage(id="a"), Stage(id="b")],
             links=[
-                CouplingLink(from_stage="a", to_stage="b", commodity="x"),
-                CouplingLink(from_stage="b", to_stage="a", commodity="y"),
+                CouplingLink(from_stage="a", to_stage="b", flow="x"),
+                CouplingLink(from_stage="b", to_stage="a", flow="y"),
             ],
         )

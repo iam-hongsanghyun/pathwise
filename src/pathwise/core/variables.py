@@ -26,7 +26,7 @@ class LeverSlot:
         lever_id: Owning lever.
         process: Process the lever is installed on.
         lever_type: Lever kind (energy efficiency / emission / environmental).
-        target: Target commodity id (efficiency) or impact id (reduction/env).
+        target: Target flow id (efficiency) or impact id (reduction/env).
         reduction: Fractional reduction at full adoption of this block [—].
         capex: Block capital cost — a one-off lump at adoption [currency].
         opex: Block fixed operating cost per year at full adoption
@@ -77,20 +77,20 @@ class BuildContext:
 
     feasible: dict[str, list[str]]  # process -> feasible technologies
     slots: list[LeverSlot]
-    ref_consumption: dict[tuple[str, str], float]  # (process, commodity) -> baseline use
+    ref_consumption: dict[tuple[str, str], float]  # (process, flow) -> baseline use
     ref_impact: dict[tuple[str, str], float]  # (process, impact) -> baseline emission
-    grouped_comms: list[str] = field(default_factory=list)  # commodities in any blend group
-    grouped_out_comms: list[str] = field(default_factory=list)  # commodities in any output slate
+    grouped_comms: list[str] = field(default_factory=list)  # flows in any blend group
+    grouped_out_comms: list[str] = field(default_factory=list)  # flows in any output slate
 
     # Decision variables (set in build_context).
     on: Any = None  # binary: facility operates [process, period]
     u: Any = None  # binary: tech active [process, tech, period]
     x: Any = None  # throughput on tech [process, tech, period]
-    fin: Any = None  # blend-group input flow [process, tech, commodity, period]
-    fout: Any = None  # slate-group output flow [process, tech, commodity, period]
-    buy: Any = None  # external purchase [process, commodity, period]
-    sell: Any = None  # external sale/disposal [process, commodity, period]
-    deliver: Any = None  # product delivered to demand [process, commodity, period]
+    fin: Any = None  # blend-group input flow [process, tech, flow, period]
+    fout: Any = None  # slate-group output flow [process, tech, flow, period]
+    buy: Any = None  # external purchase [process, flow, period]
+    sell: Any = None  # external sale/disposal [process, flow, period]
+    deliver: Any = None  # product delivered to demand [process, flow, period]
     flow: Any = None  # inter-process flow [edge, period]
     z: Any = None  # lever adoption [slot, period]
     emit: Any = None  # impact emitted [process, impact, period]
@@ -101,15 +101,15 @@ class BuildContext:
     w: Any = None  # transition (replace) event [process, tech, period]
     ren: Any = None  # renewal (rebuild same tech, reset life) event [process, tech, period]
     cap_built: Any = None  # storage capacity built [store]
-    charge: Any = None  # commodity charged into a store [store, period]
-    discharge: Any = None  # commodity discharged from a store [store, period]
+    charge: Any = None  # flow charged into a store [store, period]
+    discharge: Any = None  # flow discharged from a store [store, period]
     level: Any = None  # storage inventory level [store, period]
-    extbuy: Any = None  # external purchase for a stored commodity [store, period]
-    mbuy: Any = None  # commodity-market purchase [cmarket, period]
-    msell: Any = None  # commodity-market sale [cmarket, period]
+    extbuy: Any = None  # external purchase for a stored flow [store, period]
+    mbuy: Any = None  # flow-market purchase [cmarket, period]
+    msell: Any = None  # flow-market sale [cmarket, period]
     abuy: Any = None  # ETS allowance bought [imarket, period]
     asell: Any = None  # ETS allowance sold [imarket, period]
-    cmarkets: list[Any] = field(default_factory=list)  # commodity Market entities
+    cmarkets: list[Any] = field(default_factory=list)  # flow Market entities
     imarkets: list[Any] = field(default_factory=list)  # impact (ETS) Market entities
     slk_dem: Any = None  # demand slack [demand_key]
     slk_cap: Any = None  # impact-cap slack [cap_key]
@@ -133,7 +133,7 @@ def _feasible_techs(problem: Problem) -> dict[str, list[str]]:
         if p.replaceable:
             techs |= by_from.get(p.baseline_technology, set())
         # A forced switch (simulate) makes its target reachable even with no
-        # transition row, so its recipe is wired into the commodity balance.
+        # transition row, so its recipe is wired into the flow balance.
         forced = problem.forced_switches.get(p.process_id)
         if forced is not None:
             techs.add(forced[0])
@@ -179,7 +179,7 @@ def _references(
 
     ``ref_consumption[(p, r)] = capacity_p · input_intensity[baseline, r](t₀)``.
     ``ref_impact[(p, i)] = capacity_p · direct_impact[baseline, i](t₀)
-        + Σ_r commodity_impacts[(r, i)] · ref_consumption[(p, r)]``.
+        + Σ_r flow_impacts[(r, i)] · ref_consumption[(p, r)]``.
     """
     ref_cons: dict[tuple[str, str], float] = {}
     ref_imp: dict[tuple[str, str], float] = {}
@@ -195,7 +195,7 @@ def _references(
         for i in problem.impacts:
             total = (tech.direct_impact_at(i, t0) + p.direct_impact_at(i, t0)) * cap
             for r in inputs:
-                total += problem.commodity_impacts.get((r, i), 0.0) * ref_cons.get(
+                total += problem.flow_impacts.get((r, i), 0.0) * ref_cons.get(
                     (p.process_id, r), 0.0
                 )
             ref_imp[(p.process_id, i)] = total
@@ -206,7 +206,7 @@ def build_context(model: Model, problem: Problem) -> BuildContext:
     """Create all decision variables and return the populated context."""
     procs = [p.process_id for p in problem.processes]
     techs = list(problem.technologies)
-    comms = list(problem.commodities)
+    comms = list(problem.flows)
     impacts = list(problem.impacts)
     years = problem.years
 
@@ -218,7 +218,7 @@ def build_context(model: Model, problem: Problem) -> BuildContext:
 
     p_idx = pd.Index(procs, name="process")
     k_idx = pd.Index(techs, name="tech")
-    r_idx = pd.Index(comms, name="commodity")
+    r_idx = pd.Index(comms, name="flow")
     i_idx = pd.Index(impacts, name="impact")
     t_idx = pd.Index(years, name="period")
 
@@ -242,10 +242,10 @@ def build_context(model: Model, problem: Problem) -> BuildContext:
     ctx.u = model.add_variables(binary=True, coords=[p_idx, k_idx, t_idx], name="u")
     ctx.x = model.add_variables(lower=0.0, coords=[p_idx, k_idx, t_idx], name="x")
     if grouped_comms:
-        gc_idx = pd.Index(grouped_comms, name="commodity")
+        gc_idx = pd.Index(grouped_comms, name="flow")
         ctx.fin = model.add_variables(lower=0.0, coords=[p_idx, k_idx, gc_idx, t_idx], name="fin")
     if grouped_out:
-        go_idx = pd.Index(grouped_out, name="commodity")
+        go_idx = pd.Index(grouped_out, name="flow")
         ctx.fout = model.add_variables(lower=0.0, coords=[p_idx, k_idx, go_idx, t_idx], name="fout")
     # Transition (replace) event: continuous in [0, 1] — w >= u_t - u_prev pins it
     # to the switch-in, and cost minimisation keeps it at the lower bound.
@@ -306,7 +306,7 @@ def build_context(model: Model, problem: Problem) -> BuildContext:
         ctx.level = model.add_variables(lower=0.0, coords=[st_idx, t_idx], name="level")
         ctx.extbuy = model.add_variables(lower=0.0, coords=[st_idx, t_idx], name="extbuy")
 
-    ctx.cmarkets = [m for m in problem.markets if m.target_kind == MarketTarget.COMMODITY]
+    ctx.cmarkets = [m for m in problem.markets if m.target_kind == MarketTarget.FLOW]
     ctx.imarkets = [m for m in problem.markets if m.target_kind == MarketTarget.IMPACT]
     if ctx.cmarkets:
         cm_idx = pd.Index([m.market_id for m in ctx.cmarkets], name="cmarket")

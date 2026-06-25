@@ -1,4 +1,4 @@
-"""Per-edge (provider → consumer, commodity) flow bounds.
+"""Per-edge (provider → consumer, flow) flow bounds.
 
 An edge ``min_flow`` is a take-or-pay floor on ONE provider's link: even when a
 cheaper provider exists, at least ``min_flow`` must be taken from this one. The
@@ -23,16 +23,16 @@ def _solve(wb: dict[str, Any]) -> dict[str, Any]:
 def _wb(p2_to_c: dict[str, Any] | None = None) -> dict[str, Any]:
     # Two power plants make elec — P1 cheap (gas @10), P2 dear (gas2 @100); the
     # consumer C turns elec into steel. Demand = 100 steel ⇒ 100 elec needed.
-    edge_p2 = {"from_process": "P2", "to_process": "C", "commodity_id": "elec"}
+    edge_p2 = {"from_process": "P2", "to_process": "C", "flow_id": "elec"}
     if p2_to_c:
         edge_p2.update(p2_to_c)
     return {
         "periods": [{"year": 2025, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "gas", "kind": "energy", "price": 10},
-            {"commodity_id": "gas2", "kind": "energy", "price": 100},
-            {"commodity_id": "elec", "kind": "energy"},
-            {"commodity_id": "steel", "kind": "product"},
+        "flows": [
+            {"flow_id": "gas", "kind": "energy", "price": 10},
+            {"flow_id": "gas2", "kind": "energy", "price": 100},
+            {"flow_id": "elec", "kind": "energy"},
+            {"flow_id": "steel", "kind": "product"},
         ],
         "technologies": [
             {"technology_id": "PT"},
@@ -45,20 +45,20 @@ def _wb(p2_to_c: dict[str, Any] | None = None) -> dict[str, Any]:
             {"process_id": "C", "company": "X", "baseline_technology": "CT", "capacity": 1000},
         ],
         "process_inputs": [
-            {"technology_id": "PT", "commodity_id": "gas", "intensity": 1.0},
-            {"technology_id": "PT2", "commodity_id": "gas2", "intensity": 1.0},
-            {"technology_id": "CT", "commodity_id": "elec", "intensity": 1.0},
+            {"technology_id": "PT", "flow_id": "gas", "intensity": 1.0},
+            {"technology_id": "PT2", "flow_id": "gas2", "intensity": 1.0},
+            {"technology_id": "CT", "flow_id": "elec", "intensity": 1.0},
         ],
         "process_outputs": [
-            {"technology_id": "PT", "commodity_id": "elec", "yield": 1.0},
-            {"technology_id": "PT2", "commodity_id": "elec", "yield": 1.0},
-            {"technology_id": "CT", "commodity_id": "steel", "yield": 1.0, "is_product": True},
+            {"technology_id": "PT", "flow_id": "elec", "yield": 1.0},
+            {"technology_id": "PT2", "flow_id": "elec", "yield": 1.0},
+            {"technology_id": "CT", "flow_id": "steel", "yield": 1.0, "is_product": True},
         ],
         "edges": [
-            {"from_process": "P1", "to_process": "C", "commodity_id": "elec"},
+            {"from_process": "P1", "to_process": "C", "flow_id": "elec"},
             edge_p2,
         ],
-        "demand": [{"company": "X", "commodity_id": "steel", "year": 2025, "amount": 100}],
+        "demand": [{"company": "X", "flow_id": "steel", "year": 2025, "amount": 100}],
     }
 
 

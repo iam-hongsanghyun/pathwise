@@ -18,9 +18,9 @@ def _wb() -> dict:
     # vc → co (company) → mill (facility) → {bf, eaf} assets, both make steel.
     return {
         "periods": [{"year": 2025, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "steel", "kind": "product"},
-            {"commodity_id": "power", "kind": "energy", "price": 1.0},
+        "flows": [
+            {"flow_id": "steel", "kind": "product"},
+            {"flow_id": "power", "kind": "energy", "price": 1.0},
         ],
         "technologies": [{"technology_id": "BF"}, {"technology_id": "EAF"}],
         "io": [
@@ -52,7 +52,7 @@ def _wb() -> dict:
             {"asset_id": "bf", "baseline_technology": "BF", "capacity": 100},
             {"asset_id": "eaf", "baseline_technology": "EAF", "capacity": 100},
         ],
-        "demand": [{"company": "co", "commodity_id": "steel", "year": 2025, "amount": 150}],
+        "demand": [{"company": "co", "flow_id": "steel", "year": 2025, "amount": 150}],
     }
 
 
@@ -74,9 +74,9 @@ def test_flat_model_is_unaffected() -> None:
     # No nodes sheet ⇒ flat behaviour: one process, one technology.
     wb = {
         "periods": [{"year": 2025}],
-        "commodities": [
-            {"commodity_id": "steel", "kind": "product"},
-            {"commodity_id": "power", "kind": "energy", "price": 1.0},
+        "flows": [
+            {"flow_id": "steel", "kind": "product"},
+            {"flow_id": "power", "kind": "energy", "price": 1.0},
         ],
         "technologies": [{"technology_id": "EAF"}],
         "io": [
@@ -92,7 +92,7 @@ def test_flat_model_is_unaffected() -> None:
         "processes": [
             {"process_id": "Mill", "company": "co", "baseline_technology": "EAF", "capacity": 200}
         ],
-        "demand": [{"company": "co", "commodity_id": "steel", "year": 2025, "amount": 100}],
+        "demand": [{"company": "co", "flow_id": "steel", "year": 2025, "amount": 100}],
     }
     res = extract_results(solve(build(assemble_problem(wb, SC))))
     assert res["status"] == "optimal" and not res["outputs"]["demand_slack"]

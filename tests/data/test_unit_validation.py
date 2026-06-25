@@ -40,14 +40,14 @@ def test_clean_workbook_has_no_unit_warnings() -> None:
 
 def test_placeholder_unit_warns() -> None:
     wb = example_workbook()
-    wb["commodities"][2]["unit"] = "unit"  # 'ore' left on the placeholder
+    wb["flows"][2]["unit"] = "unit"  # 'ore' left on the placeholder
     warns = _unit_warnings(wb)
     assert any("ore" in w and "placeholder" in w for w in warns)
 
 
 def test_unparseable_unit_warns() -> None:
     wb = example_workbook()
-    wb["commodities"][2]["unit"] = "zzz"
+    wb["flows"][2]["unit"] = "zzz"
     assert any("ore" in w and "unrecognised" in w for w in _unit_warnings(wb))
 
 
@@ -55,21 +55,21 @@ def test_energy_stream_with_mass_unit_warns() -> None:
     wb = example_workbook()
     # 'coal' is an energy stream; tonnes is mass-dimensioned and it has no
     # energy_content factor, so it can't be converted to energy → warn.
-    wb["commodities"][0]["unit"] = "t"
+    wb["flows"][0]["unit"] = "t"
     assert any("coal" in w and "energy_content" in w for w in _unit_warnings(wb))
 
 
 def test_energy_stream_in_mass_with_energy_content_ok() -> None:
     wb = example_workbook()
-    wb["commodities"][0]["unit"] = "t"  # tonnes of coal …
-    wb["commodity_properties"] = [
-        {"commodity_id": "coal", "property": "energy_content", "value": 24.0}
+    wb["flows"][0]["unit"] = "t"  # tonnes of coal …
+    wb["flow_properties"] = [
+        {"flow_id": "coal", "property": "energy_content", "value": 24.0}
     ]  # … but it declares GJ per tonne, so the fuel-in-mass case is legitimate.
     assert not any("coal" in w for w in _unit_warnings(wb))
 
 
 def test_validation_never_errors_on_units() -> None:
     wb = example_workbook()
-    wb["commodities"][0]["unit"] = "zzz"
-    wb["commodities"][1]["unit"] = "unit"
+    wb["flows"][0]["unit"] = "zzz"
+    wb["flows"][1]["unit"] = "unit"
     assert validate(wb).ok  # unit problems are warnings, never blockers

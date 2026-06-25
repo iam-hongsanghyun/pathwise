@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 
 from pathwise.core.entities import (
-    Commodity,
-    CommodityKind,
+    Flow,
+    FlowKind,
     Period,
     Process,
     Technology,
@@ -39,9 +39,9 @@ def _problem(capex_per_capacity: float = 0.0, prod_sale: float = 0.0) -> Problem
         periods=[Period(2025, 1.0)],
         processes=[Process(process_id="P1", company="C", baseline_technology="A", capacity=100.0)],
         technologies={"A": a, "B": b},
-        commodities={
-            "fuel": Commodity("fuel", CommodityKind.ENERGY, price_by_year={2025: 3.0}),
-            "prod": Commodity("prod", CommodityKind.PRODUCT, sale_price_by_year={2025: prod_sale}),
+        flows={
+            "fuel": Flow("fuel", FlowKind.ENERGY, price_by_year={2025: 3.0}),
+            "prod": Flow("prod", FlowKind.PRODUCT, sale_price_by_year={2025: prod_sale}),
         },
         impacts={},
         transitions=[

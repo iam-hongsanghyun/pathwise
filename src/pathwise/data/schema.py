@@ -36,6 +36,6 @@ def template_columns() -> dict[str, list[str]]:
 
     The keys are exactly what import reads back, so a filled-in template round-trips.
     Temporal sheets keep their ``_t`` / ``_t__field`` names; each entity (technologies,
-    measures, commodities, markets, …) is its own sheet.
+    measures, flows, markets, …) is its own sheet.
     """
     return {name: list(sh.get("columns", {})) for name, sh in SCHEMA.items()}

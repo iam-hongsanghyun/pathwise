@@ -37,9 +37,9 @@ def _wb(cap: float | None) -> dict:
     )
     return {
         "periods": [{"year": 2025}],
-        "commodities": [
-            {"commodity_id": "steel", "kind": "product", "unit": "t"},
-            {"commodity_id": "power", "kind": "product", "unit": "MWh"},
+        "flows": [
+            {"flow_id": "steel", "kind": "product", "unit": "t"},
+            {"flow_id": "power", "kind": "product", "unit": "MWh"},
         ],
         "impacts": [{"impact_id": "CO2", "unit": "t"}],
         # Dirty/clean variants of each sector's product (clean costs more, emits nothing).
@@ -110,8 +110,8 @@ def _wb(cap: float | None) -> dict:
         ],
         "impact_caps": caps,
         "demand": [
-            {"company": "steel", "commodity_id": "steel", "year": 2025, "amount": 100},
-            {"company": "power", "commodity_id": "power", "year": 2025, "amount": 100},
+            {"company": "steel", "flow_id": "steel", "year": 2025, "amount": 100},
+            {"company": "power", "flow_id": "power", "year": 2025, "amount": 100},
         ],
     }
 

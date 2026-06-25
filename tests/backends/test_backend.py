@@ -25,7 +25,7 @@ def test_run_end_to_end() -> None:
     base = {(c["process"], c["period"]): c["technology"] for c in res["outputs"]["technology"]}
     assert base[("F1", 2025)] == "BF"
     # The iron stream is routed F1 → F2.
-    assert any(f["commodity"] == "iron" for f in res["outputs"]["flows"])
+    assert any(f["flow"] == "iron" for f in res["outputs"]["flows"])
 
 
 def test_run_invalid_workbook_folds_validation() -> None:

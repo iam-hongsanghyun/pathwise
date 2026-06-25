@@ -1,7 +1,7 @@
 {
   "requiredSheets": [
     "periods",
-    "commodities",
+    "flows",
     "technologies",
     "processes",
     "demand"
@@ -9,7 +9,7 @@
   "terminology": {
     "process": "Facility",
     "technology": "Technology",
-    "commodity": "Stream",
+    "flow": "Flow",
     "impact": "Environmental impact",
     "lever": "Lever",
     "company": "Company",
@@ -30,14 +30,14 @@
         }
       }
     },
-    "commodities": {
-      "label": "Streams",
+    "flows": {
+      "label": "Flows",
       "columns": {
-        "commodity_id": {
-          "label": "Stream",
+        "flow_id": {
+          "label": "Flow",
           "type": "string",
           "required": true,
-          "desc": "Unique name of the energy/material stream."
+          "desc": "Unique name of the energy/material flow."
         },
         "kind": {
           "label": "Kind",
@@ -155,7 +155,7 @@
           "label": "Facility",
           "type": "string",
           "required": true,
-          "desc": "Unique name of the plant/machine instance."
+          "desc": "Unique name of the plant/asset instance."
         },
         "company": {
           "label": "Company (demand scope)",
@@ -242,8 +242,8 @@
           "required": true,
           "desc": "Unique name of the recipe (what a facility runs)."
         },
-        "commodity_id": {
-          "label": "Input stream",
+        "flow_id": {
+          "label": "Input flow",
           "type": "string",
           "required": true
         },
@@ -263,8 +263,8 @@
           "required": true,
           "desc": "Unique name of the recipe (what a facility runs)."
         },
-        "commodity_id": {
-          "label": "Output stream",
+        "flow_id": {
+          "label": "Output flow",
           "type": "string",
           "required": true
         },
@@ -329,7 +329,7 @@
           "desc": "Unique name of the recipe (what a facility runs)."
         },
         "target": {
-          "label": "Stream / impact",
+          "label": "Flow / impact",
           "type": "string",
           "required": true
         },
@@ -346,7 +346,7 @@
         "unit": {
           "label": "Coefficient unit",
           "type": "string",
-          "desc": "Authored unit of the coefficient (e.g. MWh, t). Blank = the target stream's unit. A differing unit is converted to the stream's unit when the model is assembled."
+          "desc": "Authored unit of the coefficient (e.g. MWh, t). Blank = the target flow's unit. A differing unit is converted to the flow's unit when the model is assembled."
         },
         "is_product": {
           "label": "Is product",
@@ -375,7 +375,7 @@
           "required": true
         },
         "target": {
-          "label": "Stream / impact",
+          "label": "Flow / impact",
           "type": "string",
           "required": true
         },
@@ -403,11 +403,11 @@
         }
       }
     },
-    "commodity_properties": {
-      "label": "Stream properties (temperature / voltage / …)",
+    "flow_properties": {
+      "label": "Flow properties (temperature / voltage / …)",
       "columns": {
-        "commodity_id": {
-          "label": "Stream",
+        "flow_id": {
+          "label": "Flow",
           "type": "string",
           "required": true
         },
@@ -423,8 +423,8 @@
         }
       }
     },
-    "commodities_t__price": {
-      "label": "Stream price · by year",
+    "flows_t__price": {
+      "label": "Flow price · by year",
       "columns": {
         "year": {
           "label": "Year",
@@ -433,8 +433,8 @@
         }
       }
     },
-    "commodities_t__sale_price": {
-      "label": "Stream sale price · by year",
+    "flows_t__sale_price": {
+      "label": "Flow sale price · by year",
       "columns": {
         "year": {
           "label": "Year",
@@ -443,8 +443,8 @@
         }
       }
     },
-    "commodities_t__max_purchase": {
-      "label": "Stream purchase cap · by year",
+    "flows_t__max_purchase": {
+      "label": "Flow purchase cap · by year",
       "columns": {
         "year": {
           "label": "Year",
@@ -546,8 +546,8 @@
           "type": "string",
           "required": true
         },
-        "commodity_id": {
-          "label": "Stream",
+        "flow_id": {
+          "label": "Flow",
           "type": "string",
           "required": true
         },
@@ -719,12 +719,12 @@
         "fuel": {
           "label": "Fuel",
           "type": "string",
-          "desc": "Stream the fleet consumes per distance (drives fuel cost + emissions)."
+          "desc": "Flow the fleet consumes per distance (drives fuel cost + emissions)."
         },
         "cargo": {
           "label": "Cargo",
           "type": "string",
-          "desc": "Stream the fleet carries (delivers between stations)."
+          "desc": "Flow the fleet carries (delivers between stations)."
         },
         "efficiency": {
           "label": "Fuel efficiency",
@@ -768,7 +768,7 @@
         },
         "from_node": {"label": "From", "type": "string", "desc": "Origin node (carries lon/lat)."},
         "to_node": {"label": "To", "type": "string", "desc": "Destination node (carries lon/lat)."},
-        "commodity": {"label": "Stream", "type": "string", "desc": "Value-chain stream this route physicalises (the connection's commodity); blank ⇒ a direct transport process."},
+        "flow": {"label": "Flow", "type": "string", "desc": "Value-chain flow this route physicalises (the link's flow); blank ⇒ a direct transport process."},
         "mode": {"label": "Mode", "type": "string", "desc": "sea (searoute) / road / rail (great-circle × factor)."},
         "distance": {
           "label": "Distance",
@@ -876,14 +876,14 @@
         }
       }
     },
-    "commodity_impacts": {
-      "label": "Stream impact factors",
+    "flow_impacts": {
+      "label": "Flow impact factors",
       "columns": {
-        "commodity_id": {
-          "label": "Stream",
+        "flow_id": {
+          "label": "Flow",
           "type": "string",
           "required": true,
-          "desc": "Unique name of the energy/material stream."
+          "desc": "Unique name of the energy/material flow."
         },
         "impact_id": {
           "label": "Impact",
@@ -897,14 +897,14 @@
         }
       }
     },
-    "commodity_impacts_t": {
-      "label": "Stream impact factors · by year",
+    "flow_impacts_t": {
+      "label": "Flow impact factors · by year",
       "columns": {
-        "commodity_id": {
-          "label": "Stream",
+        "flow_id": {
+          "label": "Flow",
           "type": "string",
           "required": true,
-          "desc": "Unique name of the energy/material stream."
+          "desc": "Unique name of the energy/material flow."
         },
         "impact_id": {
           "label": "Impact",
@@ -937,11 +937,11 @@
           "type": "string",
           "required": true
         },
-        "commodity_id": {
-          "label": "Stream",
+        "flow_id": {
+          "label": "Flow",
           "type": "string",
           "required": true,
-          "desc": "Unique name of the energy/material stream."
+          "desc": "Unique name of the energy/material flow."
         },
         "max_flow": {
           "label": "Max flow (/yr)",
@@ -956,7 +956,7 @@
           "label": "Node",
           "type": "string",
           "required": true,
-          "desc": "Unique id of a group or machine in the recursive hierarchy."
+          "desc": "Unique id of a group or asset in the recursive hierarchy."
         },
         "parent_id": {
           "label": "Parent",
@@ -964,14 +964,14 @@
           "desc": "Containing node; empty for a root."
         },
         "kind": {
-          "label": "Kind (group|machine)",
+          "label": "Kind (group|asset)",
           "type": "string",
-          "desc": "group = composite (has children); machine = leaf (runs one technology)."
+          "desc": "group = composite (has children); asset = leaf (runs one technology)."
         },
         "level": {
           "label": "Level (free text)",
           "type": "string",
-          "desc": "User-defined level name (e.g. company); the only built-in level is the machine leaf."
+          "desc": "User-defined level name (e.g. company); the only built-in level is the asset leaf."
         },
         "label": {
           "label": "Label",
@@ -985,14 +985,14 @@
         "lat": {"label": "Latitude", "type": "number", "desc": "Geographic latitude (for the map + route distances)."}
       }
     },
-    "machines": {
-      "label": "Machines (leaf units)",
+    "assets": {
+      "label": "Assets (leaf units)",
       "columns": {
-        "machine_id": {
-          "label": "Machine",
+        "asset_id": {
+          "label": "Asset",
           "type": "string",
           "required": true,
-          "desc": "A node of kind machine; the facility is the sum of its machines."
+          "desc": "A node of kind asset; the facility is the sum of its assets."
         },
         "baseline_technology": {
           "label": "Baseline tech",
@@ -1011,8 +1011,8 @@
         "lat": {"label": "Latitude", "type": "number", "desc": "Geographic latitude (for the map + route distances)."}
       }
     },
-    "connections": {
-      "label": "Connections (between nodes)",
+    "links": {
+      "label": "Links (between nodes)",
       "columns": {
         "from_node": {
           "label": "From node",
@@ -1024,16 +1024,16 @@
           "type": "string",
           "required": true
         },
-        "commodity_id": {
-          "label": "Stream",
+        "flow_id": {
+          "label": "Flow",
           "type": "string",
           "required": true,
-          "desc": "Unique name of the energy/material stream."
+          "desc": "Unique name of the energy/material flow."
         },
         "lag_years": {
           "label": "Time gap (yr)",
           "type": "integer",
-          "desc": "Lag applied when the connection crosses an optimisation boundary (becomes a coupling-link lag)."
+          "desc": "Lag applied when the link crosses an optimisation boundary (becomes a coupling-link lag)."
         },
         "max_flow": {
           "label": "Max flow (/yr)",
@@ -1048,13 +1048,13 @@
           "label": "Group",
           "type": "string",
           "required": true,
-          "desc": "Group exposing the boundary stream."
+          "desc": "Group exposing the boundary flow."
         },
-        "commodity_id": {
-          "label": "Stream",
+        "flow_id": {
+          "label": "Flow",
           "type": "string",
           "required": true,
-          "desc": "Unique name of the energy/material stream."
+          "desc": "Unique name of the energy/material flow."
         },
         "direction": {
           "label": "Direction (in|out)",
@@ -1080,13 +1080,13 @@
           "label": "Type",
           "type": "string",
           "required": true,
-          "desc": "Lever it pulls: energy_efficiency cuts an input stream; emission_reduction cuts CO2; environmental cuts another impact."
+          "desc": "Lever it pulls: energy_efficiency cuts an input flow; emission_reduction cuts CO2; environmental cuts another impact."
         },
         "target": {
-          "label": "Target stream/impact",
+          "label": "Target flow/impact",
           "type": "string",
           "required": true,
-          "desc": "What it reduces: an input stream (energy_efficiency) or an impact (other types)."
+          "desc": "What it reduces: an input flow (energy_efficiency) or an impact (other types)."
         },
         "facility": {
           "label": "Facility (direct)",
@@ -1133,22 +1133,22 @@
         "facility": {
           "label": "Facility",
           "type": "string",
-          "desc": "Deploy on one facility. Fill exactly one of facility / technology / stream / store."
+          "desc": "Deploy on one facility. Fill exactly one of facility / technology / flow / store."
         },
         "technology": {
           "label": "Technology",
           "type": "string",
-          "desc": "Deploy on every facility running this technology (each adopts independently). Fill exactly one of facility / technology / stream / store."
+          "desc": "Deploy on every facility running this technology (each adopts independently). Fill exactly one of facility / technology / flow / store."
         },
-        "commodity": {
-          "label": "Stream",
+        "flow": {
+          "label": "Flow",
           "type": "string",
-          "desc": "Deploy on every facility whose baseline technology consumes this stream (each adopts independently). Fill exactly one of facility / technology / stream / store."
+          "desc": "Deploy on every facility whose baseline technology consumes this flow (each adopts independently). Fill exactly one of facility / technology / flow / store."
         },
         "storage": {
           "label": "Store",
           "type": "string",
-          "desc": "Deploy via a store: every facility consuming the stored stream (each adopts independently). Fill exactly one of facility / technology / stream / store."
+          "desc": "Deploy via a store: every facility consuming the stored flow (each adopts independently). Fill exactly one of facility / technology / flow / store."
         }
       }
     },
@@ -1224,11 +1224,11 @@
           "type": "string",
           "required": true
         },
-        "commodity_id": {
-          "label": "Stream",
+        "flow_id": {
+          "label": "Flow",
           "type": "string",
           "required": true,
-          "desc": "Unique name of the energy/material stream."
+          "desc": "Unique name of the energy/material flow."
         },
         "company": {
           "label": "Company (or all)",
@@ -1277,12 +1277,12 @@
           "required": true
         },
         "target": {
-          "label": "Stream / impact",
+          "label": "Flow / impact",
           "type": "string",
           "required": true
         },
         "target_kind": {
-          "label": "Kind (auto: commodity|impact)",
+          "label": "Kind (auto: flow|impact)",
           "type": "string"
         },
         "company": {
@@ -1396,7 +1396,7 @@
           "label": "Company (or all)",
           "type": "string"
         },
-        "commodity_id": {
+        "flow_id": {
           "label": "Product",
           "type": "string",
           "required": true
@@ -1432,7 +1432,7 @@
           "label": "Company (or all)",
           "type": "string"
         },
-        "commodity_id": {
+        "flow_id": {
           "label": "Product",
           "type": "string",
           "required": true
@@ -1469,7 +1469,7 @@
           "type": "string",
           "required": true
         },
-        "commodity_id": {
+        "flow_id": {
           "label": "Product",
           "type": "string",
           "required": true
@@ -1563,14 +1563,14 @@
         }
       }
     },
-    "commodity_prices": {
-      "label": "Stream price trajectory",
+    "flow_prices": {
+      "label": "Flow price trajectory",
       "columns": {
-        "commodity_id": {
-          "label": "Stream",
+        "flow_id": {
+          "label": "Flow",
           "type": "string",
           "required": true,
-          "desc": "Unique name of the energy/material stream."
+          "desc": "Unique name of the energy/material flow."
         },
         "year": {
           "label": "Year",

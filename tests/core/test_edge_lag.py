@@ -1,6 +1,6 @@
 """A time-lagged edge: flow leaving the producer in year t arrives at the consumer
 in t+lag. Models a use-phase / recycling return (e.g. steel → cars → scrap years
-later); the quality change is just the producer emitting a different commodity."""
+later); the quality change is just the producer emitting a different flow."""
 
 from __future__ import annotations
 
@@ -17,8 +17,8 @@ def _solve(wb: dict[str, Any]) -> dict[str, Any]:
     return extract_results(solve(build(assemble_problem(wb, sc))))
 
 
-def _produced(res: dict[str, Any], commodity: str) -> float:
-    return sum(s["produced"] for s in res["summary"]["commodity"] if s["commodity"] == commodity)
+def _produced(res: dict[str, Any], flow: str) -> float:
+    return sum(s["produced"] for s in res["summary"]["flow"] if s["flow"] == flow)
 
 
 def _wb(lag: int) -> dict[str, Any]:
@@ -26,10 +26,10 @@ def _wb(lag: int) -> dict[str, Any]:
     # so X made in 2025 only reaches C in 2025+lag. Demand pulls 100 Y in BOTH years.
     return {
         "periods": [{"year": 2025, "duration_years": 5}, {"year": 2030, "duration_years": 5}],
-        "commodities": [
-            {"commodity_id": "ore", "kind": "material", "price": 1},
-            {"commodity_id": "x", "kind": "material"},
-            {"commodity_id": "y", "kind": "product"},
+        "flows": [
+            {"flow_id": "ore", "kind": "material", "price": 1},
+            {"flow_id": "x", "kind": "material"},
+            {"flow_id": "y", "kind": "product"},
         ],
         "technologies": [{"technology_id": "ST"}, {"technology_id": "CT"}],
         "processes": [
@@ -37,17 +37,17 @@ def _wb(lag: int) -> dict[str, Any]:
             {"process_id": "C", "company": "Z", "baseline_technology": "CT", "capacity": 1000},
         ],
         "process_inputs": [
-            {"technology_id": "ST", "commodity_id": "ore", "intensity": 1.0},
-            {"technology_id": "CT", "commodity_id": "x", "intensity": 1.0},
+            {"technology_id": "ST", "flow_id": "ore", "intensity": 1.0},
+            {"technology_id": "CT", "flow_id": "x", "intensity": 1.0},
         ],
         "process_outputs": [
-            {"technology_id": "ST", "commodity_id": "x", "yield": 1.0},
-            {"technology_id": "CT", "commodity_id": "y", "yield": 1.0, "is_product": True},
+            {"technology_id": "ST", "flow_id": "x", "yield": 1.0},
+            {"technology_id": "CT", "flow_id": "y", "yield": 1.0, "is_product": True},
         ],
-        "edges": [{"from_process": "S", "to_process": "C", "commodity_id": "x", "lag_years": lag}],
+        "edges": [{"from_process": "S", "to_process": "C", "flow_id": "x", "lag_years": lag}],
         "demand": [
-            {"company": "all", "commodity_id": "y", "year": 2025, "amount": 100},
-            {"company": "all", "commodity_id": "y", "year": 2030, "amount": 100},
+            {"company": "all", "flow_id": "y", "year": 2025, "amount": 100},
+            {"company": "all", "flow_id": "y", "year": 2030, "amount": 100},
         ],
     }
 

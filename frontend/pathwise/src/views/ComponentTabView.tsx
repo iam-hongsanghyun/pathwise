@@ -1,13 +1,13 @@
 // Component tab — each library has THREE fixed structures:
 //   Technology  (recipe: properties + input/output streams + linked MACCs)
-//   Stream      (commodity properties)
+//   Stream      (flow properties)
 //   Levers      (MACC = a group of levers · Individual = reusable levers)
 // Left = the structure tree; right-click adds/renames/deletes; the right (main)
 // detail shows the properties of the selected item.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  CommodityEditor,
+  FlowEditor,
   LeverEditor,
   MaccEditor,
   TechnologyEditor,
@@ -19,7 +19,7 @@ import { SearchSelect } from "../features/controls/SearchSelect";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
 import type { TreeAction, TreeNode } from "../features/tree/types";
 import {
-  type CommodityTemplate,
+  type FlowTemplate,
   type ComponentLibrary,
   deleteComponentLibrary,
   deleteSessionComponentLibrary,
@@ -122,13 +122,13 @@ function treeIdOf(s: Sel): string {
 const OTHER = "Other";
 export interface Bucket {
   techs: TechnologyTemplate[];
-  streams: CommodityTemplate[];
+  streams: FlowTemplate[];
   maccs: MaccGroup[];
   measures: LeverTemplate[];
 }
 export function libraryBuckets(body: ComponentLibrary): { order: string[]; buckets: Map<string, Bucket> } {
   const sec = (s: string | null | undefined): string => (s && s.trim()) || OTHER;
-  const secOf = new Map(body.commodities.map((c) => [c.commodity_id, c.sector]));
+  const secOf = new Map(body.flows.map((c) => [c.flow_id, c.sector]));
   const produced = new Set<string>();
   const consumed = new Set<string>();
   for (const t of body.technologies)
@@ -158,9 +158,9 @@ export function libraryBuckets(body: ComponentLibrary): { order: string[]; bucke
     return b;
   };
   for (const t of body.technologies) B(techSector(t)).techs.push(t);
-  for (const c of body.commodities) {
-    const isOut = produced.has(c.commodity_id);
-    if (!isOut && consumed.has(c.commodity_id)) continue; // pure input → produced elsewhere
+  for (const c of body.flows) {
+    const isOut = produced.has(c.flow_id);
+    if (!isOut && consumed.has(c.flow_id)) continue; // pure input → produced elsewhere
     B(isOut ? sec(c.sector) : OTHER).streams.push(c); // standalone (neither) → Other
   }
   for (const g of body.maccs) B(maccSectorOf.get(g.macc_id) ?? OTHER).maccs.push(g);
@@ -353,7 +353,7 @@ export function ComponentTabView({
         node(`cat:${lk}:${s}/tech`, groupParent, "Technology", "group", b.techs.length > 0);
         for (const t of b.techs) node(`t:${lk}:${t.technology_id}`, `cat:${lk}:${s}/tech`, t.technology_id, "leaf", false);
         node(`cat:${lk}:${s}/stream`, groupParent, "Stream", "group", b.streams.length > 0);
-        for (const c of b.streams) node(`s:${lk}:${c.commodity_id}`, `cat:${lk}:${s}/stream`, c.commodity_id, "leaf", false);
+        for (const c of b.streams) node(`s:${lk}:${c.flow_id}`, `cat:${lk}:${s}/stream`, c.flow_id, "leaf", false);
         node(`cat:${lk}:${s}/measures`, groupParent, "Levers & MACC", "group", b.maccs.length + b.measures.length > 0);
         node(`cat:${lk}:${s}/macc`, `cat:${lk}:${s}/measures`, "MACC", "group", b.maccs.length > 0);
         for (const g of b.maccs) node(`g:${lk}:${g.macc_id}`, `cat:${lk}:${s}/macc`, g.label || g.macc_id, "leaf", false);
@@ -377,17 +377,17 @@ export function ComponentTabView({
   }
   function addStream(libId: string, sector: string | null = null) {
     editLib(libId, (l) => {
-      const id = uniq("stream", new Set(l.commodities.map((c) => c.commodity_id)));
+      const id = uniq("stream", new Set(l.flows.map((c) => c.flow_id)));
       setSel({ libId, kind: "stream", id });
       // standalone until produced by a technology → shown under "Other" for now
       setExpanded((p) => new Set(p).add(`lib:${libId}`).add(`cat:${libId}:${OTHER}`).add(`cat:${libId}:${OTHER}/stream`));
-      return { ...l, commodities: [...l.commodities, { commodity_id: id, kind: "material", unit: "unit", sector } as CommodityTemplate] };
+      return { ...l, flows: [...l.flows, { flow_id: id, kind: "material", unit: "unit", sector } as FlowTemplate] };
     });
   }
   function addLever(libId: string) {
     editLib(libId, (l) => {
       const id = uniq("lever", new Set(l.measures.map((m) => m.lever_id)));
-      const m: LeverTemplate = { lever_id: id, label: "", type: "energy_efficiency", target: l.commodities[0]?.commodity_id ?? "", lifetime: 15, blocks: [{ reduction: 0.05, capex_per_capacity: 0, opex_per_capacity: 0 }] };
+      const m: LeverTemplate = { lever_id: id, label: "", type: "energy_efficiency", target: l.flows[0]?.flow_id ?? "", lifetime: 15, blocks: [{ reduction: 0.05, capex_per_capacity: 0, opex_per_capacity: 0 }] };
       setSel({ libId, kind: "lever", id });
       setExpanded((p) => new Set(p).add(`lib:${libId}`).add(`cat:${libId}:${OTHER}`).add(`cat:${libId}:${OTHER}/measures`).add(`cat:${libId}:${OTHER}/indiv`));
       return { ...l, measures: [...l.measures, m] };
@@ -404,7 +404,7 @@ export function ComponentTabView({
   function deleteItem(s: Sel) {
     editLib(s.libId, (l) => {
       if (s.kind === "tech") return { ...l, technologies: l.technologies.filter((t) => t.technology_id !== s.id) };
-      if (s.kind === "stream") return { ...l, commodities: l.commodities.filter((c) => c.commodity_id !== s.id) };
+      if (s.kind === "stream") return { ...l, flows: l.flows.filter((c) => c.flow_id !== s.id) };
       if (s.kind === "lever") return { ...l, measures: l.measures.filter((m) => m.lever_id !== s.id), maccs: l.maccs.map((g) => ({ ...g, measures: g.measures.filter((x) => x !== s.id) })) };
       if (s.kind === "macc") return { ...l, maccs: l.maccs.filter((g) => g.macc_id !== s.id), technologies: l.technologies.map((t) => ({ ...t, maccs: t.maccs.filter((x) => x !== s.id) })) };
       return l;
@@ -414,7 +414,7 @@ export function ComponentTabView({
   function renameItem(s: Sel, name: string) {
     editLib(s.libId, (l) => {
       if (s.kind === "tech") return { ...l, technologies: l.technologies.map((t) => (t.technology_id === s.id ? { ...t, technology_id: name } : t)), assets: l.assets.map((m) => (m.technology === s.id ? { ...m, technology: name } : m)) };
-      if (s.kind === "stream") return { ...l, commodities: l.commodities.map((c) => (c.commodity_id === s.id ? { ...c, commodity_id: name } : c)) };
+      if (s.kind === "stream") return { ...l, flows: l.flows.map((c) => (c.flow_id === s.id ? { ...c, flow_id: name } : c)) };
       if (s.kind === "lever") return { ...l, measures: l.measures.map((m) => (m.lever_id === s.id ? { ...m, lever_id: name } : m)), maccs: l.maccs.map((g) => ({ ...g, measures: g.measures.map((x) => (x === s.id ? name : x)) })) };
       if (s.kind === "macc") return { ...l, maccs: l.maccs.map((g) => (g.macc_id === s.id ? { ...g, macc_id: name } : g)), technologies: l.technologies.map((t) => ({ ...t, maccs: t.maccs.map((x) => (x === s.id ? name : x)) })) };
       return l;
@@ -582,10 +582,10 @@ export function ComponentTabView({
 
   // ── Detail ─────────────────────────────────────────────────────────────────────
   const body = sel ? openLibs.get(sel.libId) : undefined;
-  const commodityIds = useMemo(() => (body?.commodities ?? []).map((c) => c.commodity_id), [body]);
+  const flowIds = useMemo(() => (body?.flows ?? []).map((c) => c.flow_id), [body]);
   const streamUnit = useMemo(() => {
     const m = new Map<string, string>();
-    for (const c of body?.commodities ?? []) if (c.unit) m.set(c.commodity_id, c.unit);
+    for (const c of body?.flows ?? []) if (c.unit) m.set(c.flow_id, c.unit);
     return (id: string) => m.get(id);
   }, [body]);
   const buckets = useMemo(() => (body ? libraryBuckets(body) : null), [body]);
@@ -637,16 +637,16 @@ export function ComponentTabView({
         </button>
       );
     };
-    const streamCard = (c: CommodityTemplate) => {
-      const prod = (body?.technologies ?? []).filter((t) => t.io.some((r) => r.role === "output" && r.target === c.commodity_id)).map((t) => t.technology_id);
-      const cons = (body?.technologies ?? []).filter((t) => t.io.some((r) => r.role === "input" && r.target === c.commodity_id)).map((t) => t.technology_id);
+    const streamCard = (c: FlowTemplate) => {
+      const prod = (body?.technologies ?? []).filter((t) => t.io.some((r) => r.role === "output" && r.target === c.flow_id)).map((t) => t.technology_id);
+      const cons = (body?.technologies ?? []).filter((t) => t.io.some((r) => r.role === "input" && r.target === c.flow_id)).map((t) => t.technology_id);
       return (
-        <button className="comp-card" key={`s:${c.commodity_id}`} onClick={() => drill("stream", c.commodity_id)}>
+        <button className="comp-card" key={`s:${c.flow_id}`} onClick={() => drill("stream", c.flow_id)}>
           <div className="comp-card-row">
             {ioCol("produced by", prod, "in")}
             <div className="comp-card-mid">
               <span className="lib-tier">stream</span>
-              <div className="comp-card-title">{c.commodity_id}</div>
+              <div className="comp-card-title">{c.flow_id}</div>
               <div className="comp-card-meta">{c.unit ? `${c.kind} · ${c.unit}` : c.kind}</div>
               {tsChip(tsYears(c.price_by_year, c.sale_price_by_year))}
             </div>
@@ -821,7 +821,7 @@ export function ComponentTabView({
                 </div>
                 <div className="lib-card-stats">
                   <div><b>{l.technologies}</b><span className="muted">tech</span></div>
-                  <div><b>{l.commodities}</b><span className="muted">streams</span></div>
+                  <div><b>{l.flows}</b><span className="muted">streams</span></div>
                   <div><b>{l.levers}</b><span className="muted">levers</span></div>
                 </div>
               </button>
@@ -868,7 +868,7 @@ export function ComponentTabView({
     // first component there — adding never happens at the library level.
     const groups = [
       { sub: "tech", label: "Technologies", desc: "Process recipes — inputs, outputs, costs & impacts", n: b.techs.length },
-      { sub: "stream", label: "Streams", desc: "Commodities produced here, and how they connect", n: b.streams.length },
+      { sub: "stream", label: "Streams", desc: "Flows produced here, and how they connect", n: b.streams.length },
       { sub: "measures", label: "Levers & MACC", desc: "Abatement levers and their cost curves", n: b.maccs.length + b.measures.length },
     ];
     return groups.map((g) =>
@@ -898,7 +898,7 @@ export function ComponentTabView({
             <input className="field-input" style={{ flex: 1, maxWidth: 280 }} value={body.label} onChange={(e) => editLib(sel.libId, (lib) => ({ ...lib, label: e.target.value }))} />
           </label>
           <p className="muted" style={{ fontSize: "0.78rem" }}>
-            {l?.technologies ?? 0} technologies · {l?.commodities ?? 0} streams · {l?.levers ?? 0} levers · {l?.maccs ?? 0} MACCs.
+            {l?.technologies ?? 0} technologies · {l?.flows ?? 0} streams · {l?.levers ?? 0} levers · {l?.maccs ?? 0} MACCs.
             {" "}Open a group to add or edit components — a technology gets its own input/output streams; levers are reusable and bundled into MACCs.
           </p>
           {(() => {
@@ -944,10 +944,10 @@ export function ComponentTabView({
         <>
           <TechnologyEditor
             value={t}
-            commodityIds={commodityIds}
+            flowIds={flowIds}
             unitOptions={pickerUnits}
             streamUnitOf={streamUnit}
-            onAddCommodity={(id) => editLib(sel.libId, (l) => ({ ...l, commodities: [...l.commodities, { commodity_id: id, kind: "material", unit: "unit" } as CommodityTemplate] }))}
+            onAddFlow={(id) => editLib(sel.libId, (l) => ({ ...l, flows: [...l.flows, { flow_id: id, kind: "material", unit: "unit" } as FlowTemplate] }))}
             onChange={setTech}
             onRename={(id) => setSel({ libId: sel.libId, kind: "tech", id })}
           />
@@ -965,15 +965,15 @@ export function ComponentTabView({
       );
     }
     if (sel.kind === "stream") {
-      const c = body.commodities.find((x) => x.commodity_id === sel.id);
+      const c = body.flows.find((x) => x.flow_id === sel.id);
       if (!c) return null;
       const targeting = body.measures.filter((m) => m.target === sel.id).map((m) => m.label || m.lever_id);
       return (
         <>
-          <CommodityEditor
+          <FlowEditor
             value={c}
             unitOptions={pickerUnits}
-            onChange={(v) => editLib(sel.libId, (l) => ({ ...l, commodities: l.commodities.map((x) => (x.commodity_id === sel.id ? v : x)) }))}
+            onChange={(v) => editLib(sel.libId, (l) => ({ ...l, flows: l.flows.map((x) => (x.flow_id === sel.id ? v : x)) }))}
             onRename={(id) => setSel({ libId: sel.libId, kind: "stream", id })}
           />
           <div className="rail-section" style={{ marginTop: 12 }}>
@@ -989,7 +989,7 @@ export function ComponentTabView({
       return (
         <LeverEditor
           value={m}
-          commodityIds={commodityIds}
+          flowIds={flowIds}
           onChange={(v) => editLib(sel.libId, (l) => ({ ...l, measures: l.measures.map((x) => (x.lever_id === sel.id ? v : x)) }))}
           onRename={(id) => setSel({ libId: sel.libId, kind: "lever", id })}
         />
@@ -1021,11 +1021,11 @@ export function ComponentTabView({
       };
     }
     if (sel.kind === "stream") {
-      const c = body.commodities.find((x) => x.commodity_id === sel.id);
+      const c = body.flows.find((x) => x.flow_id === sel.id);
       return c == null ? null : {
-        label: `Stream · ${c.commodity_id}`,
+        label: `Stream · ${c.flow_id}`,
         value: c.notes ?? "",
-        set: (v) => editLib(sel.libId, (l) => ({ ...l, commodities: l.commodities.map((x) => (x.commodity_id === sel.id ? { ...x, notes: v } : x)) })),
+        set: (v) => editLib(sel.libId, (l) => ({ ...l, flows: l.flows.map((x) => (x.flow_id === sel.id ? { ...x, notes: v } : x)) })),
       };
     }
     if (sel.kind === "lever") {
@@ -1068,8 +1068,8 @@ export function ComponentTabView({
       return t == null ? null : <TimeSeriesRail kind="tech" value={t} onChange={(v) => editLib(sel.libId, (l) => ({ ...l, technologies: l.technologies.map((x) => (x.technology_id === sel.id ? v : x)) }))} />;
     }
     if (sel.kind === "stream") {
-      const c = body.commodities.find((x) => x.commodity_id === sel.id);
-      return c == null ? null : <TimeSeriesRail kind="stream" value={c} onChange={(v) => editLib(sel.libId, (l) => ({ ...l, commodities: l.commodities.map((x) => (x.commodity_id === sel.id ? v : x)) }))} />;
+      const c = body.flows.find((x) => x.flow_id === sel.id);
+      return c == null ? null : <TimeSeriesRail kind="stream" value={c} onChange={(v) => editLib(sel.libId, (l) => ({ ...l, flows: l.flows.map((x) => (x.flow_id === sel.id ? v : x)) }))} />;
     }
     if (sel.kind === "lever") {
       const m = body.measures.find((x) => x.lever_id === sel.id);

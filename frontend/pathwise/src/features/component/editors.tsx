@@ -7,7 +7,7 @@ import { SearchSelect } from "../controls/SearchSelect";
 import { RecipePreview } from "./RecipePreview";
 import { fieldMeta } from "./fieldMeta";
 import type {
-  CommodityTemplate,
+  FlowTemplate,
   GroupComponent,
   IoRow,
   LeverTemplate,
@@ -72,15 +72,15 @@ export function Row({ children }: { children: React.ReactNode }) {
   return <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>{children}</div>;
 }
 
-// ── Commodity / stream ────────────────────────────────────────────────────────
-export function CommodityEditor({
+// ── Flow / stream ────────────────────────────────────────────────────────
+export function FlowEditor({
   value,
   onChange,
   onRename,
   unitOptions = [],
 }: {
-  value: CommodityTemplate;
-  onChange: (v: CommodityTemplate) => void;
+  value: FlowTemplate;
+  onChange: (v: FlowTemplate) => void;
   onRename: (id: string) => void;
   /** Allowed units (the project's unit registry) — the unit picker is limited to
    *  these so a stream can't carry an unconvertible/typo'd unit. */
@@ -90,12 +90,12 @@ export function CommodityEditor({
     <section>
       <h2 style={{ margin: "0 0 12px" }}>Stream</h2>
       <Row>
-        <Field label="id" meta="commodity_id">
+        <Field label="id" meta="flow_id">
           <input
             style={inputStyle}
-            value={value.commodity_id}
+            value={value.flow_id}
             onChange={(e) => {
-              onChange({ ...value, commodity_id: e.target.value });
+              onChange({ ...value, flow_id: e.target.value });
               onRename(e.target.value);
             }}
           />
@@ -103,7 +103,7 @@ export function CommodityEditor({
         <Field label="kind" meta="kind">
           <SearchSelect
             value={value.kind}
-            onChange={(v) => onChange({ ...value, kind: v as CommodityTemplate["kind"] })}
+            onChange={(v) => onChange({ ...value, kind: v as FlowTemplate["kind"] })}
             options={["energy", "material", "indirect", "product", "byproduct"].map((k) => ({ value: k }))}
           />
         </Field>
@@ -147,16 +147,16 @@ export function CommodityEditor({
 // ── Technology (recipe streams) ───────────────────────────────────────────────
 export function TechnologyEditor({
   value,
-  commodityIds,
-  onAddCommodity,
+  flowIds,
+  onAddFlow,
   onChange,
   onRename,
   unitOptions = [],
   streamUnitOf,
 }: {
   value: TechnologyTemplate;
-  commodityIds: string[];
-  onAddCommodity: (id: string) => void;
+  flowIds: string[];
+  onAddFlow: (id: string) => void;
   onChange: (v: TechnologyTemplate) => void;
   onRename: (id: string) => void;
   /** Allowed units (from GET /api/units) offered in each row's unit picker. */
@@ -228,13 +228,13 @@ export function TechnologyEditor({
               <td>
                 <SearchableSelect
                   value={r.target}
-                  options={commodityIds}
+                  options={flowIds}
                   onChange={(v) => setIo(i, { target: v })}
                   onCreate={
                     r.role === "impact"
                       ? (name) => setIo(i, { target: name })
                       : (name) => {
-                          onAddCommodity(name);
+                          onAddFlow(name);
                           setIo(i, { target: name });
                         }
                   }
@@ -289,14 +289,14 @@ export function TechnologyEditor({
 export function AssetEditor({
   value,
   techIds,
-  commodityIds,
+  flowIds,
   embeddedTech,
   onChange,
   onRename,
 }: {
   value: AssetComponent;
   techIds: string[];
-  commodityIds: string[];
+  flowIds: string[];
   /** Optional inline recipe editor for the asset's technology (1:1 feel). */
   embeddedTech?: React.ReactNode;
   onChange: (v: AssetComponent) => void;
@@ -313,7 +313,7 @@ export function AssetEditor({
           lever_id: `lever_${value.measures.length + 1}`,
           label: "",
           type: "energy_efficiency",
-          target: commodityIds[0] ?? "",
+          target: flowIds[0] ?? "",
           lifetime: 15,
           blocks: [{ reduction: 0.05, capex_per_capacity: 0, opex_per_capacity: 0 }],
         },
@@ -371,7 +371,7 @@ export function AssetEditor({
             </Field>
             <Field label="target">
               <div style={{ minWidth: 140 }}>
-                <SearchableSelect value={m.target} options={commodityIds} onChange={(v) => setLever(i, { target: v })} onCreate={(name) => setLever(i, { target: name })} placeholder="stream / impact" />
+                <SearchableSelect value={m.target} options={flowIds} onChange={(v) => setLever(i, { target: v })} onCreate={(name) => setLever(i, { target: name })} placeholder="stream / impact" />
               </div>
             </Field>
             <Field label="lifetime">
@@ -426,12 +426,12 @@ export function AssetEditor({
 // ── Standalone lever (reusable) ───────────────────────────────────────────────
 export function LeverEditor({
   value,
-  commodityIds,
+  flowIds,
   onChange,
   onRename,
 }: {
   value: LeverTemplate;
-  commodityIds: string[];
+  flowIds: string[];
   onChange: (v: LeverTemplate) => void;
   onRename: (id: string) => void;
 }) {
@@ -451,7 +451,7 @@ export function LeverEditor({
         </Field>
         <Field label="target" meta="target">
           <div style={{ minWidth: 150 }}>
-            <SearchableSelect value={value.target} options={commodityIds} onChange={(v) => onChange({ ...value, target: v })} onCreate={(name) => onChange({ ...value, target: name })} placeholder="stream / impact" />
+            <SearchableSelect value={value.target} options={flowIds} onChange={(v) => onChange({ ...value, target: v })} onCreate={(name) => onChange({ ...value, target: name })} placeholder="stream / impact" />
           </div>
         </Field>
         <Field label="lifetime" meta="lifetime">
@@ -589,13 +589,13 @@ export function MaccEditor({
 export function GroupEditor({
   value,
   componentNames,
-  commodityIds,
+  flowIds,
   onChange,
   onRename,
 }: {
   value: GroupComponent;
   componentNames: string[];
-  commodityIds: string[];
+  flowIds: string[];
   onChange: (v: GroupComponent) => void;
   onRename: (id: string) => void;
 }) {
@@ -645,7 +645,7 @@ export function GroupEditor({
       ))}
       <h3 style={{ margin: "12px 0 6px", fontSize: "0.85rem" }}>
         Links <span className="muted">(internal wiring — e.g. GT → ST on steam)</span>
-        <button className="ghost" style={{ marginLeft: 8 }} disabled={value.children.length < 2} onClick={() => onChange({ ...value, links: [...value.links, { source: aliases[0] ?? "", target: aliases[1] ?? "", commodity: commodityIds[0] ?? "", lag_years: 0 }] })}>
+        <button className="ghost" style={{ marginLeft: 8 }} disabled={value.children.length < 2} onClick={() => onChange({ ...value, links: [...value.links, { source: aliases[0] ?? "", target: aliases[1] ?? "", flow: flowIds[0] ?? "", lag_years: 0 }] })}>
           ＋ add link
         </button>
       </h3>
@@ -659,9 +659,9 @@ export function GroupEditor({
             <SearchSelect value={cn.target} onChange={(v) => onChange({ ...value, links: value.links.map((x, j) => (j === i ? { ...x, target: v } : x)) })}
               options={aliases.map((a) => ({ value: a }))} />
           </Field>
-          <Field label="commodity">
-            <SearchSelect value={cn.commodity} onChange={(v) => onChange({ ...value, links: value.links.map((x, j) => (j === i ? { ...x, commodity: v } : x)) })}
-              options={commodityIds.map((a) => ({ value: a }))} />
+          <Field label="flow">
+            <SearchSelect value={cn.flow} onChange={(v) => onChange({ ...value, links: value.links.map((x, j) => (j === i ? { ...x, flow: v } : x)) })}
+              options={flowIds.map((a) => ({ value: a }))} />
           </Field>
           <Field label="lag (yr)">
             <input style={{ ...inputStyle, width: 64 }} type="number" value={cn.lag_years} onChange={(e) => onChange({ ...value, links: value.links.map((x, j) => (j === i ? { ...x, lag_years: num(e.target.value) } : x)) })} />

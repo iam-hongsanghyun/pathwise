@@ -21,7 +21,7 @@ export interface GroupNode {
 export interface GroupEdge {
   from: string;
   to: string;
-  commodity: string;
+  flow: string;
   lag: number;
 }
 
@@ -165,13 +165,13 @@ export function levelGraph(
     if (!fromChild || !toChild || fromChild === toChild) continue;
     // Both endpoints are in this level and differ.
 
-    const commodity = s(row.commodity_id, "—");
+    const flow = s(row.flow_id, "—");
     const lag = n(row.lag_years);
-    const key = `${fromChild}→${toChild}:${commodity}`;
+    const key = `${fromChild}→${toChild}:${flow}`;
     if (seen.has(key)) continue;
     seen.add(key);
 
-    edges.push({ from: fromChild, to: toChild, commodity, lag });
+    edges.push({ from: fromChild, to: toChild, flow, lag });
   }
 
   return { children, edges };
@@ -250,7 +250,7 @@ export interface LevelLink {
   from: string;
   /** Direct child of the level the target resolves to. */
   to: string;
-  commodity: string;
+  flow: string;
   lag: number;
 }
 
@@ -275,7 +275,7 @@ export function levelLinks(wb: Workbook, groupId: string | null): LevelLink[] {
       rowIndex,
       from: fromChild,
       to: toChild,
-      commodity: s(row.commodity_id, "—"),
+      flow: s(row.flow_id, "—"),
       lag: n(row.lag_years),
     });
   });

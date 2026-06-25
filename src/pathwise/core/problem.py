@@ -12,8 +12,8 @@ from dataclasses import dataclass, field
 
 from pathwise.core.entities import (
     CapexConvention,
-    Commodity,
     Edge,
+    Flow,
     Impact,
     Lever,
     Market,
@@ -39,8 +39,8 @@ class Fleet:
         fleet_id: Stable id.
         company: Owning company (scope); ``"all"`` ⇒ unscoped.
         mode: Transport-mode tag (sea / road / rail / air) — used by the map + 1c.
-        fuel: Commodity id consumed per distance (priced + emitting in Phase 3).
-        cargo: Commodity id carried (the stream the fleet delivers).
+        fuel: Flow id consumed per distance (priced + emitting in Phase 3).
+        cargo: Flow id carried (the stream the fleet delivers).
         efficiency: Fuel use per unit cargo per unit distance
             [fuel unit / cargo unit / distance unit] (drives fuel cost + emissions
             once routes carry distance — Phase 3).
@@ -176,8 +176,8 @@ class ConnectionRoute:
     connections stay virtual (no ``ConnectionRoute`` ⇒ teleport).
 
     Attributes:
-        process: Stable route key (``r_<from>__<to>__<commodity>``).
-        commodity: The stream this route physicalises.
+        process: Stable route key (``r_<from>__<to>__<flow>``).
+        flow: The stream this route physicalises.
         distance: Route length [distance unit, e.g. km] — drives capacity + fuel.
         edges: Indices into :attr:`Problem.edges` this route governs (the fanned
             producer→consumer flows of the connection). The carriers carry exactly
@@ -192,7 +192,7 @@ class ConnectionRoute:
     """
 
     process: str
-    commodity: str
+    flow: str
     distance: float
     edges: tuple[int, ...]
     legs: tuple[ConnectionLeg, ...] = ()
@@ -236,7 +236,7 @@ class CostToggles:
     capex: bool = True
     renewal: bool = True
     opex: bool = True
-    commodity_cost: bool = True  # purchases minus sales
+    flow_cost: bool = True  # purchases minus sales
     impact_price: bool = True  # carbon price / ETS, per impact
     lever_capex: bool = True
 
@@ -249,25 +249,25 @@ class Problem:
         periods: Ordered horizon periods.
         processes: Facilities/assets.
         technologies: Technology configs keyed by id.
-        commodities: Commodities keyed by id.
+        flows: Flows keyed by id.
         impacts: Impacts keyed by id.
         levers: MACC abatement levers.
-        edges: Inter-process commodity flows.
+        edges: Inter-process flow flows.
         transitions: Permitted technology changes (replace/renew) + compatibility.
-        storages: Per-commodity inter-year stores.
-        markets: Priced buy/sell nodes (commodity supply or tradable ETS).
-        commodity_impacts: Impact factor of consuming a commodity, keyed by
-            ``(commodity_id, impact_id)`` [impact unit / commodity unit].
-        demand: Required product output, keyed by ``(company, commodity_id, year)``
-            [commodity unit / yr].
+        storages: Per-flow inter-year stores.
+        markets: Priced buy/sell nodes (flow supply or tradable ETS).
+        flow_impacts: Impact factor of consuming a flow, keyed by
+            ``(flow_id, impact_id)`` [impact unit / flow unit].
+        demand: Required product output, keyed by ``(company, flow_id, year)``
+            [flow unit / yr].
         impact_caps: Upper limit on an impact, keyed by ``(company, impact_id, year)``
             [impact unit / yr]; company ``"all"`` ⇒ sector-wide.
         investment_budget: Max nominal capex spend, keyed by ``(company, year)``
             [currency / yr]; company ``"all"`` ⇒ sector-wide.
         min_production: Minimum delivered product, keyed by
-            ``(company, commodity_id, year)`` [commodity unit / yr].
+            ``(company, flow_id, year)`` [flow unit / yr].
         max_production: Maximum delivered product (a hard ceiling), keyed by
-            ``(company, commodity_id, year)`` [commodity unit / yr].
+            ``(company, flow_id, year)`` [flow unit / yr].
         company_objective: Per-company goal (``cost`` default, or ``profit``).
         discount_rate: Annual discount rate ``ρ`` [1/yr].
         base_year: Baseline period ``t₀``.
@@ -280,18 +280,18 @@ class Problem:
     periods: list[Period]
     processes: list[Process]
     technologies: dict[str, Technology]
-    commodities: dict[str, Commodity]
+    flows: dict[str, Flow]
     impacts: dict[str, Impact]
     levers: list[Lever] = field(default_factory=list)
     edges: list[Edge] = field(default_factory=list)
     transitions: list[Transition] = field(default_factory=list)
     storages: list[Storage] = field(default_factory=list)
     markets: list[Market] = field(default_factory=list)
-    commodity_impacts: dict[tuple[str, str], float] = field(default_factory=dict)
-    # Optional year-varying override of ``commodity_impacts`` (a commodity's
+    flow_impacts: dict[tuple[str, str], float] = field(default_factory=dict)
+    # Optional year-varying override of ``flow_impacts`` (a flow's
     # carbon intensity can change over the horizon — e.g. a greening grid, or an
     # upstream value-chain stage's pathway). Falls back to the static factor.
-    commodity_impacts_by_year: dict[tuple[str, str], dict[int, float]] = field(default_factory=dict)
+    flow_impacts_by_year: dict[tuple[str, str], dict[int, float]] = field(default_factory=dict)
     # LCIA characterisation: ``{(flow_impact_id, category_id): factor}``. A category
     # impact's emission is the linear combination Σ_flow factor · emit[flow] — so an
     # impact category (GWP, acidification, …) is a *derived impact* and every
@@ -311,9 +311,9 @@ class Problem:
     investment_budget: dict[tuple[str, int], float] = field(default_factory=dict)
     min_production: dict[tuple[str, str, int], float] = field(default_factory=dict)
     max_production: dict[tuple[str, str, int], float] = field(default_factory=dict)
-    # Per-asset intake bounds on a consumed commodity (the consumer side, the
-    # mirror of min/max_production), keyed by ``(company, commodity_id, year)``
-    # [commodity unit / yr]. min = required offtake (a take-or-pay floor on how
+    # Per-asset intake bounds on a consumed flow (the consumer side, the
+    # mirror of min/max_production), keyed by ``(company, flow_id, year)``
+    # [flow unit / yr]. min = required offtake (a take-or-pay floor on how
     # much the asset must consume); max = maximum purchase (an intake ceiling).
     min_consumption: dict[tuple[str, str, int], float] = field(default_factory=dict)
     max_consumption: dict[tuple[str, str, int], float] = field(default_factory=dict)
@@ -336,7 +336,7 @@ class Problem:
     # for distance computation + the map. Inert unless transport routes are present.
     routes: dict[str, Route] = field(default_factory=dict)
     # Physicalised value-chain connections (Layer 1c+): each carries an existing
-    # commodity Edge's flow with a chosen fleet (from a candidate set), distance →
+    # flow Edge's flow with a chosen fleet (from a candidate set), distance →
     # carriers + fuel. Inert unless connection routes are present (then teleport is
     # the default for every connection without one). See ``build._connection_fleet``.
     connection_routes: list[ConnectionRoute] = field(default_factory=list)
@@ -440,13 +440,13 @@ class Problem:
         """Objective mode for ``company`` (default :attr:`default_objective`)."""
         return self.company_objective.get(company, self.default_objective)
 
-    def commodity_impact(self, commodity: str, impact: str, year: int) -> float:
-        """Impact factor of consuming ``commodity`` in ``year`` [impact / unit].
+    def flow_impact(self, flow: str, impact: str, year: int) -> float:
+        """Impact factor of consuming ``flow`` in ``year`` [impact / unit].
 
         Returns the year-varying factor when one is defined for that year,
-        otherwise the static :attr:`commodity_impacts` value (0 if unset).
+        otherwise the static :attr:`flow_impacts` value (0 if unset).
         """
-        traj = self.commodity_impacts_by_year.get((commodity, impact))
+        traj = self.flow_impacts_by_year.get((flow, impact))
         if traj is not None and year in traj:
             return traj[year]
-        return self.commodity_impacts.get((commodity, impact), 0.0)
+        return self.flow_impacts.get((flow, impact), 0.0)

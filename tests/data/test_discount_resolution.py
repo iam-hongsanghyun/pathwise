@@ -17,7 +17,7 @@ def _wb(meta: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     return {
         "meta": meta or [],
         "periods": [{"year": 2025}, {"year": 2030}],
-        "commodities": [{"commodity_id": "p", "kind": "product"}],
+        "flows": [{"flow_id": "p", "kind": "product"}],
         "technologies": [{"technology_id": "T"}],
         "processes": [
             {"process_id": "P", "company": "C", "baseline_technology": "T", "capacity": 10}

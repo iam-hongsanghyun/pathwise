@@ -13,10 +13,10 @@ from pathwise.data.hierarchy import load_hierarchy
 from pathwise.data.schema import REQUIRED_SHEETS
 from pathwise.data.sheets import (
     ASSETS,
-    COMMODITIES,
-    COMMODITY_PROPERTIES,
     DEMAND,
     EDGES,
+    FLOW_PROPERTIES,
+    FLOWS,
     IMPACTS,
     IO,
     LEVERS,
@@ -30,7 +30,7 @@ from pathwise.data.sheets import (
 from pathwise.data.workbook import Workbook
 from pathwise.units import CoefficientConverter, dimension_of, is_parseable
 
-#: A commodity may legitimately be measured outside its kind's dimension (e.g. a
+#: A flow may legitimately be measured outside its kind's dimension (e.g. a
 #: fuel in tonnes rather than GJ) when it carries a factor that bridges back —
 #: an ``energy_content`` property or any calorific-value (``lhv*``) key.
 _ENERGY_CONTENT_KEYS = ("energy_content", "lhv")
@@ -96,7 +96,7 @@ def validate(workbook: Workbook) -> ValidationReport:
         return report  # further checks would be noise
 
     techs = _ids(workbook, TECHNOLOGIES, "technology_id")
-    commodities = _ids(workbook, COMMODITIES, "commodity_id")
+    flows = _ids(workbook, FLOWS, "flow_id")
     # In a hierarchy model the assets are the facilities (one process each).
     processes = _ids(workbook, PROCESSES, "process_id") | _ids(workbook, ASSETS, "asset_id")
     impacts = _ids(workbook, IMPACTS, "impact_id")
@@ -115,11 +115,11 @@ def validate(workbook: Workbook) -> ValidationReport:
         if h is not None:
             report.errors.extend(h.check())  # node/cycle/kind/endpoint checks
             for r in workbook.get(LINKS, []):
-                c = str(r.get("commodity_id", ""))
-                if c and c not in commodities:
+                c = str(r.get("flow_id", ""))
+                if c and c not in flows:
                     report.errors.append(f"connection references unknown stream '{c}'")
             # A connection only flows if some asset in the source subtree OUTPUTS
-            # the commodity and some asset in the target subtree INPUTS it; else
+            # the flow and some asset in the target subtree INPUTS it; else
             # it silently expands to zero edges (assemble._expand_hierarchy).
             asset_tech = {
                 str(r.get("asset_id")): str(r.get("baseline_technology") or "")
@@ -136,7 +136,7 @@ def validate(workbook: Workbook) -> ValidationReport:
                     io_in.setdefault(tech, set()).add(tgt)
             for r in workbook.get(LINKS, []):
                 fn, tn = str(r.get("from_node", "")), str(r.get("to_node", ""))
-                com = str(r.get("commodity_id", ""))
+                com = str(r.get("flow_id", ""))
                 if not (fn in h.nodes and tn in h.nodes and com):
                     continue
                 makes = any(
@@ -160,7 +160,7 @@ def validate(workbook: Workbook) -> ValidationReport:
         if k and k not in techs:
             report.errors.append(f"io: unknown technology '{k}'")
         tgt, role = str(r.get("target", "")), str(r.get("role", "input"))
-        pool = impacts if role == "impact" else commodities
+        pool = impacts if role == "impact" else flows
         if tgt and tgt not in pool:
             report.errors.append(f"io: unknown target '{tgt}' for role '{role}'")
         g = r.get("group")
@@ -198,10 +198,10 @@ def validate(workbook: Workbook) -> ValidationReport:
                 f"process '{r.get('process_id')}' references unknown technology '{bt}'"
             )
 
-    for sheet, col in [(PROCESS_INPUTS, "commodity_id"), (PROCESS_OUTPUTS, "commodity_id")]:
+    for sheet, col in [(PROCESS_INPUTS, "flow_id"), (PROCESS_OUTPUTS, "flow_id")]:
         for r in workbook.get(sheet, []):
             c = str(r.get(col, ""))
-            if c and c not in commodities:
+            if c and c not in flows:
                 report.errors.append(f"{sheet}: unknown stream '{c}'")
             k = str(r.get("technology_id", ""))
             if k and k not in techs:
@@ -212,8 +212,8 @@ def validate(workbook: Workbook) -> ValidationReport:
             p = str(r.get(end, ""))
             if p and p not in processes:
                 report.errors.append(f"edge references unknown facility '{p}'")
-        c = str(r.get("commodity_id", ""))
-        if c and c not in commodities:
+        c = str(r.get("flow_id", ""))
+        if c and c not in flows:
             report.errors.append(f"edge references unknown stream '{c}'")
 
     for r in workbook.get(LEVERS, []):
@@ -223,14 +223,14 @@ def validate(workbook: Workbook) -> ValidationReport:
                 f"lever '{r.get('lever_id')}' applies to unknown facility '{ap}'"
             )
         tgt, mtype = str(r.get("target", "")), str(r.get("type", ""))
-        pool = commodities if mtype == "energy_efficiency" else impacts
+        pool = flows if mtype == "energy_efficiency" else impacts
         if tgt and tgt not in pool:
             report.warnings.append(f"lever '{r.get('lever_id')}' targets unknown '{tgt}'")
 
     product_ids = {
-        str(r["commodity_id"])
+        str(r["flow_id"])
         for r in workbook.get(PROCESS_OUTPUTS, [])
-        if r.get("is_product") and r.get("commodity_id")
+        if r.get("is_product") and r.get("flow_id")
     }
     product_ids |= {
         str(r["target"])
@@ -238,12 +238,12 @@ def validate(workbook: Workbook) -> ValidationReport:
         if str(r.get("role", "")) == "output" and r.get("is_product") and r.get("target")
     }
     product_ids |= {
-        str(r["commodity_id"])
-        for r in workbook.get(COMMODITIES, [])
-        if str(r.get("kind", "")) == "product" and r.get("commodity_id")
+        str(r["flow_id"])
+        for r in workbook.get(FLOWS, [])
+        if str(r.get("kind", "")) == "product" and r.get("flow_id")
     }
     for r in workbook.get(DEMAND, []):
-        q = str(r.get("commodity_id", ""))
+        q = str(r.get("flow_id", ""))
         if q and q not in product_ids:
             report.warnings.append(f"demand for '{q}' which is not produced as a product")
 
@@ -255,15 +255,15 @@ def _check_units(workbook: Workbook, report: ValidationReport) -> None:
     """Warn (never block) on unitless / unparseable / mis-dimensioned streams.
 
     Units are metadata: a missing or wrong unit can't make the solve infeasible,
-    so every finding here is a warning. Checks each commodity / impact declares a
+    so every finding here is a warning. Checks each flow / impact declares a
     real, pint-parseable unit, and that an ``energy`` stream is energy-dimensioned
     unless it carries an ``energy_content`` factor (the legitimate tonnes-of-fuel
-    case — see commodity-specific conversions).
+    case — see flow-specific conversions).
     """
-    # commodity_id -> set of property names it declares (for the fuel exception).
+    # flow_id -> set of property names it declares (for the fuel exception).
     props: dict[str, set[str]] = {}
-    for r in workbook.get(COMMODITY_PROPERTIES, []):
-        cid, prop = str(r.get("commodity_id", "")), str(r.get("property", "")).lower()
+    for r in workbook.get(FLOW_PROPERTIES, []):
+        cid, prop = str(r.get("flow_id", "")), str(r.get("property", "")).lower()
         if cid and prop:
             props.setdefault(cid, set()).add(prop)
 
@@ -280,17 +280,17 @@ def _check_units(workbook: Workbook, report: ValidationReport) -> None:
             return False
         return True
 
-    for r in workbook.get(COMMODITIES, []):
-        cid = str(r.get("commodity_id", ""))
+    for r in workbook.get(FLOWS, []):
+        cid = str(r.get("flow_id", ""))
         if not cid:
             continue
         unit = str(r.get("unit", "") or "")
-        if not _check_unit(f"commodity '{cid}'", unit):
+        if not _check_unit(f"flow '{cid}'", unit):
             continue
         kind = str(r.get("kind", "") or "")
         if kind == "energy" and dimension_of(unit) != "energy" and not _has_energy_content(cid):
             report.warnings.append(
-                f"energy commodity '{cid}' has non-energy unit '{unit}' and no energy_content "
+                f"energy flow '{cid}' has non-energy unit '{unit}' and no energy_content "
                 "factor — add one so it can be converted to energy"
             )
 
@@ -314,17 +314,17 @@ def _check_io_units(workbook: Workbook, report: ValidationReport) -> None:
     if not any(str(r.get("unit", "") or "").strip() for r in io_rows):
         return
     props: dict[str, dict[str, float]] = {}
-    for r in workbook.get(COMMODITY_PROPERTIES, []):
-        cid, prop, val = r.get("commodity_id"), r.get("property"), r.get("value")
+    for r in workbook.get(FLOW_PROPERTIES, []):
+        cid, prop, val = r.get("flow_id"), r.get("property"), r.get("value")
         if cid and prop and isinstance(val, (int, float)):
             props.setdefault(str(cid), {})[str(prop)] = float(val)
     converter = CoefficientConverter(
-        commodity_units={
-            str(r["commodity_id"]): str(r.get("unit", "") or "")
-            for r in workbook.get(COMMODITIES, [])
-            if r.get("commodity_id")
+        flow_units={
+            str(r["flow_id"]): str(r.get("unit", "") or "")
+            for r in workbook.get(FLOWS, [])
+            if r.get("flow_id")
         },
-        commodity_props=props,
+        flow_props=props,
         impact_units={
             str(r["impact_id"]): str(r.get("unit", "") or "")
             for r in workbook.get(IMPACTS, [])

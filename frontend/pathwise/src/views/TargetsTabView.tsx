@@ -8,7 +8,7 @@
 import { useMemo, useState } from "react";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { TemporalValue, type TemporalVal } from "../features/controls/TemporalValue";
-import { commodityUnit, impactUnit, modelCurrency, modelDiscount } from "../lib/caps";
+import { flowUnit, impactUnit, modelCurrency, modelDiscount } from "../lib/caps";
 import { impactIds, productIds, scopeOptions } from "../lib/scope";
 import type { Row, Workbook } from "../types";
 
@@ -20,9 +20,9 @@ type Kind = "production" | "emission" | "budget";
 
 // (kind, type) → the backend sheet + which column holds the target id / the value.
 const MAP: Record<string, { sheet: string; target?: string; value: string }> = {
-  "production:produce": { sheet: "demand", target: "commodity_id", value: "amount" },
-  "production:min": { sheet: "min_production", target: "commodity_id", value: "amount" },
-  "production:max": { sheet: "max_production", target: "commodity_id", value: "amount" },
+  "production:produce": { sheet: "demand", target: "flow_id", value: "amount" },
+  "production:min": { sheet: "min_production", target: "flow_id", value: "amount" },
+  "production:max": { sheet: "max_production", target: "flow_id", value: "amount" },
   "emission:cap": { sheet: "impact_caps", target: "impact_id", value: "limit" },
   "budget:cap": { sheet: "investment_budget", value: "limit" },
 };
@@ -55,7 +55,7 @@ interface UC {
   extra: Row;
 }
 
-const MAPPED_KEYS = new Set(["company", "year", "commodity_id", "impact_id", "amount", "limit"]);
+const MAPPED_KEYS = new Set(["company", "year", "flow_id", "impact_id", "amount", "limit"]);
 
 /** Read the native sheets and COLLAPSE the per-year rows into one constraint each:
  *  a single year-less row → a static value; rows carrying years → a {year: value}
@@ -185,14 +185,14 @@ export function TargetsTabView({
   }
 
   const targetOpts = (k: Kind) => (k === "emission" ? impacts : k === "production" ? products : []);
-  // The unit a constraint's value is measured in: a produced commodity's unit, the
+  // The unit a constraint's value is measured in: a produced flow's unit, the
   // capped impact's unit, or "currency" for an investment (capex) budget. Drives the
   // unit shown in the value cell + editor (TemporalValue appends "/yr").
   const unitFor = (c: UC): string =>
     c.kind === "emission"
       ? impactUnit(workbook, c.target)
       : c.kind === "production"
-        ? commodityUnit(workbook, c.target)
+        ? flowUnit(workbook, c.target)
         : modelCurrency(workbook);
   const cell: React.CSSProperties = { padding: "2px 4px" };
   const small = { minWidth: 120 };

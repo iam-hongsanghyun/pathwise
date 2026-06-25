@@ -35,7 +35,7 @@ def test_patch_sheet_malformed_op_returns_422() -> None:
     # A "set" op missing its required "row" key must be a clean 422, not a 500
     # leaking a KeyError traceback.
     r = client.patch(
-        f"/api/session/{sid}/sheet/commodities",
+        f"/api/session/{sid}/sheet/flows",
         json={"ops": [{"op": "set", "column": "x", "value": 1}]},
     )
     assert r.status_code == 422
@@ -65,7 +65,7 @@ def test_value_chain_list_and_run() -> None:
 def test_create_session_has_core_sheets() -> None:
     sid = _new_session()
     model = client.get(f"/api/session/{sid}/model").json()["model"]
-    assert {"periods", "commodities", "processes", "demand"} <= set(model)
+    assert {"periods", "flows", "processes", "demand"} <= set(model)
 
 
 def test_ingest_page_and_patch() -> None:

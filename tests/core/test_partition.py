@@ -21,10 +21,10 @@ def _wb() -> dict:
     # connection up→down on 'mid' is the cross-company stream.
     return {
         "periods": [{"year": 2025, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "power", "kind": "energy", "price": 1.0},
-            {"commodity_id": "mid", "kind": "material"},
-            {"commodity_id": "final", "kind": "product"},
+        "flows": [
+            {"flow_id": "power", "kind": "energy", "price": 1.0},
+            {"flow_id": "mid", "kind": "material"},
+            {"flow_id": "final", "kind": "product"},
         ],
         "technologies": [{"technology_id": "GEN"}, {"technology_id": "FAB"}],
         "io": [
@@ -50,10 +50,10 @@ def _wb() -> dict:
             {"asset_id": "upm", "baseline_technology": "GEN", "capacity": 1000},
             {"asset_id": "downm", "baseline_technology": "FAB", "capacity": 1000},
         ],
-        "connections": [
-            {"from_node": "up", "to_node": "down", "commodity_id": "mid", "lag_years": 0},
+        "links": [
+            {"from_node": "up", "to_node": "down", "flow_id": "mid", "lag_years": 0},
         ],
-        "demand": [{"company": "down", "commodity_id": "final", "year": 2025, "amount": 100}],
+        "demand": [{"company": "down", "flow_id": "final", "year": 2025, "amount": 100}],
     }
 
 
@@ -84,7 +84,7 @@ def test_partition_structure_at_company_level() -> None:
     assert {s.id for s in spec.stages} == {"up", "down"}
     assert len(spec.links) == 1
     link = spec.links[0]
-    assert (link.from_stage, link.to_stage, link.commodity) == ("up", "down", "mid")
+    assert (link.from_stage, link.to_stage, link.flow) == ("up", "down", "mid")
     assert link.feedback  # downstream demand drives upstream production
     # up's sub-workbook has only the upstream asset; down only the downstream.
     assert {str(p["process_id"]) for p in workbooks["up"]["processes"]} == {"upm"}
@@ -95,7 +95,7 @@ def test_joint_solve_at_root_level() -> None:
     res = run_model(_wb(), _joint_scenario())
     assert res["status"] == "optimal"
     assert not res["outputs"]["demand_slack"]
-    final = {r["commodity"]: r["produced"] for r in res["summary"]["commodity"]}
+    final = {r["flow"]: r["produced"] for r in res["summary"]["flow"]}
     assert final.get("final") == pytest.approx(100.0)
 
 
@@ -105,9 +105,7 @@ def test_partitioned_solve_meets_demand_and_is_weakly_worse_than_joint() -> None
 
     assert joint["status"] == "optimal" and coupled["status"] == "optimal"
     # Downstream still delivers its demand under independent optimisation.
-    down_final = {
-        r["commodity"]: r["produced"] for r in coupled["stages"]["down"]["summary"]["commodity"]
-    }
+    down_final = {r["flow"]: r["produced"] for r in coupled["stages"]["down"]["summary"]["flow"]}
     assert down_final.get("final") == pytest.approx(100.0)
 
     joint_cost = float(joint["objective"])
@@ -118,7 +116,7 @@ def test_partitioned_solve_meets_demand_and_is_weakly_worse_than_joint() -> None
 
 def test_connection_lag_propagates_to_the_coupling_link() -> None:
     wb = _wb()
-    wb["connections"][0]["lag_years"] = 5
+    wb["links"][0]["lag_years"] = 5
     h = load_hierarchy(wb)
     assert h is not None
     spec, _ = partition(wb, h, "company")

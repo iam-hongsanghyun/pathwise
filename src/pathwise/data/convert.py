@@ -124,9 +124,9 @@ def to_hierarchy(
 
     links: list[dict[str, object]] = []
     for e in workbook.get(EDGES, []):
-        f, t, c = _s(e.get("from_process")), _s(e.get("to_process")), _s(e.get("commodity_id"))
+        f, t, c = _s(e.get("from_process")), _s(e.get("to_process")), _s(e.get("flow_id"))
         if f and t and c:
-            row: dict[str, object] = {"from_node": f, "to_node": t, "commodity_id": c}
+            row: dict[str, object] = {"from_node": f, "to_node": t, "flow_id": c}
             if e.get("lag_years") is not None:
                 row["lag_years"] = e.get("lag_years")
             links.append(row)

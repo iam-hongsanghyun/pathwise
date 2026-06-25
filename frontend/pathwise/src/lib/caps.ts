@@ -13,7 +13,7 @@ export type Bound = number | ByYear;
 const s = (v: Cell | undefined): string => (v == null ? "" : String(v));
 const isYearless = (r: Row): boolean => r.year == null || String(r.year).trim() === "";
 
-/** The product commodity a per-asset output bound limits: the `is_product`
+/** The product flow a per-asset output bound limits: the `is_product`
  *  output of the asset's baseline technology (else its first output), or null. */
 export function machineProduct(wb: Workbook, machineId: string): string | null {
   const m = (wb.assets ?? []).find((r) => s(r.asset_id) === machineId);
@@ -26,9 +26,9 @@ export function machineProduct(wb: Workbook, machineId: string): string | null {
   return prod ? s(prod.target) || null : null;
 }
 
-/** A commodity's declared unit (t, MWh, …) — what a bound on it is measured in. */
-export function commodityUnit(wb: Workbook, commodity: string): string {
-  const row = (wb.commodities ?? []).find((r) => s(r.commodity_id) === commodity);
+/** A flow's declared unit (t, MWh, …) — what a bound on it is measured in. */
+export function flowUnit(wb: Workbook, flow: string): string {
+  const row = (wb.flows ?? []).find((r) => s(r.flow_id) === flow);
   return s(row?.unit) || "unit";
 }
 
@@ -75,11 +75,11 @@ function setMeta(wb: Workbook, key: string, value: Cell): Workbook {
   return { ...wb, meta };
 }
 
-/** The bound on `commodity` at `scope` in `sheet`: a {year: value} map if there are
+/** The bound on `flow` at `scope` in `sheet`: a {year: value} map if there are
  *  per-year rows, a number if a single year-less (static) row, else null. */
-function cap(wb: Workbook, sheet: string, scope: string, commodity: string): Bound | null {
+function cap(wb: Workbook, sheet: string, scope: string, flow: string): Bound | null {
   const rows = (wb[sheet] ?? []).filter(
-    (r) => s(r.company) === scope && s(r.commodity_id) === commodity,
+    (r) => s(r.company) === scope && s(r.flow_id) === flow,
   );
   if (!rows.length) return null;
   const yearRows = rows.filter((r) => !isYearless(r));
@@ -93,62 +93,62 @@ function cap(wb: Workbook, sheet: string, scope: string, commodity: string): Bou
 
 /** Upsert (or clear, when `value` is null) the bound: a static value writes ONE
  *  year-less row; a temporal value writes one row per year. New workbook. */
-function setCap(wb: Workbook, sheet: string, scope: string, commodity: string, value: Bound | null): Workbook {
+function setCap(wb: Workbook, sheet: string, scope: string, flow: string, value: Bound | null): Workbook {
   const rows = (wb[sheet] ?? []).filter(
-    (r) => !(s(r.company) === scope && s(r.commodity_id) === commodity),
+    (r) => !(s(r.company) === scope && s(r.flow_id) === flow),
   );
   if (value != null) {
     if (typeof value === "number") {
-      if (value > 0) rows.push({ company: scope, commodity_id: commodity, amount: value });
+      if (value > 0) rows.push({ company: scope, flow_id: flow, amount: value });
     } else {
-      for (const [yr, v] of Object.entries(value)) rows.push({ company: scope, commodity_id: commodity, year: Number(yr), amount: v });
+      for (const [yr, v] of Object.entries(value)) rows.push({ company: scope, flow_id: flow, year: Number(yr), amount: v });
     }
   }
   return { ...wb, [sheet]: rows };
 }
 
-export const maxOutputCap = (wb: Workbook, scope: string, commodity: string): Bound | null =>
-  cap(wb, "max_production", scope, commodity);
-export const setMaxOutputCap = (wb: Workbook, scope: string, commodity: string, value: Bound | null): Workbook =>
-  setCap(wb, "max_production", scope, commodity, value);
+export const maxOutputCap = (wb: Workbook, scope: string, flow: string): Bound | null =>
+  cap(wb, "max_production", scope, flow);
+export const setMaxOutputCap = (wb: Workbook, scope: string, flow: string, value: Bound | null): Workbook =>
+  setCap(wb, "max_production", scope, flow, value);
 
-export const minOutputCap = (wb: Workbook, scope: string, commodity: string): Bound | null =>
-  cap(wb, "min_production", scope, commodity);
-export const setMinOutputCap = (wb: Workbook, scope: string, commodity: string, value: Bound | null): Workbook =>
-  setCap(wb, "min_production", scope, commodity, value);
+export const minOutputCap = (wb: Workbook, scope: string, flow: string): Bound | null =>
+  cap(wb, "min_production", scope, flow);
+export const setMinOutputCap = (wb: Workbook, scope: string, flow: string, value: Bound | null): Workbook =>
+  setCap(wb, "min_production", scope, flow, value);
 
-// Per-asset intake bounds on a consumed commodity (the consumer-side mirror of
+// Per-asset intake bounds on a consumed flow (the consumer-side mirror of
 // the output caps): min = required offtake (a floor), max = maximum purchase.
-export const minConsumptionCap = (wb: Workbook, scope: string, commodity: string): Bound | null =>
-  cap(wb, "min_consumption", scope, commodity);
-export const setMinConsumptionCap = (wb: Workbook, scope: string, commodity: string, value: Bound | null): Workbook =>
-  setCap(wb, "min_consumption", scope, commodity, value);
+export const minConsumptionCap = (wb: Workbook, scope: string, flow: string): Bound | null =>
+  cap(wb, "min_consumption", scope, flow);
+export const setMinConsumptionCap = (wb: Workbook, scope: string, flow: string, value: Bound | null): Workbook =>
+  setCap(wb, "min_consumption", scope, flow, value);
 
-export const maxConsumptionCap = (wb: Workbook, scope: string, commodity: string): Bound | null =>
-  cap(wb, "max_consumption", scope, commodity);
-export const setMaxConsumptionCap = (wb: Workbook, scope: string, commodity: string, value: Bound | null): Workbook =>
-  setCap(wb, "max_consumption", scope, commodity, value);
+export const maxConsumptionCap = (wb: Workbook, scope: string, flow: string): Bound | null =>
+  cap(wb, "max_consumption", scope, flow);
+export const setMaxConsumptionCap = (wb: Workbook, scope: string, flow: string, value: Bound | null): Workbook =>
+  setCap(wb, "max_consumption", scope, flow, value);
 
 // ── Source-stream supply cap (max_purchase) ──────────────────────────────────
-// A static cap is the `max_purchase` column on the commodities row; a temporal
-// cap lives in the WIDE `commodities_t__max_purchase` sheet (one row per year, a
-// column named by each commodity). The engine interpolates the temporal series,
+// A static cap is the `max_purchase` column on the flows row; a temporal
+// cap lives in the WIDE `flows_t__max_purchase` sheet (one row per year, a
+// column named by each flow). The engine interpolates the temporal series,
 // else falls back to the static value.
 
-const SUPPLY_T = "commodities_t__max_purchase";
+const SUPPLY_T = "flows_t__max_purchase";
 
-/** The supply cap for `commodity`: a {year: value} map if the wide temporal sheet
+/** The supply cap for `flow`: a {year: value} map if the wide temporal sheet
  *  carries it, a number if a static `max_purchase`, else null. */
-export function supplyCap(wb: Workbook, commodity: string): Bound | null {
+export function supplyCap(wb: Workbook, flow: string): Bound | null {
   const by: ByYear = {};
   for (const r of wb[SUPPLY_T] ?? []) {
     const yr = r.year;
-    const v = (r as Record<string, Cell>)[commodity];
+    const v = (r as Record<string, Cell>)[flow];
     if (yr != null && String(yr).trim() !== "" && v != null && String(v).trim() !== "")
       by[String(Math.round(Number(yr)))] = Number(v) || 0;
   }
   if (Object.keys(by).length) return by;
-  const row = (wb.commodities ?? []).find((r) => s(r.commodity_id) === commodity);
+  const row = (wb.flows ?? []).find((r) => s(r.flow_id) === flow);
   const mp = row?.max_purchase;
   return mp == null || String(mp).trim() === "" ? null : Number(mp) || 0;
 }
@@ -156,63 +156,63 @@ export function supplyCap(wb: Workbook, commodity: string): Bound | null {
 /** Upsert (or clear, when `value` is null) the supply cap. A static value sets the
  *  `max_purchase` column; a temporal value writes the wide sheet. The two stores
  *  are kept mutually exclusive so the engine reads one source of truth. */
-export function setSupplyCap(wb: Workbook, commodity: string, value: Bound | null): Workbook {
-  // Drop this commodity's column from every wide row, then drop emptied rows.
+export function setSupplyCap(wb: Workbook, flow: string, value: Bound | null): Workbook {
+  // Drop this flow's column from every wide row, then drop emptied rows.
   const tRows = (wb[SUPPLY_T] ?? [])
     .map((r) => {
-      const { [commodity]: _drop, ...rest } = r as Record<string, Cell>;
+      const { [flow]: _drop, ...rest } = r as Record<string, Cell>;
       return rest as Row;
     })
     .filter((r) => Object.keys(r).some((k) => k !== "year" && String(r[k] ?? "").trim() !== ""));
-  const commodities = (wb.commodities ?? []).map((r) =>
-    s(r.commodity_id) === commodity ? { ...r, max_purchase: "" } : r,
+  const flows = (wb.flows ?? []).map((r) =>
+    s(r.flow_id) === flow ? { ...r, max_purchase: "" } : r,
   );
 
-  if (value == null) return { ...wb, commodities, [SUPPLY_T]: tRows };
+  if (value == null) return { ...wb, flows, [SUPPLY_T]: tRows };
 
   if (typeof value === "number") {
     return {
       ...wb,
       [SUPPLY_T]: tRows,
-      commodities: commodities.map((r) => (s(r.commodity_id) === commodity ? { ...r, max_purchase: value } : r)),
+      flows: flows.map((r) => (s(r.flow_id) === flow ? { ...r, max_purchase: value } : r)),
     };
   }
 
-  // Temporal: merge the commodity's column into the per-year wide rows.
+  // Temporal: merge the flow's column into the per-year wide rows.
   const byYearRow = new Map<string, Row>();
   for (const r of tRows) byYearRow.set(String(Math.round(Number(r.year))), r);
   for (const [yr, v] of Object.entries(value)) {
     const key = String(Math.round(Number(yr)));
     const existing = byYearRow.get(key) ?? { year: Number(key) };
-    byYearRow.set(key, { ...existing, [commodity]: v });
+    byYearRow.set(key, { ...existing, [flow]: v });
   }
-  return { ...wb, commodities, [SUPPLY_T]: Array.from(byYearRow.values()) };
+  return { ...wb, flows, [SUPPLY_T]: Array.from(byYearRow.values()) };
 }
 
 // ── Per-link flow bounds (min / max offtake on one provider→consumer link) ─
 // A static bound is the `min_flow` / `max_flow` column on the link row; a
 // temporal bound lives in the long `links_t` sheet (from_node, to_node,
-// commodity_id, year, min_flow, max_flow), which the engine fans onto edges and
+// flow_id, year, min_flow, max_flow), which the engine fans onto edges and
 // interpolates. The two stores are kept mutually exclusive per bound.
 
 const CONN_T = "links_t";
 type FlowSide = "min_flow" | "max_flow";
 
-const matchesLink = (r: Row, from: string, to: string, commodity: string): boolean =>
-  s(r.from_node) === from && s(r.to_node) === to && s(r.commodity_id) === commodity;
+const matchesLink = (r: Row, from: string, to: string, flow: string): boolean =>
+  s(r.from_node) === from && s(r.to_node) === to && s(r.flow_id) === flow;
 
 /** One side's bound for a link: a {year: value} map if `links_t`
  *  carries it, a number if a static column, else null. */
-function connBound(wb: Workbook, from: string, to: string, commodity: string, side: FlowSide): Bound | null {
+function connBound(wb: Workbook, from: string, to: string, flow: string, side: FlowSide): Bound | null {
   const by: ByYear = {};
   for (const r of wb[CONN_T] ?? []) {
-    if (!matchesLink(r, from, to, commodity)) continue;
+    if (!matchesLink(r, from, to, flow)) continue;
     const v = (r as Record<string, Cell>)[side];
     if (!isYearless(r) && v != null && String(v).trim() !== "")
       by[String(Math.round(Number(r.year)))] = Number(v) || 0;
   }
   if (Object.keys(by).length) return by;
-  const row = (wb.links ?? []).find((r) => matchesLink(r, from, to, commodity));
+  const row = (wb.links ?? []).find((r) => matchesLink(r, from, to, flow));
   const v = (row as Record<string, Cell> | undefined)?.[side];
   return v == null || String(v).trim() === "" ? null : Number(v) || 0;
 }
@@ -222,10 +222,10 @@ export const linkFlow = (
   wb: Workbook,
   from: string,
   to: string,
-  commodity: string,
+  flow: string,
 ): { min: Bound | null; max: Bound | null } => ({
-  min: connBound(wb, from, to, commodity, "min_flow"),
-  max: connBound(wb, from, to, commodity, "max_flow"),
+  min: connBound(wb, from, to, flow, "min_flow"),
+  max: connBound(wb, from, to, flow, "max_flow"),
 });
 
 /** The scalar to write on a link row: the number itself, else blank (a
@@ -238,17 +238,17 @@ export function setLinkTemporal(
   wb: Workbook,
   from: string,
   to: string,
-  commodity: string,
+  flow: string,
   min: Bound | null,
   max: Bound | null,
 ): Workbook {
-  const rows = (wb[CONN_T] ?? []).filter((r) => !matchesLink(r, from, to, commodity));
+  const rows = (wb[CONN_T] ?? []).filter((r) => !matchesLink(r, from, to, flow));
   const byYear = new Map<string, Row>();
   const add = (b: Bound | null, side: FlowSide) => {
     if (b == null || typeof b === "number") return;
     for (const [yr, v] of Object.entries(b)) {
       const key = String(Math.round(Number(yr)));
-      const ex = byYear.get(key) ?? { from_node: from, to_node: to, commodity_id: commodity, year: Number(key) };
+      const ex = byYear.get(key) ?? { from_node: from, to_node: to, flow_id: flow, year: Number(key) };
       byYear.set(key, { ...ex, [side]: v });
     }
   };
@@ -268,17 +268,17 @@ export function setLinkBounds(
   wb: Workbook,
   from: string,
   to: string,
-  commodity: string,
+  flow: string,
   min: Bound | null,
   max: Bound | null,
 ): Workbook {
   const withStatic: Workbook = {
     ...wb,
     links: (wb.links ?? []).map((r) =>
-      matchesLink(r, from, to, commodity) ? { ...r, min_flow: connStatic(min), max_flow: connStatic(max) } : r,
+      matchesLink(r, from, to, flow) ? { ...r, min_flow: connStatic(min), max_flow: connStatic(max) } : r,
     ),
   };
-  return setLinkTemporal(withStatic, from, to, commodity, min, max);
+  return setLinkTemporal(withStatic, from, to, flow, min, max);
 }
 
 // ── Per-asset→asset edge flow bounds (the asset-only per-provider model) ──
@@ -290,19 +290,19 @@ export function setLinkBounds(
 const EDGES = "edges";
 const EDGES_T = "edges_t";
 
-const matchesEdge = (r: Row, from: string, to: string, commodity: string): boolean =>
-  s(r.from_process) === from && s(r.to_process) === to && s(r.commodity_id) === commodity;
+const matchesEdge = (r: Row, from: string, to: string, flow: string): boolean =>
+  s(r.from_process) === from && s(r.to_process) === to && s(r.flow_id) === flow;
 
-function edgeBound(wb: Workbook, from: string, to: string, commodity: string, side: FlowSide): Bound | null {
+function edgeBound(wb: Workbook, from: string, to: string, flow: string, side: FlowSide): Bound | null {
   const by: ByYear = {};
   for (const r of wb[EDGES_T] ?? []) {
-    if (!matchesEdge(r, from, to, commodity)) continue;
+    if (!matchesEdge(r, from, to, flow)) continue;
     const v = (r as Record<string, Cell>)[side];
     if (!isYearless(r) && v != null && String(v).trim() !== "")
       by[String(Math.round(Number(r.year)))] = Number(v) || 0;
   }
   if (Object.keys(by).length) return by;
-  const row = (wb[EDGES] ?? []).find((r) => matchesEdge(r, from, to, commodity));
+  const row = (wb[EDGES] ?? []).find((r) => matchesEdge(r, from, to, flow));
   const v = (row as Record<string, Cell> | undefined)?.[side];
   return v == null || String(v).trim() === "" ? null : Number(v) || 0;
 }
@@ -312,10 +312,10 @@ export const edgeFlow = (
   wb: Workbook,
   from: string,
   to: string,
-  commodity: string,
+  flow: string,
 ): { min: Bound | null; max: Bound | null } => ({
-  min: edgeBound(wb, from, to, commodity, "min_flow"),
-  max: edgeBound(wb, from, to, commodity, "max_flow"),
+  min: edgeBound(wb, from, to, flow, "min_flow"),
+  max: edgeBound(wb, from, to, flow, "max_flow"),
 });
 
 /** Set the per-provider bound on the asset→asset edge. Authors an `edges` row
@@ -325,28 +325,28 @@ export function setEdgeBounds(
   wb: Workbook,
   from: string,
   to: string,
-  commodity: string,
+  flow: string,
   min: Bound | null,
   max: Bound | null,
 ): Workbook {
-  const existing = (wb[EDGES] ?? []).find((r) => matchesEdge(r, from, to, commodity));
+  const existing = (wb[EDGES] ?? []).find((r) => matchesEdge(r, from, to, flow));
   const byYear = new Map<string, Row>();
   const add = (b: Bound | null, side: FlowSide) => {
     if (b == null || typeof b === "number") return;
     for (const [yr, v] of Object.entries(b)) {
       const k = String(Math.round(Number(yr)));
-      const ex = byYear.get(k) ?? { from_process: from, to_process: to, commodity_id: commodity, year: Number(k) };
+      const ex = byYear.get(k) ?? { from_process: from, to_process: to, flow_id: flow, year: Number(k) };
       byYear.set(k, { ...ex, [side]: v });
     }
   };
   add(min, "min_flow");
   add(max, "max_flow");
-  const otherT = (wb[EDGES_T] ?? []).filter((r) => !matchesEdge(r, from, to, commodity));
+  const otherT = (wb[EDGES_T] ?? []).filter((r) => !matchesEdge(r, from, to, flow));
   return writeEdgeRow(
     wb,
     from,
     to,
-    commodity,
+    flow,
     { ...existing, min_flow: connStatic(min), max_flow: connStatic(max) },
     [...otherT, ...Array.from(byYear.values())],
   );
@@ -357,9 +357,9 @@ export const edgeAvailability = (
   wb: Workbook,
   from: string,
   to: string,
-  commodity: string,
+  flow: string,
 ): { from: number | null; to: number | null } => {
-  const r = (wb[EDGES] ?? []).find((x) => matchesEdge(x, from, to, commodity));
+  const r = (wb[EDGES] ?? []).find((x) => matchesEdge(x, from, to, flow));
   const av = r?.available_from;
   const at = r?.available_to;
   return {
@@ -373,16 +373,16 @@ export function setEdgeAvailability(
   wb: Workbook,
   from: string,
   to: string,
-  commodity: string,
+  flow: string,
   availFrom: number | null,
   availTo: number | null,
 ): Workbook {
-  const existing = (wb[EDGES] ?? []).find((r) => matchesEdge(r, from, to, commodity)) ?? {};
+  const existing = (wb[EDGES] ?? []).find((r) => matchesEdge(r, from, to, flow)) ?? {};
   return writeEdgeRow(
     wb,
     from,
     to,
-    commodity,
+    flow,
     { ...existing, available_from: availFrom ?? "", available_to: availTo ?? "" },
     [...(wb[EDGES_T] ?? [])],
   );
@@ -395,14 +395,14 @@ function writeEdgeRow(
   wb: Workbook,
   from: string,
   to: string,
-  commodity: string,
+  flow: string,
   fields: Row,
   edgesT: Row[],
 ): Workbook {
-  const otherE = (wb[EDGES] ?? []).filter((r) => !matchesEdge(r, from, to, commodity));
+  const otherE = (wb[EDGES] ?? []).filter((r) => !matchesEdge(r, from, to, flow));
   const has = (k: string): boolean => fields[k] != null && String(fields[k]).trim() !== "";
   const meaningful = ["min_flow", "max_flow", "available_from", "available_to"].some(has);
-  const row: Row = { from_process: from, to_process: to, commodity_id: commodity };
+  const row: Row = { from_process: from, to_process: to, flow_id: flow };
   for (const k of ["min_flow", "max_flow", "available_from", "available_to"]) if (has(k)) row[k] = fields[k];
   const edges = meaningful ? [...otherE, row] : otherE;
   const next = { ...wb } as Workbook;

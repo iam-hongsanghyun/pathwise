@@ -18,7 +18,7 @@ This is the "vertical" (composition) and "horizontal" (links) design,
 together, as data.
 
 :class:`ComponentLibrary` is the *component library*: the editable, SQLite-backed
-catalogue of technologies, commodities, measures, and MACCs the authoring UI
+catalogue of technologies, flows, measures, and MACCs the authoring UI
 builds interactively. It reuses the shared component-template models in
 :mod:`pathwise.data.templates`. (The separate, importable-workbook catalogue lives
 in :mod:`pathwise.data.libraries`.)
@@ -30,13 +30,14 @@ import json
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, Field, model_validator
 
+from pathwise.data.aliases import normalize_workbook
 from pathwise.data.sheets import (
     ASSETS,
-    COMMODITIES,
-    COMMODITY_PRICES,
-    COMMODITY_PROPERTIES,
+    FLOW_PRICES,
+    FLOW_PROPERTIES,
+    FLOWS,
     GROUPS,
     IMPACTS,
     IO,
@@ -53,7 +54,7 @@ from pathwise.data.sheets import (
     TRANSITIONS,
 )
 from pathwise.data.templates import (
-    CommodityTemplate,
+    FlowTemplate,
     IoRow,
     LeverBlockTemplate,
     LeverTemplate,
@@ -108,7 +109,9 @@ class LinkTemplate(BaseModel):
 
     source: str  # producer child alias
     target: str  # consumer child alias
-    commodity: str
+    # ``commodity`` is the pre-rename input key (component libraries saved before
+    # commodity→flow); accept it so old ``links_json`` / ``connections_json`` blobs load.
+    flow: str = Field(validation_alias=AliasChoices("flow", "commodity"))
     lag_years: int = Field(default=0, ge=0)
 
 
@@ -164,13 +167,13 @@ class MaccGroup(BaseModel):
 
 class ComponentLibrary(BaseModel):
     """A catalogue of the three reusable building blocks — technologies (recipes
-    + their streams), streams (commodities), and measures (individual + grouped
+    + their streams), streams (flows), and measures (individual + grouped
     into MACCs). ``assets`` / ``groups`` are legacy composite components kept
     for back-compatibility; the builder no longer authors them (the Value Chain
     places a technology directly as a asset)."""
 
     label: str = ""
-    commodities: list[CommodityTemplate] = Field(default_factory=list)
+    flows: list[FlowTemplate] = Field(default_factory=list)
     technologies: list[TechnologyTemplate] = Field(default_factory=list)
     measures: list[LeverTemplate] = Field(default_factory=list)
     maccs: list[MaccGroup] = Field(default_factory=list)
@@ -228,23 +231,23 @@ def copy_component_into(
     A *project* (a session library) is built by dragging components in from base /
     other libraries; the copy is a HARD copy so the project owns its own values.
     The closure follows references so a placed component actually works:
-    technology → its io-target commodities + its MACCs (+ those MACCs' levers);
-    MACC → its levers; lever → its target commodity; stream → itself. A
+    technology → its io-target flows + its MACCs (+ those MACCs' levers);
+    MACC → its levers; lever → its target flow; stream → itself. A
     dependency the destination already has (by id) is REUSED, never overwritten —
     the project keeps its own edits. Returns a NEW library (pure).
     """
     out = dst.model_copy(deep=True)
-    have_c = {c.commodity_id for c in out.commodities}
+    have_c = {c.flow_id for c in out.flows}
     have_m = {m.lever_id for m in out.measures}
     have_g = {g.macc_id for g in out.maccs}
     have_t = {t.technology_id for t in out.technologies}
 
-    def add_commodity(cid: str) -> None:
+    def add_flow(cid: str) -> None:
         if not cid or cid in have_c:
             return
-        c = next((x for x in src.commodities if x.commodity_id == cid), None)
+        c = next((x for x in src.flows if x.flow_id == cid), None)
         if c is not None:
-            out.commodities.append(c.model_copy(deep=True))
+            out.flows.append(c.model_copy(deep=True))
             have_c.add(cid)
 
     def add_measure(mid: str) -> None:
@@ -254,7 +257,7 @@ def copy_component_into(
         if m is not None:
             out.measures.append(m.model_copy(deep=True))
             have_m.add(mid)
-            add_commodity(m.target)  # energy_efficiency targets a commodity (impacts: no-op)
+            add_flow(m.target)  # energy_efficiency targets a flow (impacts: no-op)
 
     def add_macc(gid: str) -> None:
         if not gid or gid in have_g:
@@ -276,14 +279,14 @@ def copy_component_into(
         have_t.add(tid)
         for r in t.io:
             if r.role != "impact":
-                add_commodity(r.target)
+                add_flow(r.target)
         for gid in t.maccs:
             add_macc(gid)
 
     if kind == "technology":
         add_tech(component_id)
     elif kind == "stream":
-        add_commodity(component_id)
+        add_flow(component_id)
     elif kind == "measure":
         add_measure(component_id)
     elif kind == "macc":
@@ -352,7 +355,7 @@ def referenced_technology_ids(model: dict[str, list[dict[str, Any]]]) -> set[str
 def slice_library_to_technologies(src: ComponentLibrary, tech_ids: set[str]) -> ComponentLibrary:
     """A minimal closed sub-library of ``src`` holding only the technologies in
     ``tech_ids`` that ``src`` actually defines, plus their dependency closure
-    (io-target commodities, linked MACCs and their measures).
+    (io-target flows, linked MACCs and their measures).
 
     Args:
         src: The source (base) library to slice — not mutated.
@@ -392,7 +395,7 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
     """Decompose a component library into a ``{sheet: rows}`` workbook (lossless).
 
     Per-year cost trajectories ride on separate long-format sheets
-    (``commodity_prices`` / ``technologies_prices`` / ``measure_blocks_t``, keyed
+    (``flow_prices`` / ``technologies_prices`` / ``measure_blocks_t``, keyed
     by entity id + year), emitted only when populated so a library with no
     trajectories produces the same sheets as before. Free-text notes ride as an
     extra ``notes`` column on each entity sheet (written only when non-empty); a
@@ -413,7 +416,7 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
         # and must be stored — never drop a present key.
         META: [{"key": "label", "value": lib.label}]
         + [{"key": f"sector_note:{k}", "value": v} for k, v in lib.notes_by_sector.items()],
-        COMMODITIES: [_commodity_row(c) for c in lib.commodities],
+        FLOWS: [_flow_row(c) for c in lib.flows],
         TECHNOLOGIES: [
             with_notes(
                 {
@@ -494,8 +497,8 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
     }
     # Per-year cost trajectories — only when populated (keeps trajectory-free
     # libraries byte-identical to the legacy sheets).
-    if cp := _commodity_price_rows(lib):
-        wb[COMMODITY_PRICES] = cp
+    if cp := _flow_price_rows(lib):
+        wb[FLOW_PRICES] = cp
     if tp := _technology_price_rows(lib):
         wb[TECHNOLOGIES_PRICES] = tp
     if iot := [row for t in lib.technologies for row in _io_t_rows(t)]:
@@ -503,23 +506,23 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
     if mb := _lever_block_traj_rows(lib):
         wb[LEVER_BLOCKS_T] = mb
     if props := [
-        {"commodity_id": c.commodity_id, "property": k, "value": v}
-        for c in lib.commodities
+        {"flow_id": c.flow_id, "property": k, "value": v}
+        for c in lib.flows
         for k, v in c.properties.items()
     ]:
-        wb[COMMODITY_PROPERTIES] = props
+        wb[FLOW_PROPERTIES] = props
     return wb
 
 
-def _commodity_traj_rows(c: CommodityTemplate) -> list[dict[str, Any]]:
-    """One commodity's long-format price rows (commodity_id, year, price?, sale_price?).
+def _flow_traj_rows(c: FlowTemplate) -> list[dict[str, Any]]:
+    """One flow's long-format price rows (flow_id, year, price?, sale_price?).
 
-    Matches the ``commodity_prices`` sheet the assembler already reads, so a
-    commodity's per-year prices drive the optimiser as soon as the library loads.
+    Matches the ``flow_prices`` sheet the assembler already reads, so a
+    flow's per-year prices drive the optimiser as soon as the library loads.
     """
     rows: list[dict[str, Any]] = []
     for y in sorted(set(c.price_by_year) | set(c.sale_price_by_year)):
-        row: dict[str, Any] = {"commodity_id": c.commodity_id, "year": y}
+        row: dict[str, Any] = {"flow_id": c.flow_id, "year": y}
         if y in c.price_by_year:
             row["price"] = c.price_by_year[y]
         if y in c.sale_price_by_year:
@@ -541,9 +544,9 @@ def _tech_traj_rows(t: TechnologyTemplate) -> list[dict[str, Any]]:
     return rows
 
 
-def _commodity_price_rows(lib: ComponentLibrary) -> list[dict[str, Any]]:
-    """Long-format commodity price rows across the whole library."""
-    return [row for c in lib.commodities for row in _commodity_traj_rows(c)]
+def _flow_price_rows(lib: ComponentLibrary) -> list[dict[str, Any]]:
+    """Long-format flow price rows across the whole library."""
+    return [row for c in lib.flows for row in _flow_traj_rows(c)]
 
 
 def _technology_price_rows(lib: ComponentLibrary) -> list[dict[str, Any]]:
@@ -595,6 +598,9 @@ def _read_traj(
 
 def library_from_workbook(wb: Workbook) -> ComponentLibrary:
     """Reconstruct a component library from its ``library_to_workbook`` sheets."""
+    # Bundled seeds + libraries saved before the rename carry OLD sheet/column names
+    # (``commodities``/``commodity_prices`` …); normalise to the current vocabulary.
+    wb = normalize_workbook(wb)
     label = next(
         (_es(r.get("value")) for r in wb.get(META, []) if _es(r.get("key")) == "label"), ""
     )
@@ -606,7 +612,7 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
 
     # Per-year trajectories (long-format sheets; absent → empty → scalar fallback).
     comm_traj = _read_traj(
-        [{**r, "_key": _es(r.get("commodity_id"))} for r in wb.get(COMMODITY_PRICES, [])],
+        [{**r, "_key": _es(r.get("flow_id"))} for r in wb.get(FLOW_PRICES, [])],
         "price",
         "sale_price",
     )
@@ -624,10 +630,10 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
         "opex_per_capacity",
     )
 
-    # Physical stream properties (long format: commodity_id, property, value).
+    # Physical stream properties (long format: flow_id, property, value).
     props_by: dict[str, dict[str, float]] = {}
-    for r in wb.get(COMMODITY_PROPERTIES, []):
-        cid, prop = _es(r.get("commodity_id")), _es(r.get("property"))
+    for r in wb.get(FLOW_PROPERTIES, []):
+        cid, prop = _es(r.get("flow_id")), _es(r.get("property"))
         val = r.get("value")
         if cid and prop and isinstance(val, (int, float)):
             props_by.setdefault(cid, {})[prop] = float(val)
@@ -716,22 +722,22 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
         )
         for r in wb.get(MACCS, [])
     ]
-    commodities = [
-        CommodityTemplate(
-            commodity_id=_es(r.get("commodity_id")),
+    flows = [
+        FlowTemplate(
+            flow_id=_es(r.get("flow_id")),
             kind=_es(r.get("kind")) or "material",
             unit=_es(r.get("unit")) or "unit",
             price=r.get("price") if isinstance(r.get("price"), (int, float)) else None,
             sale_price=r.get("sale_price")
             if isinstance(r.get("sale_price"), (int, float))
             else None,
-            price_by_year=comm_traj.get(_es(r.get("commodity_id")), {}).get("price", {}),
-            sale_price_by_year=comm_traj.get(_es(r.get("commodity_id")), {}).get("sale_price", {}),
+            price_by_year=comm_traj.get(_es(r.get("flow_id")), {}).get("price", {}),
+            sale_price_by_year=comm_traj.get(_es(r.get("flow_id")), {}).get("sale_price", {}),
             sector=_es(r.get("sector")) or None,
             notes=_es(r.get("notes")),
-            properties=props_by.get(_es(r.get("commodity_id")), {}),
+            properties=props_by.get(_es(r.get("flow_id")), {}),
         )
-        for r in wb.get(COMMODITIES, [])
+        for r in wb.get(FLOWS, [])
     ]
     assets = [
         AssetComponent(
@@ -771,7 +777,7 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
     ]
     return ComponentLibrary(
         label=label,
-        commodities=commodities,
+        flows=flows,
         technologies=technologies,
         measures=measures,
         maccs=maccs,
@@ -788,7 +794,7 @@ def instantiate(
 
     Recursively places ``component`` and all its descendants as instance nodes
     (path-qualified ids), emitting the ``nodes`` / ``assets`` / ``links``
-    sheets plus the referenced ``technologies`` / ``io`` / ``commodities``. The
+    sheets plus the referenced ``technologies`` / ``io`` / ``flows``. The
     result is a runnable workbook (add ``periods`` + ``demand`` to solve).
 
     Raises:
@@ -879,7 +885,7 @@ def instantiate(
                 {
                     "from_node": alias_to_id[conn.source],
                     "to_node": alias_to_id[conn.target],
-                    "commodity_id": conn.commodity,
+                    "flow_id": conn.flow,
                     "lag_years": conn.lag_years,
                 }
             )
@@ -895,20 +901,19 @@ def instantiate(
         io.extend(_io_rows(t))
         io_t.extend(_io_t_rows(t))
         impact_ids |= {r.target for r in t.io if r.role == "impact"}
-    commodities: list[dict[str, Any]] = []
+    flows: list[dict[str, Any]] = []
     properties: list[dict[str, Any]] = []
-    for c in library.commodities:
-        row: dict[str, Any] = {"commodity_id": c.commodity_id, "kind": c.kind, "unit": c.unit}
+    for c in library.flows:
+        row: dict[str, Any] = {"flow_id": c.flow_id, "kind": c.kind, "unit": c.unit}
         if c.price is not None:
             row["price"] = c.price
         if c.sale_price is not None:
             row["sale_price"] = c.sale_price
         if c.sector:
             row["sector"] = c.sector
-        commodities.append(row)
+        flows.append(row)
         properties.extend(
-            {"commodity_id": c.commodity_id, "property": k, "value": v}
-            for k, v in c.properties.items()
+            {"flow_id": c.flow_id, "property": k, "value": v} for k, v in c.properties.items()
         )
 
     out: Workbook = {
@@ -917,13 +922,13 @@ def instantiate(
         LINKS: links,
         TECHNOLOGIES: technologies,
         IO: io,
-        COMMODITIES: commodities,
+        FLOWS: flows,
         IMPACTS: [{"impact_id": i, "unit": "t"} for i in sorted(impact_ids)],
     }
     if io_t:
         out[IO_T] = io_t
     if properties:
-        out[COMMODITY_PROPERTIES] = properties
+        out[FLOW_PROPERTIES] = properties
     if levers:
         out[LEVERS] = levers
         out[LEVER_BLOCKS] = lever_blocks
@@ -933,9 +938,9 @@ def instantiate(
     # optimiser once the instance is solved (assembler reads these sheets).
     if tp := _technology_price_rows(library):
         out[TECHNOLOGIES_PRICES] = tp
-    cp = [row for c in library.commodities for row in _commodity_traj_rows(c)]
+    cp = [row for c in library.flows for row in _flow_traj_rows(c)]
     if cp:
-        out[COMMODITY_PRICES] = cp
+        out[FLOW_PRICES] = cp
     return out
 
 
@@ -954,7 +959,7 @@ def instantiate_into(
     companies never share a facility), then this merges that instance into the
     existing workbook — appending ``nodes`` / ``assets`` / ``links`` /
     ``levers`` / ``lever_blocks`` and merging the referenced
-    ``technologies`` / ``io`` / ``commodities`` by id (existing rows win, recipes
+    ``technologies`` / ``io`` / ``flows`` by id (existing rows win, recipes
     are shared). The instance's root node is re-parented to ``parent_id``.
 
     Pure — returns a new workbook; ``model`` is not mutated.
@@ -998,7 +1003,7 @@ def instantiate_into(
             wb.setdefault(key, []).extend(fresh[key])
 
     _merge_by(wb, fresh, TECHNOLOGIES, "technology_id")
-    _merge_by(wb, fresh, COMMODITIES, "commodity_id")
+    _merge_by(wb, fresh, FLOWS, "flow_id")
     _merge_by(wb, fresh, IMPACTS, "impact_id")
     # io rows have no single id; key on (technology_id, target, role) and only
     # add rows for technologies the model did not already carry.
@@ -1013,7 +1018,7 @@ def instantiate_into(
             wb[IO_T].append(row)
     # Trajectory rows are multi-row-per-entity, so merge by entity (skip an
     # entity entirely when the model already carried it — the recipe is shared).
-    have_comm = {str(r.get("commodity_id")) for r in model.get(COMMODITIES, [])}
+    have_comm = {str(r.get("flow_id")) for r in model.get(FLOWS, [])}
     new_tp = [
         r
         for r in fresh.get(TECHNOLOGIES_PRICES, [])
@@ -1021,11 +1026,9 @@ def instantiate_into(
     ]
     if new_tp:
         wb.setdefault(TECHNOLOGIES_PRICES, []).extend(new_tp)
-    new_cp = [
-        r for r in fresh.get(COMMODITY_PRICES, []) if str(r.get("commodity_id")) not in have_comm
-    ]
+    new_cp = [r for r in fresh.get(FLOW_PRICES, []) if str(r.get("flow_id")) not in have_comm]
     if new_cp:
-        wb.setdefault(COMMODITY_PRICES, []).extend(new_cp)
+        wb.setdefault(FLOW_PRICES, []).extend(new_cp)
     return wb
 
 
@@ -1039,8 +1042,8 @@ def _merge_by(wb: Workbook, fresh: Workbook, sheet: str, id_col: str) -> None:
             have.add(str(row.get(id_col)))
 
 
-def _commodity_row(c: CommodityTemplate) -> dict[str, Any]:
-    row: dict[str, Any] = {"commodity_id": c.commodity_id, "kind": c.kind, "unit": c.unit}
+def _flow_row(c: FlowTemplate) -> dict[str, Any]:
+    row: dict[str, Any] = {"flow_id": c.flow_id, "kind": c.kind, "unit": c.unit}
     if c.price is not None:
         row["price"] = c.price
     if c.sale_price is not None:
@@ -1059,13 +1062,13 @@ def _merge_row(wb: Workbook, sheet: str, id_col: str, row: dict[str, Any]) -> No
         rows.append(row)
 
 
-def _merge_commodity_traj(wb: Workbook, c: CommodityTemplate) -> None:
-    """Carry a commodity's per-year price/sale_price into the model's ``commodity_prices``."""
-    traj = _commodity_traj_rows(c)
+def _merge_flow_traj(wb: Workbook, c: FlowTemplate) -> None:
+    """Carry a flow's per-year price/sale_price into the model's ``flow_prices``."""
+    traj = _flow_traj_rows(c)
     if not traj:
         return
-    rows = wb.setdefault(COMMODITY_PRICES, [])
-    if any(str(r.get("commodity_id")) == c.commodity_id for r in rows):
+    rows = wb.setdefault(FLOW_PRICES, [])
+    if any(str(r.get("flow_id")) == c.flow_id for r in rows):
         return
     rows.extend(traj)
 
@@ -1182,10 +1185,10 @@ def place_technology(
     )
     _instance_into(wb, tech, iid, technology_id)
     inputs_outputs = {r.target for r in tech.io if r.role != "impact"}
-    for c in library.commodities:
-        if c.commodity_id in inputs_outputs:
-            _merge_row(wb, COMMODITIES, "commodity_id", _commodity_row(c))
-            _merge_commodity_traj(wb, c)
+    for c in library.flows:
+        if c.flow_id in inputs_outputs:
+            _merge_row(wb, FLOWS, "flow_id", _flow_row(c))
+            _merge_flow_traj(wb, c)
     for imp in sorted({r.target for r in tech.io if r.role == "impact"}):
         _merge_row(wb, IMPACTS, "impact_id", {"impact_id": imp, "unit": "t"})
 
@@ -1230,7 +1233,7 @@ def add_alternative(
     chain WITHOUT baking them into the Component library.
 
     Merges the alternative's recipe (``technologies`` / ``io`` + referenced
-    ``commodities`` / ``impacts``) into the model and adds a ``transitions`` row
+    ``flows`` / ``impacts``) into the model and adds a ``transitions`` row
     ``from_technology → technology_id`` (any facility running ``from_technology``
     may switch). Idempotent on the transition. Pure — returns a new workbook.
 
@@ -1249,10 +1252,10 @@ def add_alternative(
     alt_iid = f"{technology_id}@{node}"
     _instance_into(wb, tech, alt_iid, technology_id)
     inputs_outputs = {r.target for r in tech.io if r.role != "impact"}
-    for c in library.commodities:
-        if c.commodity_id in inputs_outputs:
-            _merge_row(wb, COMMODITIES, "commodity_id", _commodity_row(c))
-            _merge_commodity_traj(wb, c)
+    for c in library.flows:
+        if c.flow_id in inputs_outputs:
+            _merge_row(wb, FLOWS, "flow_id", _flow_row(c))
+            _merge_flow_traj(wb, c)
     for imp in sorted({r.target for r in tech.io if r.role == "impact"}):
         _merge_row(wb, IMPACTS, "impact_id", {"impact_id": imp, "unit": "t"})
 
@@ -1310,17 +1313,20 @@ def extract_library_from_workbook(workbook: Workbook, *, label: str = "") -> Com
     The MACC *bundles* and technology→MACC links are not present in an assembled
     workbook, so they are omitted (the individual levers are still recovered).
     """
-    commodities: list[CommodityTemplate] = []
+    # Bundled seeds + libraries saved before the rename carry OLD sheet/column names
+    # (``commodities``/``commodity_id`` …); normalise to the current vocabulary first.
+    workbook = normalize_workbook(workbook)
+    flows: list[FlowTemplate] = []
     seen_c: set[str] = set()
-    for r in workbook.get(COMMODITIES, []):
-        cid = _es(r.get("commodity_id"))
+    for r in workbook.get(FLOWS, []):
+        cid = _es(r.get("flow_id"))
         if not cid or cid in seen_c:
             continue
         seen_c.add(cid)
         kind = _es(r.get("kind")) or "material"
-        commodities.append(
-            CommodityTemplate(
-                commodity_id=cid,
+        flows.append(
+            FlowTemplate(
+                flow_id=cid,
                 kind=kind
                 if kind in ("energy", "material", "indirect", "product", "byproduct")
                 else "material",
@@ -1414,6 +1420,4 @@ def extract_library_from_workbook(workbook: Workbook, *, label: str = "") -> Com
             )
         )
 
-    return ComponentLibrary(
-        label=label, commodities=commodities, technologies=technologies, measures=measures
-    )
+    return ComponentLibrary(label=label, flows=flows, technologies=technologies, measures=measures)

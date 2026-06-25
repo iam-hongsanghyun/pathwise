@@ -75,23 +75,23 @@ def _wb(
     return {
         "meta": [{"key": "base_year", "value": 2025}],
         "periods": [{"year": 2025}],
-        "commodities": [
+        "flows": [
             {
-                "commodity_id": "cargo",
+                "flow_id": "cargo",
                 "kind": "material",
                 "unit": "kt",
                 "purchasable": 0,
                 "sellable": 0,
             },
-            {"commodity_id": "prod", "kind": "product", "unit": "kt"},
-            {"commodity_id": "hfo", "kind": "energy", "unit": "t", "price": 500.0},
-            {"commodity_id": "nh3", "kind": "energy", "unit": "t", "price": 700.0},
+            {"flow_id": "prod", "kind": "product", "unit": "kt"},
+            {"flow_id": "hfo", "kind": "energy", "unit": "t", "price": 500.0},
+            {"flow_id": "nh3", "kind": "energy", "unit": "t", "price": 700.0},
         ],
         "impacts": [{"impact_id": "co2", "unit": "t"}],
         "impact_prices": [{"impact_id": "co2", "year": 2025, "price": co2_price}],
-        "commodity_impacts": [
-            {"commodity_id": "hfo", "impact_id": "co2", "factor": 3.0},
-            {"commodity_id": "nh3", "impact_id": "co2", "factor": 0.0},
+        "flow_impacts": [
+            {"flow_id": "hfo", "impact_id": "co2", "factor": 3.0},
+            {"flow_id": "nh3", "impact_id": "co2", "factor": 0.0},
         ],
         "technologies": [
             {"technology_id": "make", "opex": 0.01},
@@ -147,13 +147,13 @@ def _wb(
             {"asset_id": "vc/kr/plant", "baseline_technology": "make", "capacity": 1e7},
             {"asset_id": "vc/dst/term", "baseline_technology": "deliver", "capacity": 1e7},
         ],
-        "connections": [{"from_node": "vc/kr", "to_node": "vc/dst", "commodity_id": "cargo"}],
+        "links": [{"from_node": "vc/kr", "to_node": "vc/dst", "flow_id": "cargo"}],
         "routes": [
             {
                 "process": "rt",
                 "from_node": "vc/kr",
                 "to_node": "vc/dst",
-                "commodity": "cargo",
+                "flow": "cargo",
                 "mode": "sea",
                 "distance": distance,
                 **({"blocked": "true"} if blocked else {}),
@@ -161,7 +161,7 @@ def _wb(
         ],
         "fleet_groups": [{"group_id": "c", "label": "Carrier", "level": "company"}],
         **({"fleet": fleet, "fleet_routes": fleet_routes} if with_fleets else {}),
-        "demand": [{"company": "vc/dst", "commodity_id": "prod", "year": 2025, "amount": _DEMAND}],
+        "demand": [{"company": "vc/dst", "flow_id": "prod", "year": 2025, "amount": _DEMAND}],
         **(
             {
                 "impact_caps": [
@@ -300,8 +300,8 @@ def test_bunkering_fuel_supply_cap_limits_the_fleet() -> None:
     # (Σ legflow·eff·dist) must fit under the cap, so a tight cap throttles delivery.
     wb = _wb(co2_price=0.0, candidates=("dirty",))
     # dirty: eff 0.003, dist 8000 ⇒ full 1000 kt needs 0.003·8000·1000 = 24000 t hfo.
-    for c in wb["commodities"]:
-        if c["commodity_id"] == "hfo":
+    for c in wb["flows"]:
+        if c["flow_id"] == "hfo":
             c["max_purchase"] = 12000.0  # only half the fuel ⇒ ~half the cargo
     res = _solve(wb)
     assert res["status"] == "optimal"

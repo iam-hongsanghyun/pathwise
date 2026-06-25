@@ -18,7 +18,7 @@ const CAT_LABEL: Record<Cat, string> = {
   overview: "Overview",
   map: "Process map",
   routes: "Transport routes",
-  consumption: "Commodity consumption",
+  consumption: "Flow consumption",
   cost: "Cost over time",
   impacts: "Impacts",
   transitions: "Transitions",
@@ -178,7 +178,7 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
     { id: "overview", label: "Overview" },
     { id: "map", label: "Process map (by year)" },
     ...(hasRoutes ? [{ id: "routes", label: "Transport routes (map)" }] : []),
-    { id: "consumption", label: "Commodity consumption" },
+    { id: "consumption", label: "Flow consumption" },
     { id: "cost", label: "Cost over time" },
     { id: "impacts", label: "Impacts" },
     { id: "transitions", label: "Transitions" },
@@ -281,18 +281,18 @@ function Body({ cat, result, years }: { cat: Cat; result: RunResult; years: numb
     );
   }
   if (cat === "consumption") {
-    const names = [...new Set(result.summary.commodity.map((s) => s.commodity))]
-      .filter((c) => result.summary.commodity.some((s) => s.commodity === c && s.consumed > 1e-6))
+    const names = [...new Set(result.summary.flow.map((s) => s.flow))]
+      .filter((c) => result.summary.flow.some((s) => s.flow === c && s.consumed > 1e-6))
       .sort();
     const series = names.map((c) => ({
       label: c,
       values: years.map(
-        (y) => result.summary.commodity.find((s) => s.commodity === c && s.period === y)?.consumed ?? 0,
+        (y) => result.summary.flow.find((s) => s.flow === c && s.period === y)?.consumed ?? 0,
       ),
     }));
     return (
       <div className="card">
-        <h3>Commodity consumption over time</h3>
+        <h3>Flow consumption over time</h3>
         {series.length ? <LineChart years={years} series={series} /> : <p className="muted">No consumption.</p>}
       </div>
     );

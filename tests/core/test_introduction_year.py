@@ -17,7 +17,7 @@ def _wb(intro_year: int | None) -> dict:
         tech_new["introduction_year"] = intro_year
     return {
         "periods": [{"year": 2025}, {"year": 2030}, {"year": 2035}],
-        "commodities": [{"commodity_id": "widget", "kind": "product"}],
+        "flows": [{"flow_id": "widget", "kind": "product"}],
         "technologies": [{"technology_id": "OLD", "opex": 100}, tech_new],
         "io": [
             {
@@ -40,7 +40,7 @@ def _wb(intro_year: int | None) -> dict:
         ],
         "transitions": [{"from_technology": "OLD", "to_technology": "NEW", "action": "replace"}],
         "demand": [
-            {"company": "C", "commodity_id": "widget", "year": y, "amount": 50}
+            {"company": "C", "flow_id": "widget", "year": y, "amount": 50}
             for y in (2025, 2030, 2035)
         ],
         "impacts": [],

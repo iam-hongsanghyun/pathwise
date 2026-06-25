@@ -3,7 +3,7 @@
 A *value chain* links several otherwise-independent pathwise models (each a
 stage — typically a sector in a region: coal · electricity · steel · auto) into a
 directed graph. A **coupling link** says that an upstream stage's solved outcome
-for a shared commodity (its price, carbon intensity, or produced volume) feeds
+for a shared flow (its price, carbon intensity, or produced volume) feeds
 the downstream stage's inputs, optionally **lagged** by a number of years. The
 orchestrator in :mod:`pathwise.core.valuechain` consumes this spec.
 
@@ -19,14 +19,14 @@ from collections import deque
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
 
 #: Signals a link may carry from an upstream stage to a downstream stage.
 #: ``price`` is the average-cost proxy; ``marginal_price`` is the true marginal
 #: cost (finite-difference on demand) and takes precedence when both are present;
 #: ``carbon_intensity`` transfers the upstream emissions per unit; ``volume``
 #: transfers the upstream produced quantity as a cap on the downstream stage's
-#: external purchase of the commodity (available supply).
+#: external purchase of the flow (available supply).
 SIGNALS = ("price", "marginal_price", "carbon_intensity", "volume")
 
 
@@ -54,12 +54,12 @@ class Stage(BaseModel):
 
 
 class CouplingLink(BaseModel):
-    """A directed coupling from one stage to another for one commodity.
+    """A directed coupling from one stage to another for one flow.
 
     Attributes:
         from_stage: Upstream stage id (its solved outcome is the source).
         to_stage: Downstream stage id (its inputs receive the signal).
-        commodity: The shared commodity id the signal is about (e.g.
+        flow: The shared flow id the signal is about (e.g.
             ``"electricity"``).
         signals: Which signals transfer — a subset of :data:`SIGNALS`.
         impact: Which impact the ``carbon_intensity`` signal is about (impact-
@@ -67,18 +67,20 @@ class CouplingLink(BaseModel):
             is used, never a hardcoded ``"CO2"``). Ignored by the other signals.
         lag_years: Years to shift the signal forward (the time gap between an
             upstream change and its downstream effect).
-        feedback: If True, the downstream stage's consumption of ``commodity``
+        feedback: If True, the downstream stage's consumption of ``flow``
             is fed back as the upstream stage's demand for it (two-way coupling,
             resolved by fixed-point iteration when ``iterations > 1``).
         alternative_of: If set, this link is an *alternative* supply choice for
-            the same downstream commodity as the named link (authored via the
+            the same downstream flow as the named link (authored via the
             L0 "Link alternative source" action). Alternative links are inert in
             the forward cascade (compared, not auto-selected) until a later phase.
     """
 
     from_stage: str
     to_stage: str
-    commodity: str
+    # ``commodity`` is the pre-rename input key — accept it so value-chain JSON saved
+    # before commodity→flow still validates.
+    flow: str = Field(validation_alias=AliasChoices("flow", "commodity"))
     signals: list[str] = Field(default_factory=lambda: ["price"])
     impact: str = ""
     lag_years: int = Field(default=0, ge=0)

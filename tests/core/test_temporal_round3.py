@@ -24,12 +24,8 @@ def _throughput(res: dict) -> dict[int, float]:
     return {r["period"]: r["value"] for r in res["outputs"]["throughput"]}
 
 
-def _consumed(res: dict, commodity: str) -> dict[int, float]:
-    return {
-        r["period"]: r["consumed"]
-        for r in res["summary"]["commodity"]
-        if r["commodity"] == commodity
-    }
+def _consumed(res: dict, flow: str) -> dict[int, float]:
+    return {r["period"]: r["consumed"] for r in res["summary"]["flow"] if r["flow"] == flow}
 
 
 def _slack(res: dict) -> dict[str, float]:
@@ -41,7 +37,7 @@ def test_min_capacity_factor_can_be_year_varying() -> None:
     # only 10 is demanded; in 2025 it just meets demand.
     wb = {
         "periods": [{"year": y, "duration_years": 1} for y in YEARS],
-        "commodities": [{"commodity_id": "widget", "kind": "product", "unit": "t"}],
+        "flows": [{"flow_id": "widget", "kind": "product", "unit": "t"}],
         "impacts": [],
         "technologies": [{"technology_id": "T", "actions": "continue", "opex": 1.0}],
         "processes": [
@@ -57,9 +53,7 @@ def test_min_capacity_factor_can_be_year_varying() -> None:
             }
         ],
         "technologies_t__min_capacity_factor": [{"year": 2025, "T": 0.0}, {"year": 2030, "T": 0.9}],
-        "demand": [
-            {"company": "C", "commodity_id": "widget", "year": y, "amount": 10} for y in YEARS
-        ],
+        "demand": [{"company": "C", "flow_id": "widget", "year": y, "amount": 10} for y in YEARS],
     }
     res = _solve(wb)
     assert res["status"] == "optimal"
@@ -73,10 +67,10 @@ def test_blend_share_bounds_can_be_year_varying() -> None:
     # by 2030 the mix is forced fully onto (pricey) gas.
     wb = {
         "periods": [{"year": y, "duration_years": 1} for y in YEARS],
-        "commodities": [
-            {"commodity_id": "coal", "kind": "energy", "unit": "t", "price": 1.0},
-            {"commodity_id": "gas", "kind": "energy", "unit": "t", "price": 5.0},
-            {"commodity_id": "widget", "kind": "product", "unit": "t"},
+        "flows": [
+            {"flow_id": "coal", "kind": "energy", "unit": "t", "price": 1.0},
+            {"flow_id": "gas", "kind": "energy", "unit": "t", "price": 5.0},
+            {"flow_id": "widget", "kind": "product", "unit": "t"},
         ],
         "impacts": [],
         "technologies": [{"technology_id": "T", "actions": "continue"}],
@@ -123,9 +117,7 @@ def test_blend_share_bounds_can_be_year_varying() -> None:
                 "share_max": 0.0,
             },
         ],
-        "demand": [
-            {"company": "C", "commodity_id": "widget", "year": y, "amount": 100} for y in YEARS
-        ],
+        "demand": [{"company": "C", "flow_id": "widget", "year": y, "amount": 100} for y in YEARS],
     }
     res = _solve(wb)
     assert res["status"] == "optimal"
@@ -140,9 +132,9 @@ def test_edge_capacity_can_be_year_varying() -> None:
     # F1 → F2 link for `mid` is capped per year (100 → 40), throttling F2's output.
     wb = {
         "periods": [{"year": y, "duration_years": 1} for y in YEARS],
-        "commodities": [
-            {"commodity_id": "mid", "kind": "material", "unit": "t", "purchasable": False},
-            {"commodity_id": "widget", "kind": "product", "unit": "t"},
+        "flows": [
+            {"flow_id": "mid", "kind": "material", "unit": "t", "purchasable": False},
+            {"flow_id": "widget", "kind": "product", "unit": "t"},
         ],
         "impacts": [],
         "technologies": [
@@ -164,30 +156,28 @@ def test_edge_capacity_can_be_year_varying() -> None:
                 "is_product": True,
             },
         ],
-        "edges": [{"from_process": "F1", "to_process": "F2", "commodity_id": "mid"}],
+        "edges": [{"from_process": "F1", "to_process": "F2", "flow_id": "mid"}],
         "edges_t": [
             {
                 "from_process": "F1",
                 "to_process": "F2",
-                "commodity_id": "mid",
+                "flow_id": "mid",
                 "year": 2025,
                 "max_flow": 100,
             },
             {
                 "from_process": "F1",
                 "to_process": "F2",
-                "commodity_id": "mid",
+                "flow_id": "mid",
                 "year": 2030,
                 "max_flow": 40,
             },
         ],
-        "demand": [
-            {"company": "C", "commodity_id": "widget", "year": y, "amount": 100} for y in YEARS
-        ],
+        "demand": [{"company": "C", "flow_id": "widget", "year": y, "amount": 100} for y in YEARS],
     }
     res = _solve(wb)
     assert res["status"] == "optimal"
-    flow = {f["period"]: f["value"] for f in res["outputs"]["flows"] if f["commodity"] == "mid"}
+    flow = {f["period"]: f["value"] for f in res["outputs"]["flows"] if f["flow"] == "mid"}
     assert flow[2025] == pytest.approx(100.0, rel=1e-6)
     assert flow[2030] == pytest.approx(40.0, rel=1e-6)
     assert _slack(res).get("C|widget|2030") == pytest.approx(60.0, rel=1e-6)
@@ -197,7 +187,7 @@ def test_failure_rate_can_be_year_varying() -> None:
     # Forced-outage fraction rises 0 → 0.5, halving available throughput in 2030.
     wb = {
         "periods": [{"year": y, "duration_years": 1} for y in YEARS],
-        "commodities": [{"commodity_id": "widget", "kind": "product", "unit": "t"}],
+        "flows": [{"flow_id": "widget", "kind": "product", "unit": "t"}],
         "impacts": [],
         "technologies": [{"technology_id": "T", "actions": "continue"}],
         "processes": [
@@ -213,9 +203,7 @@ def test_failure_rate_can_be_year_varying() -> None:
             }
         ],
         "processes_t__failure_rate": [{"year": 2025, "P": 0.0}, {"year": 2030, "P": 0.5}],
-        "demand": [
-            {"company": "C", "commodity_id": "widget", "year": y, "amount": 100} for y in YEARS
-        ],
+        "demand": [{"company": "C", "flow_id": "widget", "year": y, "amount": 100} for y in YEARS],
     }
     res = _solve(wb)
     assert res["status"] == "optimal"
@@ -230,12 +218,12 @@ def test_storage_costs_and_efficiencies_assemble_per_year() -> None:
     # objective / level dynamics read through its ``*_at`` accessors.
     wb = {
         "periods": [{"year": y, "duration_years": 1} for y in YEARS],
-        "commodities": [{"commodity_id": "gas", "kind": "energy", "unit": "t"}],
+        "flows": [{"flow_id": "gas", "kind": "energy", "unit": "t"}],
         "impacts": [],
         "storage": [
             {
                 "storage_id": "S",
-                "commodity_id": "gas",
+                "flow_id": "gas",
                 "max_capacity": 100,
                 "capex_per_capacity": 10,
                 "fixed_opex_per_capacity": 1,
@@ -260,7 +248,7 @@ def test_lever_reduction_assembles_per_year() -> None:
     # Assemble-level: a lever block's abatement fraction can grow over time.
     wb = {
         "periods": [{"year": y, "duration_years": 1} for y in YEARS],
-        "commodities": [{"commodity_id": "widget", "kind": "product", "unit": "t"}],
+        "flows": [{"flow_id": "widget", "kind": "product", "unit": "t"}],
         "impacts": [{"impact_id": "CO2", "unit": "tCO2e"}],
         "technologies": [{"technology_id": "T", "actions": "continue"}],
         "processes": [
@@ -284,9 +272,7 @@ def test_lever_reduction_assembles_per_year() -> None:
             {"lever_id": "M", "block": 0, "year": 2025, "reduction": 0.2},
             {"lever_id": "M", "block": 0, "year": 2030, "reduction": 0.6},
         ],
-        "demand": [
-            {"company": "C", "commodity_id": "widget", "year": y, "amount": 100} for y in YEARS
-        ],
+        "demand": [{"company": "C", "flow_id": "widget", "year": y, "amount": 100} for y in YEARS],
     }
     prob = assemble_problem(wb, SC)
     block = prob.levers[0].blocks[0]

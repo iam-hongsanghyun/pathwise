@@ -11,7 +11,7 @@ async function json<T>(resp: Response): Promise<T> {
 
 export type IoRole = "input" | "output" | "impact";
 export type LeverType = "energy_efficiency" | "emission_reduction" | "environmental";
-export type CommodityKind = "energy" | "material" | "indirect" | "product" | "byproduct";
+export type FlowKind = "energy" | "material" | "indirect" | "product" | "byproduct";
 
 export interface IoRow {
   target: string;
@@ -90,9 +90,9 @@ export interface AssetComponent {
   measures: LeverTemplate[];
 }
 
-export interface CommodityTemplate {
-  commodity_id: string;
-  kind: CommodityKind;
+export interface FlowTemplate {
+  flow_id: string;
+  kind: FlowKind;
   unit: string;
   price?: number | null;
   sale_price?: number | null;
@@ -114,7 +114,7 @@ export interface ChildRef {
 export interface LinkTemplate {
   source: string;
   target: string;
-  commodity: string;
+  flow: string;
   lag_years: number;
 }
 
@@ -130,7 +130,7 @@ export interface GroupComponent {
 
 export interface ComponentLibrary {
   label: string;
-  commodities: CommodityTemplate[];
+  flows: FlowTemplate[];
   technologies: TechnologyTemplate[];
   /** Standalone, reusable levers. */
   measures: LeverTemplate[];
@@ -154,7 +154,7 @@ export interface LibrarySummary {
   /** "starter" = a shipped read-only reference; "user" = the user's own library.
    *  Only set for base-scope libraries (session libraries are always editable). */
   origin?: "starter" | "user";
-  commodities: number;
+  flows: number;
   technologies: number;
   levers: number;
   maccs: number;
@@ -164,7 +164,7 @@ export interface LibrarySummary {
 
 /** A blank library — every list defaults to empty. */
 export function emptyLibrary(label = ""): ComponentLibrary {
-  return { label, commodities: [], technologies: [], measures: [], maccs: [], assets: [], groups: [] }; // `measures` = lever list (field name unchanged)
+  return { label, flows: [], technologies: [], measures: [], maccs: [], assets: [], groups: [] }; // `measures` = lever list (field name unchanged)
 }
 
 // ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -292,7 +292,7 @@ export async function instantiateComponent(
 // ── Project workbench: copy-in (drag a component/group from a library) ─────────
 
 /** The component kinds a project can copy in — the dispatch keys of the backend
- *  `copy_component_into` (a "stream" is a commodity). */
+ *  `copy_component_into` (a "stream" is a flow). */
 export type ComponentCatalogKind = "technology" | "stream" | "lever" | "macc";
 
 /** Hard-copy a component (+ its dependency closure) into the session project

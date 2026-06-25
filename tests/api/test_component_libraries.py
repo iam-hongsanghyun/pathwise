@@ -52,7 +52,7 @@ def test_user_library_is_writable_and_tagged_user() -> None:
 
 def _lib_workbook() -> dict[str, Any]:
     return {
-        "commodities": [{"commodity_id": "x", "kind": "product", "unit": "t"}],
+        "flows": [{"flow_id": "x", "kind": "product", "unit": "t"}],
         "technologies": [{"technology_id": "T"}],
         "io": [
             {
@@ -82,7 +82,7 @@ def test_import_library_file_into_mine_xlsx_and_sqlite() -> None:
         assert r.json()["origin"] == "user"
         assert r.json()["technologies"] == 1
         libs = {lib["id"]: lib for lib in client.get("/api/component-libraries").json()}
-        assert libs[lib_id]["commodities"] == 1
+        assert libs[lib_id]["flows"] == 1
         client.delete(f"/api/component-library/{lib_id}")
 
 
@@ -108,7 +108,7 @@ def test_library_template_has_fillable_sheets_with_headers() -> None:
     r = client.get("/api/component-library/template.xlsx")
     assert r.status_code == 200
     frames = pd.read_excel(io.BytesIO(r.content), sheet_name=None)
-    for sheet in ["commodities", "technologies", "io", "levers", "maccs"]:
+    for sheet in ["flows", "technologies", "io", "levers", "maccs"]:
         assert sheet in frames, f"template missing {sheet} tab"
     # Assets are Facility-layer placed instances, not reusable components.
     assert "assets" not in frames
@@ -118,15 +118,15 @@ def test_library_template_has_fillable_sheets_with_headers() -> None:
     # A filled-in template imports back (round-trip through extract_library).
     data = io.BytesIO()
     with pd.ExcelWriter(data, engine="openpyxl") as xw:
-        pd.DataFrame([{"commodity_id": "x", "kind": "product", "unit": "t"}]).to_excel(
-            xw, sheet_name="commodities", index=False
+        pd.DataFrame([{"flow_id": "x", "kind": "product", "unit": "t"}]).to_excel(
+            xw, sheet_name="flows", index=False
         )
     resp = client.post(
         "/api/component-library/from_template/import",
         files={"file": ("filled.xlsx", data.getvalue(), "application/octet-stream")},
     )
     assert resp.status_code == 200, resp.text
-    assert resp.json()["commodities"] == 1
+    assert resp.json()["flows"] == 1
     client.delete("/api/component-library/from_template")
 
 
@@ -155,7 +155,7 @@ def test_get_one_library() -> None:
     steel = client.get("/api/component-library/steel").json()
     techs = {t["technology_id"] for t in steel["technologies"]}
     # The systempathway steel port: 4 technologies (BF-BOF baseline + the
-    # alternatives the optimiser may switch into). Fuels/feedstocks are commodities.
+    # alternatives the optimiser may switch into). Fuels/feedstocks are flows.
     assert {"BF_BOF", "BF_BOF_FX", "H2_DRI_ESF", "EAF"} <= techs
     bf = next(t for t in steel["technologies"] if t["technology_id"] == "BF_BOF")
     roles = {(r["role"], r["target"]) for r in bf["io"]}
@@ -233,9 +233,9 @@ def test_place_unknown_technology_is_422() -> None:
 
 _SESSION_LIB = {
     "label": "proj",
-    "commodities": [
-        {"commodity_id": "steel", "kind": "product", "unit": "t"},
-        {"commodity_id": "elec", "kind": "energy", "unit": "MWh"},
+    "flows": [
+        {"flow_id": "steel", "kind": "product", "unit": "t"},
+        {"flow_id": "elec", "kind": "energy", "unit": "MWh"},
     ],
     "measures": [
         {
@@ -270,7 +270,7 @@ def test_copy_technology_from_base_brings_closure() -> None:
     assert summary["technologies"] == 1  # the technology copied in
     body = client.get(f"/api/session/{sid}/component-library/proj").json()
     assert "EAF" in {t["technology_id"] for t in body["technologies"]}
-    assert body["commodities"], "its input/output streams came along (closure)"
+    assert body["flows"], "its input/output streams came along (closure)"
 
 
 def test_copy_from_session_source_brings_full_closure() -> None:
@@ -287,13 +287,13 @@ def test_copy_from_session_source_brings_full_closure() -> None:
     )
     body = client.get(f"/api/session/{sid}/component-library/dst").json()
     assert {t["technology_id"] for t in body["technologies"]} == {"EAFx"}
-    assert {c["commodity_id"] for c in body["commodities"]} == {"steel", "elec"}
+    assert {c["flow_id"] for c in body["flows"]} == {"steel", "elec"}
     assert {m["lever_id"] for m in body["measures"]} == {"eff1"}  # via the MACC
     assert {g["macc_id"] for g in body["maccs"]} == {"M"}
 
 
 def test_copy_stream_only() -> None:
-    # Dragging a single stream copies just that commodity, no technologies.
+    # Dragging a single stream copies just that flow, no technologies.
     sid = "copy3"
     client.put(f"/api/session/{sid}/component-library/src", json=_SESSION_LIB)
     client.post(
@@ -301,7 +301,7 @@ def test_copy_stream_only() -> None:
         json={"src_scope": "session", "src_id": "src", "kind": "stream", "component_id": "steel"},
     )
     body = client.get(f"/api/session/{sid}/component-library/dst").json()
-    assert {c["commodity_id"] for c in body["commodities"]} == {"steel"}
+    assert {c["flow_id"] for c in body["flows"]} == {"steel"}
     assert body["technologies"] == []
 
 

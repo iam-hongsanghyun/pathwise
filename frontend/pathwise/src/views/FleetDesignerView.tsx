@@ -102,7 +102,7 @@ export function FleetDesignerView({
   const fgById = useMemo(() => new Map(fleetGroups.map((g) => [g.id, g])), [fleetGroups]);
   const routes = useMemo(() => (workbook.routes ?? []) as Row[], [workbook]);
   const fleetRoutes = useMemo(() => (workbook.fleet_routes ?? []) as Row[], [workbook]);
-  const commodities = useMemo(() => (workbook.commodities ?? []).map((r) => s(r.commodity_id)).filter(Boolean), [workbook]);
+  const flows = useMemo(() => (workbook.flows ?? []).map((r) => s(r.flow_id)).filter(Boolean), [workbook]);
   const coord = useMemo(() => buildCoordMap(workbook), [workbook]);
   const fleetByNode = useMemo(() => new Map(fleets.map((f) => [fleetId(f), f])), [fleets]);
   // Per-corridor ANNUAL CLOSURE PROBABILITY [0,1] — the chokepoint-risk input.
@@ -178,7 +178,7 @@ export function FleetDesignerView({
     return [...ids].sort();
   }, [corridorProbs, corridorTolls]);
   // Candidate fleets per route — pinned (fleet_routes) first, else any fleet whose
-  // cargo matches the route's commodity (the optimiser's candidate set).
+  // cargo matches the route's flow (the optimiser's candidate set).
   const fleetsByProc = useMemo(() => {
     const m = new Map<string, string[]>();
     for (const fr of fleetRoutes) {
@@ -206,15 +206,15 @@ export function FleetDesignerView({
           if (!from || !to) return null;
           const mode = s(r.mode) || "sea";
           const proc = s(r.process);
-          const commodity = s(r.commodity);
+          const flow = s(r.flow);
           const key = `${from.lon.toFixed(2)},${from.lat.toFixed(2)}|${to.lon.toFixed(2)},${to.lat.toFixed(2)}|${mode}|${blockedCorridors.join(",")}`;
           return {
             process: proc, from, to, mode, key,
             blocked: s(r.blocked) === "true", alt: has(r.alternative_of),
             fromLabel: nodeById.get(s(r.from_node))?.label ?? s(r.from_node),
             toLabel: nodeById.get(s(r.to_node))?.label ?? s(r.to_node),
-            commodity,
-            fleets: fleetsByProc.get(proc) ?? fleetsByCargo.get(commodity) ?? [],
+            flow,
+            fleets: fleetsByProc.get(proc) ?? fleetsByCargo.get(flow) ?? [],
           };
         })
         .filter((r): r is NonNullable<typeof r> => r !== null),
@@ -367,7 +367,7 @@ export function FleetDesignerView({
   // ── Routes: physicalise a stream link + locate its endpoints ───────────
   function selectRoute(leaf: RouteLeaf) {
     if (!leaf.physical && !routes.some((r) => s(r.process) === leaf.proc))
-      setWorkbook(setSheet(workbook, "routes", [...routes, { process: leaf.proc, from_node: leaf.from, to_node: leaf.to, commodity: leaf.commodity, mode: "sea" }]));
+      setWorkbook(setSheet(workbook, "routes", [...routes, { process: leaf.proc, from_node: leaf.from, to_node: leaf.to, flow: leaf.flow, mode: "sea" }]));
     setSelId(leaf.proc);
     setEdit({ kind: "route", id: leaf.proc });
   }
@@ -568,7 +568,7 @@ export function FleetDesignerView({
       </div>
 
       {edit?.kind === "fleet" && fleetByNode.get(edit.id) && (
-        <FleetPanel fleet={fleetByNode.get(edit.id)!} commodities={commodities}
+        <FleetPanel fleet={fleetByNode.get(edit.id)!} flows={flows}
           onRename={(v) => patchFleet(edit.id, { label: v })} onChange={(p) => patchFleet(edit.id, p)} onClose={() => setEdit(null)} />
       )}
       {edit?.kind === "node" && nodeById.get(edit.id) && (
@@ -715,7 +715,7 @@ const FIELD_INFO: Record<string, string> = {
   lifespan: "Service life in years — with a build year, the fleet retires after build + lifespan − 1.",
 };
 
-function FleetPanel({ fleet, commodities, onRename, onChange, onClose }: { fleet: Row; commodities: string[]; onRename: (v: string) => void; onChange: (p: Row) => void; onClose: () => void }) {
+function FleetPanel({ fleet, flows, onRename, onChange, onClose }: { fleet: Row; flows: string[]; onRename: (v: string) => void; onChange: (p: Row) => void; onClose: () => void }) {
   return (
     <FloatingPanel title="fleet" width={360} onClose={onClose}>
       <div style={{ padding: "12px 14px" }}>
@@ -726,7 +726,7 @@ function FleetPanel({ fleet, commodities, onRename, onChange, onClose }: { fleet
             {key === "mode" ? (
               <div style={{ flex: 1 }}><SearchSelect value={s(fleet.mode) || "sea"} onChange={(v) => onChange({ mode: v })} options={MODES} /></div>
             ) : key === "cargo" || key === "fuel" ? (
-              <div style={{ flex: 1 }}><SearchSelect value={s(fleet[key])} onChange={(v) => onChange({ [key]: v })} options={commodities.map((c) => ({ value: c }))} /></div>
+              <div style={{ flex: 1 }}><SearchSelect value={s(fleet[key])} onChange={(v) => onChange({ [key]: v })} options={flows.map((c) => ({ value: c }))} /></div>
             ) : (
               <input className="field-input" style={{ flex: 1 }} type="number" value={s(fleet[key])} onChange={(e) => onChange({ [key]: blank(e.target.value) })} />
             )}
@@ -769,7 +769,7 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
   const proc = s(route.process);
   const blocked = s(route.blocked) === "true";
   const others = routes.filter((r) => s(r.process) !== proc);
-  const commodity = s(route.commodity);
+  const flow = s(route.flow);
   const candidates = fleetRoutes.filter((r) => s(r.process) === proc);
   const candIds = new Set(candidates.map((r) => fleetId(r)));
   const addable = fleets.filter((f) => !candIds.has(fleetId(f)));
@@ -781,7 +781,7 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
       <div style={{ padding: "12px 14px" }}>
         <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>{labelOf(s(route.from_node))} → {labelOf(s(route.to_node))}</div>
         <div className="muted" style={{ fontSize: "0.74rem", marginBottom: 6 }}>
-          {commodity ? <>stream <b style={{ color: "var(--text)" }}>{commodity}</b> · made physical (otherwise it teleports)</> : "direct transport process"}
+          {flow ? <>stream <b style={{ color: "var(--text)" }}>{flow}</b> · made physical (otherwise it teleports)</> : "direct transport process"}
         </div>
         {row("mode", <SearchSelect value={s(route.mode) || "sea"} onChange={(v) => onChange({ mode: v })} options={MODES} />, "Sea follows real sea lanes (searoute, via Suez/Panama); road/rail use great-circle × a detour factor. Sets the route's distance basis.")}
         {row("distance", <input className="field-input" style={{ width: "100%" }} type="number" placeholder="auto · from the ports" value={s(route.distance)} onChange={(e) => onChange({ distance: blank(e.target.value) })} />, "Leave blank to derive it from the two ports (sea = searoute length; land = great-circle × factor). Override to pin a known distance.")}
@@ -790,11 +790,11 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
           <input type="checkbox" checked={blocked} onChange={(e) => onToggleBlock(e.target.checked)} />
           <span>Block this corridor (scenario) <InfoTooltip text="Close this corridor to test a disruption (e.g. Hormuz / Suez): the route's flow is forced to 0, so the stream must reroute or go undelivered." /></span>
         </label>
-        {!blocked && commodity && (
+        {!blocked && flow && (
           <div className="rail-section" style={{ marginTop: 8 }}>
             <div className="rail-head">Candidate fleets <InfoTooltip text="Fleets that MAY carry this stream — the optimiser picks which one(s) run the route (some, not all). Leave empty to let it choose from every fleet that carries this stream." /></div>
             {candidates.length === 0 ? (
-              <p className="rail-empty" style={{ margin: "2px 0 4px" }}>Empty — the optimiser may use any fleet carrying "{commodity}".</p>
+              <p className="rail-empty" style={{ margin: "2px 0 4px" }}>Empty — the optimiser may use any fleet carrying "{flow}".</p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", margin: "4px 0" }}>
                 {candidates.map((r) => {
@@ -812,7 +812,7 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
           </div>
         )}
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
-          <button className="ghost" style={{ color: "var(--danger)" }} onClick={onDelete}>{commodity ? "Remove route (back to teleport)" : "Delete route"}</button>
+          <button className="ghost" style={{ color: "var(--danger)" }} onClick={onDelete}>{flow ? "Remove route (back to teleport)" : "Delete route"}</button>
         </div>
       </div>
     </FloatingPanel>

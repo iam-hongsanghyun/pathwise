@@ -26,9 +26,9 @@ def _tmp_data_dir(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> Iterator[No
 def _project_library() -> dict[str, Any]:
     return {
         "label": "Project",
-        "commodities": [
-            {"commodity_id": "ore", "kind": "material", "unit": "t"},
-            {"commodity_id": "steel", "kind": "product", "unit": "t"},
+        "flows": [
+            {"flow_id": "ore", "kind": "material", "unit": "t"},
+            {"flow_id": "steel", "kind": "product", "unit": "t"},
         ],
         "technologies": [
             {
@@ -39,7 +39,7 @@ def _project_library() -> dict[str, Any]:
                 ],
             }
         ],
-        "measures": [],
+        "levers": [],
         "maccs": [],
         "assets": [],
         "groups": [],

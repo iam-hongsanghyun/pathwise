@@ -1,4 +1,4 @@
-"""P8b: commodity-market least-cost mixture + tradable ETS allowances."""
+"""P8b: flow-market least-cost mixture + tradable ETS allowances."""
 
 from __future__ import annotations
 
@@ -16,30 +16,30 @@ def _solve(wb: dict) -> dict:
 def test_market_mixture_picks_cheapest_first() -> None:
     wb = {
         "periods": [{"year": 2025, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "elec", "kind": "energy"},
-            {"commodity_id": "p", "kind": "product"},
+        "flows": [
+            {"flow_id": "elec", "kind": "energy"},
+            {"flow_id": "p", "kind": "product"},
         ],
         "technologies": [{"technology_id": "T"}],
         "processes": [
             {"process_id": "P", "company": "C", "baseline_technology": "T", "capacity": 1000}
         ],
-        "process_inputs": [{"technology_id": "T", "commodity_id": "elec", "intensity": 1.0}],
+        "process_inputs": [{"technology_id": "T", "flow_id": "elec", "intensity": 1.0}],
         "process_outputs": [
-            {"technology_id": "T", "commodity_id": "p", "yield": 1.0, "is_product": True}
+            {"technology_id": "T", "flow_id": "p", "yield": 1.0, "is_product": True}
         ],
         "markets": [
             {
                 "market_id": "PPA",
                 "target": "elec",
-                "target_kind": "commodity",
+                "target_kind": "flow",
                 "price": 50,
                 "max_buy": 60,
                 "tag": "RE100",
             },
-            {"market_id": "KEPCO", "target": "elec", "target_kind": "commodity", "price": 80},
+            {"market_id": "KEPCO", "target": "elec", "target_kind": "flow", "price": 80},
         ],
-        "demand": [{"company": "C", "commodity_id": "p", "year": 2025, "amount": 100}],
+        "demand": [{"company": "C", "flow_id": "p", "year": 2025, "amount": 100}],
     }
     res = _solve(wb)
     assert res["status"] == "optimal"
@@ -53,20 +53,20 @@ def test_market_mixture_picks_cheapest_first() -> None:
 def _ets_wb(allocation: float) -> dict:
     return {
         "periods": [{"year": 2025, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "coal", "kind": "energy", "price": 0},
-            {"commodity_id": "p", "kind": "product"},
+        "flows": [
+            {"flow_id": "coal", "kind": "energy", "price": 0},
+            {"flow_id": "p", "kind": "product"},
         ],
         "impacts": [{"impact_id": "CO2", "unit": "t"}],
         "technologies": [{"technology_id": "T"}],
         "processes": [
             {"process_id": "P", "company": "C", "baseline_technology": "T", "capacity": 1000}
         ],
-        "process_inputs": [{"technology_id": "T", "commodity_id": "coal", "intensity": 1.0}],
+        "process_inputs": [{"technology_id": "T", "flow_id": "coal", "intensity": 1.0}],
         "process_outputs": [
-            {"technology_id": "T", "commodity_id": "p", "yield": 1.0, "is_product": True}
+            {"technology_id": "T", "flow_id": "p", "yield": 1.0, "is_product": True}
         ],
-        "commodity_impacts": [{"commodity_id": "coal", "impact_id": "CO2", "factor": 1.0}],
+        "flow_impacts": [{"flow_id": "coal", "impact_id": "CO2", "factor": 1.0}],
         "markets": [
             {
                 "market_id": "ETS",
@@ -77,7 +77,7 @@ def _ets_wb(allocation: float) -> dict:
                 "allocation": allocation,
             }
         ],
-        "demand": [{"company": "C", "commodity_id": "p", "year": 2025, "amount": 60}],
+        "demand": [{"company": "C", "flow_id": "p", "year": 2025, "amount": 60}],
     }
 
 

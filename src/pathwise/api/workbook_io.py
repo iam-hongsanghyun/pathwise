@@ -167,7 +167,7 @@ def result_to_tables(result: dict[str, Any]) -> Workbook:
             collect(key, out.get(key), stage)
         collect("emissions", summ.get("impacts"), stage)
         collect("cost", summ.get("periods"), stage)
-        collect("commodity", summ.get("commodity"), stage)
+        collect("flow", summ.get("flow"), stage)
         # nested per-period blocks → flat rows
         for st in out.get("storage") or []:
             for bp in st.get("by_period", []):
@@ -176,7 +176,7 @@ def result_to_tables(result: dict[str, Any]) -> Workbook:
                     [
                         {
                             "storage": st.get("storage"),
-                            "commodity": st.get("commodity"),
+                            "flow": st.get("flow"),
                             "capacity": st.get("capacity"),
                             **bp,
                         }
@@ -190,7 +190,7 @@ def result_to_tables(result: dict[str, Any]) -> Workbook:
                     [
                         {
                             "market": mk.get("market"),
-                            "commodity": mk.get("commodity"),
+                            "flow": mk.get("flow"),
                             "tag": mk.get("tag"),
                             **bp,
                         }

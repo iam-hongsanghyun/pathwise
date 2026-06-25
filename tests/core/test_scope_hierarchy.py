@@ -48,12 +48,12 @@ def _model() -> dict[str, list[dict[str, Any]]]:
                 "is_product": True,
             },
         ],
-        "commodities": [
-            {"commodity_id": "coal", "kind": "material", "price": 10},
-            {"commodity_id": "steel", "kind": "product"},
+        "flows": [
+            {"flow_id": "coal", "kind": "material", "price": 10},
+            {"flow_id": "steel", "kind": "product"},
         ],
         "periods": [{"year": 2025, "duration_years": 1}],
-        "demand": [{"company": "all", "commodity_id": "steel", "year": 2025, "amount": 50}],
+        "demand": [{"company": "all", "flow_id": "steel", "year": 2025, "amount": 50}],
     }
 
 
@@ -88,7 +88,7 @@ def test_company_scoped_market_resolves_to_its_subtree() -> None:
     # coal is NOT purchasable by default; the ONLY supply is a market scoped to the
     # deep company node. If deep-group scope didn't resolve, the market would serve
     # zero processes and the demand could not be met.
-    m["commodities"][0]["purchasable"] = False
+    m["flows"][0]["purchasable"] = False
     m["markets"] = [
         {"market_id": "coal_mkt", "target": "coal", "company": "chain/steelco", "price": 10}
     ]

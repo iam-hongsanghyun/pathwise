@@ -34,7 +34,7 @@ def _seed(sid: str) -> None:
     model = {
         "nodes": [{"node_id": "n1", "kind": "group", "level": "company", "label": "Acme"}],
         "assets": [{"asset_id": "mac1", "baseline_technology": "BF_BOF", "capacity": 10}],
-        "connections": [],
+        "links": [],
         "project": [{"name": "Acme Steel"}],
     }
     assert (
@@ -43,9 +43,9 @@ def _seed(sid: str) -> None:
     )
     proj = {
         "label": "Project comps",
-        "commodities": [{"commodity_id": "x", "kind": "material", "unit": "t"}],
+        "flows": [{"flow_id": "x", "kind": "material", "unit": "t"}],
         "technologies": [],
-        "measures": [],
+        "levers": [],
         "maccs": [],
         "assets": [],
         "groups": [],

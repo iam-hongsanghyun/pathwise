@@ -40,17 +40,17 @@ UNITS = "units"
 #: One row per modelled year (``year``, ``duration_years``).
 PERIODS = "periods"
 
-# ── Streams (commodities) ─────────────────────────────────────────────────────
+# ── Streams (flows) ─────────────────────────────────────────────────────
 
-#: Static commodity/stream definitions.
-COMMODITIES = "commodities"
+#: Static flow/stream definitions.
+FLOWS = "flows"
 
-#: Long-format per-year price trajectory (commodity_id, year, price?, sale_price?).
-COMMODITY_PRICES = "commodity_prices"
+#: Long-format per-year price trajectory (flow_id, year, price?, sale_price?).
+FLOW_PRICES = "flow_prices"
 
-#: Free-form physical stream properties (commodity_id, property, value) — e.g.
+#: Free-form physical stream properties (flow_id, property, value) — e.g.
 #: temperature, voltage, pressure, calorific value. Carried as metadata.
-COMMODITY_PROPERTIES = "commodity_properties"
+FLOW_PROPERTIES = "flow_properties"
 
 # ── Environmental impacts ─────────────────────────────────────────────────────
 
@@ -79,10 +79,10 @@ IO = "io"
 #: coefficient) — year-varying intensities / yields / emission factors.
 IO_T = "io_t"
 
-#: Legacy technology inputs table (technology_id, commodity_id, intensity).
+#: Legacy technology inputs table (technology_id, flow_id, intensity).
 PROCESS_INPUTS = "process_inputs"
 
-#: Legacy technology outputs table (technology_id, commodity_id, yield).
+#: Legacy technology outputs table (technology_id, flow_id, yield).
 PROCESS_OUTPUTS = "process_outputs"
 
 #: Direct process-level impact factors (technology_id, impact_id, factor).
@@ -99,13 +99,13 @@ PROCESS_IMPACTS_T = "process_impacts_t"
 #: Long-format per-year technology cost trajectory (technology_id, year, capex?, opex?).
 TECHNOLOGIES_PRICES = "technologies_prices"
 
-# ── Commodity impact factors ──────────────────────────────────────────────────
+# ── Flow impact factors ──────────────────────────────────────────────────
 
-#: Static per-unit stream emission/impact factors (commodity_id, impact_id, factor).
-COMMODITY_IMPACTS = "commodity_impacts"
+#: Static per-unit stream emission/impact factors (flow_id, impact_id, factor).
+FLOW_IMPACTS = "flow_impacts"
 
-#: Year-varying stream emission/impact factors (commodity_id, impact_id, year, factor).
-COMMODITY_IMPACTS_T = "commodity_impacts_t"
+#: Year-varying stream emission/impact factors (flow_id, impact_id, year, factor).
+FLOW_IMPACTS_T = "flow_impacts_t"
 
 # ── Facilities (process instances) ───────────────────────────────────────────
 
@@ -171,23 +171,23 @@ NODES = "nodes"
 #: Leaf-asset detail rows (asset_id, baseline_technology, capacity, …).
 ASSETS = "assets"
 
-#: Directed commodity flows between sibling nodes (from_node, to_node, commodity_id,
+#: Directed flow flows between sibling nodes (from_node, to_node, flow_id,
 #: lag_years, min_flow, max_flow). Optional spatial-transport physics per stream
 #: (opt-in; untagged links stay free): ``freight_cost`` [currency/unit] and
 #: ``freight_energy`` [energy/unit] columns on the flow; per-impact freight emissions
 #: live in ``link_impacts`` (impact-agnostic — any/all impacts, no hardcoded CO₂).
 LINKS = "links"
 
-#: Per-impact freight emissions on a connection (from_node, to_node, commodity_id,
-#: impact_id, factor [impact unit / commodity unit]). Mirrors ``commodity_impacts``;
+#: Per-impact freight emissions on a connection (from_node, to_node, flow_id,
+#: impact_id, factor [impact unit / flow unit]). Mirrors ``flow_impacts``;
 #: priced at each impact's own price in the objective. No privileged impact.
 LINK_IMPACTS = "link_impacts"
 
-#: Long-format per-year connection flow bounds (from_node, to_node, commodity_id,
+#: Long-format per-year connection flow bounds (from_node, to_node, flow_id,
 #: year, min_flow, max_flow) — the node-space counterpart of ``edges_t``.
 LINKS_T = "links_t"
 
-#: Boundary ports exposed by group nodes (node_id, commodity_id, direction, …).
+#: Boundary ports exposed by group nodes (node_id, flow_id, direction, …).
 PORTS = "ports"
 
 #: 2-D layout of process/node cards for the canvas UI (id, x, y).
@@ -195,17 +195,17 @@ NODE_LAYOUT = "node_layout"
 
 # ── Edges (flat-model wiring) ─────────────────────────────────────────────────
 
-#: Directed commodity flows between flat processes (from_process, to_process,
-#: commodity_id, min_flow, max_flow, lag_years). Optional spatial-transport physics
+#: Directed flow flows between flat processes (from_process, to_process,
+#: flow_id, min_flow, max_flow, lag_years). Optional spatial-transport physics
 #: per edge: ``freight_cost`` / ``freight_energy`` columns; per-impact freight
 #: emissions live in ``edge_impacts`` (see LINKS / LINK_IMPACTS).
 EDGES = "edges"
 
 #: Per-impact freight emissions on a flat edge (from_process, to_process,
-#: commodity_id, impact_id, factor) — the flat-model counterpart of LINK_IMPACTS.
+#: flow_id, impact_id, factor) — the flat-model counterpart of LINK_IMPACTS.
 EDGE_IMPACTS = "edge_impacts"
 
-#: Long-format per-year edge capacity (from_process, to_process, commodity_id,
+#: Long-format per-year edge capacity (from_process, to_process, flow_id,
 #: year, max_flow).
 EDGES_T = "edges_t"
 
@@ -225,7 +225,7 @@ LEVER_BLOCKS_T = "lever_blocks_t"
 MACCS = "maccs"
 
 #: MACC deployment links: which facilities/technologies a MACC applies to
-#: (macc, facility?, technology?, commodity?, storage?).
+#: (macc, facility?, technology?, flow?, storage?).
 MACC_LINKS = "macc_links"
 
 #: Legacy named-set membership for levers (set, applies_to).
@@ -234,7 +234,7 @@ LEVER_LINKS = "lever_links"
 
 # ── Storage ───────────────────────────────────────────────────────────────────
 
-#: Inter-year commodity stores (storage_id, commodity_id, company, …).
+#: Inter-year flow stores (storage_id, flow_id, company, …).
 STORAGE = "storage"
 
 #: Wide temporal store build cost / O&M / efficiencies (keyed by storage_id).
@@ -246,7 +246,7 @@ STORAGE_T_STANDING_LOSS = "storage_t__standing_loss"
 
 # ── Markets ───────────────────────────────────────────────────────────────────
 
-#: Market definitions — commodity supply or ETS (market_id, target, …).
+#: Market definitions — flow supply or ETS (market_id, target, …).
 MARKETS = "markets"
 
 #: Long-format per-year market price trajectory (market_id, year, price?, sell_price?, …).
@@ -254,22 +254,22 @@ MARKET_PRICES = "market_prices"
 
 # ── Constraints ───────────────────────────────────────────────────────────────
 
-#: Per-year product demand requirements (company, commodity_id, year, amount).
+#: Per-year product demand requirements (company, flow_id, year, amount).
 DEMAND = "demand"
 
 #: Per-year investment budget limits (company, year?, limit?).
 INVESTMENT_BUDGET = "investment_budget"
 
-#: Per-year minimum production floors (company, commodity_id, year?, amount?).
+#: Per-year minimum production floors (company, flow_id, year?, amount?).
 MIN_PRODUCTION = "min_production"
 
-#: Per-year maximum production ceilings (company, commodity_id, year?, amount?).
+#: Per-year maximum production ceilings (company, flow_id, year?, amount?).
 MAX_PRODUCTION = "max_production"
 
-#: Per-asset minimum consumption / required offtake (company, commodity_id, year?, amount?).
+#: Per-asset minimum consumption / required offtake (company, flow_id, year?, amount?).
 MIN_CONSUMPTION = "min_consumption"
 
-#: Per-asset maximum consumption / max purchase (company, commodity_id, year?, amount?).
+#: Per-asset maximum consumption / max purchase (company, flow_id, year?, amount?).
 MAX_CONSUMPTION = "max_consumption"
 
 #: Per-year environmental impact caps (company, impact_id, year?, limit?, soft?, …).
@@ -284,14 +284,14 @@ GROUPS = "groups"
 # Sheet names follow the convention ``<entity>_t__<attribute>`` (double
 # underscore separates entity base name from the varying attribute).
 
-#: Wide temporal commodity purchase prices (year column + one column per commodity).
-COMMODITIES_T_PRICE = "commodities_t__price"
+#: Wide temporal flow purchase prices (year column + one column per flow).
+FLOWS_T_PRICE = "flows_t__price"
 
-#: Wide temporal commodity sale prices.
-COMMODITIES_T_SALE_PRICE = "commodities_t__sale_price"
+#: Wide temporal flow sale prices.
+FLOWS_T_SALE_PRICE = "flows_t__sale_price"
 
-#: Wide temporal commodity maximum-purchase caps.
-COMMODITIES_T_MAX_PURCHASE = "commodities_t__max_purchase"
+#: Wide temporal flow maximum-purchase caps.
+FLOWS_T_MAX_PURCHASE = "flows_t__max_purchase"
 
 #: Wide temporal impact prices.
 IMPACTS_T_PRICE = "impacts_t__price"
@@ -365,10 +365,10 @@ VARIANTS = "variants"
 #: Timed interventions per variant: one row per edit
 #: (variant_id, kind, target, value, forced_year, field?).
 #: ``tech`` → force ``target`` asset onto technology ``value`` from ``forced_year``;
-#: ``stream`` → set commodity ``target`` price to ``value`` from ``forced_year``;
+#: ``stream`` → set flow ``target`` price to ``value`` from ``forced_year``;
 #: ``lever`` → toggle lever ``target`` (``value`` truthy = on);
 #: ``tech_cost`` → set technology ``target``'s ``field`` (capex|opex) to ``value``;
-#: ``io_coef`` → set technology ``target``'s coefficient for commodity ``field``;
-#: ``stream_cap`` → set commodity ``target``'s ``field`` (max_purchase|
+#: ``io_coef`` → set technology ``target``'s coefficient for flow ``field``;
+#: ``stream_cap`` → set flow ``target``'s ``field`` (max_purchase|
 #: available_from|available_to) to ``value``.
 VARIANT_INTERVENTIONS = "variant_interventions"

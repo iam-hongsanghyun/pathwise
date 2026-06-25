@@ -27,9 +27,9 @@ function references(wb: Workbook) {
   );
   // Intensities/impacts come from the unified `io` table (legacy sheets as
   // fallback) — mirroring lib/graph and the assembler.
-  const intensity = new Map<string, number>(); // `${tech}|${commodity}`
+  const intensity = new Map<string, number>(); // `${tech}|${flow}`
   for (const r of wb.process_inputs ?? [])
-    intensity.set(`${str(r.technology_id)}|${str(r.commodity_id)}`, num(r.intensity));
+    intensity.set(`${str(r.technology_id)}|${str(r.flow_id)}`, num(r.intensity));
   const direct = new Map<string, number>(); // `${tech}|${impact}`
   for (const r of wb.tech_impacts ?? [])
     direct.set(`${str(r.technology_id)}|${str(r.impact_id)}`, num(r.factor));
@@ -40,25 +40,25 @@ function references(wb: Workbook) {
     else if (role === "impact")
       direct.set(`${str(r.technology_id)}|${str(r.target)}`, num(r.coefficient));
   }
-  const commodityImpact = new Map<string, number>(); // `${commodity}|${impact}`
-  for (const r of wb.commodity_impacts ?? [])
-    commodityImpact.set(`${str(r.commodity_id)}|${str(r.impact_id)}`, num(r.factor));
+  const flowImpact = new Map<string, number>(); // `${flow}|${impact}`
+  for (const r of wb.flow_impacts ?? [])
+    flowImpact.set(`${str(r.flow_id)}|${str(r.impact_id)}`, num(r.factor));
 
-  const refConsumption = (p: string, commodity: string): number =>
-    (capacity.get(p) ?? 0) * (intensity.get(`${baseTech.get(p)}|${commodity}`) ?? 0);
+  const refConsumption = (p: string, flow: string): number =>
+    (capacity.get(p) ?? 0) * (intensity.get(`${baseTech.get(p)}|${flow}`) ?? 0);
   const refImpact = (p: string, impact: string): number => {
     const tech = baseTech.get(p) ?? "";
     let total = (capacity.get(p) ?? 0) * (direct.get(`${tech}|${impact}`) ?? 0);
     const inputs = new Set<string>([
       ...(wb.process_inputs ?? [])
         .filter((r) => str(r.technology_id) === tech)
-        .map((r) => str(r.commodity_id)),
+        .map((r) => str(r.flow_id)),
       ...(wb.io ?? [])
         .filter((r) => str(r.technology_id) === tech && str(r.role, "input") === "input")
         .map((r) => str(r.target)),
     ]);
     for (const c of inputs)
-      total += (commodityImpact.get(`${c}|${impact}`) ?? 0) * refConsumption(p, c);
+      total += (flowImpact.get(`${c}|${impact}`) ?? 0) * refConsumption(p, c);
     return total;
   };
   return { refConsumption, refImpact };

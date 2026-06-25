@@ -34,19 +34,19 @@ def _wb(*, suez_toll: float) -> dict[str, Any]:
     return {
         "meta": [{"key": "base_year", "value": 2025}],
         "periods": [{"year": 2025}],
-        "commodities": [
+        "flows": [
             {
-                "commodity_id": "cargo",
+                "flow_id": "cargo",
                 "kind": "material",
                 "unit": "kt",
                 "purchasable": 0,
                 "sellable": 0,
             },
-            {"commodity_id": "prod", "kind": "product", "unit": "kt"},
-            {"commodity_id": "hfo", "kind": "energy", "unit": "t", "price": 500.0},
+            {"flow_id": "prod", "kind": "product", "unit": "kt"},
+            {"flow_id": "hfo", "kind": "energy", "unit": "t", "price": 500.0},
         ],
         "impacts": [{"impact_id": "co2", "unit": "t"}],
-        "commodity_impacts": [{"commodity_id": "hfo", "impact_id": "co2", "factor": 0.0}],
+        "flow_impacts": [{"flow_id": "hfo", "impact_id": "co2", "factor": 0.0}],
         "technologies": [
             {"technology_id": "make", "opex": 0.0},
             {"technology_id": "deliver", "opex": 0.0},
@@ -101,14 +101,14 @@ def _wb(*, suez_toll: float) -> dict[str, Any]:
             {"asset_id": "vc/kr/plant", "baseline_technology": "make", "capacity": 1e7},
             {"asset_id": "vc/eu/term", "baseline_technology": "deliver", "capacity": 1e7},
         ],
-        "connections": [{"from_node": "vc/kr", "to_node": "vc/eu", "commodity_id": "cargo"}],
+        "links": [{"from_node": "vc/kr", "to_node": "vc/eu", "flow_id": "cargo"}],
         # No authored distance ⇒ derived ⇒ cost-weighted path selection engages.
         "routes": [
             {
                 "process": "rt",
                 "from_node": "vc/kr",
                 "to_node": "vc/eu",
-                "commodity": "cargo",
+                "flow": "cargo",
                 "mode": "sea",
             }
         ],
@@ -126,7 +126,7 @@ def _wb(*, suez_toll: float) -> dict[str, Any]:
         "fleet_routes": [{"process": "rt", "fleet_id": "ship"}],
         "fleet_groups": [{"group_id": "c", "label": "Carrier", "level": "company"}],
         "corridors": [{"corridor": "suez", "toll": suez_toll}],
-        "demand": [{"company": "vc/eu", "commodity_id": "prod", "year": 2025, "amount": 1000.0}],
+        "demand": [{"company": "vc/eu", "flow_id": "prod", "year": 2025, "amount": 1000.0}],
     }
 
 

@@ -4,9 +4,9 @@ These are plain, immutable-ish dataclasses with **no I/O and no solver types** �
 the assembler (``data/assemble.py``) builds them from a workbook and the core
 (``core/build.py``) reads them to construct the ``linopy`` model.
 
-Units: every :class:`Commodity` and :class:`Impact` declares its own unit
-string. Any quantity that references a commodity (intensity, yield, price,
-impact factor, flow) is expressed in that commodity's unit, so the optimisation
+Units: every :class:`Flow` and :class:`Impact` declares its own unit
+string. Any quantity that references a flow (intensity, yield, price,
+impact factor, flow) is expressed in that flow's unit, so the optimisation
 matrix needs no cross-unit conversion. Units are validated (parseable by pint)
 at assembly and used only at I/O boundaries.
 """
@@ -17,8 +17,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 
-class CommodityKind(StrEnum):
-    """What role a commodity stream plays (informational; the math is uniform)."""
+class FlowKind(StrEnum):
+    """What role a flow stream plays (informational; the math is uniform)."""
 
     ENERGY = "energy"
     MATERIAL = "material"
@@ -38,7 +38,7 @@ class TransitionAction(StrEnum):
 class LeverType(StrEnum):
     """The lever a MACC/abatement option pulls."""
 
-    ENERGY_EFFICIENCY = "energy_efficiency"  # cut an input commodity's intensity
+    ENERGY_EFFICIENCY = "energy_efficiency"  # cut an input flow's intensity
     EMISSION_REDUCTION = "emission_reduction"  # cut a (CO2) impact directly
     ENVIRONMENTAL = "environmental"  # cut a non-CO2 impact (SOx, NOx, …)
 
@@ -78,11 +78,11 @@ class Period:
 
 
 @dataclass(slots=True, frozen=True)
-class Commodity:
+class Flow:
     """A flow stream consumed and/or produced by processes.
 
     Attributes:
-        commodity_id: Unique id.
+        flow_id: Unique id.
         kind: Role of the stream (energy/material/indirect/product/byproduct).
         unit: Declared unit string (pint-parseable), e.g. ``"MWh"``, ``"t"``.
         price_by_year: External purchase price [currency / unit] by year.
@@ -98,7 +98,7 @@ class Commodity:
         available_to: Last year the stream may be bought externally [yr]
             (e.g. a coal-purchase ban after 2040).
         max_purchase_by_year: Upper bound on the total external purchase of this
-            stream across every process in a year [commodity unit / yr]; ``None``
+            stream across every process in a year [flow unit / yr]; ``None``
             for a year ⇒ unlimited. Used to cap supply availability — e.g. a
             value-chain link feeding an upstream stage's produced volume in as
             the downstream stage's available supply.
@@ -111,8 +111,8 @@ class Commodity:
             room for stream-matching rules later.
     """
 
-    commodity_id: str
-    kind: CommodityKind
+    flow_id: str
+    kind: FlowKind
     unit: str = "unit"
     price_by_year: dict[int, float] = field(default_factory=dict)
     sale_price_by_year: dict[int, float] = field(default_factory=dict)
@@ -167,7 +167,7 @@ class Technology:
     """A process configuration: what it consumes, yields, costs, and emits.
 
     Rates are **per unit of process throughput**. Energy-efficiency levers cut
-    ``input_intensity`` for their target commodity; emission/environmental
+    ``input_intensity`` for their target flow; emission/environmental
     levers cut ``direct_impact`` for their target impact.
 
     Attributes:
@@ -183,19 +183,19 @@ class Technology:
         capex_by_year: Replacement capital cost [currency / unit capacity] by year.
         renewal_by_year: Renewal cost [currency / unit capacity] by year.
         opex_by_year: Fixed operating cost [currency / unit throughput] by year.
-        input_intensity: Input commodity use [commodity unit / throughput] by id.
-        output_yield: Output commodity production [commodity unit / throughput] by id.
+        input_intensity: Input flow use [flow unit / throughput] by id.
+        output_yield: Output flow production [flow unit / throughput] by id.
         direct_impact: Process (chemical) impact [impact unit / throughput] by id.
         min_capacity_factor: Must-run floor — when this technology is active its
             throughput must be at least ``min_capacity_factor × available
             capacity`` [dimensionless, 0–1]. Captures a minimum business level
             (e.g. a blast furnace that cannot idle below a threshold).
-        share_groups: Blend (mix) groups ``{group: {commodity: (min, max)}}``.
+        share_groups: Blend (mix) groups ``{group: {flow: (min, max)}}``.
             Members of a group are substitutable inputs (e.g. a fuel mix) whose
             consumption sums to the group requirement; each member's share of
             that sum is bounded ``[min, max]`` [dimensionless, 0–1]. The optimiser
             picks the mix per period (so a fuel blend can shift coal→H2 over time).
-        output_share_groups: Output slate groups ``{group: {commodity: (min,
+        output_share_groups: Output slate groups ``{group: {flow: (min,
             max)}}`` — the mirror of ``share_groups`` for co-products. Members
             are joint outputs (e.g. a cracker's ethylene / propylene / C4 slate)
             whose production sums to the group requirement; each member's share
@@ -240,7 +240,7 @@ class Technology:
     direct_impact: dict[str, float] = field(default_factory=dict)
     # Optional year-varying overrides of the scalar I/O coefficients — a recipe
     # whose energy intensity, yield, or process-emission factor improves over the
-    # horizon (e.g. efficiency gains). Keyed by commodity/impact id → {year:
+    # horizon (e.g. efficiency gains). Keyed by flow/impact id → {year:
     # value}; the scalar dict above is the fallback for any (id, year) not set.
     input_intensity_by_year: dict[str, dict[int, float]] = field(default_factory=dict)
     output_yield_by_year: dict[str, dict[int, float]] = field(default_factory=dict)
@@ -250,7 +250,7 @@ class Technology:
     min_capacity_factor_by_year: dict[int, float] = field(default_factory=dict)
     share_groups: dict[str, dict[str, tuple[float, float]]] = field(default_factory=dict)
     output_share_groups: dict[str, dict[str, tuple[float, float]]] = field(default_factory=dict)
-    # Optional year-varying share bounds ``{group: {commodity: {year: (min, max)}}}``
+    # Optional year-varying share bounds ``{group: {flow: {year: (min, max)}}}``
     # — e.g. a max coal share that declines over the horizon. Falls back to the
     # static ``share_groups`` / ``output_share_groups`` bounds.
     share_groups_by_year: dict[str, dict[str, dict[int, tuple[float, float]]]] = field(
@@ -261,7 +261,7 @@ class Technology:
     )
 
     def grouped_inputs(self) -> set[str]:
-        """Input commodities that belong to a blend (share) group."""
+        """Input flows that belong to a blend (share) group."""
         return {c for members in self.share_groups.values() for c in members}
 
     def min_cf_at(self, year: int) -> float:
@@ -273,37 +273,37 @@ class Technology:
         by_year: dict[str, dict[str, dict[int, tuple[float, float]]]],
         static: dict[str, dict[str, tuple[float, float]]],
         group: str,
-        commodity: str,
+        flow: str,
         year: int,
     ) -> tuple[float, float]:
-        traj = by_year.get(group, {}).get(commodity)
+        traj = by_year.get(group, {}).get(flow)
         if traj is not None and year in traj:
             return traj[year]
-        return static.get(group, {}).get(commodity, (0.0, 1.0))
+        return static.get(group, {}).get(flow, (0.0, 1.0))
 
-    def input_share_at(self, group: str, commodity: str, year: int) -> tuple[float, float]:
+    def input_share_at(self, group: str, flow: str, year: int) -> tuple[float, float]:
         """Blend-member ``(min, max)`` share bounds in ``year`` [—]."""
-        return self._share_at(self.share_groups_by_year, self.share_groups, group, commodity, year)
+        return self._share_at(self.share_groups_by_year, self.share_groups, group, flow, year)
 
-    def output_share_at(self, group: str, commodity: str, year: int) -> tuple[float, float]:
+    def output_share_at(self, group: str, flow: str, year: int) -> tuple[float, float]:
         """Slate-member ``(min, max)`` share bounds in ``year`` [—]."""
         return self._share_at(
-            self.output_share_groups_by_year, self.output_share_groups, group, commodity, year
+            self.output_share_groups_by_year, self.output_share_groups, group, flow, year
         )
 
-    def input_intensity_at(self, commodity: str, year: int) -> float:
-        """Input use of ``commodity`` per throughput in ``year`` [commodity unit]."""
-        traj = self.input_intensity_by_year.get(commodity)
+    def input_intensity_at(self, flow: str, year: int) -> float:
+        """Input use of ``flow`` per throughput in ``year`` [flow unit]."""
+        traj = self.input_intensity_by_year.get(flow)
         if traj is not None and year in traj:
             return traj[year]
-        return self.input_intensity.get(commodity, 0.0)
+        return self.input_intensity.get(flow, 0.0)
 
-    def output_yield_at(self, commodity: str, year: int) -> float:
-        """Output of ``commodity`` per throughput in ``year`` [commodity unit]."""
-        traj = self.output_yield_by_year.get(commodity)
+    def output_yield_at(self, flow: str, year: int) -> float:
+        """Output of ``flow`` per throughput in ``year`` [flow unit]."""
+        traj = self.output_yield_by_year.get(flow)
         if traj is not None and year in traj:
             return traj[year]
-        return self.output_yield.get(commodity, 0.0)
+        return self.output_yield.get(flow, 0.0)
 
     def direct_impact_at(self, impact: str, year: int) -> float:
         """Process (chemical) emission of ``impact`` per throughput in ``year``."""
@@ -317,7 +317,7 @@ class Technology:
         return sum(self.input_intensity_at(c, year) for c in self.share_groups.get(group, {}))
 
     def grouped_outputs(self) -> set[str]:
-        """Output commodities that belong to a slate (output share) group."""
+        """Output flows that belong to a slate (output share) group."""
         return {c for members in self.output_share_groups.values() for c in members}
 
     def output_group_requirement_at(self, group: str, year: int) -> float:
@@ -450,26 +450,26 @@ class Process:
 
 @dataclass(slots=True, frozen=True)
 class Storage:
-    """A per-commodity store that carries inventory across periods (years).
+    """A per-flow store that carries inventory across periods (years).
 
-    Lets the system buy a commodity in cheap years and release it in expensive
+    Lets the system buy a flow in cheap years and release it in expensive
     ones. Operates over the ``company`` scope (``"all"`` ⇒ every process).
 
     Attributes:
         storage_id: Unique id.
-        commodity_id: The stored commodity.
+        flow_id: The stored flow.
         company: Scope this store serves (``"all"`` ⇒ all processes).
-        max_capacity: Upper bound on built capacity [commodity unit].
-        capex_per_capacity: Overnight build cost [currency / commodity unit].
+        max_capacity: Upper bound on built capacity [flow unit].
+        capex_per_capacity: Overnight build cost [currency / flow unit].
         fixed_opex_per_capacity: Annual fixed cost [currency / (unit·yr)].
-        charge_efficiency: Fraction of charged commodity that reaches the level [—].
+        charge_efficiency: Fraction of charged flow that reaches the level [—].
         discharge_efficiency: Fraction of removed level that reaches the market [—].
         standing_loss: Fraction of level lost per year [—].
-        initial_level: Inventory at the horizon start [commodity unit].
+        initial_level: Inventory at the horizon start [flow unit].
     """
 
     storage_id: str
-    commodity_id: str
+    flow_id: str
     company: str = "all"
     max_capacity: float = 0.0
     capex_per_capacity: float = 0.0
@@ -510,30 +510,30 @@ class Storage:
 
 @dataclass(slots=True, frozen=True)
 class Edge:
-    """A directed commodity flow from one process's output to another's input.
+    """A directed flow flow from one process's output to another's input.
 
     Attributes:
         from_process: Producer process id.
         to_process: Consumer process id.
-        commodity_id: The commodity routed along this edge.
-        max_flow: Optional per-period capacity [commodity unit / yr] (``None`` ⇒ ∞).
+        flow_id: The flow routed along this edge.
+        max_flow: Optional per-period capacity [flow unit / yr] (``None`` ⇒ ∞).
         max_flow_by_year: Optional year-varying cap; falls back to ``max_flow``.
-        min_flow: Optional per-period floor [commodity unit / yr] (``None`` ⇒ 0) —
+        min_flow: Optional per-period floor [flow unit / yr] (``None`` ⇒ 0) —
             a take-or-pay off-take on this provider→consumer link.
         min_flow_by_year: Optional year-varying floor; falls back to ``min_flow``.
-        cost: Optional freight cost [currency / commodity unit] charged on the flow —
+        cost: Optional freight cost [currency / flow unit] charged on the flow —
             the physical cost of moving the stream over this link (0 ⇒ free, today's
             default). Enters the objective as ``cost · flow``.
         emissions: Optional freight emissions ``{impact_id: factor}`` [impact unit /
-            commodity unit] of moving the stream — each priced at *its own* impact's
+            flow unit] of moving the stream — each priced at *its own* impact's
             price in the objective and reported (impact-agnostic; any/all impacts).
-        energy: Optional freight energy intensity [energy unit / commodity unit] of the
+        energy: Optional freight energy intensity [energy unit / flow unit] of the
             move — reported (informational; not balanced against a carrier in v1).
     """
 
     from_process: str
     to_process: str
-    commodity_id: str
+    flow_id: str
     max_flow: float | None = None
     max_flow_by_year: dict[int, float] = field(default_factory=dict)
     min_flow: float | None = None
@@ -559,11 +559,11 @@ class Edge:
         return not (self.available_to is not None and year > self.available_to)
 
     def max_flow_at(self, year: int) -> float | None:
-        """Edge capacity in ``year`` [commodity unit / yr] (override, else scalar; ``None`` ⇒ ∞)."""
+        """Edge capacity in ``year`` [flow unit / yr] (override, else scalar; ``None`` ⇒ ∞)."""
         return self.max_flow_by_year.get(year, self.max_flow)
 
     def min_flow_at(self, year: int) -> float | None:
-        """Edge floor in ``year`` [commodity unit / yr] (override, else scalar; ``None`` ⇒ 0)."""
+        """Edge floor in ``year`` [flow unit / yr] (override, else scalar; ``None`` ⇒ 0)."""
         return self.min_flow_by_year.get(year, self.min_flow)
 
 
@@ -609,7 +609,7 @@ class Lever:
         lever_id: Unique id.
         lever_type: Which lever (energy efficiency / emission / environmental).
         applies_to: Process id the lever can be installed on.
-        target: Commodity id (energy efficiency) or impact id (reduction/environmental).
+        target: Flow id (energy efficiency) or impact id (reduction/environmental).
         lifetime: Economic lifetime [yr].
         blocks: Ordered piecewise blocks (cumulative reduction).
     """
@@ -625,23 +625,23 @@ class Lever:
 class MarketTarget(StrEnum):
     """What a market trades."""
 
-    COMMODITY = "commodity"  # priced supply/offtake of a stream (KEPCO/PPA/JKM)
+    FLOW = "flow"  # priced supply/offtake of a stream (KEPCO/PPA/JKM)
     IMPACT = "impact"  # tradable allowances for an impact (ETS)
 
 
 @dataclass(slots=True, frozen=True)
 class Market:
-    """A priced buy/sell node for a commodity or an impact (ETS allowances).
+    """A priced buy/sell node for a flow or an impact (ETS allowances).
 
-    Commodity markets supply (and optionally absorb) a stream at a price, up to
+    Flow markets supply (and optionally absorb) a stream at a price, up to
     volume caps — multiple markets on one stream give a least-cost mixture, and
     tags (e.g. ``"RE100"``) label green sources. Impact markets are tradable ETS:
     a free ``allocation`` per year, with deficits bought and surplus sold.
 
     Attributes:
         market_id: Unique id.
-        target: Commodity id or impact id traded.
-        target_kind: Whether ``target`` is a commodity or an impact.
+        target: Flow id or impact id traded.
+        target_kind: Whether ``target`` is a flow or an impact.
         company: Scope served (``"all"`` ⇒ sector-wide).
         price_by_year: Buy price [currency / unit] by year.
         sell_price_by_year: Sell/offtake price [currency / unit] by year.
@@ -653,7 +653,7 @@ class Market:
 
     market_id: str
     target: str
-    target_kind: MarketTarget = MarketTarget.COMMODITY
+    target_kind: MarketTarget = MarketTarget.FLOW
     company: str = "all"
     available_from: int | None = None
     available_to: int | None = None

@@ -37,14 +37,14 @@ def _wb() -> dict[str, Any]:
                 "is_product": True,
             },
         ],
-        "commodities": [
-            {"commodity_id": "ore", "kind": "material", "price": 5},
-            {"commodity_id": "steel", "kind": "material"},
-            {"commodity_id": "car", "kind": "product"},
+        "flows": [
+            {"flow_id": "ore", "kind": "material", "price": 5},
+            {"flow_id": "steel", "kind": "material"},
+            {"flow_id": "car", "kind": "product"},
         ],
-        "connections": [{"from_node": "vc/co/s", "to_node": "vc/co/c", "commodity_id": "steel"}],
+        "links": [{"from_node": "vc/co/s", "to_node": "vc/co/c", "flow_id": "steel"}],
         "periods": [{"year": 2025}],
-        "demand": [{"company": "all", "commodity_id": "car", "amount": 100}],
+        "demand": [{"company": "all", "flow_id": "car", "amount": 100}],
     }
 
 

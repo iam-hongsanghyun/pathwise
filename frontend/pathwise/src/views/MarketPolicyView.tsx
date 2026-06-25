@@ -1,5 +1,5 @@
 // Market & Policy — the institutional layer over the physical value chain.
-// Author the economic/regulatory environment: supply/offtake POOLS (commodity
+// Author the economic/regulatory environment: supply/offtake POOLS (flow
 // markets), EMISSIONS TRADING (ETS: a free allowance + buy/sell of the deficit/
 // surplus), and a blanket CARBON PRICE (a tax on every tonne of an impact). All
 // scope-aware (system → region → company → node) so regional policy differs by
@@ -10,7 +10,7 @@
 import { useMemo } from "react";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { TemporalValue, type TemporalVal } from "../features/controls/TemporalValue";
-import { commodityUnit, impactUnit, modelCurrency } from "../lib/caps";
+import { flowUnit, impactUnit, modelCurrency } from "../lib/caps";
 import { impactIds, scopeOptions } from "../lib/scope";
 import type { Row, Workbook } from "../types";
 
@@ -19,9 +19,9 @@ const numOrNull = (v: unknown): number | null => (v == null || v === "" ? null :
 let _ctr = 0;
 const genId = (p: string): string => `${p}_${Date.now().toString(36)}${(_ctr++).toString(36)}`;
 
-function commodityIds(wb: Workbook): string[] {
+function flowIds(wb: Workbook): string[] {
   const out = new Set<string>();
-  for (const c of wb.commodities ?? []) out.add(s(c.commodity_id));
+  for (const c of wb.flows ?? []) out.add(s(c.flow_id));
   return [...out].filter(Boolean);
 }
 
@@ -75,7 +75,7 @@ export function MarketPolicyView({
   setWorkbook: (wb: Workbook) => void;
 }) {
   const scopes = useMemo(() => scopeOptions(workbook), [workbook]);
-  const commodities = useMemo(() => commodityIds(workbook), [workbook]);
+  const flows = useMemo(() => flowIds(workbook), [workbook]);
   const impacts = useMemo(() => impactIds(workbook), [workbook]);
   const years = useMemo(
     () => (workbook.periods ?? []).map((r) => Number(r.year)).filter(Number.isFinite),
@@ -85,9 +85,9 @@ export function MarketPolicyView({
   const currency = modelCurrency(workbook);
 
   const isImpact = (target: string) => impacts.includes(target);
-  const unitOf = (target: string) => (isImpact(target) ? impactUnit(workbook, target) : commodityUnit(workbook, target));
+  const unitOf = (target: string) => (isImpact(target) ? impactUnit(workbook, target) : flowUnit(workbook, target));
   const targetOptions = [
-    ...commodities.map((c) => ({ value: c, label: `${c} · commodity` })),
+    ...flows.map((c) => ({ value: c, label: `${c} · flow` })),
     ...impacts.map((i) => ({ value: i, label: `${i} · impact (ETS)` })),
   ];
 
@@ -99,7 +99,7 @@ export function MarketPolicyView({
   const addMarket = () =>
     setMarkets([
       ...markets,
-      { market_id: genId("mkt"), target: commodities[0] ?? impacts[0] ?? "", company: "all" },
+      { market_id: genId("mkt"), target: flows[0] ?? impacts[0] ?? "", company: "all" },
     ]);
   const delMarket = (i: number) => setMarkets(markets.filter((_, j) => j !== i));
 
@@ -130,7 +130,7 @@ export function MarketPolicyView({
         <section style={{ marginBottom: 24 }}>
           <h3 className="section-title" style={{ marginBottom: 2 }}>Markets &amp; ETS</h3>
           <p className="muted" style={{ fontSize: ".74rem", margin: "0 0 8px" }}>
-            A <b>commodity</b> target is a supply/offtake pool (buy at <i>price</i>, sell at <i>sell</i>).
+            A <b>flow</b> target is a supply/offtake pool (buy at <i>price</i>, sell at <i>sell</i>).
             An <b>impact</b> target is an ETS: a free <i>allocation</i> per year, with the deficit
             bought / surplus sold at <i>price</i>. Allocation 0 + a price = a scoped carbon charge.
             Prices are in {currency} per target unit.

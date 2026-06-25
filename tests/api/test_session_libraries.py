@@ -28,7 +28,7 @@ def test_technology_available_years_round_trip() -> None:
     lib = ComponentLibrary.model_validate(
         {
             "label": "t",
-            "commodities": [{"commodity_id": "x", "kind": "material", "unit": "t"}],
+            "flows": [{"flow_id": "x", "kind": "material", "unit": "t"}],
             "technologies": [
                 {
                     "technology_id": "T",
@@ -70,7 +70,7 @@ def test_no_trajectory_library_keeps_legacy_sheets() -> None:
     lib = ComponentLibrary.model_validate(
         {
             "label": "scalar",
-            "commodities": [{"commodity_id": "x", "kind": "material", "unit": "t", "price": 3.0}],
+            "flows": [{"flow_id": "x", "kind": "material", "unit": "t", "price": 3.0}],
             "technologies": [
                 {
                     "technology_id": "T",
@@ -86,12 +86,12 @@ def test_no_trajectory_library_keeps_legacy_sheets() -> None:
         }
     )
     wb = library_to_workbook(lib)
-    assert "commodity_prices" not in wb
+    assert "flow_prices" not in wb
     assert "technologies_prices" not in wb
     assert "lever_blocks_t" not in wb
     assert "notes" not in wb["technologies"][0]  # blank notes don't add a column
     assert wb["technologies"][0]["capex"] == 100.0
-    assert wb["commodities"][0]["price"] == 3.0
+    assert wb["flows"][0]["price"] == 3.0
 
 
 def test_trajectories_and_notes_round_trip() -> None:
@@ -100,9 +100,9 @@ def test_trajectories_and_notes_round_trip() -> None:
     lib = ComponentLibrary.model_validate(
         {
             "label": "traj",
-            "commodities": [
+            "flows": [
                 {
-                    "commodity_id": "power",
+                    "flow_id": "power",
                     "kind": "energy",
                     "unit": "MWh",
                     "price": 50.0,
@@ -111,7 +111,7 @@ def test_trajectories_and_notes_round_trip() -> None:
                     "sector": "power",
                     "notes": "grid average; ref [1]",
                 },
-                {"commodity_id": "steel", "kind": "product", "unit": "t"},
+                {"flow_id": "steel", "kind": "product", "unit": "t"},
             ],
             "technologies": [
                 {
@@ -173,9 +173,9 @@ def _new_session() -> str:
 
 def test_extract_library_recovers_streams_techs_levers() -> None:
     wb = {
-        "commodities": [
-            {"commodity_id": "elec", "kind": "energy", "unit": "MWh", "sector": "power"},
-            {"commodity_id": "steel", "kind": "product", "unit": "t", "sector": "steel"},
+        "flows": [
+            {"flow_id": "elec", "kind": "energy", "unit": "MWh", "sector": "power"},
+            {"flow_id": "steel", "kind": "product", "unit": "t", "sector": "steel"},
         ],
         "technologies": [{"technology_id": "EAF", "lifespan": 25, "capex": 500, "opex": 18}],
         "io": [
@@ -189,7 +189,7 @@ def test_extract_library_recovers_streams_techs_levers() -> None:
             },
         ],
         # per-facility lever (instantiated form) + its blocks
-        "levers": [
+        "measures": [
             {
                 "lever_id": "mill/eaf · eaf_eff",
                 "type": "energy_efficiency",
@@ -202,12 +202,12 @@ def test_extract_library_recovers_streams_techs_levers() -> None:
         ],
         # structure sheets must be ignored by extraction
         "nodes": [{"node_id": "mill", "kind": "group"}],
-        "connections": [{"from_node": "a", "to_node": "b", "commodity_id": "elec"}],
+        "links": [{"from_node": "a", "to_node": "b", "flow_id": "elec"}],
     }
     lib = extract_library_from_workbook(wb, label="Demo")
     assert lib.label == "Demo"
-    assert {c.commodity_id for c in lib.commodities} == {"elec", "steel"}
-    assert next(c for c in lib.commodities if c.commodity_id == "elec").sector == "power"
+    assert {c.flow_id for c in lib.flows} == {"elec", "steel"}
+    assert next(c for c in lib.flows if c.flow_id == "elec").sector == "power"
     assert [t.technology_id for t in lib.technologies] == ["EAF"]
     assert len(lib.technologies[0].io) == 2
     # the per-facility lever is de-instantiated to a reusable template id
@@ -219,7 +219,7 @@ def test_import_splits_into_session_library() -> None:
     sid = _new_session()
     res = client.post(f"/api/session/{sid}/example/green_steel_chain").json()
     # structure stays in the session model
-    assert res["sheets"]["nodes"] >= 1 and res["sheets"]["connections"] >= 1
+    assert res["sheets"]["nodes"] >= 1 and res["sheets"]["links"] >= 1
     # a session library was created from the import
     lib_id = res["library_id"]
     assert lib_id
@@ -230,7 +230,7 @@ def test_import_splits_into_session_library() -> None:
     body = client.get(f"/api/session/{sid}/component-library/{lib_id}").json()
     # green_steel ships a faithful library → streams carry their owning sector
     assert len(body["technologies"]) >= 5
-    sectors = {c["commodity_id"]: c.get("sector") for c in body["commodities"]}
+    sectors = {c["flow_id"]: c.get("sector") for c in body["flows"]}
     assert sectors.get("electricity") == "power" and sectors.get("steel") == "steel"
 
 
@@ -238,7 +238,7 @@ def test_session_library_crud_isolated_per_session() -> None:
     a, b = _new_session(), _new_session()
     lib = {
         "label": "Mine",
-        "commodities": [{"commodity_id": "ore", "kind": "material", "unit": "t"}],
+        "flows": [{"flow_id": "ore", "kind": "material", "unit": "t"}],
         "technologies": [],
         "measures": [],
         "maccs": [],

@@ -7,7 +7,7 @@ import { SearchableSelect } from "../controls/SearchableSelect";
 import { SearchSelect } from "../controls/SearchSelect";
 import { TemporalValue, type TemporalVal } from "../controls/TemporalValue";
 import {
-  commodityUnit,
+  flowUnit,
   edgeAvailability,
   edgeFlow,
   setEdgeAvailability,
@@ -91,8 +91,8 @@ export function AssetInspector({
     const g = s(ln.macc);
     if (s(ln.facility) === machineId) linkScope.set(g, "this facility");
     else if (tech && s(ln.technology) === tech) linkScope.set(g, `every ${techLabel} · adopted independently`);
-    else if (s(ln.commodity) && inputStreams.has(s(ln.commodity)))
-      linkScope.set(g, `stream ${s(ln.commodity)} · adopted independently`);
+    else if (s(ln.flow) && inputStreams.has(s(ln.flow)))
+      linkScope.set(g, `stream ${s(ln.flow)} · adopted independently`);
   }
   const appliedLevers = new Map<string, string>(); // lever id → scope label
   for (const m of wb.levers ?? []) {
@@ -123,11 +123,11 @@ export function AssetInspector({
     const near = dir === "in" ? "to_node" : "from_node";
     const far = dir === "in" ? "from_node" : "to_node";
     const g = (wb.links ?? [])
-      .filter((x) => s(x.commodity_id) === c && scope.has(s(x[near])) && !scope.has(s(x[far])))
+      .filter((x) => s(x.flow_id) === c && scope.has(s(x[near])) && !scope.has(s(x[far])))
       .map((x) => lab(s(x[far])));
     return [...new Set(g)];
   };
-  // The actual provider ASSETS feeding input commodity `c` to THIS asset —
+  // The actual provider ASSETS feeding input flow `c` to THIS asset —
   // resolved through links (at any level) down to the producing assets, so
   // a per-provider limit is genuinely asset→asset. Groups are visual only.
   const providerAssets = (c: string): { id: string; label: string; via: string }[] => {
@@ -138,7 +138,7 @@ export function AssetInspector({
     const seen = new Set<string>();
     const out: { id: string; label: string; via: string }[] = [];
     for (const x of wb.links ?? []) {
-      if (s(x.commodity_id) !== c) continue;
+      if (s(x.flow_id) !== c) continue;
       const from = s(x.from_node);
       const to = s(x.to_node);
       if (!scope.has(to) || scope.has(from)) continue; // `to` feeds this asset; `from` is outside
@@ -159,8 +159,8 @@ export function AssetInspector({
     if (src.length) return { text: `← ${src.join(", ")}`, ok: true };
     const buy = (wb.markets ?? []).find((x) => s(x.target) === c && s(x.price) !== "" && scope.has(s(x.company)));
     if (buy) return { text: `purchased · ${lab(s(buy.company))}`, ok: true };
-    const commodity = (wb.commodities ?? []).find((x) => s(x.commodity_id) === c);
-    if (commodity && (commodity.purchasable === true || s(commodity.price) !== ""))
+    const flow = (wb.flows ?? []).find((x) => s(x.flow_id) === c);
+    if (flow && (flow.purchasable === true || s(flow.price) !== ""))
       return { text: "purchased · market", ok: true };
     return { text: "unsatisfied", ok: false };
   };
@@ -172,10 +172,10 @@ export function AssetInspector({
 
   if (!asset) return <p className="muted" style={{ padding: 16 }}>Asset not found.</p>;
 
-  // Units come from the streams (commodities sheet); throughput is measured in the
+  // Units come from the streams (flows sheet); throughput is measured in the
   // product output's unit. Each coefficient is "per unit of throughput".
   const unitOf = (cid: string): string =>
-    s((wb.commodities ?? []).find((x) => s(x.commodity_id) === cid)?.unit) || "";
+    s((wb.flows ?? []).find((x) => s(x.flow_id) === cid)?.unit) || "";
   const fmt = (v: unknown): string => {
     const n = Number(v);
     if (!Number.isFinite(n)) return s(v);
@@ -185,7 +185,7 @@ export function AssetInspector({
   const thru = unitOf(s(product?.target)) || "unit";
 
   // CO2 intensity per unit output: direct (tech impact rows) + indirect (purchased
-  // inputs' carbon factors, when the model carries commodity_impacts). Omitted when
+  // inputs' carbon factors, when the model carries flow_impacts). Omitted when
   // no CO2 impact is wired.
   const co2 = (wb.impacts ?? []).find((i) => /co2/i.test(s(i.impact_id)));
   const co2Id = s(co2?.impact_id);
@@ -194,8 +194,8 @@ export function AssetInspector({
     let v = 0;
     for (const r of impacts) if (s(r.target) === co2Id) v += Number(r.coefficient) || 0;
     for (const r of inputs) {
-      const f = (wb.commodity_impacts ?? []).find(
-        (x) => s(x.commodity_id) === s(r.target) && s(x.impact_id) === co2Id,
+      const f = (wb.flow_impacts ?? []).find(
+        (x) => s(x.flow_id) === s(r.target) && s(x.impact_id) === co2Id,
       );
       if (f) v += (Number(r.coefficient) || 0) * (Number(f.factor) || 0);
     }
@@ -222,14 +222,14 @@ export function AssetInspector({
     </span>
   );
 
-  // One stream (an io commodity): a grid of [name | min | max]. OUTPUT bounds the
+  // One stream (an io flow): a grid of [name | min | max]. OUTPUT bounds the
   // asset's production; INPUT bounds the pooled intake (min = required offtake,
   // max = max purchase) AND lists each provider link so the buyer can cap
   // purchase per producer.
   const streamFlow = (r: Record<string, Cell>, role: "IN" | "OUT") => {
     const c = s(r.target);
     const isOut = role === "OUT";
-    const unit = commodityUnit(wb, c);
+    const unit = flowUnit(wb, c);
     const sub = isOut ? { text: outTo(c, !!r.is_product), ok: true } : inFrom(c);
     const minVal = isOut ? minOutputCap(wb, machineId, c) : minConsumptionCap(wb, machineId, c);
     const maxVal = isOut ? maxOutputCap(wb, machineId, c) : maxConsumptionCap(wb, machineId, c);
@@ -347,7 +347,7 @@ export function AssetInspector({
 // Reads the raw `links` (which may be wired at any level — e.g. a
 // country→country link), and shows every link touching the selected node
 // OR an ancestor of it, so even a lone asset displays its upstream/downstream.
-// When one input commodity has MORE THAN ONE supplier, it lists them as N
+// When one input flow has MORE THAN ONE supplier, it lists them as N
 // "sources" (distinct from the alternative-technologies feature).
 export function FlowContext({ wb, nodeId }: { wb: Workbook; nodeId: string }) {
   const anc = useMemo(() => new Set(chain(wb, nodeId)), [wb, nodeId]);
@@ -358,7 +358,7 @@ export function FlowContext({ wb, nodeId }: { wb: Workbook; nodeId: string }) {
   const lab = (id: string): string => labelOf.get(id) || id.split("/").pop() || id;
 
   // What this node's SUBTREE actually produces / consumes — so a country-level
-  // link is attributed to a node only for commodities it really handles
+  // link is attributed to a node only for flows it really handles
   // (the iron-ore mine produces iron_ore, not the hydrogen its sibling makes).
   const { produces, consumes } = useMemo(() => {
     const childrenOf = new Map<string, string[]>();
@@ -381,10 +381,10 @@ export function FlowContext({ wb, nodeId }: { wb: Workbook; nodeId: string }) {
     return { produces: prod, consumes: cons };
   }, [wb, nodeId]);
 
-  const inByComm = new Map<string, Set<string>>(); // commodity → source nodes (before)
-  const outByComm = new Map<string, Set<string>>(); // commodity → target nodes (next)
+  const inByComm = new Map<string, Set<string>>(); // flow → source nodes (before)
+  const outByComm = new Map<string, Set<string>>(); // flow → target nodes (next)
   for (const c of wb.links ?? []) {
-    const f = s(c.from_node), t = s(c.to_node), cm = s(c.commodity_id);
+    const f = s(c.from_node), t = s(c.to_node), cm = s(c.flow_id);
     if (!cm) continue;
     if (anc.has(t) && !anc.has(f) && consumes.has(cm)) (inByComm.get(cm) ?? inByComm.set(cm, new Set()).get(cm)!).add(f);
     if (anc.has(f) && !anc.has(t) && produces.has(cm)) (outByComm.get(cm) ?? outByComm.set(cm, new Set()).get(cm)!).add(t);
@@ -489,15 +489,15 @@ export function Alternatives({
 export function PortsPanel({
   wb,
   nodeId,
-  commodities,
+  flows,
   onAdd,
   onPrice,
   onRemove,
 }: {
   wb: Workbook;
   nodeId: string;
-  commodities: string[];
-  onAdd: (commodity: string, kind: "buy" | "sell") => void;
+  flows: string[];
+  onAdd: (flow: string, kind: "buy" | "sell") => void;
   onPrice: (rowIndex: number, field: "price" | "sell_price", value: number) => void;
   onRemove: (rowIndex: number) => void;
 }) {
@@ -530,19 +530,19 @@ export function PortsPanel({
           </div>
         );
       })}
-      <PortAdder commodities={commodities} onAdd={onAdd} />
+      <PortAdder flows={flows} onAdd={onAdd} />
     </div>
   );
 }
 
-function PortAdder({ commodities, onAdd }: { commodities: string[]; onAdd: (c: string, k: "buy" | "sell") => void }) {
+function PortAdder({ flows, onAdd }: { flows: string[]; onAdd: (c: string, k: "buy" | "sell") => void }) {
   return (
     <div style={{ display: "flex", gap: 4, padding: "4px 8px", alignItems: "center" }}>
       <div style={{ flex: 1 }}>
-        <SearchableSelect value="" options={commodities} onChange={(c) => c && onAdd(c, "buy")} placeholder="buy stream…" />
+        <SearchableSelect value="" options={flows} onChange={(c) => c && onAdd(c, "buy")} placeholder="buy stream…" />
       </div>
       <div style={{ flex: 1 }}>
-        <SearchableSelect value="" options={commodities} onChange={(c) => c && onAdd(c, "sell")} placeholder="sell stream…" />
+        <SearchableSelect value="" options={flows} onChange={(c) => c && onAdd(c, "sell")} placeholder="sell stream…" />
       </div>
     </div>
   );
@@ -554,7 +554,7 @@ export interface CascadeResult {
   // Each stage is a full run result — keep all of it (per-year technology,
   // throughput, transitions, flows) so the result can be drawn on the map.
   stages: Record<string, RunResult>;
-  couplings: { from_stage: string; to_stage: string; commodity: string; signal: string }[];
+  couplings: { from_stage: string; to_stage: string; flow: string; signal: string }[];
   iterations: number;
 }
 
@@ -568,10 +568,10 @@ export interface YearOverlay {
   transitionedTo: (id: string) => string | undefined;
   /** Throughput of a asset that year. */
   throughput: (id: string) => number | undefined;
-  /** Flow along a ``from → to`` link for a commodity that year. */
-  flow: (from: string, to: string, commodity: string) => number | undefined;
-  /** External purchase of a commodity by a facility that year (a source stream). */
-  buy: (id: string, commodity: string) => number | undefined;
+  /** Flow along a ``from → to`` link for a flow that year. */
+  flow: (from: string, to: string, flow: string) => number | undefined;
+  /** External purchase of a flow by a facility that year (a source stream). */
+  buy: (id: string, flow: string) => number | undefined;
 }
 
 function _resultsOf(r: RunResult | CascadeResult): RunResult[] {
@@ -589,7 +589,7 @@ export function buildOverlay(r: RunResult | CascadeResult): {
   const tech = new Map<string, Map<number, string>>();
   const tput = new Map<string, Map<number, number>>();
   const trans = new Map<string, Map<number, string>>();
-  const flow = new Map<string, Map<number, number>>();
+  const flowAcc = new Map<string, Map<number, number>>();
   const buy = new Map<string, Map<number, number>>();
   const years = new Set<number>();
   const set = (m: Map<string, Map<number, string>>, k: string, y: number, v: string) => {
@@ -607,15 +607,15 @@ export function buildOverlay(r: RunResult | CascadeResult): {
     for (const t of out.technology ?? []) set(tech, t.process, t.period, t.technology);
     for (const x of out.throughput ?? []) add(tput, x.process, x.period, x.value);
     for (const tr of out.transitions ?? []) set(trans, tr.process, tr.period, tr.to_technology);
-    for (const f of out.flows ?? []) add(flow, `${f.from}|${f.to}|${f.commodity}`, f.period, f.value);
-    for (const tr of out.trade ?? []) if (tr.kind === "buy") add(buy, `${tr.process}|${tr.commodity}`, tr.period, tr.value);
+    for (const f of out.flows ?? []) add(flowAcc, `${f.from}|${f.to}|${f.flow}`, f.period, f.value);
+    for (const tr of out.trade ?? []) if (tr.kind === "buy") add(buy, `${tr.process}|${tr.flow}`, tr.period, tr.value);
   }
   const at = (year: number): YearOverlay => ({
     tech: (id) => tech.get(id)?.get(year),
     transitionedTo: (id) => trans.get(id)?.get(year),
     throughput: (id) => tput.get(id)?.get(year),
-    flow: (from, to, commodity) => flow.get(`${from}|${to}|${commodity}`)?.get(year),
-    buy: (id, commodity) => buy.get(`${id}|${commodity}`)?.get(year),
+    flow: (from, to, flow) => flowAcc.get(`${from}|${to}|${flow}`)?.get(year),
+    buy: (id, flow) => buy.get(`${id}|${flow}`)?.get(year),
   });
   return { years: [...years].sort((a, b) => a - b), at };
 }
@@ -625,7 +625,7 @@ export function buildOverlay(r: RunResult | CascadeResult): {
  *  view (the "Streams" sheet); the value-chain map only shows their use here. */
 export function SourceStreamInspector({
   wb,
-  commodityId,
+  flowId,
   consumerLabels,
   onSupplyCap,
   onAvailability,
@@ -633,7 +633,7 @@ export function SourceStreamInspector({
   periods,
 }: {
   wb: Workbook;
-  commodityId: string;
+  flowId: string;
   consumerLabels: string[];
   /** Set / clear (null) this stream's annual supply cap — static or by-year. */
   onSupplyCap?: (v: TemporalVal | null) => void;
@@ -642,7 +642,7 @@ export function SourceStreamInspector({
   baseYear?: number;
   periods?: number[];
 }) {
-  const row = (wb.commodities ?? []).find((r) => String(r.commodity_id) === commodityId) ?? {};
+  const row = (wb.flows ?? []).find((r) => String(r.flow_id) === flowId) ?? {};
   const g = (k: string): string | null => {
     const v = (row as Record<string, Cell>)[k];
     return v == null || v === "" ? null : String(v);
@@ -657,7 +657,7 @@ export function SourceStreamInspector({
   return (
     <div className="mi" style={{ padding: "16px 20px" }}>
       <div className="eyebrow" style={{ color: "var(--warn-text)" }}>source stream</div>
-      <h2 className="mi-title">{commodityId}</h2>
+      <h2 className="mi-title">{flowId}</h2>
       <p className="muted mi-note" style={{ marginTop: 0 }}>
         A raw material consumed by the chain but produced by none — bought externally.
         {unit ? ` Measured in ${unit}.` : ""}
@@ -669,13 +669,13 @@ export function SourceStreamInspector({
           <span>max supply / yr</span>
           <span className="mi-val">
             <TemporalValue
-              value={supplyCap(wb, commodityId)}
+              value={supplyCap(wb, flowId)}
               onChange={onSupplyCap}
               unit={unit || undefined}
               baseYear={baseYear}
               periods={periods}
               placeholder="no cap"
-              label={`${commodityId} · max supply`}
+              label={`${flowId} · max supply`}
             />
           </span>
         </div>
@@ -809,7 +809,7 @@ export function CascadeSummary({ cascade, label }: { cascade: CascadeResult; lab
       </table>
       {cascade.couplings.length > 0 && (
         <div className="muted" style={{ marginTop: 4, fontSize: "0.74rem" }}>
-          couplings: {cascade.couplings.map((c) => `${label(c.from_stage)}→${label(c.to_stage)} (${c.commodity}/${c.signal})`).join(", ")}
+          couplings: {cascade.couplings.map((c) => `${label(c.from_stage)}→${label(c.to_stage)} (${c.flow}/${c.signal})`).join(", ")}
         </div>
       )}
     </div>

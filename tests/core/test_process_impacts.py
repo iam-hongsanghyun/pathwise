@@ -15,7 +15,7 @@ SC = ScenarioConfig.from_dict({"economics": {"base_year": 2025, "discount_rate":
 def _wb(facility_factor: float | None, by_year: list[dict] | None = None) -> dict:
     wb = {
         "periods": [{"year": 2025, "duration_years": 1}, {"year": 2030, "duration_years": 1}],
-        "commodities": [{"commodity_id": "widget", "kind": "product", "unit": "t"}],
+        "flows": [{"flow_id": "widget", "kind": "product", "unit": "t"}],
         "impacts": [{"impact_id": "CO2", "unit": "tCO2"}],
         "technologies": [{"technology_id": "T", "actions": "continue"}],
         "processes": [
@@ -31,8 +31,7 @@ def _wb(facility_factor: float | None, by_year: list[dict] | None = None) -> dic
             }
         ],
         "demand": [
-            {"company": "C", "commodity_id": "widget", "year": y, "amount": 100}
-            for y in (2025, 2030)
+            {"company": "C", "flow_id": "widget", "year": y, "amount": 100} for y in (2025, 2030)
         ],
     }
     if facility_factor is not None:

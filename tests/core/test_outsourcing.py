@@ -19,10 +19,10 @@ def _chain_wb() -> dict:
     # F1: gas → iron (intermediate); F2: iron → steel (product). Edge F1→F2.
     return {
         "periods": [{"year": 2025, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "gas", "kind": "energy", "price": 10},
-            {"commodity_id": "iron", "kind": "material"},
-            {"commodity_id": "steel", "kind": "product"},
+        "flows": [
+            {"flow_id": "gas", "kind": "energy", "price": 10},
+            {"flow_id": "iron", "kind": "material"},
+            {"flow_id": "steel", "kind": "product"},
         ],
         "technologies": [{"technology_id": "A"}, {"technology_id": "B"}],
         "processes": [
@@ -30,15 +30,15 @@ def _chain_wb() -> dict:
             {"process_id": "F2", "company": "C", "baseline_technology": "B", "capacity": 1000},
         ],
         "process_inputs": [
-            {"technology_id": "A", "commodity_id": "gas", "intensity": 2.0},
-            {"technology_id": "B", "commodity_id": "iron", "intensity": 1.0},
+            {"technology_id": "A", "flow_id": "gas", "intensity": 2.0},
+            {"technology_id": "B", "flow_id": "iron", "intensity": 1.0},
         ],
         "process_outputs": [
-            {"technology_id": "A", "commodity_id": "iron", "yield": 1.0},
-            {"technology_id": "B", "commodity_id": "steel", "yield": 1.0, "is_product": True},
+            {"technology_id": "A", "flow_id": "iron", "yield": 1.0},
+            {"technology_id": "B", "flow_id": "steel", "yield": 1.0, "is_product": True},
         ],
-        "edges": [{"from_process": "F1", "to_process": "F2", "commodity_id": "iron"}],
-        "demand": [{"company": "C", "commodity_id": "steel", "year": 2025, "amount": 100}],
+        "edges": [{"from_process": "F1", "to_process": "F2", "flow_id": "iron"}],
+        "demand": [{"company": "C", "flow_id": "steel", "year": 2025, "amount": 100}],
     }
 
 
@@ -56,9 +56,7 @@ def test_makes_intermediate_when_no_cheaper_market() -> None:
 
 def test_outsources_upstream_when_market_is_cheaper() -> None:
     wb = _chain_wb()
-    wb["markets"] = [
-        {"market_id": "IRON_MKT", "target": "iron", "target_kind": "commodity", "price": 5}
-    ]
+    wb["markets"] = [{"market_id": "IRON_MKT", "target": "iron", "target_kind": "flow", "price": 5}]
     res = _solve(wb)
     assert res["status"] == "optimal"
     # Buy iron @ $5 instead of making it (gas would cost $20/unit) → 100 × $5 = $500.
@@ -74,7 +72,7 @@ def test_outsources_upstream_when_market_is_cheaper() -> None:
 def test_keeps_upstream_when_market_is_dearer() -> None:
     wb = _chain_wb()
     wb["markets"] = [
-        {"market_id": "IRON_MKT", "target": "iron", "target_kind": "commodity", "price": 50}
+        {"market_id": "IRON_MKT", "target": "iron", "target_kind": "flow", "price": 50}
     ]
     res = _solve(wb)
     assert res["status"] == "optimal"
@@ -86,9 +84,7 @@ def test_keeps_upstream_when_market_is_dearer() -> None:
 def test_fixed_opex_only_paid_when_operating() -> None:
     # An idle facility (no demand for its output, no market need) pays no fixed O&M.
     wb = copy.deepcopy(_chain_wb())
-    wb["markets"] = [
-        {"market_id": "IRON_MKT", "target": "iron", "target_kind": "commodity", "price": 5}
-    ]
+    wb["markets"] = [{"market_id": "IRON_MKT", "target": "iron", "target_kind": "flow", "price": 5}]
     wb["processes"][0]["fixed_opex"] = 9999  # F1
     res = _solve(wb)
     # F1 outsourced ⇒ its $9999 fixed O&M is not paid; cost stays $500.

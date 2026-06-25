@@ -46,13 +46,13 @@ export interface RunResult {
       period: number;
       adoption: number;
     }[];
-    flows: { from: string; to: string; commodity: string; period: number; value: number }[];
+    flows: { from: string; to: string; flow: string; period: number; value: number }[];
     fleet?: {
       process: string;
       period: number;
       ships: number;
       fleet?: string;
-      commodity?: string;
+      flow?: string;
       throughput?: number;
       distance?: number;
       fuel?: string;
@@ -64,23 +64,23 @@ export interface RunResult {
     transport?: {
       from: string;
       to: string;
-      commodity: string;
+      flow: string;
       period: number;
-      flow: number;
+      value: number;
       cost: number;
       emissions: Record<string, number>;
       energy: number;
     }[];
-    trade: { process: string; commodity: string; period: number; kind: string; value: number }[];
+    trade: { process: string; flow: string; period: number; kind: string; value: number }[];
     storage: {
       storage: string;
-      commodity: string | null;
+      flow: string | null;
       capacity: number;
       by_period: { period: number; level: number; charge: number; discharge: number }[];
     }[];
     markets: {
       market: string;
-      commodity: string;
+      flow: string;
       tag: string | null;
       by_period: { period: number; buy: number; sell: number }[];
     }[];
@@ -102,7 +102,7 @@ export interface RunResult {
   summary: {
     periods: { period: number; cost?: number }[];
     impacts: { period: number; impact: string; total: number }[];
-    commodity: { commodity: string; period: number; consumed: number; produced: number }[];
+    flow: { flow: string; period: number; consumed: number; produced: number }[];
   };
 }
 
@@ -186,7 +186,7 @@ export interface MaccResultBlock {
 /** A lifecycle inventory: emissions by stage / by impact, normalised per
  *  functional unit, plus the configuration's cost (incl. its carbon cost). */
 export interface LcaBlock {
-  functional_unit: { commodity: string | null; amount: number };
+  functional_unit: { flow: string | null; amount: number };
   /** Headline impact (model's first capped/declared) the view keys on — set by the
    *  backend so the UI doesn't privilege or guess CO2. */
   primary_impact?: string;

@@ -1,7 +1,7 @@
 // Authoring of model-resident **variants** (simulate what-if scenarios) in the
 // value chain. A variant is a named key; each row under it is a timed
 // intervention — force a asset onto an alternative technology, change a
-// commodity's price, or enable a lever, from a given year. Writes the
+// flow's price, or enable a lever, from a given year. Writes the
 // `variants` + `variant_interventions` sheets the simulate backend reads (the
 // optimiser ignores them). No API call — edits flow through the workbook like
 // every other value-chain edit.
@@ -49,10 +49,10 @@ export function VariantsPanel({
   const assets = machineId
     ? [machineId, ...ids(workbook.assets, "asset_id").filter((m) => m !== machineId)]
     : ids(workbook.assets, "asset_id");
-  const commodities = ids(workbook.commodities, "commodity_id");
+  const flows = ids(workbook.flows, "flow_id");
   const levers = ids(workbook.levers, "lever_id");
   const technologies = ids(workbook.technologies, "technology_id");
-  // Commodities a technology actually uses (its io targets) — for io_coef.
+  // Flows a technology actually uses (its io targets) — for io_coef.
   const ioOf = (tech: string): string[] =>
     [...new Set((workbook.io ?? []).filter((r) => s(r.technology_id) === tech).map((r) => s(r.target)).filter(Boolean))];
   const years = (workbook.periods ?? [])
@@ -117,11 +117,11 @@ export function VariantsPanel({
 
   const targetList = (kind: string): string[] => {
     if (kind === "tech") return assets;
-    if (kind === "stream" || kind === "stream_cap") return commodities;
+    if (kind === "stream" || kind === "stream_cap") return flows;
     if (kind === "tech_cost" || kind === "io_coef") return technologies;
     return levers;
   };
-  // The "field" sub-attribute options for a kind (io_coef uses the tech's io commodities).
+  // The "field" sub-attribute options for a kind (io_coef uses the tech's io flows).
   const fieldList = (kind: string, target: string): string[] =>
     kind === "io_coef" ? ioOf(target) : (FIELD_OPTS[kind] ?? []);
 

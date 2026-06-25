@@ -30,10 +30,10 @@ def _wb(
     """
     return {
         "periods": [{"year": 2025}],
-        "commodities": [
-            {"commodity_id": "naphtha", "kind": "material", "price": 10.0},
-            {"commodity_id": "ethylene", "kind": "product", "sale_price": eth_sale},
-            {"commodity_id": "propylene", "kind": "byproduct", "sale_price": pro_sale},
+        "flows": [
+            {"flow_id": "naphtha", "kind": "material", "price": 10.0},
+            {"flow_id": "ethylene", "kind": "product", "sale_price": eth_sale},
+            {"flow_id": "propylene", "kind": "byproduct", "sale_price": pro_sale},
         ],
         "technologies": [{"technology_id": "NCC", "opex": 1.0}],
         "processes": [
@@ -61,15 +61,15 @@ def _wb(
                 "share_max": 1.0 - eth_min,
             },
         ],
-        "demand": [{"company": "C", "commodity_id": "ethylene", "year": 2025, "amount": 50.0}],
+        "demand": [{"company": "C", "flow_id": "ethylene", "year": 2025, "amount": 50.0}],
         "impacts": [],
         "markets": [],
         "storage": [],
     }
 
 
-def _produced(res: dict, commodity: str) -> float:
-    return sum(s["produced"] for s in res["summary"]["commodity"] if s["commodity"] == commodity)
+def _produced(res: dict, flow: str) -> float:
+    return sum(s["produced"] for s in res["summary"]["flow"] if s["flow"] == flow)
 
 
 def test_slate_shifts_to_max_share_of_demanded_product() -> None:

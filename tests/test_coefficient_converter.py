@@ -1,6 +1,6 @@
 """The :class:`CoefficientConverter` — recipe IO coefficient → the stream's unit.
 
-Covers the two lanes (universal + commodity-specific), the project-override
+Covers the two lanes (universal + flow-specific), the project-override
 cascade, and the degrade-never-raise contract (the invariance guarantee).
 """
 
@@ -16,7 +16,7 @@ from pathwise.units import CoefficientConverter, _parse_factor_key, get_registry
 
 def _conv(**kw: object) -> CoefficientConverter:
     base = {
-        "commodity_units": {
+        "flow_units": {
             "elec": "GJ",  # energy stream, native GJ
             "gas": "GJ",
             "coal": "GJ",
@@ -24,7 +24,7 @@ def _conv(**kw: object) -> CoefficientConverter:
             "steel": "t",
             "krw_priced": "KRW",
         },
-        "commodity_props": {
+        "flow_props": {
             "gas": {"lhv_MJ_per_kg": 45.0},
             "coal": {"lhv_MJ_per_kg": 30.0},
             "fuel": {"density_kg_per_liter": 0.8},
@@ -61,7 +61,7 @@ def test_universal_mwh_to_gj() -> None:
     assert c.issues == []
 
 
-# ── commodity-specific lane (cross dimension) ─────────────────────────────────
+# ── flow-specific lane (cross dimension) ─────────────────────────────────
 
 
 def test_lhv_bridges_mass_to_energy() -> None:
@@ -71,7 +71,7 @@ def test_lhv_bridges_mass_to_energy() -> None:
     np.testing.assert_allclose(c.to_canonical(1.0, "t", "coal", "input"), 30.0, rtol=1e-9)
 
 
-def test_same_measure_differs_by_commodity() -> None:
+def test_same_measure_differs_by_flow() -> None:
     c = _conv()
     gas = c.to_canonical(1.0, "t", "gas", "input")
     coal = c.to_canonical(1.0, "t", "coal", "input")
@@ -96,7 +96,7 @@ def test_value_bridges_currency_to_mass() -> None:
 def test_project_override_beats_global() -> None:
     glob = _conv()
     over = _conv(unit_overrides={"custom_units": ["KRW = USD / 1000"]})
-    # commodity priced in KRW; 1 USD authored -> global 1300 KRW, override 1000 KRW.
+    # flow priced in KRW; 1 USD authored -> global 1300 KRW, override 1000 KRW.
     np.testing.assert_allclose(
         glob.to_canonical(1.0, "USD", "krw_priced", "input"), 1300.0, rtol=1e-6
     )
@@ -116,7 +116,7 @@ def test_override_as_bare_list() -> None:
 
 
 def test_cross_dimension_without_factor_degrades() -> None:
-    c = _conv(commodity_props={})  # gas now has no LHV
+    c = _conv(flow_props={})  # gas now has no LHV
     assert c.to_canonical(1.0, "t", "gas", "input") == 1.0  # unchanged
     assert any("no conversion factor" in m for m in c.issues)
 
@@ -161,18 +161,18 @@ def test_pathological_coefficients_never_raise(coef: float) -> None:
         assert not math.isfinite(out)  # non-finite passes through, never raises
 
 
-def test_multi_factor_commodity_chains_volume_to_energy() -> None:
+def test_multi_factor_flow_chains_volume_to_energy() -> None:
     # density (kg/L) + LHV (MJ/kg) together bridge volume -> energy for one stream.
     c = CoefficientConverter(
-        commodity_units={"oil": "GJ"},
-        commodity_props={"oil": {"density_kg_per_liter": 0.8, "lhv_MJ_per_kg": 45.0}},
+        flow_units={"oil": "GJ"},
+        flow_props={"oil": {"density_kg_per_liter": 0.8, "lhv_MJ_per_kg": 45.0}},
     )
     # 1 L = 0.8 kg = 0.8 * 45 = 36 MJ = 0.036 GJ
     np.testing.assert_allclose(c.to_canonical(1.0, "liter", "oil", "input"), 0.036, rtol=1e-9)
 
 
 def test_issues_are_deduplicated_per_converter() -> None:
-    c = CoefficientConverter(commodity_units={"x": "GJ"})
+    c = CoefficientConverter(flow_units={"x": "GJ"})
     for _ in range(20):
         c.to_canonical(1.0, "t", "x", "input")  # same cross-dim failure each call
     assert len(c.issues) == 1
@@ -180,7 +180,7 @@ def test_issues_are_deduplicated_per_converter() -> None:
 
 def test_converter_does_not_pollute_global_registry() -> None:
     CoefficientConverter(
-        commodity_units={"gas": "GJ"}, commodity_props={"gas": {"lhv_MJ_per_kg": 45.0}}
+        flow_units={"gas": "GJ"}, flow_props={"gas": {"lhv_MJ_per_kg": 45.0}}
     ).to_canonical(1.0, "t", "gas", "input")
     leaked = [n for n in getattr(get_registry(), "_contexts", {}) if str(n).startswith("cmdty_")]
     assert leaked == []

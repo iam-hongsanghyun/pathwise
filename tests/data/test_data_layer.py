@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import copy
 
-from pathwise.core.entities import CommodityKind, LeverType
+from pathwise.core.entities import FlowKind, LeverType
 from pathwise.data import ScenarioConfig, assemble_problem, validate
 from pathwise.data.workbook import frames_to_workbook, workbook_to_frames
 from tests.data.example import example_workbook
@@ -19,9 +19,7 @@ def test_workbook_frames_round_trip() -> None:
     again = frames_to_workbook(workbook_to_frames(wb))
     assert set(again) == set(wb)
     assert len(again["processes"]) == len(wb["processes"])
-    assert {r["commodity_id"] for r in again["commodities"]} == {
-        r["commodity_id"] for r in wb["commodities"]
-    }
+    assert {r["flow_id"] for r in again["flows"]} == {r["flow_id"] for r in wb["flows"]}
 
 
 def test_assemble_builds_problem() -> None:
@@ -30,8 +28,8 @@ def test_assemble_builds_problem() -> None:
     assert prob.base_year == 2025
     assert prob.companies == ["Acme"]
     assert set(prob.technologies) == {"BF", "EAF"}
-    assert prob.commodities["coal"].kind == CommodityKind.ENERGY
-    assert prob.commodities["coal"].price(2025) == 30.0
+    assert prob.flows["coal"].kind == FlowKind.ENERGY
+    assert prob.flows["coal"].price(2025) == 30.0
     # Per-tech inputs/outputs land on the technology.
     assert prob.technologies["BF"].input_intensity["coal"] == 4.0
     assert prob.technologies["BF"].output_yield["iron"] == 1.0
@@ -44,7 +42,7 @@ def test_assemble_builds_problem() -> None:
     assert prob.levers[0].lever_type == LeverType.ENERGY_EFFICIENCY
     assert prob.levers[0].blocks[0].reduction == 0.1
     # Network + demand.
-    assert len(prob.edges) == 1 and prob.edges[0].commodity_id == "iron"
+    assert len(prob.edges) == 1 and prob.edges[0].flow_id == "iron"
     assert len(prob.transitions) == 1
     assert prob.transitions[0].to_technology == "EAF" and prob.transitions[0].compatible
     assert prob.demand[("Acme", "steel", 2030)] == 900.0

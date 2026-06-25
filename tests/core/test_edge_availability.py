@@ -19,16 +19,16 @@ def _solve(wb: dict[str, Any]) -> dict[str, Any]:
 def _wb(edge_p1: dict[str, Any] | None = None) -> dict[str, Any]:
     # P1 cheap (gas @10), P2 dear (gas2 @100) both make elec; C turns elec→steel.
     # 100 steel each of two years ⇒ 100 elec/yr.
-    e1 = {"from_process": "P1", "to_process": "C", "commodity_id": "elec"}
+    e1 = {"from_process": "P1", "to_process": "C", "flow_id": "elec"}
     if edge_p1:
         e1.update(edge_p1)
     return {
         "periods": [{"year": 2025, "duration_years": 1}, {"year": 2030, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "gas", "kind": "energy", "price": 10},
-            {"commodity_id": "gas2", "kind": "energy", "price": 100},
-            {"commodity_id": "elec", "kind": "energy"},
-            {"commodity_id": "steel", "kind": "product"},
+        "flows": [
+            {"flow_id": "gas", "kind": "energy", "price": 10},
+            {"flow_id": "gas2", "kind": "energy", "price": 100},
+            {"flow_id": "elec", "kind": "energy"},
+            {"flow_id": "steel", "kind": "product"},
         ],
         "technologies": [
             {"technology_id": "PT"},
@@ -41,17 +41,17 @@ def _wb(edge_p1: dict[str, Any] | None = None) -> dict[str, Any]:
             {"process_id": "C", "company": "X", "baseline_technology": "CT", "capacity": 1000},
         ],
         "process_inputs": [
-            {"technology_id": "PT", "commodity_id": "gas", "intensity": 1.0},
-            {"technology_id": "PT2", "commodity_id": "gas2", "intensity": 1.0},
-            {"technology_id": "CT", "commodity_id": "elec", "intensity": 1.0},
+            {"technology_id": "PT", "flow_id": "gas", "intensity": 1.0},
+            {"technology_id": "PT2", "flow_id": "gas2", "intensity": 1.0},
+            {"technology_id": "CT", "flow_id": "elec", "intensity": 1.0},
         ],
         "process_outputs": [
-            {"technology_id": "PT", "commodity_id": "elec", "yield": 1.0},
-            {"technology_id": "PT2", "commodity_id": "elec", "yield": 1.0},
-            {"technology_id": "CT", "commodity_id": "steel", "yield": 1.0, "is_product": True},
+            {"technology_id": "PT", "flow_id": "elec", "yield": 1.0},
+            {"technology_id": "PT2", "flow_id": "elec", "yield": 1.0},
+            {"technology_id": "CT", "flow_id": "steel", "yield": 1.0, "is_product": True},
         ],
-        "edges": [e1, {"from_process": "P2", "to_process": "C", "commodity_id": "elec"}],
-        "demand": [{"company": "all", "commodity_id": "steel", "amount": 100}],
+        "edges": [e1, {"from_process": "P2", "to_process": "C", "flow_id": "elec"}],
+        "demand": [{"company": "all", "flow_id": "steel", "amount": 100}],
     }
 
 

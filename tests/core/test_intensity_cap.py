@@ -18,9 +18,9 @@ def _wb(intensity: bool, limit: float) -> dict:
     # lever is the must-run-free gas → to cut intensity it underproduces (slack).
     return {
         "periods": [{"year": 2025}],
-        "commodities": [
-            {"commodity_id": "gas", "kind": "energy", "price": 0},
-            {"commodity_id": "widget", "kind": "product"},
+        "flows": [
+            {"flow_id": "gas", "kind": "energy", "price": 0},
+            {"flow_id": "widget", "kind": "product"},
         ],
         "impacts": [{"impact_id": "CO2"}],
         "technologies": [{"technology_id": "T"}],
@@ -37,7 +37,7 @@ def _wb(intensity: bool, limit: float) -> dict:
                 "is_product": True,
             },
         ],
-        "commodity_impacts": [{"commodity_id": "gas", "impact_id": "CO2", "factor": 1}],
+        "flow_impacts": [{"flow_id": "gas", "impact_id": "CO2", "factor": 1}],
         "impact_caps": [
             {
                 "company": "all",
@@ -48,7 +48,7 @@ def _wb(intensity: bool, limit: float) -> dict:
                 "intensity": intensity,
             }
         ],
-        "demand": [{"company": "C", "commodity_id": "widget", "year": 2025, "amount": 100}],
+        "demand": [{"company": "C", "flow_id": "widget", "year": 2025, "amount": 100}],
     }
 
 

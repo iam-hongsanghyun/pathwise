@@ -32,7 +32,7 @@ LEVERS = [
 def _model() -> dict:
     return {
         "periods": [{"year": y, "duration_years": 1} for y in YEARS],
-        "commodities": [{"commodity_id": "widget", "kind": "product", "unit": "t"}],
+        "flows": [{"flow_id": "widget", "kind": "product", "unit": "t"}],
         "impacts": [{"impact_id": "CO2", "unit": "tCO2"}],
         "technologies": [{"technology_id": "T", "actions": "continue"}],
         "processes": [
@@ -72,9 +72,7 @@ def _model() -> dict:
         "impact_caps": [
             {"company": "all", "impact_id": "CO2", "year": y, "limit": v} for y, v in TARGET.items()
         ],
-        "demand": [
-            {"company": "C", "commodity_id": "widget", "year": y, "amount": 100} for y in YEARS
-        ],
+        "demand": [{"company": "C", "flow_id": "widget", "year": y, "amount": 100} for y in YEARS],
     }
 
 

@@ -19,8 +19,8 @@ def _solve(wb: dict[str, Any]) -> dict[str, Any]:
     return extract_results(solve(build(assemble_problem(wb, _sc()))))
 
 
-def _produced(res: dict[str, Any], commodity: str) -> float:
-    return sum(s["produced"] for s in res["summary"]["commodity"] if s["commodity"] == commodity)
+def _produced(res: dict[str, Any], flow: str) -> float:
+    return sum(s["produced"] for s in res["summary"]["flow"] if s["flow"] == flow)
 
 
 # ── Flat model ───────────────────────────────────────────────────────────────
@@ -37,7 +37,7 @@ def _flat(max_cf: float | None) -> dict[str, Any]:
         p["max_capacity_factor"] = max_cf
     return {
         "periods": [{"year": 2025}],
-        "commodities": [{"commodity_id": "steel", "kind": "product"}],
+        "flows": [{"flow_id": "steel", "kind": "product"}],
         "technologies": [{"technology_id": "EAF", "opex": 1.0}],
         "processes": [p],
         "io": [
@@ -49,7 +49,7 @@ def _flat(max_cf: float | None) -> dict[str, Any]:
                 "is_product": True,
             }
         ],
-        "demand": [{"company": "C", "commodity_id": "steel", "year": 2025, "amount": 100.0}],
+        "demand": [{"company": "C", "flow_id": "steel", "year": 2025, "amount": 100.0}],
     }
 
 
@@ -110,9 +110,9 @@ def test_hierarchy_asset_max_cf_caps_throughput() -> None:
                 "is_product": True,
             }
         ],
-        "commodities": [{"commodity_id": "steel", "kind": "product"}],
+        "flows": [{"flow_id": "steel", "kind": "product"}],
         "periods": [{"year": 2025}],
-        "demand": [{"company": "all", "commodity_id": "steel", "amount": 100}],
+        "demand": [{"company": "all", "flow_id": "steel", "amount": 100}],
     }
     res = _solve(wb)
     assert res["status"] == "optimal"
@@ -125,9 +125,7 @@ def test_hierarchy_asset_max_cf_caps_throughput() -> None:
 def test_max_cf_varies_by_year() -> None:
     wb = _flat(None)
     wb["periods"] = [{"year": 2025}, {"year": 2030}]
-    wb["demand"] = [
-        {"company": "C", "commodity_id": "steel", "amount": 100}
-    ]  # year-less ⇒ both years
+    wb["demand"] = [{"company": "C", "flow_id": "steel", "amount": 100}]  # year-less ⇒ both years
     wb["processes_t__max_capacity_factor"] = [{"year": 2025, "P": 1.0}, {"year": 2030, "P": 0.5}]
     res = _solve(wb)
     assert res["status"] == "optimal"

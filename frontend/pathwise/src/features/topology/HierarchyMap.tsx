@@ -45,12 +45,12 @@ interface Props {
   editable?: boolean;
   selectedId?: string | null;
   onSelect?: (id: string) => void;
-  onAddLink?: (from: string, to: string, commodity: string, lag: number) => void;
-  onEditLink?: (rowIndex: number, commodity: string, lag: number) => void;
+  onAddLink?: (from: string, to: string, flow: string, lag: number) => void;
+  onEditLink?: (rowIndex: number, flow: string, lag: number) => void;
   onDeleteLink?: (rowIndex: number) => void;
   /** A no-drag click on empty canvas — clears the selection / closes the inspector. */
   onBackgroundClick?: () => void;
-  commodities?: string[];
+  flows?: string[];
 }
 
 export function HierarchyMap({
@@ -63,7 +63,7 @@ export function HierarchyMap({
   onEditLink,
   onDeleteLink,
   onBackgroundClick,
-  commodities = [],
+  flows = [],
 }: Props) {
   const mode: MapMode = "expandable"; // the only layout: an expandable drill-down
   const overlayIdx = useMemo(() => (result ? buildOverlay(result) : null), [result]);
@@ -124,9 +124,9 @@ export function HierarchyMap({
   // orthogonal (right-angle) edge routing. Both are view toggles in the toolbar.
   const [orientation, setOrientation] = useState<Orientation>("h");
   const [ortho, setOrtho] = useState(false);
-  // Commodity text on the flow lines is OFF by default (it crowds the map); the
-  // "Commodity" toolbar toggle turns it on. Hovering a line always shows the popup.
-  const [showCommodity, setShowCommodity] = useState(false);
+  // Flow text on the flow lines is OFF by default (it crowds the map); the
+  // "Flow" toolbar toggle turns it on. Hovering a line always shows the popup.
+  const [showFlow, setShowFlow] = useState(false);
   const horiz = orientation === "h";
 
   // Pure auto-layout (nodes are not draggable). Re-fits the camera only on a real
@@ -180,7 +180,7 @@ export function HierarchyMap({
     () =>
       editable
         ? editEdges(workbook, laid.nodes, flowLevel).map((e) => ({ ...e, origFrom: e.from, origTo: e.to }))
-        : laid.edges.map((e) => ({ ...e, rowIndex: -1, lag: 0, count: 1, commodities: [e.commodity] })),
+        : laid.edges.map((e) => ({ ...e, rowIndex: -1, lag: 0, count: 1, flows: [e.flow] })),
     [editable, workbook, laid, flowLevel],
   );
   // Lowest-common-ancestor box of two endpoints — orthogonal routing stays INSIDE
@@ -195,8 +195,8 @@ export function HierarchyMap({
     while (d && !seen2.has(d)) { if (anc.has(d)) return boxById.get(d) ?? null; seen2.add(d); d = parentOf.get(d) ?? null; }
     return null;
   };
-  const edgeKey = (e: { from: string; to: string; commodity: string; rowIndex: number }) =>
-    `${e.from}-${e.to}-${e.commodity}-${e.rowIndex}`;
+  const edgeKey = (e: { from: string; to: string; flow: string; rowIndex: number }) =>
+    `${e.from}-${e.to}-${e.flow}-${e.rowIndex}`;
 
   // The child of `ancId` that lies on the path down to `descId` (its diverging box).
   const childTowards = (descId: string, ancId: string): string => {
@@ -262,7 +262,7 @@ export function HierarchyMap({
       if (!a || !b) continue;
       const p1 = outPt(a);
       const p2 = inPt(b);
-      const fv = overlay?.flow(e.origFrom, e.origTo, e.commodity);
+      const fv = overlay?.flow(e.origFrom, e.origTo, e.flow);
       const active = fv != null && fv > 1e-6;
       let poly: { x: number; y: number }[];
       const routed = ortho ? orthoRoutes.get(edgeKey(e)) : undefined;
@@ -296,7 +296,7 @@ export function HierarchyMap({
   // not on hover / pan / year scrub).
   const LABEL_LH = 11;
   const placedLabels = useMemo(() => {
-    if (!showCommodity) return []; // labels hidden → skip the de-overlap work entirely
+    if (!showFlow) return []; // labels hidden → skip the de-overlap work entirely
     const LH = LABEL_LH;
     const CW = 5.4; // approx char width at 9px
     const PAD = 5; // gap from the line
@@ -307,7 +307,7 @@ export function HierarchyMap({
     };
     const raw: Lbl[] = [];
     for (const { e, poly, active } of edgeViews) {
-      const lines = e.commodities.map((c) => clip(c, 16) + (e.lag ? ` ·${e.lag}y` : ""));
+      const lines = e.flows.map((c) => clip(c, 16) + (e.lag ? ` ·${e.lag}y` : ""));
       const w = Math.max(...lines.map((l) => l.length)) * CW;
       const h = lines.length * LH;
       for (const out of [true, false]) {
@@ -347,7 +347,7 @@ export function HierarchyMap({
       placed.push(L);
     }
     return placed;
-  }, [edgeViews, showCommodity]);
+  }, [edgeViews, showFlow]);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const { vb, setVb, onWheel, onPanStart, onPanMove, onPanEnd, toWorld } = useViewBox();
@@ -382,10 +382,10 @@ export function HierarchyMap({
   // We record the pointer-down target's group id here and act on a no-move up.
   const bgPress = useRef<{ x: number; y: number; moved: boolean; kind: "toggle" | "group" | "node" | "empty"; id: string | null } | null>(null);
   const [connect, setConnect] = useState<{ from: string; wx: number; wy: number } | null>(null);
-  const [form, setForm] = useState<{ from: string; to: string; sx: number; sy: number; editRowIndex?: number; commodity?: string; lag?: number } | null>(null);
+  const [form, setForm] = useState<{ from: string; to: string; sx: number; sy: number; editRowIndex?: number; flow?: string; lag?: number } | null>(null);
   const [selEdge, setSelEdge] = useState<number | null>(null);
   // Hover-a-flow popup: which arrow, and where the cursor is.
-  const [hover, setHover] = useState<{ x: number; y: number; from: string; to: string; commodities: string[]; lag: number } | null>(null);
+  const [hover, setHover] = useState<{ x: number; y: number; from: string; to: string; flows: string[]; lag: number } | null>(null);
   // Changing the aggregation / orientation rebuilds the edge set, so a selected
   // edge (and its edit/delete controls) would point at a stale rowIndex — clear it.
   useEffect(() => setSelEdge(null), [flowLevel, orientation, ortho]);
@@ -561,15 +561,15 @@ export function HierarchyMap({
           className="ghost"
           style={{
             ...toolBtn,
-            background: showCommodity ? "var(--brand-fill)" : undefined,
-            borderColor: showCommodity ? "var(--brand)" : undefined,
-            color: showCommodity ? "var(--brand)" : undefined,
+            background: showFlow ? "var(--brand-fill)" : undefined,
+            borderColor: showFlow ? "var(--brand)" : undefined,
+            color: showFlow ? "var(--brand)" : undefined,
           }}
-          onClick={() => setShowCommodity((v) => !v)}
-          title="Show / hide the commodity name written on each flow line (hover a line for details either way)"
+          onClick={() => setShowFlow((v) => !v)}
+          title="Show / hide the flow name written on each flow line (hover a line for details either way)"
         >
           <span style={{ fontSize: "0.95rem" }}>🏷</span>
-          <span>Commodity</span>
+          <span>Flow</span>
         </button>
         {editable && (
           <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "0.74rem" }} title="Aggregate the flows to this level (independent of expand/collapse). The top 'Value Chain' level draws each flow where its two sides first diverge.">
@@ -744,7 +744,7 @@ export function HierarchyMap({
             <g
               key={`n-${n.id}`}
               data-node={n.id}
-              className={`topo-node ${isAsset ? "topo-commodity" : "topo-process"}`}
+              className={`topo-node ${isAsset ? "topo-flow" : "topo-process"}`}
               transform={`translate(${n.x},${n.y})`}
               opacity={idle ? 0.45 : 1}
               style={{ cursor: "pointer" }}
@@ -770,9 +770,9 @@ export function HierarchyMap({
           );
         })}
 
-        {/* EDGE LABELS — horizontal commodity text next to each connector (off by
-            default; the "Commodity" toggle shows them). Hover still works either way. */}
-        {showCommodity &&
+        {/* EDGE LABELS — horizontal flow text next to each connector (off by
+            default; the "Flow" toggle shows them). Hover still works either way. */}
+        {showFlow &&
           placedLabels.map((L) => (
             <text key={L.key} x={L.tx} y={L.by + LABEL_LH - 2} fontSize={9} fill={L.active ? "var(--text)" : "var(--muted)"} textAnchor={L.ta} style={{ pointerEvents: "none" }}>
               {L.lines.map((l, i) => (<tspan key={i} x={L.tx} dy={i ? LABEL_LH : 0}>{l}</tspan>))}
@@ -784,7 +784,7 @@ export function HierarchyMap({
         {edgeViews.map(({ e, d }) => {
           const sel = editable && e.rowIndex >= 0 && selEdge === e.rowIndex;
           const onHover = (ev: React.MouseEvent) =>
-            setHover({ x: ev.clientX, y: ev.clientY, from: e.from, to: e.to, commodities: e.commodities, lag: e.lag });
+            setHover({ x: ev.clientX, y: ev.clientY, from: e.from, to: e.to, flows: e.flows, lag: e.lag });
           return (
             <path
               key={`eh-${edgeKey(e)}`}
@@ -814,7 +814,7 @@ export function HierarchyMap({
               return (
                 <g key={`ec-${edgeKey(e)}`}>
                   {onEditLink && (
-                    <g style={{ cursor: "pointer" }} onPointerDown={(ev) => ev.stopPropagation()} onClick={(ev) => setForm({ from: e.from, to: e.to, sx: ev.clientX, sy: ev.clientY, editRowIndex: e.rowIndex, commodity: e.commodity, lag: e.lag })}>
+                    <g style={{ cursor: "pointer" }} onPointerDown={(ev) => ev.stopPropagation()} onClick={(ev) => setForm({ from: e.from, to: e.to, sx: ev.clientX, sy: ev.clientY, editRowIndex: e.rowIndex, flow: e.flow, lag: e.lag })}>
                       <circle cx={m.x - 11} cy={m.y} r={8} fill="var(--brand)" />
                       <text x={m.x - 11} y={m.y + 1} fontSize={9} fill="#fff" textAnchor="middle" dominantBaseline="middle">✎</text>
                     </g>
@@ -830,7 +830,7 @@ export function HierarchyMap({
             })}
       </svg>
 
-      {/* hover-a-flow popup: what commodities travel along the arrow under the cursor */}
+      {/* hover-a-flow popup: what flows travel along the arrow under the cursor */}
       {hover && (
         <div
           style={{
@@ -854,11 +854,11 @@ export function HierarchyMap({
             <b>{boxById.get(hover.to)?.label ?? hover.to}</b>
           </div>
           <div className="muted" style={{ marginBottom: 2, fontSize: "0.7rem" }}>
-            {hover.commodities.length} flow{hover.commodities.length === 1 ? "" : "s"}
+            {hover.flows.length} flow{hover.flows.length === 1 ? "" : "s"}
             {hover.lag ? ` · ${hover.lag}y lag` : ""}
           </div>
           <ul style={{ margin: 0, padding: "0 0 0 14px" }}>
-            {hover.commodities.map((c) => (
+            {hover.flows.map((c) => (
               <li key={c} style={{ color: "var(--text)" }}>{c}</li>
             ))}
           </ul>
@@ -901,16 +901,16 @@ export function HierarchyMap({
         <ConnectForm
           fromLabel={boxById.get(form.from)?.label ?? form.from}
           toLabel={boxById.get(form.to)?.label ?? form.to}
-          commodities={commodities}
-          initialCommodity={form.commodity ?? ""}
+          flows={flows}
+          initialFlow={form.flow ?? ""}
           initialLag={form.lag ?? 0}
           editing={form.editRowIndex != null}
           x={form.sx}
           y={form.sy}
           onCancel={() => setForm(null)}
-          onConfirm={(commodity, lag) => {
-            if (form.editRowIndex != null) onEditLink?.(form.editRowIndex, commodity, lag);
-            else onAddLink?.(form.from, form.to, commodity, lag);
+          onConfirm={(flow, lag) => {
+            if (form.editRowIndex != null) onEditLink?.(form.editRowIndex, flow, lag);
+            else onAddLink?.(form.from, form.to, flow, lag);
             setForm(null);
             setSelEdge(null);
           }}
@@ -921,20 +921,20 @@ export function HierarchyMap({
 }
 
 function ConnectForm({
-  fromLabel, toLabel, commodities, x, y, onConfirm, onCancel, initialCommodity = "", initialLag = 0, editing = false,
+  fromLabel, toLabel, flows, x, y, onConfirm, onCancel, initialFlow = "", initialLag = 0, editing = false,
 }: {
-  fromLabel: string; toLabel: string; commodities: string[]; x: number; y: number;
-  onConfirm: (commodity: string, lag: number) => void;
+  fromLabel: string; toLabel: string; flows: string[]; x: number; y: number;
+  onConfirm: (flow: string, lag: number) => void;
   onCancel: () => void;
-  initialCommodity?: string; initialLag?: number; editing?: boolean;
+  initialFlow?: string; initialLag?: number; editing?: boolean;
 }) {
-  const [commodity, setCommodity] = useState(initialCommodity);
+  const [flow, setFlow] = useState(initialFlow);
   const [lag, setLag] = useState(initialLag);
   return (
     <div style={{ position: "fixed", left: Math.min(x, window.innerWidth - 300), top: Math.min(y, window.innerHeight - 160), zIndex: 1000, background: "var(--surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-button)", boxShadow: "0 6px 24px rgba(0,0,0,0.14)", padding: 10, width: 268, fontSize: "0.78rem" }}>
       <div style={{ marginBottom: 6 }}><b>{fromLabel}</b> → <b>{toLabel}</b></div>
       <div style={{ marginBottom: 6 }}>
-        <SearchableSelect value={commodity} options={commodities} onChange={setCommodity} onCreate={setCommodity} placeholder="stream / commodity" />
+        <SearchableSelect value={flow} options={flows} onChange={setFlow} onCreate={setFlow} placeholder="stream / flow" />
       </div>
       <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
         <span className="muted" style={{ width: 70 }}>lag (yr)</span>
@@ -945,7 +945,7 @@ function ConnectForm({
       </p>
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
         <button className="ghost" onClick={onCancel}>cancel</button>
-        <button className="run-button" disabled={!commodity} onClick={() => onConfirm(commodity, lag)}>{editing ? "✓ update" : "＋ link"}</button>
+        <button className="run-button" disabled={!flow} onClick={() => onConfirm(flow, lag)}>{editing ? "✓ update" : "＋ link"}</button>
       </div>
     </div>
   );

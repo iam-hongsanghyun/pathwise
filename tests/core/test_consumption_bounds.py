@@ -1,6 +1,6 @@
 """Per-asset intake bounds (the consumer-side mirror of min/max_production).
 
-``max_consumption`` caps how much of a commodity a asset may take in (a max
+``max_consumption`` caps how much of a flow a asset may take in (a max
 purchase); ``min_consumption`` forces a minimum (a required offtake / take-or-pay).
 Tested on a fuel blend (coal cheap, H2 dear) so the bound is non-trivial: capping
 one input shifts the optimiser onto the other.
@@ -29,10 +29,10 @@ def _wb() -> dict[str, Any]:
     # total fuel = 100. Coal is cheap ($10), H2 dear ($100); least cost ⇒ all coal.
     return {
         "periods": [{"year": 2025}],
-        "commodities": [
-            {"commodity_id": "coal", "kind": "energy", "price": 10},
-            {"commodity_id": "h2", "kind": "energy", "price": 100},
-            {"commodity_id": "widget", "kind": "product"},
+        "flows": [
+            {"flow_id": "coal", "kind": "energy", "price": 10},
+            {"flow_id": "h2", "kind": "energy", "price": 100},
+            {"flow_id": "widget", "kind": "product"},
         ],
         "technologies": [{"technology_id": "T"}],
         "processes": [
@@ -65,7 +65,7 @@ def _wb() -> dict[str, Any]:
                 "is_product": True,
             },
         ],
-        "demand": [{"company": "C", "commodity_id": "widget", "year": 2025, "amount": 50}],
+        "demand": [{"company": "C", "flow_id": "widget", "year": 2025, "amount": 50}],
     }
 
 
@@ -78,7 +78,7 @@ def test_baseline_picks_the_cheap_input() -> None:
 
 def test_max_consumption_is_assembled() -> None:
     wb = _wb()
-    wb["max_consumption"] = [{"company": "P", "commodity_id": "coal", "amount": 30}]
+    wb["max_consumption"] = [{"company": "P", "flow_id": "coal", "amount": 30}]
     prob = assemble_problem(wb, _sc())
     assert prob.max_consumption[("P", "coal", 2025)] == 30
 
@@ -86,7 +86,7 @@ def test_max_consumption_is_assembled() -> None:
 def test_max_consumption_caps_an_input_and_forces_the_other() -> None:
     wb = _wb()
     # Cap coal intake at 30 ⇒ the other 70 fuel must be the dear H2.
-    wb["max_consumption"] = [{"company": "P", "commodity_id": "coal", "amount": 30}]
+    wb["max_consumption"] = [{"company": "P", "flow_id": "coal", "amount": 30}]
     res = _solve(wb)
     assert res["status"] == "optimal"
     # 30 coal ($300) + 70 H2 ($7000) = $7300.
@@ -96,7 +96,7 @@ def test_max_consumption_caps_an_input_and_forces_the_other() -> None:
 def test_min_consumption_forces_required_offtake() -> None:
     wb = _wb()
     # Require ≥40 H2 intake even though coal is cheaper.
-    wb["min_consumption"] = [{"company": "P", "commodity_id": "h2", "amount": 40}]
+    wb["min_consumption"] = [{"company": "P", "flow_id": "h2", "amount": 40}]
     res = _solve(wb)
     assert res["status"] == "optimal"
     # 40 H2 ($4000) + 60 coal ($600) = $4600.

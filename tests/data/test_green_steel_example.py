@@ -70,11 +70,11 @@ def test_recycling_loop_returns_scrap_to_the_mill(system_result: dict) -> None:
     metallics. This guards the closed steel→cars→scrap→steel loop end to end.
     """
     out = system_result["outputs"]
-    eol = [f for f in out["flows"] if f["commodity"] == "eol_steel" and f["value"] > 1.0]
+    eol = [f for f in out["flows"] if f["flow"] == "eol_steel" and f["value"] > 1.0]
     scrap_back = [
         f
         for f in out["flows"]
-        if f["commodity"] == "scrap" and f["value"] > 1.0 and f["from"].endswith("kr_scrap/yard")
+        if f["flow"] == "scrap" and f["value"] > 1.0 and f["from"].endswith("kr_scrap/yard")
     ]
     assert eol, "the automaker must emit end-of-life steel into the recycling loop"
     assert scrap_back, "recovered scrap must return to (and be consumed by) the steel mill"
@@ -90,7 +90,7 @@ def test_cross_border_hydrogen_and_transition(system_result: dict) -> None:
     origins = {
         f["from"].split("/")[1]
         for f in out["flows"]
-        if f["commodity"] == "hydrogen" and f["value"] > 1.0
+        if f["flow"] == "hydrogen" and f["value"] > 1.0
     }
     assert {"australia", "qatar", "korea"} <= origins, origins
     # the mill transitions its iron-making (blast furnace → H2 direct reduction)

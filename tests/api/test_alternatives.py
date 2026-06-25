@@ -19,9 +19,9 @@ def _lib() -> ComponentLibrary:
     return ComponentLibrary.model_validate(
         {
             "label": "t",
-            "commodities": [
-                {"commodity_id": "scrap", "kind": "material", "unit": "t"},
-                {"commodity_id": "steel", "kind": "product", "unit": "t"},
+            "flows": [
+                {"flow_id": "scrap", "kind": "material", "unit": "t"},
+                {"flow_id": "steel", "kind": "product", "unit": "t"},
             ],
             "technologies": [
                 {

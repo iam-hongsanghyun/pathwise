@@ -4,7 +4,7 @@
 
 import type { Row, Workbook } from "../types";
 
-export type NodeKind = "process" | "commodity" | "market" | "storage";
+export type NodeKind = "process" | "flow" | "market" | "storage";
 export interface FacilityPorts {
   energyIn: string[];
   materialIn: string[];
@@ -45,7 +45,7 @@ export function workbookToGraph(wb: Workbook): { nodes: GraphNode[]; edges: Grap
   for (const r of wb.node_layout ?? []) layout.set(s(r.id), { x: n(r.x), y: n(r.y) });
 
   const kindOf = new Map<string, string>(
-    (wb.commodities ?? []).map((r) => [s(r.commodity_id), s(r.kind, "material")]),
+    (wb.flows ?? []).map((r) => [s(r.flow_id), s(r.kind, "material")]),
   );
 
   // Inputs/outputs come from the unified `io` table (legacy sheets as fallback).
@@ -55,7 +55,7 @@ export function workbookToGraph(wb: Workbook): { nodes: GraphNode[]; edges: Grap
       .map((r) => s(r.target)),
     ...(wb.process_inputs ?? [])
       .filter((r) => s(r.technology_id) === tech)
-      .map((r) => s(r.commodity_id)),
+      .map((r) => s(r.flow_id)),
   ];
   const outputsOf = (tech: string): string[] => [
     ...(wb.io ?? [])
@@ -63,7 +63,7 @@ export function workbookToGraph(wb: Workbook): { nodes: GraphNode[]; edges: Grap
       .map((r) => s(r.target)),
     ...(wb.process_outputs ?? [])
       .filter((r) => s(r.technology_id) === tech)
-      .map((r) => s(r.commodity_id)),
+      .map((r) => s(r.flow_id)),
   ];
   const facilityPorts = (process: string): FacilityPorts => {
     const tech = s((wb.processes ?? []).find((p) => s(p.process_id) === process)?.baseline_technology);
@@ -90,47 +90,47 @@ export function workbookToGraph(wb: Workbook): { nodes: GraphNode[]; edges: Grap
     nodes.push({ id, position: place(id), data: { kind, entityId, label, sub, ports } });
   };
 
-  for (const r of wb.commodities ?? []) add("commodity", s(r.commodity_id), s(r.commodity_id), s(r.kind));
+  for (const r of wb.flows ?? []) add("flow", s(r.flow_id), s(r.flow_id), s(r.kind));
   for (const r of wb.processes ?? [])
     add("process", s(r.process_id), s(r.process_id), s(r.baseline_technology), facilityPorts(s(r.process_id)));
-  for (const r of wb.markets ?? []) add("market", s(r.market_id), s(r.market_id), s(r.target_kind, "commodity"));
-  for (const r of wb.storage ?? []) add("storage", s(r.storage_id), s(r.storage_id), s(r.commodity_id));
+  for (const r of wb.markets ?? []) add("market", s(r.market_id), s(r.market_id), s(r.target_kind, "flow"));
+  for (const r of wb.storage ?? []) add("storage", s(r.storage_id), s(r.storage_id), s(r.flow_id));
 
   const has = new Set(nodes.map((nd) => nd.id));
   const edges: GraphEdge[] = [];
   const edge = (from: string, to: string, label?: string) => {
     if (has.has(from) && has.has(to)) edges.push({ id: `${from}->${to}`, source: from, target: to, label });
   };
-  // Technology inputs/outputs → commodity↔process edges (via each process's baseline tech).
+  // Technology inputs/outputs → flow↔process edges (via each process's baseline tech).
   for (const p of wb.processes ?? []) {
     const pid = s(p.process_id);
     const tech = s(p.baseline_technology);
-    for (const c of inputsOf(tech)) edge(nodeId("commodity", c), nodeId("process", pid));
-    for (const c of outputsOf(tech)) edge(nodeId("process", pid), nodeId("commodity", c));
+    for (const c of inputsOf(tech)) edge(nodeId("flow", c), nodeId("process", pid));
+    for (const c of outputsOf(tech)) edge(nodeId("process", pid), nodeId("flow", c));
   }
   for (const r of wb.markets ?? [])
-    if (s(r.target_kind, "commodity") === "commodity")
-      edge(nodeId("market", s(r.market_id)), nodeId("commodity", s(r.target)), s(r.tag));
+    if (s(r.target_kind, "flow") === "flow")
+      edge(nodeId("market", s(r.market_id)), nodeId("flow", s(r.target)), s(r.tag));
   for (const r of wb.storage ?? [])
-    edge(nodeId("storage", s(r.storage_id)), nodeId("commodity", s(r.commodity_id)));
+    edge(nodeId("storage", s(r.storage_id)), nodeId("flow", s(r.flow_id)));
   return { nodes, edges };
 }
 
 /** Layered left→right placement for nodes with no saved position.
  *
- *  Columns alternate commodity / process by flow depth, so the map reads as
+ *  Columns alternate flow / process by flow depth, so the map reads as
  *  inputs → stage 1 → intermediate → stage 2 → … → product (left to right),
  *  matching the input-left / output-right handles. Raw inputs sit in column 0;
- *  a process at flow depth `d` sits in column `2d+1`; a commodity produced by
- *  that process in column `2d+2`. Markets sit just left of the commodity they
- *  supply; storage shares its commodity's column. Within a column, nodes stack
+ *  a process at flow depth `d` sits in column `2d+1`; a flow produced by
+ *  that process in column `2d+2`. Markets sit just left of the flow they
+ *  supply; storage shares its flow's column. Within a column, nodes stack
  *  top-to-bottom. Returns `nodeId → {x, y}`. */
 function layeredLayout(
   wb: Workbook,
   inputsOf: (tech: string) => string[],
   outputsOf: (tech: string) => string[],
 ): Map<string, { x: number; y: number }> {
-  const producers = new Map<string, string[]>(); // commodity → producing process ids
+  const producers = new Map<string, string[]>(); // flow → producing process ids
   const procInputs = new Map<string, string[]>();
   for (const p of wb.processes ?? []) {
     const pid = s(p.process_id);
@@ -151,7 +151,7 @@ function layeredLayout(
     depthCache.set(pid, d);
     return d;
   };
-  const commodityCol = (c: string): number => {
+  const flowCol = (c: string): number => {
     const prod = producers.get(c) ?? [];
     return prod.length ? Math.max(...prod.map((p) => 2 * depth(p, new Set()) + 2)) : 0;
   };
@@ -159,12 +159,12 @@ function layeredLayout(
   const colOf = new Map<string, number>();
   for (const p of wb.processes ?? [])
     colOf.set(nodeId("process", s(p.process_id)), 2 * depth(s(p.process_id), new Set()) + 1);
-  for (const r of wb.commodities ?? [])
-    colOf.set(nodeId("commodity", s(r.commodity_id)), commodityCol(s(r.commodity_id)));
+  for (const r of wb.flows ?? [])
+    colOf.set(nodeId("flow", s(r.flow_id)), flowCol(s(r.flow_id)));
   for (const r of wb.markets ?? [])
-    colOf.set(nodeId("market", s(r.market_id)), Math.max(0, commodityCol(s(r.target)) - 1));
+    colOf.set(nodeId("market", s(r.market_id)), Math.max(0, flowCol(s(r.target)) - 1));
   for (const r of wb.storage ?? [])
-    colOf.set(nodeId("storage", s(r.storage_id)), commodityCol(s(r.commodity_id)));
+    colOf.set(nodeId("storage", s(r.storage_id)), flowCol(s(r.flow_id)));
 
   const byCol = new Map<number, string[]>();
   for (const [id, col] of colOf) byCol.set(col, [...(byCol.get(col) ?? []), id]);
@@ -224,7 +224,7 @@ export function addFacilityWithTech(wb: Workbook, tech: string, x: number, y: nu
 }
 
 /** Delete an entity row and everything that directly references it: its
- *  node_layout placement, edges touching it, and (for a commodity) the io rows
+ *  node_layout placement, edges touching it, and (for a flow) the io rows
  *  that consume/produce it. Technology rows are untouched (shared recipes). */
 export function deleteEntity(wb: Workbook, id: string): Workbook {
   const i = id.indexOf(":");
@@ -232,7 +232,7 @@ export function deleteEntity(wb: Workbook, id: string): Workbook {
   const entityId = id.slice(i + 1);
   const sheetOf: Record<NodeKind, { sheet: string; idCol: string }> = {
     process: { sheet: "processes", idCol: "process_id" },
-    commodity: { sheet: "commodities", idCol: "commodity_id" },
+    flow: { sheet: "flows", idCol: "flow_id" },
     market: { sheet: "markets", idCol: "market_id" },
     storage: { sheet: "storage", idCol: "storage_id" },
   };
@@ -251,10 +251,10 @@ export function deleteEntity(wb: Workbook, id: string): Workbook {
     );
     out.macc_links = (wb.macc_links ?? []).filter((r) => s(r.facility) !== entityId);
   }
-  if (kind === "commodity") {
+  if (kind === "flow") {
     out.io = (wb.io ?? []).filter((r) => s(r.target) !== entityId);
-    out.edges = (wb.edges ?? []).filter((r) => s(r.commodity_id) !== entityId);
-    out.demand = (wb.demand ?? []).filter((r) => s(r.commodity_id) !== entityId);
+    out.edges = (wb.edges ?? []).filter((r) => s(r.flow_id) !== entityId);
+    out.demand = (wb.demand ?? []).filter((r) => s(r.flow_id) !== entityId);
   }
   return out;
 }
@@ -368,7 +368,7 @@ export function addLever(
 }
 
 /** The four ways a MACC deployment can name its target. */
-export const MACC_LINK_KINDS = ["facility", "technology", "commodity", "storage"] as const;
+export const MACC_LINK_KINDS = ["facility", "technology", "flow", "storage"] as const;
 export type MaccLinkKind = (typeof MACC_LINK_KINDS)[number];
 
 /** Expand lever definitions into per-facility instances — the TS mirror of
@@ -390,23 +390,23 @@ export function resolveLevers(
   // Streams/stores resolve to consumers: every facility whose baseline
   // technology takes the stream as an input (mirrors the assembler).
   const techInputs = new Map<string, Set<string>>();
-  const addInput = (tech: string, commodity: string) => {
-    if (tech && commodity) (techInputs.get(tech) ?? techInputs.set(tech, new Set()).get(tech)!).add(commodity);
+  const addInput = (tech: string, flow: string) => {
+    if (tech && flow) (techInputs.get(tech) ?? techInputs.set(tech, new Set()).get(tech)!).add(flow);
   };
-  for (const r of wb.process_inputs ?? []) addInput(s(r.technology_id), s(r.commodity_id));
+  for (const r of wb.process_inputs ?? []) addInput(s(r.technology_id), s(r.flow_id));
   for (const r of wb.io ?? [])
     if (s(r.role, "input") === "input") addInput(s(r.technology_id), s(r.target));
-  const consumers = (commodity: string): string[] =>
+  const consumers = (flow: string): string[] =>
     (wb.processes ?? [])
-      .filter((p) => techInputs.get(s(p.baseline_technology))?.has(commodity))
+      .filter((p) => techInputs.get(s(p.baseline_technology))?.has(flow))
       .map((p) => s(p.process_id));
-  const storageCommodity = new Map(
-    (wb.storage ?? []).map((r) => [s(r.storage_id), s(r.commodity_id)]),
+  const storageFlow = new Map(
+    (wb.storage ?? []).map((r) => [s(r.storage_id), s(r.flow_id)]),
   );
   const resolveLink = (kind: MaccLinkKind, target: string): string[] => {
-    if (kind === "commodity") return consumers(target);
+    if (kind === "flow") return consumers(target);
     if (kind === "storage") {
-      const stored = storageCommodity.get(target);
+      const stored = storageFlow.get(target);
       return stored ? consumers(stored) : [];
     }
     return resolve(target);

@@ -39,7 +39,7 @@ export interface LaidEdge {
   to: string;
   origFrom: string;
   origTo: string;
-  commodity: string;
+  flow: string;
 }
 
 export interface Laid {
@@ -312,11 +312,11 @@ function resolveEdges(wb: Workbook, nodes: GroupNode[], laid: LaidNode[]): LaidE
     const from = toVisible(origFrom);
     const to = toVisible(origTo);
     if (!from || !to || from === to) return;
-    const commodity = s(row.commodity_id, "—");
-    const key = `${from}→${to}:${commodity}`;
+    const flow = s(row.flow_id, "—");
+    const key = `${from}→${to}:${flow}`;
     if (seen.has(key)) return;
     seen.add(key);
-    out.push({ id: `e${i}`, from, to, origFrom, origTo, commodity });
+    out.push({ id: `e${i}`, from, to, origFrom, origTo, flow });
   });
   return out;
 }
@@ -374,15 +374,15 @@ export function layoutFor(
  *  the read-only `Laid.edges`, which dedupes for display. */
 export interface EditEdge {
   /** The links-sheet row, or -1 when this is an AGGREGATE of several rows
-   *  (many asset→asset links, or several commodities, folded onto one arrow). */
+   *  (many asset→asset links, or several flows, folded onto one arrow). */
   rowIndex: number;
   from: string;
   to: string;
-  /** Primary commodity (the first, for the single-link edit form). */
-  commodity: string;
-  /** Every distinct commodity carried between these two endpoints (one arrow now
-   *  aggregates ALL commodities for a from→to pair). */
-  commodities: string[];
+  /** Primary flow (the first, for the single-link edit form). */
+  flow: string;
+  /** Every distinct flow carried between these two endpoints (one arrow now
+   *  aggregates ALL flows for a from→to pair). */
+  flows: string[];
   lag: number;
   /** Per-provider annual flow bounds (null = unset). */
   maxFlow: number | null;
@@ -391,7 +391,7 @@ export interface EditEdge {
   count: number;
 }
 
-/** A source stream: a commodity consumed by a facility but produced by none
+/** A source stream: a flow consumed by a facility but produced by none
  *  (a raw material / external input — iron ore, coal). `consumers` are the
  *  asset-node ids whose baseline technology consumes it. */
 export interface SourceStream {
@@ -399,7 +399,7 @@ export interface SourceStream {
   consumers: string[];
 }
 
-/** Detect source streams: commodities that are a technology INPUT somewhere (or
+/** Detect source streams: flows that are a technology INPUT somewhere (or
  *  flagged purchasable) but never a technology OUTPUT — i.e. they must be
  *  supplied from outside the modelled chain. */
 export function sourceStreams(wb: Workbook): SourceStream[] {
@@ -422,8 +422,8 @@ export function sourceStreams(wb: Workbook): SourceStream[] {
   }
   const isTrue = (v: unknown) => v === true || v === "true" || v === "TRUE" || v === 1;
   const candidates = new Set<string>(inputs);
-  for (const c of wb.commodities ?? []) {
-    const id = s(c.commodity_id);
+  for (const c of wb.flows ?? []) {
+    const id = s(c.flow_id);
     if (id && isTrue(c.purchasable)) candidates.add(id);
   }
   // Emissions (impacts) are not raw-material streams even if they appear as a
@@ -466,7 +466,7 @@ export function editEdges(wb: Workbook, laid: LaidNode[], flowLevel: string | nu
   const nodes = parseNodes(wb);
   const visible = new Set(laid.map((n) => n.id));
   const toVisible = visibleAncestor(nodes, visible);
-  const flow = (v: unknown): number | null =>
+  const bound = (v: unknown): number | null =>
     v == null || String(v).trim() === "" ? null : Number(v);
   // Flow-aggregation level (independent of expand/collapse): roll an endpoint up to
   // its ancestor whose `level` === flowLevel, else leave it (it's already at/above
@@ -536,23 +536,23 @@ export function editEdges(wb: Workbook, laid: LaidNode[], flowLevel: string | nu
     return [toVisible(rawFrom), toVisible(rawTo)];
   };
   // Map every link onto its drawn endpoints, then aggregate by (from, to)
-  // — ALL commodities between the same two boxes fold onto ONE arrow that lists
+  // — ALL flows between the same two boxes fold onto ONE arrow that lists
   // each flow's name. A single underlying link stays editable; anything folded
-  // (several links, or several commodities) becomes a display-only arrow.
+  // (several links, or several flows) becomes a display-only arrow.
   const groups = new Map<string, EditEdge[]>();
   (wb.links ?? []).forEach((row, rowIndex) => {
     const [from, to] = endpointsFor(s(row.from_node), s(row.to_node));
     if (!from || !to || from === to) return;
-    const commodity = s(row.commodity_id, "—");
+    const flow = s(row.flow_id, "—");
     const e: EditEdge = {
       rowIndex,
       from,
       to,
-      commodity,
-      commodities: [commodity],
+      flow,
+      flows: [flow],
       lag: num(row.lag_years),
-      maxFlow: flow(row.max_flow),
-      minFlow: flow(row.min_flow),
+      maxFlow: bound(row.max_flow),
+      minFlow: bound(row.min_flow),
       count: 1,
     };
     const key = `${from}|${to}`;
@@ -562,11 +562,11 @@ export function editEdges(wb: Workbook, laid: LaidNode[], flowLevel: string | nu
   });
   const out: EditEdge[] = [];
   for (const bucket of groups.values()) {
-    const commodities = [...new Set(bucket.map((e) => e.commodity))];
+    const flows = [...new Set(bucket.map((e) => e.flow))];
     if (bucket.length === 1) {
-      out.push({ ...bucket[0], commodities }); // a single link — stays editable
+      out.push({ ...bucket[0], flows }); // a single link — stays editable
     } else {
-      out.push({ ...bucket[0], rowIndex: -1, lag: 0, maxFlow: null, minFlow: null, count: bucket.length, commodities });
+      out.push({ ...bucket[0], rowIndex: -1, lag: 0, maxFlow: null, minFlow: null, count: bucket.length, flows });
     }
   }
   return out;

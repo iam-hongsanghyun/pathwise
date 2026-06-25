@@ -17,10 +17,10 @@ def _base() -> dict:
     """One facility; OLD burns coal, NEW burns gas; demand every period."""
     return {
         "periods": [{"year": 2025}, {"year": 2030}, {"year": 2035}],
-        "commodities": [
-            {"commodity_id": "coal", "kind": "energy", "price": 10.0},
-            {"commodity_id": "gas", "kind": "energy", "price": 30.0},
-            {"commodity_id": "widget", "kind": "product"},
+        "flows": [
+            {"flow_id": "coal", "kind": "energy", "price": 10.0},
+            {"flow_id": "gas", "kind": "energy", "price": 30.0},
+            {"flow_id": "widget", "kind": "product"},
         ],
         "technologies": [{"technology_id": "OLD"}, {"technology_id": "NEW"}],
         "io": [
@@ -46,7 +46,7 @@ def _base() -> dict:
         ],
         "transitions": [{"from_technology": "OLD", "to_technology": "NEW", "action": "replace"}],
         "demand": [
-            {"company": "C", "commodity_id": "widget", "year": y, "amount": 50}
+            {"company": "C", "flow_id": "widget", "year": y, "amount": 50}
             for y in (2025, 2030, 2035)
         ],
         "impacts": [],
@@ -73,12 +73,12 @@ def test_stream_window_blocks_purchase() -> None:
     # Coal may not be BOUGHT after 2030 — same effect as the tech ban here,
     # driven from the stream side ("available until").
     wb = _base()
-    wb["commodities"][0]["available_to"] = 2030
+    wb["flows"][0]["available_to"] = 2030
     res = _solve(wb)
     coal_2035 = [
         t
         for t in res["outputs"]["trade"]
-        if t["commodity"] == "coal" and t["period"] == 2035 and t["kind"] == "buy"
+        if t["flow"] == "coal" and t["period"] == 2035 and t["kind"] == "buy"
     ]
     assert not coal_2035, "no coal purchases after its availability window"
     assert _active(res)[2035] == "NEW"
@@ -88,8 +88,8 @@ def test_stream_available_from_delays_use() -> None:
     # Gas only purchasable from 2035: even if NEW were attractive earlier, it
     # cannot run before its fuel exists. Make NEW cheap to tempt the optimiser.
     wb = _base()
-    wb["commodities"][1]["price"] = 1.0
-    wb["commodities"][1]["available_from"] = 2035
+    wb["flows"][1]["price"] = 1.0
+    wb["flows"][1]["available_from"] = 2035
     res = _solve(wb)
     active = _active(res)
     assert active[2030] == "OLD", "gas not yet available in 2030"
@@ -123,7 +123,7 @@ def test_facility_build_year_delays_online() -> None:
 
 def test_market_window() -> None:
     # A cheap coal market that only opens in 2035 — before that, coal is bought
-    # at the commodity price; after, via the market.
+    # at the flow price; after, via the market.
     wb = _base()
     wb["markets"] = [
         {"market_id": "coal_mkt", "target": "coal", "price": 2.0, "available_from": 2035}

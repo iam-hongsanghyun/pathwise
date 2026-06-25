@@ -6,7 +6,7 @@ multiplicative shocks on each uncertain input category and re-pricing every
 asset's reward under each shock. The shocks are reproducible from a seed.
 
 Algorithm:
-    Each input category ``c`` (commodity price, sale price, impact price, opex,
+    Each input category ``c`` (flow price, sale price, impact price, opex,
     capex) carries a lognormal volatility ``σ_c``. For scenario ``s`` we draw a
     multiplicative shock
 
@@ -32,7 +32,7 @@ import numpy.typing as npt
 
 # Input categories whose point estimates the Monte-Carlo engine perturbs. These
 # are the keys of the ``volatility`` mapping; any subset may be supplied.
-COMMODITY_PRICE = "commodity_price"
+FLOW_PRICE = "flow_price"
 SALE_PRICE = "sale_price"
 IMPACT_PRICE = "impact_price"
 OPEX = "opex"
@@ -42,7 +42,7 @@ CAPEX = "capex"
 # config.py) because they are user-definable model assumptions, not server
 # settings; callers may override any subset.
 DEFAULT_VOLATILITY: dict[str, float] = {
-    COMMODITY_PRICE: 0.20,
+    FLOW_PRICE: 0.20,
     SALE_PRICE: 0.20,
     IMPACT_PRICE: 0.30,
     OPEX: 0.10,

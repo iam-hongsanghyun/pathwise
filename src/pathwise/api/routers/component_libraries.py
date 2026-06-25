@@ -2,7 +2,7 @@
 
 Unlike the read-only facility ``library`` (bundled ``assets``), component
 libraries are **user-owned**: there are *many* named libraries, each a
-:class:`~pathwise.data.components.ComponentLibrary` (commodities, technologies,
+:class:`~pathwise.data.components.ComponentLibrary` (flows, technologies,
 assets with their MACC measures, groups). They are stored as **SQLite** (one
 table per kind, like the example workbooks) under the writable
 ``<data_dir>/component_libraries`` (gitignored), seeded once from the bundled
@@ -175,7 +175,7 @@ def _summary(
         "scope": scope,  # "base" (shared) or "session" (this scenario's own set)
         # "starter" = a shipped read-only reference; "user" = the user's own library.
         "origin": "starter" if (scope == "base" and lib_id in starters) else "user",
-        "commodities": len(lib.commodities),
+        "flows": len(lib.flows),
         "technologies": len(lib.technologies),
         "levers": len(lib.measures),
         "maccs": len(lib.maccs),
@@ -220,7 +220,7 @@ def list_component_libraries() -> list[dict[str, Any]]:
 #: ``assets`` (placed instances) belong to the Facility layer, and ``groups``
 #: (sector structure) is built as components are placed — both are omitted.
 _LIBRARY_SHEETS = [
-    "commodities",
+    "flows",
     "technologies",
     "io",
     "levers",

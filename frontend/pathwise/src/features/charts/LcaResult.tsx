@@ -18,7 +18,7 @@ export function LcaResult({ result }: { result: RunResult }) {
 
   const headPerUnit = lca.by_impact.find((d) => d.impact === impact)?.per_unit ?? 0;
   const fuAmount = lca.functional_unit.amount;
-  const fuName = lca.functional_unit.commodity ?? "unit";
+  const fuName = lca.functional_unit.flow ?? "unit";
 
   // Stage rows for the headline impact (largest first).
   const stageRows = lca.by_stage

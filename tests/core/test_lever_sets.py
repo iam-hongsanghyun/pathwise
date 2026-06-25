@@ -18,9 +18,9 @@ def _wb() -> dict:
     """
     return {
         "periods": [{"year": 2025}],
-        "commodities": [
-            {"commodity_id": "fuel", "kind": "energy", "price": 10.0},
-            {"commodity_id": "widget", "kind": "product"},
+        "flows": [
+            {"flow_id": "fuel", "kind": "energy", "price": 10.0},
+            {"flow_id": "widget", "kind": "product"},
         ],
         "technologies": [{"technology_id": "T"}],
         "io": [
@@ -48,7 +48,7 @@ def _wb() -> dict:
         ],
         "lever_blocks": [{"lever_id": "fuel_saver", "block": 0, "reduction": 0.2, "capex": 100.0}],
         "lever_links": [{"set": "T retrofits", "applies_to": "T"}],
-        "demand": [{"company": "C", "commodity_id": "widget", "year": 2025, "amount": 110}],
+        "demand": [{"company": "C", "flow_id": "widget", "year": 2025, "amount": 110}],
         "impacts": [],
         "markets": [],
         "storage": [],

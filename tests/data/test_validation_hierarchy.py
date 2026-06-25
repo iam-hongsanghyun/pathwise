@@ -18,8 +18,8 @@ def _model() -> dict[str, list[dict[str, Any]]]:
             {"asset_id": "mill/bf", "baseline_technology": "BF", "capacity": 100},
             {"asset_id": "mill/bof", "baseline_technology": "BOF", "capacity": 100},
         ],
-        "connections": [
-            {"from_node": "mill/bf", "to_node": "mill/bof", "commodity_id": "iron"},
+        "links": [
+            {"from_node": "mill/bf", "to_node": "mill/bof", "flow_id": "iron"},
         ],
         "technologies": [{"technology_id": "BF", "io": []}, {"technology_id": "BOF", "io": []}],
         "io": [
@@ -33,12 +33,12 @@ def _model() -> dict[str, list[dict[str, Any]]]:
                 "is_product": True,
             },
         ],
-        "commodities": [
-            {"commodity_id": "iron", "kind": "material", "unit": "t"},
-            {"commodity_id": "steel", "kind": "product", "unit": "t"},
+        "flows": [
+            {"flow_id": "iron", "kind": "material", "unit": "t"},
+            {"flow_id": "steel", "kind": "product", "unit": "t"},
         ],
         "periods": [{"year": 2025, "duration_years": 1}],
-        "demand": [{"company": "all", "commodity_id": "steel", "year": 2025, "amount": 50}],
+        "demand": [{"company": "all", "flow_id": "steel", "year": 2025, "amount": 50}],
     }
 
 
@@ -50,14 +50,14 @@ def test_valid_hierarchy_passes_with_no_warnings() -> None:
 
 def test_connection_to_unknown_node_is_error() -> None:
     m = _model()
-    m["connections"].append({"from_node": "mill/bf", "to_node": "ghost", "commodity_id": "iron"})
+    m["links"].append({"from_node": "mill/bf", "to_node": "ghost", "flow_id": "iron"})
     report = validate(m)
     assert any("unknown node 'ghost'" in e for e in report.errors)
 
 
-def test_connection_to_unknown_commodity_is_error() -> None:
+def test_connection_to_unknown_flow_is_error() -> None:
     m = _model()
-    m["connections"][0]["commodity_id"] = "plasma"
+    m["links"][0]["flow_id"] = "plasma"
     report = validate(m)
     assert any("unknown stream 'plasma'" in e for e in report.errors)
 
@@ -73,9 +73,7 @@ def test_parent_cycle_is_error() -> None:
 def test_zero_edge_connection_warns() -> None:
     m = _model()
     # bf does not output 'steel' and bof does not input 'steel' → no edges
-    m["connections"].append(
-        {"from_node": "mill/bf", "to_node": "mill/bof", "commodity_id": "steel"}
-    )
+    m["links"].append({"from_node": "mill/bf", "to_node": "mill/bof", "flow_id": "steel"})
     report = validate(m)
     assert report.ok, report.errors  # still valid (just a warning)
     assert any("expands to no edges" in w for w in report.warnings)

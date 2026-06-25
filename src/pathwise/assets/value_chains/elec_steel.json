@@ -21,7 +21,7 @@
     {
       "from_stage": "electricity",
       "to_stage": "steel",
-      "commodity": "electricity",
+      "flow": "electricity",
       "signals": ["price"],
       "lag_years": 0
     }

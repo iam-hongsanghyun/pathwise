@@ -32,13 +32,13 @@ def test_csv_importers() -> None:
         ("SO2", "AP"): 1.0,
         ("NOx", "AP"): 0.74,
     }
-    bg = load_background_csv("commodity_id,impact_id,factor\nelectricity,CO2,0.35\n")
-    assert bg == [{"commodity_id": "electricity", "impact_id": "CO2", "factor": 0.35}]
+    bg = load_background_csv("flow_id,impact_id,factor\nelectricity,CO2,0.35\n")
+    assert bg == [{"flow_id": "electricity", "impact_id": "CO2", "factor": 0.35}]
 
 
 def test_background_rows_default_seed() -> None:
     rows = background_rows()
-    assert {"commodity_id": "electricity", "impact_id": "CO2", "factor": 0.40} in rows
+    assert {"flow_id": "electricity", "impact_id": "CO2", "factor": 0.40} in rows
 
 
 def test_ef31_multi_category_method() -> None:
@@ -53,18 +53,18 @@ def test_ef31_multi_category_method() -> None:
 
 
 def test_background_splits_foreground_vs_background() -> None:
-    """A purchased commodity carrying a background factor shows up as background,
+    """A purchased flow carrying a background factor shows up as background,
     distinct from the on-site (foreground) process emission."""
     model = {
         "periods": [{"year": 2025, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "grid", "kind": "energy", "unit": "MWh", "price": 50},
-            {"commodity_id": "widget", "kind": "product", "unit": "ea"},
+        "flows": [
+            {"flow_id": "grid", "kind": "energy", "unit": "MWh", "price": 50},
+            {"flow_id": "widget", "kind": "product", "unit": "ea"},
         ],
         "impacts": [{"impact_id": "CO2", "unit": "t"}, {"impact_id": "GWP", "unit": "tCO2e"}],
         "characterisation": [{"flow_impact_id": "CO2", "category_id": "GWP", "factor": 1.0}],
         # 1 MWh purchased grid per widget; grid carries 0.4 t CO2/MWh background.
-        "commodity_impacts": [{"commodity_id": "grid", "impact_id": "CO2", "factor": 0.4}],
+        "flow_impacts": [{"flow_id": "grid", "impact_id": "CO2", "factor": 0.4}],
         "technologies": [{"technology_id": "Plant", "actions": "continue"}],
         "nodes": [
             {"node_id": "co", "kind": "group", "level": "company", "label": "Co"},
@@ -83,7 +83,7 @@ def test_background_splits_foreground_vs_background() -> None:
             # foreground on-site CO2: 2 t/widget.
             {"technology_id": "Plant", "target": "CO2", "role": "impact", "coefficient": 2.0},
         ],
-        "demand": [{"company": "co", "commodity_id": "widget", "year": 2025, "amount": 100}],
+        "demand": [{"company": "co", "flow_id": "widget", "year": 2025, "amount": 100}],
     }
     lca = SimulationBackend().run(model, _SCENARIO)["outputs"]["lca"]
     origin = {d["impact"]: d for d in lca["by_origin"]}
@@ -100,9 +100,9 @@ def test_apply_lcia_then_run_characterises() -> None:
     """A model with CO2+CH4 flows but no CFs → apply the GWP method → GWP appears."""
     model = {
         "periods": [{"year": 2025, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "ore", "kind": "material", "unit": "t", "price": 10},
-            {"commodity_id": "widget", "kind": "product", "unit": "ea"},
+        "flows": [
+            {"flow_id": "ore", "kind": "material", "unit": "t", "price": 10},
+            {"flow_id": "widget", "kind": "product", "unit": "ea"},
         ],
         "impacts": [
             {"impact_id": "CO2", "unit": "tCO2"},
@@ -127,7 +127,7 @@ def test_apply_lcia_then_run_characterises() -> None:
             {"technology_id": "Plant", "target": "CO2", "role": "impact", "coefficient": 2.0},
             {"technology_id": "Plant", "target": "CH4", "role": "impact", "coefficient": 0.1},
         ],
-        "demand": [{"company": "co", "commodity_id": "widget", "year": 2025, "amount": 100}],
+        "demand": [{"company": "co", "flow_id": "widget", "year": 2025, "amount": 100}],
     }
     assert "characterisation" not in model
     enriched = apply_lcia(model, characterisation=characterisation_rows("ipcc_gwp100"))

@@ -8,7 +8,7 @@ import { SearchSelect } from "../controls/SearchSelect";
 import { YearSeriesChart } from "./YearSeriesChart";
 import type {
   ByYear,
-  CommodityTemplate,
+  FlowTemplate,
   LeverTemplate,
   TechnologyTemplate,
 } from "../../lib/api/components";
@@ -149,7 +149,7 @@ function TechTimeSeries({ value, onChange }: { value: TechnologyTemplate; onChan
 
 type RailProps =
   | { kind: "tech"; value: TechnologyTemplate; onChange: (v: TechnologyTemplate) => void }
-  | { kind: "stream"; value: CommodityTemplate; onChange: (v: CommodityTemplate) => void }
+  | { kind: "stream"; value: FlowTemplate; onChange: (v: FlowTemplate) => void }
   | { kind: "lever"; value: LeverTemplate; onChange: (v: LeverTemplate) => void };
 
 /** Per-year editor for the selected single item's trajectories. */

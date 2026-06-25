@@ -18,8 +18,8 @@ export const FIELD_META: Record<string, FieldMeta> = {
   introduction_year: { info: "First year the technology can be adopted (blank = always available).", unit: "year" },
   phase_out_year: { info: "Last year the technology can be adopted (blank = always available).", unit: "year" },
 
-  // ── Stream / commodity ───────────────────────────────────────────────────────
-  commodity_id: { info: "Unique id of the stream (commodity)." },
+  // ── Stream / flow ───────────────────────────────────────────────────────
+  flow_id: { info: "Unique id of the stream (flow)." },
   kind: { info: "energy · material · indirect · product · byproduct — what the stream represents." },
   unit: { info: "The physical unit the stream's quantities and prices are expressed in." },
   sector: { info: "The sector that PRODUCES this stream (electricity belongs to power, not steel). Blank = a general, industry-agnostic stream. Organisational only — the optimiser ignores it." },
@@ -52,7 +52,7 @@ export const FIELD_META: Record<string, FieldMeta> = {
 
   // ── Value-chain (placed assets, links, purchasing, demand) ─────────────────
   capacity: { info: "Nameplate throughput this asset can run at full load.", unit: "throughput / yr" },
-  lag_years: { info: "Years the commodity takes to traverse this link (0 = same year).", unit: "years" },
+  lag_years: { info: "Years the flow takes to traverse this link (0 = same year).", unit: "years" },
   amount: { info: "Quantity of the product this node must deliver to demand each year.", unit: "stream unit / yr" },
   max_purchase: { info: "Ceiling on how much of this stream may be bought externally per year (blank = no cap).", unit: "stream unit / yr" },
   available_from: { info: "First year this stream can be bought externally (blank = always).", unit: "year" },

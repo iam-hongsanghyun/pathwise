@@ -18,25 +18,25 @@ def _solve(wb: dict, scenario: dict | None = None) -> dict:
 def _base_wb() -> dict:
     return {
         "periods": [{"year": 2025, "duration_years": 1}, {"year": 2030, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "gas", "kind": "energy", "price": 10},
-            {"commodity_id": "p", "kind": "product"},
+        "flows": [
+            {"flow_id": "gas", "kind": "energy", "price": 10},
+            {"flow_id": "p", "kind": "product"},
         ],
         "technologies": [{"technology_id": "T"}],
         "processes": [
             {"process_id": "P", "company": "C", "baseline_technology": "T", "capacity": 1000}
         ],
-        "process_inputs": [{"technology_id": "T", "commodity_id": "gas", "intensity": 1.0}],
+        "process_inputs": [{"technology_id": "T", "flow_id": "gas", "intensity": 1.0}],
         "process_outputs": [
-            {"technology_id": "T", "commodity_id": "p", "yield": 1.0, "is_product": True}
+            {"technology_id": "T", "flow_id": "p", "yield": 1.0, "is_product": True}
         ],
-        "commodity_prices": [
-            {"commodity_id": "gas", "year": 2025, "price": 10},
-            {"commodity_id": "gas", "year": 2030, "price": 100},
+        "flow_prices": [
+            {"flow_id": "gas", "year": 2025, "price": 10},
+            {"flow_id": "gas", "year": 2030, "price": 100},
         ],
         "demand": [
-            {"company": "C", "commodity_id": "p", "year": 2025, "amount": 10},
-            {"company": "C", "commodity_id": "p", "year": 2030, "amount": 10},
+            {"company": "C", "flow_id": "p", "year": 2025, "amount": 10},
+            {"company": "C", "flow_id": "p", "year": 2030, "amount": 10},
         ],
     }
 
@@ -50,7 +50,7 @@ def test_storage_arbitrages_rising_prices() -> None:
     wb["storage"] = [
         {
             "storage_id": "S",
-            "commodity_id": "gas",
+            "flow_id": "gas",
             "company": "all",
             "max_capacity": 100,
             "capex_per_capacity": 1.0,
@@ -73,7 +73,7 @@ def test_zero_discharge_efficiency_does_not_crash_the_build() -> None:
     wb["storage"] = [
         {
             "storage_id": "S",
-            "commodity_id": "gas",
+            "flow_id": "gas",
             "company": "all",
             "max_capacity": 100,
             "charge_efficiency": 1.0,
@@ -87,9 +87,9 @@ def test_zero_discharge_efficiency_does_not_crash_the_build() -> None:
 
 def test_failure_rate_derates_capacity() -> None:
     wb = _base_wb()
-    del wb["commodity_prices"]  # flat price
+    del wb["flow_prices"]  # flat price
     wb["processes"][0]["capacity"] = 10
-    wb["demand"] = [{"company": "C", "commodity_id": "p", "year": 2025, "amount": 10}]
+    wb["demand"] = [{"company": "C", "flow_id": "p", "year": 2025, "amount": 10}]
     wb["periods"] = [{"year": 2025, "duration_years": 1}]
     ok = _solve(wb)
     assert ok["outputs"]["demand_slack"] == []  # cap 10 meets demand 10
@@ -101,13 +101,13 @@ def test_failure_rate_derates_capacity() -> None:
 
 def test_min_production_forces_output() -> None:
     wb = _base_wb()
-    del wb["commodity_prices"]
+    del wb["flow_prices"]
     wb["periods"] = [{"year": 2025, "duration_years": 1}]
-    wb["demand"] = [{"company": "C", "commodity_id": "p", "year": 2025, "amount": 0}]
+    wb["demand"] = [{"company": "C", "flow_id": "p", "year": 2025, "amount": 0}]
     no_floor = _solve(wb)
     assert sum(t["value"] for t in no_floor["outputs"]["throughput"]) < 1e-6  # nothing forced
 
-    wb["min_production"] = [{"company": "C", "commodity_id": "p", "year": 2025, "amount": 50}]
+    wb["min_production"] = [{"company": "C", "flow_id": "p", "year": 2025, "amount": 50}]
     floored = _solve(wb)
     assert sum(t["value"] for t in floored["outputs"]["throughput"]) >= 50 - 1e-6
 
@@ -115,9 +115,9 @@ def test_min_production_forces_output() -> None:
 def _carbon_switch_wb() -> dict:
     return {
         "periods": [{"year": 2025, "duration_years": 1}, {"year": 2030, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "fuel", "kind": "energy", "price": 1},
-            {"commodity_id": "p", "kind": "product"},
+        "flows": [
+            {"flow_id": "fuel", "kind": "energy", "price": 1},
+            {"flow_id": "p", "kind": "product"},
         ],
         "impacts": [{"impact_id": "CO2", "unit": "t"}],
         "technologies": [{"technology_id": "BASE"}, {"technology_id": "CLEAN"}],
@@ -125,12 +125,12 @@ def _carbon_switch_wb() -> dict:
             {"process_id": "P", "company": "C", "baseline_technology": "BASE", "capacity": 100}
         ],
         "process_inputs": [
-            {"technology_id": "BASE", "commodity_id": "fuel", "intensity": 1},
-            {"technology_id": "CLEAN", "commodity_id": "fuel", "intensity": 1},
+            {"technology_id": "BASE", "flow_id": "fuel", "intensity": 1},
+            {"technology_id": "CLEAN", "flow_id": "fuel", "intensity": 1},
         ],
         "process_outputs": [
-            {"technology_id": "BASE", "commodity_id": "p", "yield": 1, "is_product": True},
-            {"technology_id": "CLEAN", "commodity_id": "p", "yield": 1, "is_product": True},
+            {"technology_id": "BASE", "flow_id": "p", "yield": 1, "is_product": True},
+            {"technology_id": "CLEAN", "flow_id": "p", "yield": 1, "is_product": True},
         ],
         "tech_impacts": [{"technology_id": "BASE", "impact_id": "CO2", "factor": 10}],
         "transitions": [
@@ -144,8 +144,8 @@ def _carbon_switch_wb() -> dict:
         ],
         "impact_prices": [{"impact_id": "CO2", "year": 2030, "price": 1000}],
         "demand": [
-            {"company": "C", "commodity_id": "p", "year": 2025, "amount": 10},
-            {"company": "C", "commodity_id": "p", "year": 2030, "amount": 10},
+            {"company": "C", "flow_id": "p", "year": 2025, "amount": 10},
+            {"company": "C", "flow_id": "p", "year": 2030, "amount": 10},
         ],
     }
 

@@ -22,9 +22,9 @@ def _gwp_model() -> dict:
     """
     return {
         "periods": [{"year": 2025, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "ore", "kind": "material", "unit": "t", "price": 10},
-            {"commodity_id": "widget", "kind": "product", "unit": "ea"},
+        "flows": [
+            {"flow_id": "ore", "kind": "material", "unit": "t", "price": 10},
+            {"flow_id": "widget", "kind": "product", "unit": "ea"},
         ],
         "impacts": [
             {"impact_id": "CO2", "unit": "tCO2"},
@@ -53,7 +53,7 @@ def _gwp_model() -> dict:
             {"technology_id": "Plant", "target": "CO2", "role": "impact", "coefficient": 2.0},
             {"technology_id": "Plant", "target": "CH4", "role": "impact", "coefficient": 0.1},
         ],
-        "demand": [{"company": "plantco", "commodity_id": "widget", "year": 2025, "amount": 100}],
+        "demand": [{"company": "plantco", "flow_id": "widget", "year": 2025, "amount": 100}],
     }
 
 

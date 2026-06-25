@@ -3,14 +3,14 @@
 Solve each stage with the ordinary single-model pipeline
 (``assemble_problem → build → solve → extract_results``) in upstream→downstream
 order. After an upstream stage solves, derive a per-year **price** for each
-coupled commodity and inject it — shifted by the link's time lag — into the
+coupled flow and inject it — shifted by the link's time lag — into the
 downstream stage's price trajectory *before* that stage is assembled and solved.
 So a policy on an upstream stage (e.g. a carbon price on electricity) raises the
 price the downstream stage pays, and the downstream optimiser re-chooses its
 pathway accordingly.
 
 Algorithm:
-    For a link u→d on commodity c with lag L, the transferred price in year t is
+    For a link u→d on flow c with lag L, the transferred price in year t is
     the upstream stage's average unit cost of c:
 
     $$ p_d(t+L) \\;=\\; \\frac{\\text{Cost}_u(t)}{\\text{Prod}_{u,c}(t)} $$
@@ -19,7 +19,7 @@ Algorithm:
 
     where ``Cost_u(t)`` is the upstream stage's total cost in year ``t``
     (``summary.periods``) and ``Prod_{u,c}(t)`` its production of ``c``
-    (``summary.commodity``). The shifted points are interpolated onto the
+    (``summary.flow``). The shifted points are interpolated onto the
     downstream horizon (linear, flat-hold beyond the ends).
 
 This is an **average-cost proxy** (exact when the upstream stage makes a single
@@ -27,8 +27,8 @@ product; an over-allocation for multi-product stages — a true marginal/transfe
 price needs LP duals, a later phase). It is purely primal, so it needs no engine
 change. Forward-only: downstream demand does not feed back upstream yet.
 
-Units: price [currency / commodity-unit]; cost [currency / yr]; production
-[commodity-unit / yr].
+Units: price [currency / flow-unit]; cost [currency / yr]; production
+[flow-unit / yr].
 """
 
 from __future__ import annotations
@@ -44,10 +44,10 @@ from pathwise.core.solve import options_from_scenario, solve
 from pathwise.data.assemble import assemble_problem
 from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.sheets import (
-    COMMODITIES_T_MAX_PURCHASE,
-    COMMODITIES_T_PRICE,
-    COMMODITY_IMPACTS_T,
     DEMAND,
+    FLOW_IMPACTS_T,
+    FLOWS_T_MAX_PURCHASE,
+    FLOWS_T_PRICE,
 )
 from pathwise.data.trajectory import interpolate
 from pathwise.data.valuechain import ValueChainSpec
@@ -70,7 +70,7 @@ def run_value_chain(
     A forward pass solves each stage upstream→downstream, injecting the upstream
     price / carbon-intensity signals (lagged) into the downstream inputs. With
     ``iterations > 1`` and ``feedback`` links present, downstream consumption of
-    the coupled commodity is fed back as the upstream stage's demand and the pass
+    the coupled flow is fed back as the upstream stage's demand and the pass
     repeats (Gauss–Seidel) until the feedback demand converges — damped to avoid
     oscillation.
 
@@ -234,36 +234,36 @@ def _forward_pass(
             # average-cost price proxy when both are requested.
             if "marginal_price" in link.signals:
                 sc = _stage_scenario(base, spec.stage(sid).scenario)
-                mp = marginal_price(wbs[sid], sc, link.commodity)
+                mp = marginal_price(wbs[sid], sc, link.flow)
                 shifted = _shift(mp, link.lag_years, target_years)
                 if shifted:
-                    _inject_price(wbs[link.to_stage], link.commodity, shifted)
+                    _inject_price(wbs[link.to_stage], link.flow, shifted)
                     couplings.append(_record(sid, link, "marginal_price", shifted))
             elif "price" in link.signals:
                 shifted = _shift(
-                    _price_signal(results[sid], link.commodity), link.lag_years, target_years
+                    _price_signal(results[sid], link.flow), link.lag_years, target_years
                 )
                 if shifted:
-                    _inject_price(wbs[link.to_stage], link.commodity, shifted)
+                    _inject_price(wbs[link.to_stage], link.flow, shifted)
                     couplings.append(_record(sid, link, "price", shifted))
             if "carbon_intensity" in link.signals:
                 # Impact-agnostic: an unset link impact resolves to the upstream
                 # model's first declared impact (never a hardcoded CO2).
                 imp = link.impact or default_impact(wbs[sid])
                 shifted = _shift(
-                    _ci_signal(results[sid], link.commodity, imp),
+                    _ci_signal(results[sid], link.flow, imp),
                     link.lag_years,
                     target_years,
                 )
                 if shifted:
-                    _inject_ci(wbs[link.to_stage], link.commodity, imp, shifted)
+                    _inject_ci(wbs[link.to_stage], link.flow, imp, shifted)
                     couplings.append(_record(sid, link, "carbon_intensity", shifted, imp))
             if "volume" in link.signals:
                 shifted = _shift(
-                    _volume_signal(results[sid], link.commodity), link.lag_years, target_years
+                    _volume_signal(results[sid], link.flow), link.lag_years, target_years
                 )
                 if shifted:
-                    _inject_volume(wbs[link.to_stage], link.commodity, shifted)
+                    _inject_volume(wbs[link.to_stage], link.flow, shifted)
                     couplings.append(_record(sid, link, "volume", shifted))
     return results, couplings
 
@@ -288,7 +288,7 @@ def _record(
     rec = {
         "from_stage": from_stage,
         "to_stage": link.to_stage,
-        "commodity": link.commodity,
+        "flow": link.flow,
         "signal": signal,
         "lag_years": link.lag_years,
         "by_year": [{"year": y, "value": v} for y, v in sorted(by_year.items())],
@@ -298,13 +298,13 @@ def _record(
     return rec
 
 
-def _price_signal(result: dict[str, Any], commodity: str) -> dict[int, float]:
-    """Upstream average unit cost of ``commodity`` per year (the transfer price)."""
+def _price_signal(result: dict[str, Any], flow: str) -> dict[int, float]:
+    """Upstream average unit cost of ``flow`` per year (the transfer price)."""
     summary = result.get("summary", {})
     cost = {int(r["period"]): float(r["cost"]) for r in summary.get("periods", [])}
     out: dict[int, float] = {}
-    for r in summary.get("commodity", []):
-        if str(r.get("commodity")) != commodity:
+    for r in summary.get("flow", []):
+        if str(r.get("flow")) != flow:
             continue
         y = int(r["period"])
         produced = float(r.get("produced") or 0.0)
@@ -313,13 +313,13 @@ def _price_signal(result: dict[str, Any], commodity: str) -> dict[int, float]:
     return out
 
 
-def marginal_price(wb: Workbook, scenario: ScenarioConfig, commodity: str) -> dict[int, float]:
-    """True marginal cost of one more unit of ``commodity`` per year (transfer price).
+def marginal_price(wb: Workbook, scenario: ScenarioConfig, flow: str) -> dict[int, float]:
+    """True marginal cost of one more unit of ``flow`` per year (transfer price).
 
-    Re-solves the stage with its demand for ``commodity`` bumped by a small ε in
+    Re-solves the stage with its demand for ``flow`` bumped by a small ε in
     each year; ``Δobjective / ε`` (un-discounted) is the marginal cost of delivery
     that year — unlike the average-cost proxy it reflects scarcity / binding
-    capacity. Costs O(years) extra solves. Returns ``{}`` if the commodity has no
+    capacity. Costs O(years) extra solves. Returns ``{}`` if the flow has no
     demand row to perturb or a solve is non-optimal.
     """
     prob = assemble_problem(wb, scenario)
@@ -328,14 +328,14 @@ def marginal_price(wb: Workbook, scenario: ScenarioConfig, commodity: str) -> di
     if base.objective is None:
         return {}
     duration = {p.year: p.duration_years for p in prob.periods}
-    company = _upstream_company(wb, commodity)
+    company = _upstream_company(wb, flow)
     rows = wb.get("demand", [])
     present = {
         y
         for y in prob.years
         if any(
             str(r.get("company")) == company
-            and str(r.get("commodity_id")) == commodity
+            and str(r.get("flow_id")) == flow
             and _as_int(r.get("year")) == y
             for r in rows
         )
@@ -350,7 +350,7 @@ def marginal_price(wb: Workbook, scenario: ScenarioConfig, commodity: str) -> di
         for r in wb2["demand"]:
             if (
                 str(r.get("company")) == company
-                and str(r.get("commodity_id")) == commodity
+                and str(r.get("flow_id")) == flow
                 and _as_int(r.get("year")) == y
             ):
                 r["amount"] = float(r.get("amount") or 0.0) + eps
@@ -361,10 +361,10 @@ def marginal_price(wb: Workbook, scenario: ScenarioConfig, commodity: str) -> di
     return out
 
 
-def _ci_signal(result: dict[str, Any], commodity: str, impact: str) -> dict[int, float]:
-    """Upstream carbon intensity of ``commodity`` per year = emissions / production.
+def _ci_signal(result: dict[str, Any], flow: str, impact: str) -> dict[int, float]:
+    """Upstream carbon intensity of ``flow`` per year = emissions / production.
 
-    Emissions attributable to the commodity are taken as the stage's total of
+    Emissions attributable to the flow are taken as the stage's total of
     ``impact`` that year (exact when the stage makes a single product; an
     over-allocation for multi-product stages — documented).
     """
@@ -375,8 +375,8 @@ def _ci_signal(result: dict[str, Any], commodity: str, impact: str) -> dict[int,
         if str(r.get("impact")) == impact
     }
     out: dict[int, float] = {}
-    for r in summary.get("commodity", []):
-        if str(r.get("commodity")) != commodity:
+    for r in summary.get("flow", []):
+        if str(r.get("flow")) != flow:
             continue
         y = int(r["period"])
         produced = float(r.get("produced") or 0.0)
@@ -385,16 +385,16 @@ def _ci_signal(result: dict[str, Any], commodity: str, impact: str) -> dict[int,
     return out
 
 
-def _volume_signal(result: dict[str, Any], commodity: str) -> dict[int, float]:
-    """Upstream production volume of ``commodity`` per year [unit / yr].
+def _volume_signal(result: dict[str, Any], flow: str) -> dict[int, float]:
+    """Upstream production volume of ``flow`` per year [unit / yr].
 
     The volume an upstream stage actually produces is the supply available to a
     downstream stage; injected as a per-year cap on the downstream stage's
-    external purchase of the commodity.
+    external purchase of the flow.
     """
     out: dict[int, float] = {}
-    for r in result.get("summary", {}).get("commodity", []):
-        if str(r.get("commodity")) != commodity:
+    for r in result.get("summary", {}).get("flow", []):
+        if str(r.get("flow")) != flow:
             continue
         out[int(r["period"])] = float(r.get("produced") or 0.0)
     return out
@@ -408,28 +408,28 @@ def _shift(signal: dict[int, float], lag: int, target_years: list[int]) -> dict[
     return interpolate(shifted, target_years)
 
 
-def _inject_price(wb: Workbook, commodity: str, by_year: dict[int, float]) -> None:
-    """Upsert a per-year price column for ``commodity`` into ``commodities_t__price``."""
-    rows = wb.setdefault(COMMODITIES_T_PRICE, [])
+def _inject_price(wb: Workbook, flow: str, by_year: dict[int, float]) -> None:
+    """Upsert a per-year price column for ``flow`` into ``flows_t__price``."""
+    rows = wb.setdefault(FLOWS_T_PRICE, [])
     index = {int(r["year"]): r for r in rows if r.get("year") is not None}
     for y, v in by_year.items():
         if y in index:
-            index[y][commodity] = v
+            index[y][flow] = v
         else:
-            row: dict[str, Any] = {"year": y, commodity: v}
+            row: dict[str, Any] = {"year": y, flow: v}
             rows.append(row)
             index[y] = row
 
 
-def _inject_volume(wb: Workbook, commodity: str, by_year: dict[int, float]) -> None:
-    """Upsert a per-year purchase cap for ``commodity`` into ``commodities_t__max_purchase``."""
-    rows = wb.setdefault(COMMODITIES_T_MAX_PURCHASE, [])
+def _inject_volume(wb: Workbook, flow: str, by_year: dict[int, float]) -> None:
+    """Upsert a per-year purchase cap for ``flow`` into ``flows_t__max_purchase``."""
+    rows = wb.setdefault(FLOWS_T_MAX_PURCHASE, [])
     index = {int(r["year"]): r for r in rows if r.get("year") is not None}
     for y, v in by_year.items():
         if y in index:
-            index[y][commodity] = v
+            index[y][flow] = v
         else:
-            row: dict[str, Any] = {"year": y, commodity: v}
+            row: dict[str, Any] = {"year": y, flow: v}
             rows.append(row)
             index[y] = row
 
@@ -440,13 +440,13 @@ def _feedback_demands(
     results: dict[str, dict[str, Any]],
     feedback_links: list[Any],
 ) -> dict[tuple[str, str, int], float]:
-    """Downstream consumption of each fed-back commodity → upstream demand target."""
+    """Downstream consumption of each fed-back flow → upstream demand target."""
     out: dict[tuple[str, str, int], float] = {}
     for link in feedback_links:
-        for r in results.get(link.to_stage, {}).get("summary", {}).get("commodity", []):
-            if str(r.get("commodity")) != link.commodity:
+        for r in results.get(link.to_stage, {}).get("summary", {}).get("flow", []):
+            if str(r.get("flow")) != link.flow:
                 continue
-            key = (link.from_stage, link.commodity, int(r["period"]))
+            key = (link.from_stage, link.flow, int(r["period"]))
             out[key] = out.get(key, 0.0) + float(r.get("consumed") or 0.0)
     return out
 
@@ -455,33 +455,31 @@ def _apply_feedback_demands(
     spec: ValueChainSpec, wbs: dict[str, Workbook], demands: dict[tuple[str, str, int], float]
 ) -> None:
     """Upsert fed-back demand onto the upstream stages' demand sheets."""
-    for (stage_id, commodity, year), amount in demands.items():
+    for (stage_id, flow, year), amount in demands.items():
         wb = wbs[stage_id]
-        company = _upstream_company(wb, commodity)
+        company = _upstream_company(wb, flow)
         rows = wb.setdefault(DEMAND, [])
         for r in rows:
             if (
                 str(r.get("company")) == company
-                and str(r.get("commodity_id")) == commodity
+                and str(r.get("flow_id")) == flow
                 and _as_int(r.get("year")) == year
             ):
                 r["amount"] = amount
                 break
         else:
-            rows.append(
-                {"company": company, "commodity_id": commodity, "year": year, "amount": amount}
-            )
+            rows.append({"company": company, "flow_id": flow, "year": year, "amount": amount})
 
 
-def _upstream_company(wb: Workbook, commodity: str) -> str:
-    """The company whose demand for ``commodity`` the feedback should drive."""
+def _upstream_company(wb: Workbook, flow: str) -> str:
+    """The company whose demand for ``flow`` the feedback should drive."""
     for r in wb.get("demand", []):
-        if str(r.get("commodity_id")) == commodity:
+        if str(r.get("flow_id")) == flow:
             return str(r.get("company"))
     producers = {
         str(r.get("technology_id"))
         for r in wb.get("io", [])
-        if str(r.get("target")) == commodity and str(r.get("role")) == "output"
+        if str(r.get("target")) == flow and str(r.get("role")) == "output"
     }
     for p in wb.get("processes", []):
         if str(p.get("baseline_technology")) in producers:
@@ -497,20 +495,20 @@ def _as_int(value: Any) -> int | None:
         return None
 
 
-def _inject_ci(wb: Workbook, commodity: str, impact: str, by_year: dict[int, float]) -> None:
-    """Upsert per-year carbon-intensity rows for ``commodity`` into ``commodity_impacts_t``."""
-    rows = wb.setdefault(COMMODITY_IMPACTS_T, [])
+def _inject_ci(wb: Workbook, flow: str, impact: str, by_year: dict[int, float]) -> None:
+    """Upsert per-year carbon-intensity rows for ``flow`` into ``flow_impacts_t``."""
+    rows = wb.setdefault(FLOW_IMPACTS_T, [])
     index = {
-        (str(r.get("commodity_id")), str(r.get("impact_id")), int(r["year"])): r
+        (str(r.get("flow_id")), str(r.get("impact_id")), int(r["year"])): r
         for r in rows
         if r.get("year") is not None
     }
     for y, v in by_year.items():
-        key = (commodity, impact, y)
+        key = (flow, impact, y)
         if key in index:
             index[key]["factor"] = v
         else:
-            rows.append({"commodity_id": commodity, "impact_id": impact, "year": y, "factor": v})
+            rows.append({"flow_id": flow, "impact_id": impact, "year": y, "factor": v})
 
 
 def _stage_scenario(base: ScenarioConfig, overrides: dict[str, Any]) -> ScenarioConfig:

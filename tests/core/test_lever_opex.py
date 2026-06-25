@@ -21,9 +21,9 @@ def _wb(opex: float) -> dict:
     """
     return {
         "periods": [{"year": 2025}],
-        "commodities": [
-            {"commodity_id": "fuel", "kind": "energy", "price": 10.0},
-            {"commodity_id": "widget", "kind": "product"},
+        "flows": [
+            {"flow_id": "fuel", "kind": "energy", "price": 10.0},
+            {"flow_id": "widget", "kind": "product"},
         ],
         "technologies": [{"technology_id": "T"}],
         "io": [
@@ -50,7 +50,7 @@ def _wb(opex: float) -> dict:
         "lever_blocks": [
             {"lever_id": "fuel_saver", "block": 0, "reduction": 0.2, "capex": 100.0, "opex": opex}
         ],
-        "demand": [{"company": "C", "commodity_id": "widget", "year": 2025, "amount": 100}],
+        "demand": [{"company": "C", "flow_id": "widget", "year": 2025, "amount": 100}],
         "impacts": [],
         "markets": [],
         "storage": [],

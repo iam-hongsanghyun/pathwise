@@ -102,10 +102,10 @@ class TechnologyTemplate(BaseModel):
     notes: str = ""
 
 
-class CommodityTemplate(BaseModel):
+class FlowTemplate(BaseModel):
     """A stream a component's technologies consume or produce."""
 
-    commodity_id: str
+    flow_id: str
     kind: str = Field(pattern="^(energy|material|indirect|product|byproduct)$")
     unit: str = "unit"
     price: float | None = None
@@ -116,7 +116,7 @@ class CommodityTemplate(BaseModel):
     sale_price_by_year: dict[int, float] = Field(default_factory=dict)
     #: Free-form physical properties of the stream (temperature, voltage,
     #: pressure, calorific value, …), keyed by name → value. Carried as metadata
-    #: through to the workbook's ``commodity_properties`` sheet.
+    #: through to the workbook's ``flow_properties`` sheet.
     properties: dict[str, float] = Field(default_factory=dict)
     #: Owning sector — the sector that PRODUCES this stream (electricity belongs to
     #: "power", not "steel"). Blank/None = a general, industry-agnostic stream.
@@ -155,7 +155,7 @@ class LeverTemplate(BaseModel):
     lever_id: str
     label: str = ""
     type: str = Field(pattern="^(energy_efficiency|emission_reduction|environmental)$")
-    target: str  # commodity id (energy_efficiency) or impact id (otherwise)
+    target: str  # flow id (energy_efficiency) or impact id (otherwise)
     lifetime: int = Field(default=15, ge=1)
     blocks: list[LeverBlockTemplate] = Field(min_length=1)
     #: Free-text notes / references for the authoring UI (optimiser ignores it).

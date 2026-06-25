@@ -25,7 +25,7 @@ export type FixDescriptor =
   | { kind: "patchRow"; sheet: string; rowIndex: number; patch: Row }
   | { kind: "removeRow"; sheet: string; rowIndex: number }
   | { kind: "appendRow"; sheet: string; row: Row }
-  | { kind: "setCommodityField"; commodityId: string; patch: Row };
+  | { kind: "setFlowField"; flowId: string; patch: Row };
 
 export interface IssueFix {
   label: string;
@@ -42,7 +42,7 @@ export interface Issue {
   severity: Severity;
   title: string;
   message: string;
-  scope?: { nodeId?: string; commodityId?: string; techId?: string };
+  scope?: { nodeId?: string; flowId?: string; techId?: string };
   sheet?: string;
   rowIndex?: number;
   fix?: IssueFix;
@@ -108,7 +108,7 @@ export function validateModel(wb: Workbook): Issue[] {
   const nodes = wb.nodes ?? [];
   const assets = wb.assets ?? [];
   const io = wb.io ?? [];
-  const commodities = wb.commodities ?? [];
+  const flows = wb.flows ?? [];
   const links = wb.links ?? [];
   const markets = wb.markets ?? [];
   const demand = wb.demand ?? [];
@@ -117,12 +117,12 @@ export function validateModel(wb: Workbook): Issue[] {
 
   const nodeIds = new Set(nodes.map((r) => s(r.node_id)));
   const techIds = new Set(technologies.map((r) => s(r.technology_id)));
-  const commoditySet = new Set(commodities.map((r) => s(r.commodity_id)));
+  const flowSet = new Set(flows.map((r) => s(r.flow_id)));
 
-  // products = io outputs flagged is_product ∪ commodities of kind "product"
+  // products = io outputs flagged is_product ∪ flows of kind "product"
   const products = new Set<string>();
   for (const r of io) if (s(r.role) === "output" && r.is_product) products.add(s(r.target));
-  for (const c of commodities) if (s(c.kind) === "product") products.add(s(c.commodity_id));
+  for (const c of flows) if (s(c.kind) === "product") products.add(s(c.flow_id));
 
   // io grouped by technology (inputs + has-any-output check)
   const inputsOfTech = new Map<string, string[]>();
@@ -132,11 +132,11 @@ export function validateModel(wb: Workbook): Issue[] {
     const role = s(r.role);
     if (role === "input") (inputsOfTech.get(t) ?? inputsOfTech.set(t, []).get(t)!).push(s(r.target));
     if (role === "output") techHasOutput.add(t);
-    // unknown-commodity (input/output only; "impact" targets an impact, not a stream)
-    if ((role === "input" || role === "output") && s(r.target) && !commoditySet.has(s(r.target))) {
+    // unknown-flow (input/output only; "impact" targets an impact, not a stream)
+    if ((role === "input" || role === "output") && s(r.target) && !flowSet.has(s(r.target))) {
       add({
-        id: `io-unknown-commodity:${t}:${s(r.target)}`,
-        rule: "io-unknown-commodity",
+        id: `io-unknown-flow:${t}:${s(r.target)}`,
+        rule: "io-unknown-flow",
         severity: "warning",
         title: "Unknown stream",
         message: `Technology "${t}" references stream "${s(r.target)}", which isn't defined in the library.`,
@@ -172,7 +172,7 @@ export function validateModel(wb: Workbook): Issue[] {
         severity: "warning",
         title: "Duplicate market",
         message: `More than one ${side} market for "${target}" at this node.`,
-        scope: { nodeId: company, commodityId: target },
+        scope: { nodeId: company, flowId: target },
         sheet: "markets",
         rowIndex,
         fix: { label: "Remove duplicate", descriptor: { kind: "removeRow", sheet: "markets", rowIndex } },
@@ -186,7 +186,7 @@ export function validateModel(wb: Workbook): Issue[] {
         severity: "warning",
         title: "Free purchase",
         message: `Buy market for "${target}" has price 0 — the optimiser will buy it for free. Set a real price or remove it.`,
-        scope: { nodeId: company, commodityId: target },
+        scope: { nodeId: company, flowId: target },
         sheet: "markets",
         rowIndex,
         fix: {
@@ -235,10 +235,10 @@ export function validateModel(wb: Workbook): Issue[] {
     const scope = scopeOf(mid);
     for (const c of inputsOfTech.get(tech) ?? []) {
       const fedByLink = links.some(
-        (x) => s(x.commodity_id) === c && scope.has(s(x.to_node)) && !scope.has(s(x.from_node)),
+        (x) => s(x.flow_id) === c && scope.has(s(x.to_node)) && !scope.has(s(x.from_node)),
       );
       const boughtAtNode = markets.some((x) => s(x.target) === c && s(x.price) !== "" && scope.has(s(x.company)));
-      const comm = commodities.find((x) => s(x.commodity_id) === c);
+      const comm = flows.find((x) => s(x.flow_id) === c);
       const purchasable = !!comm && (comm.purchasable === true || s(comm.price) !== "");
       if (!fedByLink && !boughtAtNode && !purchasable) {
         add({
@@ -247,10 +247,10 @@ export function validateModel(wb: Workbook): Issue[] {
           severity: "error",
           title: "Unsatisfied input",
           message: `"${mid}" needs "${c}" but nothing supplies it — no upstream link, no market, and it isn't purchasable.`,
-          scope: { nodeId: mid, commodityId: c },
+          scope: { nodeId: mid, flowId: c },
           fix: {
             label: `Make ${c} purchasable`,
-            descriptor: { kind: "setCommodityField", commodityId: c, patch: { purchasable: true } },
+            descriptor: { kind: "setFlowField", flowId: c, patch: { purchasable: true } },
           },
         });
       }
@@ -259,7 +259,7 @@ export function validateModel(wb: Workbook): Issue[] {
 
   // ── Demand: on a non-product, or non-positive ────────────────────────────────
   demand.forEach((r, rowIndex) => {
-    const c = s(r.commodity_id);
+    const c = s(r.flow_id);
     if (c && products.size > 0 && !products.has(c)) {
       add({
         id: `demand-on-non-product:${s(r.company)}:${c}:${rowIndex}`,
@@ -267,7 +267,7 @@ export function validateModel(wb: Workbook): Issue[] {
         severity: "error",
         title: "Demand on a non-product",
         message: `Target asks for "${c}", which isn't a product output of any technology. Only products can be delivered to demand.`,
-        scope: { nodeId: s(r.company), commodityId: c },
+        scope: { nodeId: s(r.company), flowId: c },
         sheet: "demand",
         rowIndex,
       });
@@ -279,7 +279,7 @@ export function validateModel(wb: Workbook): Issue[] {
         severity: "warning",
         title: "Empty target",
         message: `Target for "${c}" has amount ${s(r.amount) || 0} — it asks for nothing.`,
-        scope: { nodeId: s(r.company), commodityId: c },
+        scope: { nodeId: s(r.company), flowId: c },
         sheet: "demand",
         rowIndex,
         fix: {
@@ -319,7 +319,7 @@ export function validateModel(wb: Workbook): Issue[] {
         rule: "link-dangling-node",
         severity: "warning",
         title: "Dangling link",
-        message: `A "${s(r.commodity_id)}" link references a node that no longer exists.`,
+        message: `A "${s(r.flow_id)}" link references a node that no longer exists.`,
         sheet: "links",
         rowIndex,
         fix: { label: "Remove", descriptor: { kind: "removeRow", sheet: "links", rowIndex } },

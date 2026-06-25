@@ -12,9 +12,9 @@ import math
 from typing import Any
 
 from pathwise.core.entities import (
-    Commodity,
-    CommodityKind,
     Edge,
+    Flow,
+    FlowKind,
     Impact,
     Lever,
     LeverBlock,
@@ -44,14 +44,6 @@ from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.sheets import (
     ASSETS,
     CHARACTERISATION,
-    COMMODITIES,
-    COMMODITIES_T_MAX_PURCHASE,
-    COMMODITIES_T_PRICE,
-    COMMODITIES_T_SALE_PRICE,
-    COMMODITY_IMPACTS,
-    COMMODITY_IMPACTS_T,
-    COMMODITY_PRICES,
-    COMMODITY_PROPERTIES,
     COMPANY_CONFIG,
     CORRIDORS,
     DEMAND,
@@ -62,6 +54,14 @@ from pathwise.data.sheets import (
     FLEET,
     FLEET_GROUPS,
     FLEET_ROUTES,
+    FLOW_IMPACTS,
+    FLOW_IMPACTS_T,
+    FLOW_PRICES,
+    FLOW_PROPERTIES,
+    FLOWS,
+    FLOWS_T_MAX_PURCHASE,
+    FLOWS_T_PRICE,
+    FLOWS_T_SALE_PRICE,
     IMPACT_CAPS,
     IMPACT_CAPS_T_LIMIT,
     IMPACT_PRICES,
@@ -232,7 +232,7 @@ def _wide_temporal(wb: Workbook, sheet: str) -> dict[str, dict[int, float]]:
     """Parse a PyPSA-style wide temporal sheet → ``{item_name: {year: value}}``.
 
     Rows are snapshots (a ``year`` column); every other column is named by a
-    static item (commodity / market / impact id), linking temporal to static
+    static item (flow / market / impact id), linking temporal to static
     data by name. Blank cells are skipped (the static default applies).
     """
     out: dict[str, dict[int, float]] = {}
@@ -347,7 +347,7 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
         procs.append(row)
 
     # Connections (asset↔asset or group↔group) become asset edges: the
-    # producers of the commodity in the source subtree → its consumers in the
+    # producers of the flow in the source subtree → its consumers in the
     # destination subtree (resolved via each asset's technology I/O).
     io_out: dict[str, set[str]] = {}
     io_in: dict[str, set[str]] = {}
@@ -362,17 +362,13 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
             io_in.setdefault(tech, set()).add(tgt)
     asset_tech = {mid: m.baseline_technology for mid, m in h.assets.items()}
 
-    def producers(node: str, commodity: str) -> list[str]:
+    def producers(node: str, flow: str) -> list[str]:
         return [
-            m
-            for m in h.leaf_machines(node)
-            if commodity in io_out.get(asset_tech.get(m, ""), set())
+            m for m in h.leaf_machines(node) if flow in io_out.get(asset_tech.get(m, ""), set())
         ]
 
-    def consumers(node: str, commodity: str) -> list[str]:
-        return [
-            m for m in h.leaf_machines(node) if commodity in io_in.get(asset_tech.get(m, ""), set())
-        ]
+    def consumers(node: str, flow: str) -> list[str]:
+        return [m for m in h.leaf_machines(node) if flow in io_in.get(asset_tech.get(m, ""), set())]
 
     edges = list(workbook.get(EDGES, []))
     edges_t = list(workbook.get(EDGES_T, []))
@@ -385,18 +381,18 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
         for e in edges
         if (f := _str(e.get("from_process")))
         and (t := _str(e.get("to_process")))
-        and (ci := _str(e.get("commodity_id")))
+        and (ci := _str(e.get("flow_id")))
     }
     for c in h.links:
-        for s in producers(c.from_node, c.commodity_id):
-            for d in consumers(c.to_node, c.commodity_id):
-                if s == d or (s, d, c.commodity_id) in seen_edges:
+        for s in producers(c.from_node, c.flow_id):
+            for d in consumers(c.to_node, c.flow_id):
+                if s == d or (s, d, c.flow_id) in seen_edges:
                     continue
-                seen_edges.add((s, d, c.commodity_id))
+                seen_edges.add((s, d, c.flow_id))
                 edge: dict[str, Any] = {
                     "from_process": s,
                     "to_process": d,
-                    "commodity_id": c.commodity_id,
+                    "flow_id": c.flow_id,
                 }
                 if c.max_flow is not None:
                     edge["max_flow"] = c.max_flow
@@ -415,7 +411,7 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
                         {
                             "from_process": s,
                             "to_process": d,
-                            "commodity_id": c.commodity_id,
+                            "flow_id": c.flow_id,
                             "impact_id": imp,
                             "factor": fac,
                         }
@@ -427,7 +423,7 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
                     et_row: dict[str, Any] = {
                         "from_process": s,
                         "to_process": d,
-                        "commodity_id": c.commodity_id,
+                        "flow_id": c.flow_id,
                         "year": yr,
                     }
                     if yr in c.max_flow_by_year:
@@ -467,7 +463,7 @@ def _assemble_fleet(
       carriers for the same demand,
     * fuel use — the fleet burns ``efficiency × distance`` of its fuel per unit cargo,
       injected into the transport process's recipe (``inputs``) so the fuel's price
-      (cost) and ``commodity_impacts`` (emissions) apply with no privileged fuel or
+      (cost) and ``flow_impacts`` (emissions) apply with no privileged fuel or
       impact.
 
     Returns ``(fleets, fleet_available, fleet_routes, routes)``; ``inputs`` is mutated
@@ -580,30 +576,30 @@ def _assemble_fleet(
             return great_circle_km(a, b) * 4.0
 
     # Representative per-unit fuel cost for cost-weighted routing: the static price
-    # of each commodity (a fleet's fuel), used as ``fuel_price`` below.
+    # of each flow (a fleet's fuel), used as ``fuel_price`` below.
     comm_price = {
         c: _numd(r.get("price"), 0.0)
-        for r in _rows(workbook, COMMODITIES)
-        if (c := _str(r.get("commodity_id")))
+        for r in _rows(workbook, FLOWS)
+        if (c := _str(r.get("flow_id")))
     }
 
     def _toll_of(passages: list[str]) -> float:
         return sum(corridor_tolls.get(c, 0.0) for c in passages if c in corridor_tolls)
 
-    def _unit_cost(commodity: str | None) -> tuple[float, float] | None:
+    def _unit_cost(flow: str | None) -> tuple[float, float] | None:
         """(fuel cost / cargo / km, ship_size) of the cheapest candidate fleet that
-        carries ``commodity`` — the lane the optimiser most likely runs. ``None`` when
+        carries ``flow`` — the lane the optimiser most likely runs. ``None`` when
         no carrier exists (the connection is a teleport; cost routing doesn't apply)."""
         best: tuple[float, float] | None = None
         for fl in fleets.values():
-            if fl.cargo != commodity or fl.efficiency <= 0:
+            if fl.cargo != flow or fl.efficiency <= 0:
                 continue
             c = fl.efficiency * comm_price.get(fl.fuel, 0.0)
             if best is None or c < best[0]:
                 best = (c, fl.ship_size)
         return best
 
-    def _cost_route(a: Point, b: Point, mode: str, commodity: str | None) -> tuple[float, float]:
+    def _cost_route(a: Point, b: Point, mode: str, flow: str | None) -> tuple[float, float]:
         r"""Cost-weighted shortest path → (distance, per-voyage toll).
 
         Picks the path minimising ``fuel_price·efficiency·distance + toll/ship_size``
@@ -614,7 +610,7 @@ def _assemble_fleet(
         the cheapest. With no carrier/cost info it falls back to distance-shortest.
         """
         shortest = _derived_distance(a, b, mode)
-        uc = _unit_cost(commodity)
+        uc = _unit_cost(flow)
         if uc is None:
             return shortest, _toll_of(route_passages(a, b, avoid))
         c_per_km, ship_size = uc
@@ -653,7 +649,7 @@ def _assemble_fleet(
         # When we derive the distance AND tolls exist, pick the COST-weighted path
         # (fuel × distance + toll), not just the shortest — the solver-selected lane.
         if corridor_tolls and located and (rdist is None or avoid):
-            rdist, rtoll = _cost_route(coords[rfrom], coords[rto], rmode, _str(r.get("commodity")))
+            rdist, rtoll = _cost_route(coords[rfrom], coords[rto], rmode, _str(r.get("flow")))
             route_tolls[rproc] = rtoll
             routes[rproc] = Route(
                 process=rproc, from_node=rfrom, to_node=rto, mode=rmode, distance=rdist or 0.0
@@ -752,11 +748,11 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         else _numd(meta.get("discount_rate"), 0.08)
     )
 
-    # ── Commodities (+ optional price trajectory) ────────────────────────────
+    # ── Flows (+ optional price trajectory) ────────────────────────────
     price_traj: dict[str, dict[int, float]] = {}
     sale_traj: dict[str, dict[int, float]] = {}
-    for r in _rows(workbook, COMMODITY_PRICES):
-        cid = _str(r.get("commodity_id"))
+    for r in _rows(workbook, FLOW_PRICES):
+        cid = _str(r.get("flow_id"))
         if cid is None:
             continue
         y = _int(r.get("year"))
@@ -767,29 +763,25 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         if (sp := _num(r.get("sale_price"))) is not None:
             sale_traj.setdefault(cid, {})[y] = sp
     # PyPSA-style wide temporal tables override the legacy long-format.
-    price_traj.update(_wide_temporal(workbook, COMMODITIES_T_PRICE))
-    sale_traj.update(_wide_temporal(workbook, COMMODITIES_T_SALE_PRICE))
+    price_traj.update(_wide_temporal(workbook, FLOWS_T_PRICE))
+    sale_traj.update(_wide_temporal(workbook, FLOWS_T_SALE_PRICE))
     # Per-year external-purchase volume cap (used by value-chain ``volume`` links).
-    maxbuy_traj: dict[str, dict[int, float]] = _wide_temporal(workbook, COMMODITIES_T_MAX_PURCHASE)
-    # Free-form physical stream properties (long format: commodity_id, property, value).
-    props_by_commodity: dict[str, dict[str, float]] = {}
-    for r in _rows(workbook, COMMODITY_PROPERTIES):
-        cid_p, prop = _str(r.get("commodity_id")), _str(r.get("property"))
+    maxbuy_traj: dict[str, dict[int, float]] = _wide_temporal(workbook, FLOWS_T_MAX_PURCHASE)
+    # Free-form physical stream properties (long format: flow_id, property, value).
+    props_by_flow: dict[str, dict[str, float]] = {}
+    for r in _rows(workbook, FLOW_PROPERTIES):
+        cid_p, prop = _str(r.get("flow_id")), _str(r.get("property"))
         val = _num(r.get("value"))
         if cid_p and prop and val is not None:
-            props_by_commodity.setdefault(cid_p, {})[prop] = val
+            props_by_flow.setdefault(cid_p, {})[prop] = val
 
-    commodities: dict[str, Commodity] = {}
-    for r in _rows(workbook, COMMODITIES):
-        cid = _str(r.get("commodity_id"))
+    flows: dict[str, Flow] = {}
+    for r in _rows(workbook, FLOWS):
+        cid = _str(r.get("flow_id"))
         if cid is None:
             continue
         kind_s = (_str(r.get("kind")) or "material").lower()
-        kind = (
-            CommodityKind(kind_s)
-            if kind_s in {k.value for k in CommodityKind}
-            else CommodityKind.MATERIAL
-        )
+        kind = FlowKind(kind_s) if kind_s in {k.value for k in FlowKind} else FlowKind.MATERIAL
         base_price = _num(r.get("price"), 0.0) or 0.0
         base_sale = _num(r.get("sale_price"), 0.0) or 0.0
         prices = (
@@ -811,8 +803,8 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             max_purchase = dict.fromkeys(years, base_cap)
         else:
             max_purchase = {}
-        commodities[cid] = Commodity(
-            commodity_id=cid,
+        flows[cid] = Flow(
+            flow_id=cid,
             kind=kind,
             unit=_str(r.get("unit")) or "unit",
             price_by_year=prices,
@@ -822,7 +814,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             available_from=_int(r.get("available_from")),
             available_to=_int(r.get("available_to")),
             max_purchase_by_year=max_purchase,
-            properties=props_by_commodity.get(cid, {}),
+            properties=props_by_flow.get(cid, {}),
         )
 
     # ── Impacts (+ price trajectory) ─────────────────────────────────────────
@@ -853,12 +845,12 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     # ── Technologies (+ per-tech inputs/outputs/direct impacts) ──────────────
     inputs: dict[str, dict[str, float]] = {}
     for r in _rows(workbook, PROCESS_INPUTS):
-        k, c = _str(r.get("technology_id")), _str(r.get("commodity_id"))
+        k, c = _str(r.get("technology_id")), _str(r.get("flow_id"))
         if k and c:
             inputs.setdefault(k, {})[c] = _num(r.get("intensity"), 0.0) or 0.0
     outputs: dict[str, dict[str, float]] = {}
     for r in _rows(workbook, PROCESS_OUTPUTS):
-        k, c = _str(r.get("technology_id")), _str(r.get("commodity_id"))
+        k, c = _str(r.get("technology_id")), _str(r.get("flow_id"))
         if k and c:
             outputs.setdefault(k, {})[c] = _num(r.get("yield"), 0.0) or 0.0
     direct: dict[str, dict[str, float]] = {}
@@ -885,11 +877,11 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
 
     # Per-recipe-row units: an io coefficient authored in a `unit` that differs from
     # its target stream's canonical unit is converted to that unit here, so the
-    # matrix stays in one unit per commodity (linking technologies needs none).
+    # matrix stays in one unit per flow (linking technologies needs none).
     # Absent/blank unit ⇒ factor 1, so a library with no declared units is unchanged.
     converter = CoefficientConverter(
-        commodity_units={cid: c.unit for cid, c in commodities.items()},
-        commodity_props=props_by_commodity,
+        flow_units={cid: c.unit for cid, c in flows.items()},
+        flow_props=props_by_flow,
         impact_units={iid: imp.unit for iid, imp in impacts.items()},
         unit_overrides=_model_unit_overrides(workbook, scenario.unit_overrides),
     )
@@ -981,22 +973,22 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 out.setdefault(g, {})[c] = {y: (lo_y[y], max(lo_y[y], hi_y[y])) for y in years}
         return out
 
-    commodity_impacts: dict[tuple[str, str], float] = {}
-    for r in _rows(workbook, COMMODITY_IMPACTS):
-        c, i = _str(r.get("commodity_id")), _str(r.get("impact_id"))
+    flow_impacts: dict[tuple[str, str], float] = {}
+    for r in _rows(workbook, FLOW_IMPACTS):
+        c, i = _str(r.get("flow_id")), _str(r.get("impact_id"))
         if c and i:
-            commodity_impacts[(c, i)] = _num(r.get("factor"), 0.0) or 0.0
+            flow_impacts[(c, i)] = _num(r.get("factor"), 0.0) or 0.0
 
-    # Optional year-varying carbon intensity (long format: commodity_id, impact_id,
+    # Optional year-varying carbon intensity (long format: flow_id, impact_id,
     # year, factor) — e.g. a greening grid, or an upstream value-chain stage's
     # pathway. Sparse points are interpolated onto the horizon (flat-hold ends).
     ci_points: dict[tuple[str, str], dict[int, float]] = {}
-    for r in _rows(workbook, COMMODITY_IMPACTS_T):
-        c, i = _str(r.get("commodity_id")), _str(r.get("impact_id"))
+    for r in _rows(workbook, FLOW_IMPACTS_T):
+        c, i = _str(r.get("flow_id")), _str(r.get("impact_id"))
         yr, fac = _int(r.get("year")), _num(r.get("factor"))
         if c and i and yr is not None and fac is not None:
             ci_points.setdefault((c, i), {})[yr] = fac
-    commodity_impacts_by_year = {k: interpolate(v, years) for k, v in ci_points.items()}
+    flow_impacts_by_year = {k: interpolate(v, years) for k, v in ci_points.items()}
 
     # LCIA characterisation: map a base elementary-flow impact to a category with a
     # factor (e.g. CO2/CH4/N2O → GWP). The engine derives the category emission as
@@ -1008,7 +1000,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         if flow and cat and fac is not None:
             characterisation[(flow, cat)] = fac
 
-    # Per-year technology costs. Two input conventions, like commodity prices:
+    # Per-year technology costs. Two input conventions, like flow prices:
     # the long-format `technologies_prices` sheet (technology_id, year, capex,
     # opex, renewal — what the component library emits), overridden by the
     # PyPSA-wide `technologies_t__<attr>` tables when both are present.
@@ -1158,7 +1150,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         frm, to, cid = (
             _str(r.get("from_process")),
             _str(r.get("to_process")),
-            _str(r.get("commodity_id")),
+            _str(r.get("flow_id")),
         )
         yr = _int(r.get("year"))
         if not (frm and to and cid) or yr is None:
@@ -1174,7 +1166,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         frm, to, cid = (
             _str(r.get("from_process")),
             _str(r.get("to_process")),
-            _str(r.get("commodity_id")),
+            _str(r.get("flow_id")),
         )
         imp, fac = _str(r.get("impact_id")), _num(r.get("factor"))
         if frm and to and cid and imp and fac:
@@ -1184,7 +1176,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         frm, to, cid = (
             _str(r.get("from_process")),
             _str(r.get("to_process")),
-            _str(r.get("commodity_id")),
+            _str(r.get("flow_id")),
         )
         if not frm or not to or not cid:
             continue
@@ -1193,7 +1185,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             Edge(
                 from_process=frm,
                 to_process=to,
-                commodity_id=cid,
+                flow_id=cid,
                 max_flow=_num(r.get("max_flow")),
                 max_flow_by_year=(
                     interpolate(edge_maxflow_t[ek], years) if ek in edge_maxflow_t else {}
@@ -1212,7 +1204,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         )
 
     # ── Connection routes: physicalised value-chain stream links ───────
-    # A ``routes`` row that names a stream (``commodity``) and is NOT itself a
+    # A ``routes`` row that names a stream (``flow``) and is NOT itself a
     # transport process is a *physicalised connection*: it governs the producer→
     # consumer edges of that connection (under its from/to nodes) and is carried by
     # a chosen fleet from its candidate set (``fleet_routes`` rows for that route —
@@ -1239,7 +1231,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     connection_routes: list[ConnectionRoute] = []
     for r in _rows(workbook, ROUTES):
         rproc = _str(r.get("process"))
-        rcomm = _str(r.get("commodity"))
+        rcomm = _str(r.get("flow"))
         if rproc is None or not rcomm or rproc in process_ids:
             continue  # not a physicalised connection (legacy/process route or no stream)
         rfrom, rto = _str(r.get("from_node")) or "", _str(r.get("to_node")) or ""
@@ -1247,7 +1239,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         eidx = tuple(
             i
             for i, e in enumerate(edges)
-            if e.commodity_id == rcomm and e.from_process in froms and e.to_process in tos
+            if e.flow_id == rcomm and e.from_process in froms and e.to_process in tos
         )
         geo = routes.get(rproc)
         distance = geo.distance if geo is not None else (_num(r.get("distance"), 0.0) or 0.0)
@@ -1265,7 +1257,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         connection_routes.append(
             ConnectionRoute(
                 process=rproc,
-                commodity=rcomm,
+                flow=rcomm,
                 distance=distance,
                 edges=eidx,
                 legs=tuple(legs),
@@ -1320,7 +1312,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     #      whose baseline runs it) columns on the lever row;
     #   2. membership in a named MACC (`maccs` rows {macc, lever_id} — the
     #      same lever may sit in several MACCs) deployed via `macc_links`
-    #      rows {macc, facility|technology|commodity|storage} — a commodity
+    #      rows {macc, facility|technology|flow|storage} — a flow
     #      (stream) reaches every facility whose baseline technology consumes
     #      it; a storage reaches the consumers of its stored stream;
     #   3. legacy `applies_to` / `set` + `lever_links` columns (older files).
@@ -1343,7 +1335,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         macc = _str(r.get("macc"))
         if not macc:
             continue
-        for link_kind in ("facility", "technology", "commodity", "storage"):
+        for link_kind in ("facility", "technology", "flow", "storage"):
             if target := _str(r.get(link_kind)):
                 macc_targets.setdefault(macc, []).append((link_kind, target))
 
@@ -1358,24 +1350,22 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             return [target]
         return by_baseline.get(target, [])
 
-    storage_commodity: dict[str, str] = {}
+    storage_flow: dict[str, str] = {}
     for r in _rows(workbook, STORAGE):
-        sid, cid = _str(r.get("storage_id")), _str(r.get("commodity_id"))
+        sid, cid = _str(r.get("storage_id")), _str(r.get("flow_id"))
         if sid and cid:
-            storage_commodity[sid] = cid
+            storage_flow[sid] = cid
 
-    def _consumers(commodity: str) -> list[str]:
+    def _consumers(flow: str) -> list[str]:
         """Facilities whose baseline technology consumes the stream."""
-        return [
-            p.process_id for p in processes if commodity in inputs.get(p.baseline_technology, {})
-        ]
+        return [p.process_id for p in processes if flow in inputs.get(p.baseline_technology, {})]
 
     def _resolve_link(kind: str, target: str) -> list[str]:
         """A typed macc_links target → the facility ids it deploys on."""
-        if kind == "commodity":
+        if kind == "flow":
             return _consumers(target)
         if kind == "storage":
-            stored = storage_commodity.get(target)
+            stored = storage_flow.get(target)
             return _consumers(stored) if stored else []
         return _resolve(target)
 
@@ -1457,7 +1447,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             )
         )
 
-    # ── Storage (per-commodity inter-year stores) ────────────────────────────
+    # ── Storage (per-flow inter-year stores) ────────────────────────────
     sto_capex_t = _wide_temporal(workbook, STORAGE_T_CAPEX)
     sto_fopex_t = _wide_temporal(workbook, STORAGE_T_FIXED_OPEX)
     sto_chg_t = _wide_temporal(workbook, STORAGE_T_CHARGE_EFFICIENCY)
@@ -1469,13 +1459,13 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
 
     storages: list[Storage] = []
     for r in _rows(workbook, STORAGE):
-        sid, cid = _str(r.get("storage_id")), _str(r.get("commodity_id"))
+        sid, cid = _str(r.get("storage_id")), _str(r.get("flow_id"))
         if not sid or not cid or not _enabled(r):
             continue
         storages.append(
             Storage(
                 storage_id=sid,
-                commodity_id=cid,
+                flow_id=cid,
                 company=_str(r.get("company")) or "all",
                 max_capacity=_num(r.get("max_capacity"), 0.0) or 0.0,
                 capex_per_capacity=_num(r.get("capex_per_capacity"), 0.0) or 0.0,
@@ -1492,7 +1482,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             )
         )
 
-    # ── Markets (commodity supply / tradable ETS) ───────────────────────────
+    # ── Markets (flow supply / tradable ETS) ───────────────────────────
     mkt_price: dict[str, dict[int, float]] = {}
     mkt_sell: dict[str, dict[int, float]] = {}
     mkt_alloc: dict[str, dict[int, float]] = {}
@@ -1520,7 +1510,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         if not mid or not target or not _enabled(r):
             continue
         # Kind is auto-inferred from the target: if it names an impact it is a
-        # tradable-allowance (ETS) market, otherwise a commodity market. An
+        # tradable-allowance (ETS) market, otherwise a flow market. An
         # explicit ``target_kind`` still wins for backward compatibility.
         kind_s = (_str(r.get("target_kind")) or "").lower()
         if kind_s in {k.value for k in MarketTarget}:
@@ -1528,7 +1518,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         elif target in impacts:
             mkind = MarketTarget.IMPACT
         else:
-            mkind = MarketTarget.COMMODITY
+            mkind = MarketTarget.FLOW
         base_p = _num(r.get("price"))
         base_s = _num(r.get("sell_price"))
         base_a = _num(r.get("allocation"))
@@ -1569,7 +1559,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         MIN_PRODUCTION,
         MIN_PRODUCTION_T_AMOUNT,
         "min_id",
-        ["company", "commodity_id"],
+        ["company", "flow_id"],
         "amount",
         base_years=years,  # a year-less floor (per-asset min output) holds every year
     )
@@ -1578,7 +1568,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         MAX_PRODUCTION,
         MAX_PRODUCTION_T_AMOUNT,
         "max_id",
-        ["company", "commodity_id"],
+        ["company", "flow_id"],
         "amount",
         base_years=years,  # a year-less cap (per-asset / per-stream) holds every year
     )
@@ -1587,7 +1577,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         MIN_CONSUMPTION,
         MIN_CONSUMPTION_T_AMOUNT,
         "min_cons_id",
-        ["company", "commodity_id"],
+        ["company", "flow_id"],
         "amount",
         base_years=years,  # a year-less required offtake (per-asset intake floor) holds every year
     )
@@ -1596,7 +1586,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         MAX_CONSUMPTION,
         MAX_CONSUMPTION_T_AMOUNT,
         "max_cons_id",
-        ["company", "commodity_id"],
+        ["company", "flow_id"],
         "amount",
         base_years=years,  # a year-less max purchase (per-asset intake cap) holds every year
     )
@@ -1605,7 +1595,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         DEMAND,
         DEMAND_T_AMOUNT,
         "demand_id",
-        ["company", "commodity_id"],
+        ["company", "flow_id"],
         "amount",
         base_years=years,  # a year-less (static) demand/target holds every year
     )
@@ -1672,15 +1662,15 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         periods=periods,
         processes=processes,
         technologies=technologies,
-        commodities=commodities,
+        flows=flows,
         impacts=impacts,
         levers=levers,
         edges=edges,
         transitions=transitions,
         storages=storages,
         markets=markets,
-        commodity_impacts=commodity_impacts,
-        commodity_impacts_by_year=commodity_impacts_by_year,
+        flow_impacts=flow_impacts,
+        flow_impacts_by_year=flow_impacts_by_year,
         characterisation=characterisation,
         demand=demand,
         impact_caps=impact_caps,

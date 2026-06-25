@@ -600,25 +600,25 @@ def _functional_unit(
 ) -> dict[str, Any]:
     """The studied product + its total demanded amount over the horizon.
 
-    Uses ``simulate.functional_unit`` when given, else the demanded commodity with
+    Uses ``simulate.functional_unit`` when given, else the demanded flow with
     the largest total amount (the natural product of the chain)."""
     demand = model.get("demand", [])
     fu = sim.get("functional_unit") or {}
-    commodity = fu.get("commodity")
-    if commodity is None:
+    flow = fu.get("flow")
+    if flow is None:
         totals: dict[str, float] = {}
         for r in demand:
-            totals[str(r.get("commodity_id"))] = totals.get(
-                str(r.get("commodity_id")), 0.0
-            ) + float(r.get("amount") or 0.0)
-        commodity = max(totals, key=lambda k: totals[k]) if totals else None
+            totals[str(r.get("flow_id"))] = totals.get(str(r.get("flow_id")), 0.0) + float(
+                r.get("amount") or 0.0
+            )
+        flow = max(totals, key=lambda k: totals[k]) if totals else None
     amount = sum(
         float(r.get("amount") or 0.0)
         for r in demand
-        if str(r.get("commodity_id")) == commodity
+        if str(r.get("flow_id")) == flow
         and (fu.get("company") is None or str(r.get("company")) == fu.get("company"))
     )
-    return {"commodity": commodity, "amount": amount}
+    return {"flow": flow, "amount": amount}
 
 
 def _carbon_cost(result: dict[str, Any], model: Workbook) -> float:
@@ -680,7 +680,7 @@ def _lifecycle_inventory(
     # Foreground vs background split. ``by_stage`` is built from the on-site direct
     # ``io`` impact factors only, so summing it per impact gives the FOREGROUND
     # total; the engine's authoritative ``by_impact`` also folds the BACKGROUND
-    # (cradle-to-gate ``commodity_impacts`` on purchased carriers), so the remainder
+    # (cradle-to-gate ``flow_impacts`` on purchased carriers), so the remainder
     # is the background burden. (Tiny negatives from float noise are clamped.)
     foreground: dict[str, float] = {}
     for (_stage, imp), v in by_stage.items():

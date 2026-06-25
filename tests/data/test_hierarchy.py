@@ -28,8 +28,8 @@ def _wb() -> dict:
             {"asset_id": "eaf", "baseline_technology": "EAF", "capacity": 50},
             {"asset_id": "press", "baseline_technology": "Press", "capacity": 30},
         ],
-        "connections": [
-            {"from_node": "steel", "to_node": "auto", "commodity_id": "steel", "lag_years": 2},
+        "links": [
+            {"from_node": "steel", "to_node": "auto", "flow_id": "steel", "lag_years": 2},
         ],
     }
 
@@ -71,7 +71,7 @@ def test_derive_ports_from_boundary_crossing_connection() -> None:
     ports = h.derive_ports()
     # steel→auto on 'steel' crosses both company boundaries: steel exposes an out
     # port, auto an in port (the value-chain root contains both, so no port there).
-    out_ports = {(p.node_id, p.direction) for p in ports if p.commodity_id == "steel"}
+    out_ports = {(p.node_id, p.direction) for p in ports if p.flow_id == "steel"}
     assert ("steel", "out") in out_ports
     assert ("auto", "in") in out_ports
     assert not any(p.node_id == "vc" for p in ports)
@@ -95,7 +95,7 @@ def test_asset_max_renewals_parses_and_reaches_the_process() -> None:
 
     wb = {
         "periods": [{"year": 2025, "duration_years": 1}],
-        "commodities": [{"commodity_id": "w", "kind": "product", "unit": "t"}],
+        "flows": [{"flow_id": "w", "kind": "product", "unit": "t"}],
         "impacts": [],
         "technologies": [{"technology_id": "T", "lifespan": 5}],
         "nodes": [
@@ -135,7 +135,7 @@ def test_asset_build_and_close_year_reach_the_process() -> None:
 
     wb = {
         "periods": [{"year": 2025, "duration_years": 1}],
-        "commodities": [{"commodity_id": "w", "kind": "product", "unit": "t"}],
+        "flows": [{"flow_id": "w", "kind": "product", "unit": "t"}],
         "impacts": [],
         "technologies": [{"technology_id": "T", "lifespan": 30}],
         "nodes": [

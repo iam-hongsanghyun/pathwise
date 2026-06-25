@@ -44,14 +44,14 @@ def _model() -> dict[str, list[dict[str, Any]]]:
                 "is_product": True,
             },
         ],
-        "commodities": [
-            {"commodity_id": "coal", "kind": "material", "price": 100},
-            {"commodity_id": "steel", "kind": "product"},
+        "flows": [
+            {"flow_id": "coal", "kind": "material", "price": 100},
+            {"flow_id": "steel", "kind": "product"},
         ],
         "periods": [{"year": 2025, "duration_years": 1}],
         "demand": [
-            {"company": "chain/a", "commodity_id": "steel", "year": 2025, "amount": 50},
-            {"company": "chain/b", "commodity_id": "steel", "year": 2025, "amount": 50},
+            {"company": "chain/a", "flow_id": "steel", "year": 2025, "amount": 50},
+            {"company": "chain/b", "flow_id": "steel", "year": 2025, "amount": 50},
         ],
     }
 

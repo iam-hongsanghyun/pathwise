@@ -17,9 +17,9 @@ from pathwise.data.components import (
 
 _LIB = {
     "label": "t",
-    "commodities": [
-        {"commodity_id": "steel", "kind": "product", "unit": "t"},
-        {"commodity_id": "elec", "kind": "energy", "unit": "MWh"},
+    "flows": [
+        {"flow_id": "steel", "kind": "product", "unit": "t"},
+        {"flow_id": "elec", "kind": "energy", "unit": "MWh"},
     ],
     "technologies": [
         {

@@ -22,10 +22,10 @@ def _wb(coal_min: float, coal_max: float, coal_price: float, h2_price: float) ->
     # picks the cheaper fuel within the share bounds.
     return {
         "periods": [{"year": 2025}],
-        "commodities": [
-            {"commodity_id": "coal", "kind": "energy", "price": coal_price},
-            {"commodity_id": "h2", "kind": "energy", "price": h2_price},
-            {"commodity_id": "widget", "kind": "product"},
+        "flows": [
+            {"flow_id": "coal", "kind": "energy", "price": coal_price},
+            {"flow_id": "h2", "kind": "energy", "price": h2_price},
+            {"flow_id": "widget", "kind": "product"},
         ],
         "technologies": [{"technology_id": "T"}],
         "processes": [
@@ -58,7 +58,7 @@ def _wb(coal_min: float, coal_max: float, coal_price: float, h2_price: float) ->
                 "is_product": True,
             },
         ],
-        "demand": [{"company": "C", "commodity_id": "widget", "year": 2025, "amount": 50}],
+        "demand": [{"company": "C", "flow_id": "widget", "year": 2025, "amount": 50}],
     }
 
 
@@ -69,7 +69,7 @@ def test_blend_picks_cheapest_within_bounds() -> None:
     assert res["status"] == "optimal"
     # 80 coal × $1 + 20 h2 × $10 = 80 + 200 = 280.
     np.testing.assert_allclose(res["objective"], 280.0, rtol=1e-6)
-    comm = {(r["commodity"], r["period"]): r["consumed"] for r in res["summary"]["commodity"]}
+    comm = {(r["flow"], r["period"]): r["consumed"] for r in res["summary"]["flow"]}
     np.testing.assert_allclose(comm[("coal", 2025)], 80.0, rtol=1e-6)
     np.testing.assert_allclose(comm[("h2", 2025)], 20.0, rtol=1e-6)
 
@@ -80,7 +80,7 @@ def test_blend_min_share_forces_expensive_fuel() -> None:
     assert res["status"] == "optimal"
     # 30 coal × $10 + 70 h2 × $1 = 300 + 70 = 370.
     np.testing.assert_allclose(res["objective"], 370.0, rtol=1e-6)
-    comm = {(r["commodity"], r["period"]): r["consumed"] for r in res["summary"]["commodity"]}
+    comm = {(r["flow"], r["period"]): r["consumed"] for r in res["summary"]["flow"]}
     np.testing.assert_allclose(comm[("coal", 2025)], 30.0, rtol=1e-6)
     np.testing.assert_allclose(comm[("h2", 2025)], 70.0, rtol=1e-6)
 

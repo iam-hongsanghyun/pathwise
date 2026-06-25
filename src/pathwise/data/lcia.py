@@ -5,8 +5,8 @@ Two things turn the raw per-flow inventory into a *characterised* multi-impact L
 * **Characterisation factors (CFs)** — map an elementary-flow impact to an impact
   CATEGORY (e.g. CO₂/CH₄/N₂O → GWP). Fed to the engine via the ``characterisation``
   sheet (see :mod:`pathwise.core.build`).
-* **Background factors** — cradle-to-gate impact per unit of a *purchased* commodity
-  (grid electricity, fuels, …). Fed via the ``commodity_impacts`` sheet.
+* **Background factors** — cradle-to-gate impact per unit of a *purchased* flow
+  (grid electricity, fuels, …). Fed via the ``flow_impacts`` sheet.
 
 This module bundles a small, well-established **GWP100 (IPCC AR6)** seed and a few
 representative background factors so the layer works out of the box, and provides
@@ -69,10 +69,10 @@ METHODS: dict[str, dict[str, dict[str, float]]] = {
 
 #: Representative cradle-to-gate background factors for common purchased carriers
 #: and materials — a *seed* for demos, NOT a substitute for a real LCI database.
-#: Each inner map is ``{elementary_flow: factor per unit of the commodity}``; the
+#: Each inner map is ``{elementary_flow: factor per unit of the flow}``; the
 #: flows feed the same characterisation CFs above, so background burdens land in
 #: every category. Sources: IEA/IPCC energy factors + ecoinvent-order-of-magnitude
-#: process emissions. Keyed by a generic commodity id and a generic unit (noted
+#: process emissions. Keyed by a generic flow id and a generic unit (noted
 #: per row) — rename / rescale to the model's ids, or import a real dataset via
 #: :func:`load_background_csv`.
 BACKGROUND_SEED: dict[str, dict[str, float]] = {
@@ -107,12 +107,12 @@ def characterisation_rows(method: str = "ipcc_gwp100") -> list[dict[str, Any]]:
 
 
 def background_rows(factors: dict[str, dict[str, float]] | None = None) -> list[dict[str, Any]]:
-    """``commodity_impacts`` sheet rows from a ``{commodity: {impact: factor}}`` map
+    """``flow_impacts`` sheet rows from a ``{flow: {impact: factor}}`` map
     (defaults to the bundled :data:`BACKGROUND_SEED`)."""
     src = BACKGROUND_SEED if factors is None else factors
     return [
-        {"commodity_id": commodity, "impact_id": impact, "factor": factor}
-        for commodity, impacts in src.items()
+        {"flow_id": flow, "impact_id": impact, "factor": factor}
+        for flow, impacts in src.items()
         for impact, factor in impacts.items()
     ]
 
@@ -135,17 +135,17 @@ def load_method_csv(text: str) -> list[dict[str, Any]]:
 
 
 def load_background_csv(text: str) -> list[dict[str, Any]]:
-    """Parse an open background-factor CSV into ``commodity_impacts`` rows.
+    """Parse an open background-factor CSV into ``flow_impacts`` rows.
 
-    Columns: ``commodity_id, impact_id, factor`` — the shape an open EEIO/energy
+    Columns: ``flow_id, impact_id, factor`` — the shape an open EEIO/energy
     dataset (USEEIO / EXIOBASE / IEA) is reduced to.
     """
     out: list[dict[str, Any]] = []
     for r in csv.DictReader(io.StringIO(text)):
         row = {(k or "").strip().lower(): (v or "").strip() for k, v in r.items()}
-        c, i, fac = row.get("commodity_id"), row.get("impact_id"), row.get("factor")
+        c, i, fac = row.get("flow_id"), row.get("impact_id"), row.get("factor")
         if c and i and fac:
-            out.append({"commodity_id": c, "impact_id": i, "factor": float(fac)})
+            out.append({"flow_id": c, "impact_id": i, "factor": float(fac)})
     return out
 
 
@@ -165,5 +165,5 @@ def apply_lcia(
     if characterisation:
         wb["characterisation"] = [*wb.get("characterisation", []), *characterisation]
     if background:
-        wb["commodity_impacts"] = [*wb.get("commodity_impacts", []), *background]
+        wb["flow_impacts"] = [*wb.get("flow_impacts", []), *background]
     return wb

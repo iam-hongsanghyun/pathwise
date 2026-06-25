@@ -9,7 +9,7 @@ from pathwise.backends.overrides import OverrideError, apply_overrides
 
 def _model() -> dict:
     return {
-        "commodities": [{"commodity_id": "ore", "price": 10}],
+        "flows": [{"flow_id": "ore", "price": 10}],
         "technologies": [{"technology_id": "A"}, {"technology_id": "B"}],
         "assets": [{"asset_id": "m1", "baseline_technology": "A"}],
         "impact_prices": [{"impact_id": "CO2", "year": 2025, "price": 0}],
@@ -37,14 +37,12 @@ def test_set_asset_tech_rejects_unknown() -> None:
 
 
 def test_set_price_static_and_year() -> None:
-    out = apply_overrides(_model(), [{"op": "set_price", "commodity": "ore", "price": 2}])
-    assert out["commodities"][0]["price"] == 2.0
+    out = apply_overrides(_model(), [{"op": "set_price", "flow": "ore", "price": 2}])
+    assert out["flows"][0]["price"] == 2.0
 
-    out = apply_overrides(
-        _model(), [{"op": "set_price", "commodity": "ore", "price": 7, "year": 2030}]
-    )
-    assert out["commodities"][0]["price"] == 10  # static price untouched
-    assert {"year": 2030, "ore": 7.0} in out["commodities_t__price"]
+    out = apply_overrides(_model(), [{"op": "set_price", "flow": "ore", "price": 7, "year": 2030}])
+    assert out["flows"][0]["price"] == 10  # static price untouched
+    assert {"year": 2030, "ore": 7.0} in out["flows_t__price"]
 
 
 def test_set_carbon_price_static_fills_every_year() -> None:
@@ -82,7 +80,7 @@ def test_unknown_op_raises() -> None:
 
 def _value_model() -> dict:
     return {
-        "commodities": [{"commodity_id": "ore", "price": 10, "max_purchase": 1000}],
+        "flows": [{"flow_id": "ore", "price": 10, "max_purchase": 1000}],
         "technologies": [{"technology_id": "A", "capex": 100, "opex": 5}],
         "io": [
             {"technology_id": "A", "target": "ore", "role": "input", "coefficient": 2.0},
@@ -115,7 +113,7 @@ def test_set_tech_cost_rejects_bad_field() -> None:
 
 def test_set_io_coef_static_and_year() -> None:
     out = apply_overrides(
-        _value_model(), [{"op": "set_io_coef", "technology": "A", "commodity": "ore", "value": 1.5}]
+        _value_model(), [{"op": "set_io_coef", "technology": "A", "flow": "ore", "value": 1.5}]
     )
     ore_in = next(r for r in out["io"] if r["target"] == "ore")
     assert ore_in["coefficient"] == 1.5
@@ -124,7 +122,7 @@ def test_set_io_coef_static_and_year() -> None:
 
     out = apply_overrides(
         _value_model(),
-        [{"op": "set_io_coef", "technology": "A", "commodity": "ore", "value": 1.2, "year": 2035}],
+        [{"op": "set_io_coef", "technology": "A", "flow": "ore", "value": 1.2, "year": 2035}],
     )
     assert (
         next(r for r in out["io"] if r["target"] == "ore")["coefficient"] == 2.0
@@ -142,36 +140,36 @@ def test_set_io_coef_rejects_missing_row() -> None:
     with pytest.raises(OverrideError, match="io row"):
         apply_overrides(
             _value_model(),
-            [{"op": "set_io_coef", "technology": "A", "commodity": "nope", "value": 1}],
+            [{"op": "set_io_coef", "technology": "A", "flow": "nope", "value": 1}],
         )
 
 
 def test_set_stream_cap_max_purchase_and_availability() -> None:
     out = apply_overrides(
         _value_model(),
-        [{"op": "set_stream_cap", "commodity": "ore", "field": "max_purchase", "value": 50}],
+        [{"op": "set_stream_cap", "flow": "ore", "field": "max_purchase", "value": 50}],
     )
-    assert out["commodities"][0]["max_purchase"] == 50.0
+    assert out["flows"][0]["max_purchase"] == 50.0
 
     out = apply_overrides(
         _value_model(),
         [
             {
                 "op": "set_stream_cap",
-                "commodity": "ore",
+                "flow": "ore",
                 "field": "max_purchase",
                 "value": 40,
                 "year": 2040,
             }
         ],
     )
-    assert {"year": 2040, "ore": 40.0} in out["commodities_t__max_purchase"]
+    assert {"year": 2040, "ore": 40.0} in out["flows_t__max_purchase"]
 
     out = apply_overrides(
         _value_model(),
-        [{"op": "set_stream_cap", "commodity": "ore", "field": "available_from", "value": 2032}],
+        [{"op": "set_stream_cap", "flow": "ore", "field": "available_from", "value": 2032}],
     )
-    assert out["commodities"][0]["available_from"] == 2032  # int
+    assert out["flows"][0]["available_from"] == 2032  # int
 
 
 def test_value_edits_do_not_mutate_input() -> None:

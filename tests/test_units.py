@@ -37,7 +37,7 @@ def test_universal_conversion() -> None:
 
 def test_incompatible_conversion_raises() -> None:
     with pytest.raises(ValueError):
-        units.convert(1.0, "t", "GJ")  # mass ↔ energy needs a commodity factor
+        units.convert(1.0, "t", "GJ")  # mass ↔ energy needs a flow factor
 
 
 def test_dimension_classification() -> None:

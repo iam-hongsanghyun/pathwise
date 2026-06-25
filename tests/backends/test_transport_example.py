@@ -3,7 +3,7 @@ cheapest source and reroutes when a carbon price crosses the breakeven.
 
 Guards the headline behaviour: transport-as-process (freight opex + per-tonne
 transport CO2 + per-source production background + annual capacity) yields a
-min-cost multi-commodity sourcing decision, and a CO2 price flips it from the
+min-cost multi-flow sourcing decision, and a CO2 price flips it from the
 cheap-but-dirty coal route (China) to the cleaner US route. Annual resolution.
 """
 

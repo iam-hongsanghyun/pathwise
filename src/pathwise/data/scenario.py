@@ -33,7 +33,7 @@ class CostComponents(BaseModel):
     capex: bool = True
     renewal: bool = True
     opex: bool = True
-    commodity_cost: bool = True
+    flow_cost: bool = True
     impact_price: bool = True
     lever_capex: bool = True
 

@@ -22,13 +22,13 @@ YEARS = [2025, 2030, 2035, 2040, 2045, 2050]
 def steel_workbook() -> dict:
     return {
         "periods": [{"year": y, "duration_years": 5} for y in YEARS],
-        "commodities": [
-            {"commodity_id": "coal", "kind": "energy", "unit": "t", "price": 40},
-            {"commodity_id": "ore", "kind": "material", "unit": "t", "price": 100},
-            {"commodity_id": "elec", "kind": "energy", "unit": "MWh", "price": 70},
-            {"commodity_id": "h2", "kind": "energy", "unit": "t", "price": 200},
-            {"commodity_id": "iron", "kind": "material", "unit": "t"},
-            {"commodity_id": "steel", "kind": "product", "unit": "t"},
+        "flows": [
+            {"flow_id": "coal", "kind": "energy", "unit": "t", "price": 40},
+            {"flow_id": "ore", "kind": "material", "unit": "t", "price": 100},
+            {"flow_id": "elec", "kind": "energy", "unit": "MWh", "price": 70},
+            {"flow_id": "h2", "kind": "energy", "unit": "t", "price": 200},
+            {"flow_id": "iron", "kind": "material", "unit": "t"},
+            {"flow_id": "steel", "kind": "product", "unit": "t"},
         ],
         "impacts": [{"impact_id": "CO2", "unit": "tCO2e"}],
         "technologies": [
@@ -71,11 +71,11 @@ def steel_workbook() -> dict:
                 "is_product": True,
             },
         ],
-        "commodity_impacts": [
-            {"commodity_id": "coal", "impact_id": "CO2", "factor": 0.3},
-            {"commodity_id": "elec", "impact_id": "CO2", "factor": 0.2},
+        "flow_impacts": [
+            {"flow_id": "coal", "impact_id": "CO2", "factor": 0.3},
+            {"flow_id": "elec", "impact_id": "CO2", "factor": 0.2},
         ],
-        "edges": [{"from_process": "IRON", "to_process": "STEEL", "commodity_id": "iron"}],
+        "edges": [{"from_process": "IRON", "to_process": "STEEL", "flow_id": "iron"}],
         "transitions": [
             {
                 "from_technology": "BF",
@@ -89,7 +89,7 @@ def steel_workbook() -> dict:
             {
                 "market_id": "HBI",
                 "target": "iron",
-                "target_kind": "commodity",
+                "target_kind": "flow",
                 "price": 520,
                 "tag": "imported",
             },
@@ -102,7 +102,7 @@ def steel_workbook() -> dict:
             },
         ],
         # H2 gets cheaper; the ETS price climbs steeply — both push off coal.
-        "commodities_t__price": [
+        "flows_t__price": [
             {"year": 2025, "h2": 200},
             {"year": 2050, "h2": 60},
         ],
@@ -111,8 +111,7 @@ def steel_workbook() -> dict:
             {"year": 2050, "ETS": 260},
         ],
         "demand": [
-            {"company": "Steelco", "commodity_id": "steel", "year": y, "amount": 1000}
-            for y in YEARS
+            {"company": "Steelco", "flow_id": "steel", "year": y, "amount": 1000} for y in YEARS
         ],
     }
 
@@ -138,9 +137,9 @@ def test_steel_pathway_solves_and_decarbonises() -> None:
     switched_2050 = tech.get(("IRON", 2050)) == "H2DRI"
     assert switched_2050 or bought_iron_2050
 
-    # Per-year cost + commodity consumption series are populated for analytics.
+    # Per-year cost + flow consumption series are populated for analytics.
     assert all("cost" in p for p in res["summary"]["periods"])
-    assert any(s["commodity"] == "coal" and s["consumed"] > 0 for s in res["summary"]["commodity"])
+    assert any(s["flow"] == "coal" and s["consumed"] > 0 for s in res["summary"]["flow"])
 
 
 def test_steel_emissions_fall_by_2050() -> None:

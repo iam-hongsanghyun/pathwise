@@ -20,7 +20,7 @@ def _wb(cap: int | None) -> dict:
     # can only happen in 2030 — hence two periods.)
     wb = {
         "periods": [{"year": y, "duration_years": 1} for y in YEARS],
-        "commodities": [{"commodity_id": "widget", "kind": "product", "unit": "t"}],
+        "flows": [{"flow_id": "widget", "kind": "product", "unit": "t"}],
         "impacts": [{"impact_id": "CO2", "unit": "tCO2e"}],
         "technologies": [
             {"technology_id": "B", "actions": "continue,replace"},
@@ -57,9 +57,7 @@ def _wb(cap: int | None) -> dict:
         ],
         "impact_prices": [{"impact_id": "CO2", "year": y, "price": 1000} for y in YEARS],
         # 200 total forces BOTH facilities (capacity 100 each) to run every year.
-        "demand": [
-            {"company": "C", "commodity_id": "widget", "year": y, "amount": 200} for y in YEARS
-        ],
+        "demand": [{"company": "C", "flow_id": "widget", "year": y, "amount": 200} for y in YEARS],
     }
     if cap is not None:
         wb["technology_caps"] = [{"technology_id": "G", "max_count": cap}]

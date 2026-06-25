@@ -26,9 +26,9 @@ def _wb(cap: float, soft: bool | None, penalty: float | None) -> dict:
         row["penalty"] = penalty
     return {
         "periods": [{"year": 2025}],
-        "commodities": [
-            {"commodity_id": "gas", "kind": "energy", "price": 0},
-            {"commodity_id": "widget", "kind": "product"},
+        "flows": [
+            {"flow_id": "gas", "kind": "energy", "price": 0},
+            {"flow_id": "widget", "kind": "product"},
         ],
         "impacts": [{"impact_id": "CO2"}],
         "technologies": [{"technology_id": "T"}],
@@ -45,9 +45,9 @@ def _wb(cap: float, soft: bool | None, penalty: float | None) -> dict:
                 "is_product": True,
             },
         ],
-        "commodity_impacts": [{"commodity_id": "gas", "impact_id": "CO2", "factor": 1}],
+        "flow_impacts": [{"flow_id": "gas", "impact_id": "CO2", "factor": 1}],
         "impact_caps": [row],
-        "demand": [{"company": "C", "commodity_id": "widget", "year": 2025, "amount": 100}],
+        "demand": [{"company": "C", "flow_id": "widget", "year": 2025, "amount": 100}],
     }
 
 
@@ -79,9 +79,9 @@ def test_system_scope_pools_soft_per_impact_not_globally() -> None:
     """
     wb = {
         "periods": [{"year": 2025}],
-        "commodities": [
-            {"commodity_id": "gas", "kind": "energy", "price": 0},
-            {"commodity_id": "widget", "kind": "product"},
+        "flows": [
+            {"flow_id": "gas", "kind": "energy", "price": 0},
+            {"flow_id": "widget", "kind": "product"},
         ],
         "impacts": [{"impact_id": "CO2"}, {"impact_id": "NOx"}],
         "technologies": [{"technology_id": "T"}],
@@ -111,7 +111,7 @@ def test_system_scope_pools_soft_per_impact_not_globally() -> None:
                 "penalty": 5,
             },
         ],
-        "demand": [{"company": "C", "commodity_id": "widget", "year": 2025, "amount": 100}],
+        "demand": [{"company": "C", "flow_id": "widget", "year": 2025, "amount": 100}],
     }
     sc = ScenarioConfig.from_dict(
         {"economics": {"base_year": 2025, "discount_rate": 0.0}, "optimisation_scope": "system"}

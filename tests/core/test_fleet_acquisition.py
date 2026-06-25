@@ -42,9 +42,9 @@ def _wb(
         fleet["max_build"] = max_build
     return {
         "periods": [{"year": y} for y in years],
-        "commodities": [
-            {"commodity_id": "cargo_kr", "kind": "material", "unit": "kt", "price": 0.0},
-            {"commodity_id": "cargo_a", "kind": "product", "unit": "kt"},
+        "flows": [
+            {"flow_id": "cargo_kr", "kind": "material", "unit": "kt", "price": 0.0},
+            {"flow_id": "cargo_a", "kind": "product", "unit": "kt"},
         ],
         "technologies": [{"technology_id": "route_a", "opex": 1}],
         "io": [
@@ -68,8 +68,7 @@ def _wb(
         "fleet": [fleet],
         "fleet_routes": [{"process": "pA", "fleet_id": "ship", "share": 100.0}],
         "demand": [
-            {"company": "carrier", "commodity_id": "cargo_a", "year": y, "amount": demand}
-            for y in years
+            {"company": "carrier", "flow_id": "cargo_a", "year": y, "amount": demand} for y in years
         ],
     }
 

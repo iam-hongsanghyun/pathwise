@@ -17,7 +17,7 @@ def _wb(max_cap: float | None) -> dict:
     """One plant that can make up to 1000 t steel; demand pulls 100 t."""
     wb: dict = {
         "periods": [{"year": 2025}],
-        "commodities": [{"commodity_id": "steel", "kind": "product"}],
+        "flows": [{"flow_id": "steel", "kind": "product"}],
         "technologies": [{"technology_id": "EAF", "opex": 1.0}],
         "processes": [
             {"process_id": "P", "company": "C", "baseline_technology": "EAF", "capacity": 1000}
@@ -31,17 +31,17 @@ def _wb(max_cap: float | None) -> dict:
                 "is_product": True,
             }
         ],
-        "demand": [{"company": "C", "commodity_id": "steel", "year": 2025, "amount": 100.0}],
+        "demand": [{"company": "C", "flow_id": "steel", "year": 2025, "amount": 100.0}],
     }
     if max_cap is not None:
         wb["max_production"] = [
-            {"company": "C", "commodity_id": "steel", "year": 2025, "amount": max_cap}
+            {"company": "C", "flow_id": "steel", "year": 2025, "amount": max_cap}
         ]
     return wb
 
 
-def _produced(res: dict, commodity: str) -> float:
-    return sum(s["produced"] for s in res["summary"]["commodity"] if s["commodity"] == commodity)
+def _produced(res: dict, flow: str) -> float:
+    return sum(s["produced"] for s in res["summary"]["flow"] if s["flow"] == flow)
 
 
 def _solve(wb: dict) -> dict:

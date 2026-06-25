@@ -37,11 +37,11 @@ def _flat_wb() -> dict[str, Any]:
             {"year": 2025, "duration_years": 1},
             {"year": 2030, "duration_years": 1},
         ],
-        "commodities": [
-            {"commodity_id": "gas", "kind": "energy", "price": 10},
-            {"commodity_id": "gas2", "kind": "energy", "price": 100},
-            {"commodity_id": "elec", "kind": "energy"},
-            {"commodity_id": "steel", "kind": "product"},
+        "flows": [
+            {"flow_id": "gas", "kind": "energy", "price": 10},
+            {"flow_id": "gas2", "kind": "energy", "price": 100},
+            {"flow_id": "elec", "kind": "energy"},
+            {"flow_id": "steel", "kind": "product"},
         ],
         "technologies": [
             {"technology_id": "PT"},
@@ -54,20 +54,20 @@ def _flat_wb() -> dict[str, Any]:
             {"process_id": "C", "company": "X", "baseline_technology": "CT", "capacity": 1000},
         ],
         "process_inputs": [
-            {"technology_id": "PT", "commodity_id": "gas", "intensity": 1.0},
-            {"technology_id": "PT2", "commodity_id": "gas2", "intensity": 1.0},
-            {"technology_id": "CT", "commodity_id": "elec", "intensity": 1.0},
+            {"technology_id": "PT", "flow_id": "gas", "intensity": 1.0},
+            {"technology_id": "PT2", "flow_id": "gas2", "intensity": 1.0},
+            {"technology_id": "CT", "flow_id": "elec", "intensity": 1.0},
         ],
         "process_outputs": [
-            {"technology_id": "PT", "commodity_id": "elec", "yield": 1.0},
-            {"technology_id": "PT2", "commodity_id": "elec", "yield": 1.0},
-            {"technology_id": "CT", "commodity_id": "steel", "yield": 1.0, "is_product": True},
+            {"technology_id": "PT", "flow_id": "elec", "yield": 1.0},
+            {"technology_id": "PT2", "flow_id": "elec", "yield": 1.0},
+            {"technology_id": "CT", "flow_id": "steel", "yield": 1.0, "is_product": True},
         ],
         "edges": [
-            {"from_process": "P1", "to_process": "C", "commodity_id": "elec"},
-            {"from_process": "P2", "to_process": "C", "commodity_id": "elec"},
+            {"from_process": "P1", "to_process": "C", "flow_id": "elec"},
+            {"from_process": "P2", "to_process": "C", "flow_id": "elec"},
         ],
-        "demand": [{"company": "all", "commodity_id": "steel", "amount": 100}],
+        "demand": [{"company": "all", "flow_id": "steel", "amount": 100}],
     }
 
 
@@ -87,14 +87,14 @@ def test_flat_edges_t_min_flow_varies_by_year() -> None:
         {
             "from_process": "P2",
             "to_process": "C",
-            "commodity_id": "elec",
+            "flow_id": "elec",
             "year": 2025,
             "min_flow": 0,
         },
         {
             "from_process": "P2",
             "to_process": "C",
-            "commodity_id": "elec",
+            "flow_id": "elec",
             "year": 2030,
             "min_flow": 40,
         },
@@ -140,21 +140,21 @@ def _hier_wb() -> dict[str, Any]:
                 "is_product": True,
             },
         ],
-        "commodities": [
-            {"commodity_id": "gas", "kind": "energy", "price": 10},
-            {"commodity_id": "gas2", "kind": "energy", "price": 100},
-            {"commodity_id": "elec", "kind": "energy"},
-            {"commodity_id": "steel", "kind": "product"},
+        "flows": [
+            {"flow_id": "gas", "kind": "energy", "price": 10},
+            {"flow_id": "gas2", "kind": "energy", "price": 100},
+            {"flow_id": "elec", "kind": "energy"},
+            {"flow_id": "steel", "kind": "product"},
         ],
-        "connections": [
-            {"from_node": "co/p1", "to_node": "co/c", "commodity_id": "elec"},
-            {"from_node": "co/p2", "to_node": "co/c", "commodity_id": "elec"},
+        "links": [
+            {"from_node": "co/p1", "to_node": "co/c", "flow_id": "elec"},
+            {"from_node": "co/p2", "to_node": "co/c", "flow_id": "elec"},
         ],
         "periods": [
             {"year": 2025, "duration_years": 1},
             {"year": 2030, "duration_years": 1},
         ],
-        "demand": [{"company": "all", "commodity_id": "steel", "amount": 100}],
+        "demand": [{"company": "all", "flow_id": "steel", "amount": 100}],
     }
 
 
@@ -167,18 +167,18 @@ def test_hierarchy_baseline_uses_cheap_provider_every_year() -> None:
 def test_hierarchy_connections_t_min_flow_varies_by_year() -> None:
     wb = _hier_wb()
     # A take-or-pay floor on the dear provider's link: none in 2025, 40 in 2030.
-    wb["connections_t"] = [
+    wb["links_t"] = [
         {
             "from_node": "co/p2",
             "to_node": "co/c",
-            "commodity_id": "elec",
+            "flow_id": "elec",
             "year": 2025,
             "min_flow": 0,
         },
         {
             "from_node": "co/p2",
             "to_node": "co/c",
-            "commodity_id": "elec",
+            "flow_id": "elec",
             "year": 2030,
             "min_flow": 40,
         },
@@ -193,18 +193,18 @@ def test_hierarchy_connections_t_max_flow_varies_by_year() -> None:
     wb = _hier_wb()
     # Cap the cheap provider's link at 30 in 2030 (1000 = no real cap in 2025)
     # ⇒ 70 forced through the dear provider in 2030 only.
-    wb["connections_t"] = [
+    wb["links_t"] = [
         {
             "from_node": "co/p1",
             "to_node": "co/c",
-            "commodity_id": "elec",
+            "flow_id": "elec",
             "year": 2025,
             "max_flow": 1000,
         },
         {
             "from_node": "co/p1",
             "to_node": "co/c",
-            "commodity_id": "elec",
+            "flow_id": "elec",
             "year": 2030,
             "max_flow": 30,
         },

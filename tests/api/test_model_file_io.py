@@ -23,6 +23,7 @@ from pathwise.api.workbook_io import (
     write_xlsx,
 )
 from pathwise.backends.registry import get_backend
+from pathwise.data.aliases import normalize_workbook
 from pathwise.data.schema import template_columns
 
 _SC = {
@@ -35,8 +36,10 @@ _SC = {
 
 
 def _methanol() -> dict[str, Any]:
-    return parse_sqlite(
-        (files("pathwise.assets.examples") / "transport_methanol.sqlite").read_bytes()
+    # The bundled .sqlite predates the rename (old sheet/column names); normalise to
+    # the current vocabulary, matching how the app loads it (the session store does).
+    return normalize_workbook(
+        parse_sqlite((files("pathwise.assets.examples") / "transport_methanol.sqlite").read_bytes())
     )
 
 
@@ -50,7 +53,7 @@ def test_xlsx_roundtrip_solves_identically() -> None:
     base = _methanol()
     rt = parse_xlsx(write_xlsx(base))
     # The market + impact sheets survive the spreadsheet round-trip.
-    assert {"markets", "io", "impacts", "commodities"} <= set(rt)
+    assert {"markets", "io", "impacts", "flows"} <= set(rt)
     np.testing.assert_allclose(_objective(rt), _objective(base), rtol=1e-9)
 
 
@@ -87,7 +90,7 @@ def test_blank_template_has_entity_and_temporal_tabs_with_headers() -> None:
     cols = template_columns()
     frames = pd.read_excel(io.BytesIO(write_template_xlsx(cols)), sheet_name=None)
     # Each entity is its own tab.
-    for sheet in ["technologies", "levers", "commodities", "markets", "io", "impacts", "demand"]:
+    for sheet in ["technologies", "levers", "flows", "markets", "io", "impacts", "demand"]:
         assert sheet in frames, f"missing entity tab {sheet}"
     # Temporal data lives in _t / _t__field tabs.
     assert "io_t" in frames and "markets_t__price" in frames

@@ -39,7 +39,7 @@ export function scopeOptions(wb: Workbook): ScopeOption[] {
 export function productIds(wb: Workbook): string[] {
   const out = new Set<string>();
   for (const r of wb.io ?? []) if (s(r.role) === "output" && r.is_product) out.add(s(r.target));
-  for (const c of wb.commodities ?? []) if (s(c.kind) === "product") out.add(s(c.commodity_id));
+  for (const c of wb.flows ?? []) if (s(c.kind) === "product") out.add(s(c.flow_id));
   return [...out].filter(Boolean);
 }
 
@@ -55,8 +55,8 @@ const IMPACT_ID_SHEETS = [
   "tech_impacts",
   "process_impacts",
   "process_impacts_t",
-  "commodity_impacts",
-  "commodity_impacts_t",
+  "flow_impacts",
+  "flow_impacts_t",
   "link_impacts",
   "edge_impacts",
   "impact_caps",

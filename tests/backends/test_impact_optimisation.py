@@ -18,9 +18,9 @@ _SCENARIO = {"economics": {"base_year": 2025, "discount_rate": 0.0}}
 def _dirty_clean() -> dict:
     return {
         "periods": [{"year": 2025, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "feed", "kind": "material", "unit": "t", "price": 1},
-            {"commodity_id": "widget", "kind": "product", "unit": "ea"},
+        "flows": [
+            {"flow_id": "feed", "kind": "material", "unit": "t", "price": 1},
+            {"flow_id": "widget", "kind": "product", "unit": "ea"},
         ],
         "impacts": [{"impact_id": "CO2", "unit": "tCO2"}, {"impact_id": "GWP", "unit": "tCO2e"}],
         "characterisation": [{"flow_impact_id": "CO2", "category_id": "GWP", "factor": 1.0}],
@@ -57,7 +57,7 @@ def _dirty_clean() -> dict:
             },
             {"technology_id": "Clean", "target": "CO2", "role": "impact", "coefficient": 0.5},
         ],
-        "demand": [{"company": "co", "commodity_id": "widget", "year": 2025, "amount": 100}],
+        "demand": [{"company": "co", "flow_id": "widget", "year": 2025, "amount": 100}],
     }
 
 

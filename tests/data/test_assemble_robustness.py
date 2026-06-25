@@ -17,7 +17,7 @@ def _sc() -> ScenarioConfig:
 def _wb(periods: list[dict]) -> dict:
     return {
         "periods": periods,
-        "commodities": [{"commodity_id": "p", "kind": "product"}],
+        "flows": [{"flow_id": "p", "kind": "product"}],
         "technologies": [{"technology_id": "T"}],
         "processes": [
             {"process_id": "P", "company": "C", "baseline_technology": "T", "capacity": 10}

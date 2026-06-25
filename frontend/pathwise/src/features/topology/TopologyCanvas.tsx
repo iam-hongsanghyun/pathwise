@@ -19,7 +19,7 @@ const NODE_H = 56;
 
 const SHEET_OF: Record<NodeKind, { sheet: string; idCol: string }> = {
   process: { sheet: "processes", idCol: "process_id" },
-  commodity: { sheet: "commodities", idCol: "commodity_id" },
+  flow: { sheet: "flows", idCol: "flow_id" },
   market: { sheet: "markets", idCol: "market_id" },
   storage: { sheet: "storage", idCol: "storage_id" },
 };
@@ -345,7 +345,7 @@ export function TopologyCanvas({
                   Add transition technology…
                 </button>
               )}
-              {(menu.nodeId.startsWith("process:") || menu.nodeId.startsWith("commodity:")) &&
+              {(menu.nodeId.startsWith("process:") || menu.nodeId.startsWith("flow:")) &&
                 onAddLever && (
                   <button
                     onClick={() => {

@@ -36,24 +36,24 @@ def _wb(*, suez_toll: float = 0.0) -> dict[str, Any]:
     return {
         "meta": [{"key": "base_year", "value": 2025}],
         "periods": [{"year": 2025}],
-        "commodities": [
+        "flows": [
             {
-                "commodity_id": "cargo",
+                "flow_id": "cargo",
                 "kind": "material",
                 "unit": "kt",
                 "purchasable": 0,
                 "sellable": 0,
             },
-            {"commodity_id": "prod", "kind": "product", "unit": "kt"},
+            {"flow_id": "prod", "kind": "product", "unit": "kt"},
             {
-                "commodity_id": "hfo",
+                "flow_id": "hfo",
                 "kind": "energy",
                 "unit": "t",
                 "price": 0.0,
             },  # free fuel: isolate the toll
         ],
         "impacts": [{"impact_id": "co2", "unit": "t"}],
-        "commodity_impacts": [{"commodity_id": "hfo", "impact_id": "co2", "factor": 0.0}],
+        "flow_impacts": [{"flow_id": "hfo", "impact_id": "co2", "factor": 0.0}],
         "technologies": [
             # A small make cost pins delivery to exactly demand (no free overproduction),
             # so the only thing that changes between the runs is the toll.
@@ -110,13 +110,13 @@ def _wb(*, suez_toll: float = 0.0) -> dict[str, Any]:
             {"asset_id": "vc/kr/plant", "baseline_technology": "make", "capacity": 1e7},
             {"asset_id": "vc/eu/term", "baseline_technology": "deliver", "capacity": 1e7},
         ],
-        "connections": [{"from_node": "vc/kr", "to_node": "vc/eu", "commodity_id": "cargo"}],
+        "links": [{"from_node": "vc/kr", "to_node": "vc/eu", "flow_id": "cargo"}],
         "routes": [
             {
                 "process": "rt",
                 "from_node": "vc/kr",
                 "to_node": "vc/eu",
-                "commodity": "cargo",
+                "flow": "cargo",
                 "mode": "sea",
                 "distance": 20000.0,
             },
@@ -135,7 +135,7 @@ def _wb(*, suez_toll: float = 0.0) -> dict[str, Any]:
         "fleet_routes": [{"process": "rt", "fleet_id": "ship"}],
         "fleet_groups": [{"group_id": "c", "label": "Carrier", "level": "company"}],
         "corridors": [{"corridor": "suez", "toll": suez_toll}],
-        "demand": [{"company": "vc/eu", "commodity_id": "prod", "year": 2025, "amount": _DEMAND}],
+        "demand": [{"company": "vc/eu", "flow_id": "prod", "year": 2025, "amount": _DEMAND}],
     }
 
 

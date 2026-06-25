@@ -50,7 +50,7 @@ export function setProjectUnitRows(wb: Workbook, rows: UnitRow[]): Workbook {
   return { ...wb, units: out };
 }
 
-/** Units the model references today — commodity / impact / io-coefficient units
+/** Units the model references today — flow / impact / io-coefficient units
  *  plus the model currency. The set the registry must cover so nothing breaks. */
 export function usedUnits(wb: Workbook): string[] {
   const out = new Set<string>();
@@ -58,7 +58,7 @@ export function usedUnits(wb: Workbook): string[] {
     const u = s(v);
     if (u) out.add(u);
   };
-  for (const r of wb.commodities ?? []) add(r.unit);
+  for (const r of wb.flows ?? []) add(r.unit);
   for (const r of wb.impacts ?? []) add(r.unit);
   for (const r of wb.io ?? []) if (s(r.role) === "impact" || r.unit != null) add(r.unit);
   const cur = (wb.meta ?? []).find((r) => s(r.key) === "currency");

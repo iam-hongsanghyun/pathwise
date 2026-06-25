@@ -1,8 +1,8 @@
 """Layer 1c: a fleet burns fuel ∝ efficiency × route distance.
 
-The transport process consumes its fleet's fuel commodity at ``efficiency ×
+The transport process consumes its fleet's fuel flow at ``efficiency ×
 distance`` per unit cargo, so a longer route costs more fuel and emits more — via
-the fuel's own price and ``commodity_impacts``, with no privileged fuel or impact.
+the fuel's own price and ``flow_impacts``, with no privileged fuel or impact.
 """
 
 from __future__ import annotations
@@ -21,13 +21,13 @@ def _wb_fuel(distance: float, efficiency: float = 0.01) -> dict[str, Any]:
     """One lane; the ship's capacity is left huge so only the FUEL scales with distance."""
     return {
         "periods": [{"year": 2025}],
-        "commodities": [
-            {"commodity_id": "cargo_kr", "kind": "material", "unit": "kt", "price": 0.0},
-            {"commodity_id": "cargo_a", "kind": "product", "unit": "kt"},
-            {"commodity_id": "bunker", "kind": "energy", "unit": "t", "price": 1.0},
+        "flows": [
+            {"flow_id": "cargo_kr", "kind": "material", "unit": "kt", "price": 0.0},
+            {"flow_id": "cargo_a", "kind": "product", "unit": "kt"},
+            {"flow_id": "bunker", "kind": "energy", "unit": "t", "price": 1.0},
         ],
         "impacts": [{"impact_id": "co2", "unit": "t"}],
-        "commodity_impacts": [{"commodity_id": "bunker", "impact_id": "co2", "factor": 3.0}],
+        "flow_impacts": [{"flow_id": "bunker", "impact_id": "co2", "factor": 3.0}],
         "technologies": [{"technology_id": "route_a", "opex": 0}],
         "io": [
             {"technology_id": "route_a", "target": "cargo_kr", "role": "input", "coefficient": 1},
@@ -62,9 +62,7 @@ def _wb_fuel(distance: float, efficiency: float = 0.01) -> dict[str, Any]:
         ],
         "routes": [{"process": "pA", "mode": "sea", "distance": distance}],
         "fleet_routes": [{"process": "pA", "fleet_id": "ship"}],
-        "demand": [
-            {"company": "carrier", "commodity_id": "cargo_a", "year": 2025, "amount": 100.0}
-        ],
+        "demand": [{"company": "carrier", "flow_id": "cargo_a", "year": 2025, "amount": 100.0}],
     }
 
 

@@ -29,10 +29,10 @@ SC = ScenarioConfig.from_dict({"economics": {"base_year": 2025, "discount_rate":
 def _library() -> ComponentLibrary:
     return ComponentLibrary.model_validate(
         {
-            "commodities": [
-                {"commodity_id": "power", "kind": "energy", "price": 1.0},
-                {"commodity_id": "iron", "kind": "material"},
-                {"commodity_id": "steel", "kind": "product"},
+            "flows": [
+                {"flow_id": "power", "kind": "energy", "price": 1.0},
+                {"flow_id": "iron", "kind": "material"},
+                {"flow_id": "steel", "kind": "product"},
             ],
             "technologies": [
                 {
@@ -59,7 +59,7 @@ def _library() -> ComponentLibrary:
                     "name": "mill",
                     "level": "facility",
                     "children": [{"component": "bf"}, {"component": "bof"}],
-                    "connections": [{"source": "bf", "target": "bof", "commodity": "iron"}],
+                    "links": [{"source": "bf", "target": "bof", "flow": "iron"}],
                 },
                 {
                     "name": "co",
@@ -77,8 +77,8 @@ def test_instantiate_builds_path_qualified_instance_tree() -> None:
     assert ids == {"co", "co/m1", "co/m1/bf", "co/m1/bof"}
     assert {m["asset_id"] for m in wb["assets"]} == {"co/m1/bf", "co/m1/bof"}
     # the group's internal connection is stamped between the child instances.
-    conn = wb["connections"][0]
-    assert (conn["from_node"], conn["to_node"], conn["commodity_id"]) == (
+    conn = wb["links"][0]
+    assert (conn["from_node"], conn["to_node"], conn["flow_id"]) == (
         "co/m1/bf",
         "co/m1/bof",
         "iron",
@@ -88,10 +88,10 @@ def test_instantiate_builds_path_qualified_instance_tree() -> None:
 def test_instantiated_workbook_solves() -> None:
     wb = instantiate(_library(), "co")
     wb["periods"] = [{"year": 2025, "duration_years": 1}]
-    wb["demand"] = [{"company": "all", "commodity_id": "steel", "year": 2025, "amount": 80}]
+    wb["demand"] = [{"company": "all", "flow_id": "steel", "year": 2025, "amount": 80}]
     res = run_model(wb, SC)
     assert res["status"] == "optimal"
-    produced = {r["commodity"]: r["produced"] for r in res["summary"]["commodity"]}
+    produced = {r["flow"]: r["produced"] for r in res["summary"]["flow"]}
     assert produced.get("steel") == pytest.approx(80.0)
 
 
@@ -105,7 +105,7 @@ def test_a_component_can_be_reused_as_distinct_instances() -> None:
     ids = {n["node_id"] for n in wb["nodes"]}
     assert {"co/m1/bf", "co/m1/bof", "co/m2/bf", "co/m2/bof"} <= ids
     wb["periods"] = [{"year": 2025, "duration_years": 1}]
-    wb["demand"] = [{"company": "all", "commodity_id": "steel", "year": 2025, "amount": 150}]
+    wb["demand"] = [{"company": "all", "flow_id": "steel", "year": 2025, "amount": 150}]
     res = run_model(wb, SC)
     assert res["status"] == "optimal" and not res["outputs"]["demand_slack"]
 
@@ -143,9 +143,9 @@ def test_instantiate_stamps_a_machines_technology_macc() -> None:
     # a asset with NO embedded levers, but a technology that links a MACC
     lib = ComponentLibrary.model_validate(
         {
-            "commodities": [
-                {"commodity_id": "power", "kind": "energy", "price": 1.0},
-                {"commodity_id": "steel", "kind": "product"},
+            "flows": [
+                {"flow_id": "power", "kind": "energy", "price": 1.0},
+                {"flow_id": "steel", "kind": "product"},
             ],
             "technologies": [
                 {
@@ -177,9 +177,9 @@ def test_instantiate_stamps_a_machines_technology_macc() -> None:
 def test_place_technology_makes_a_asset_with_its_macc() -> None:
     lib = ComponentLibrary.model_validate(
         {
-            "commodities": [
-                {"commodity_id": "power", "kind": "energy", "price": 1.0},
-                {"commodity_id": "steel", "kind": "product"},
+            "flows": [
+                {"flow_id": "power", "kind": "energy", "price": 1.0},
+                {"flow_id": "steel", "kind": "product"},
             ],
             "technologies": [
                 {
@@ -215,7 +215,7 @@ def test_place_technology_makes_a_asset_with_its_macc() -> None:
     assert model["lever_blocks"][0]["capex"] == pytest.approx(1000.0)  # 5 × 200
     # solves
     model["periods"] = [{"year": 2025, "duration_years": 1}]
-    model["demand"] = [{"company": "co", "commodity_id": "steel", "year": 2025, "amount": 100}]
+    model["demand"] = [{"company": "co", "flow_id": "steel", "year": 2025, "amount": 100}]
     res = run_model(model, SC)
     assert res["status"] == "optimal" and not res["outputs"]["demand_slack"]
 
@@ -225,7 +225,7 @@ def test_place_technology_carries_per_year_costs() -> None:
     # the model when placed, so the optimiser (not just the library) sees it.
     lib = ComponentLibrary.model_validate(
         {
-            "commodities": [{"commodity_id": "steel", "kind": "product"}],
+            "flows": [{"flow_id": "steel", "kind": "product"}],
             "technologies": [
                 {
                     "technology_id": "EAF",
@@ -261,7 +261,7 @@ def test_placing_a_technology_twice_makes_independent_instances() -> None:
     # source_technology — so they can later be edited apart.
     lib = ComponentLibrary.model_validate(
         {
-            "commodities": [{"commodity_id": "steel", "kind": "product"}],
+            "flows": [{"flow_id": "steel", "kind": "product"}],
             "technologies": [
                 {
                     "technology_id": "EAF",
@@ -292,9 +292,9 @@ def test_place_technology_carries_per_year_lever_block_cost() -> None:
     # per-year absolute rows (× capacity) onto the placed model's lever_blocks_t.
     lib = ComponentLibrary.model_validate(
         {
-            "commodities": [
-                {"commodity_id": "power", "kind": "energy", "price": 1.0},
-                {"commodity_id": "steel", "kind": "product"},
+            "flows": [
+                {"flow_id": "power", "kind": "energy", "price": 1.0},
+                {"flow_id": "steel", "kind": "product"},
             ],
             "technologies": [
                 {
@@ -359,7 +359,7 @@ def test_asset_real_world_fields_round_trip() -> None:
     lib = ComponentLibrary.model_validate(
         {
             "label": "proj",
-            "commodities": [{"commodity_id": "steel", "kind": "product"}],
+            "flows": [{"flow_id": "steel", "kind": "product"}],
             "technologies": [
                 {
                     "technology_id": "BF",

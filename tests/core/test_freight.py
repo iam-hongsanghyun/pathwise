@@ -1,6 +1,6 @@
 """Optional per-stream freight physics (the spatial-transport edge layer).
 
-A producer's commodity reaches one sink by two competing connections — a cheap,
+A producer's flow reaches one sink by two competing connections — a cheap,
 dirty route and a pricey, clean route. With no impact price the optimiser routes
 over the cheap-freight edge; pricing the pollutant flips it to the clean edge. The
 pollutant here is "SOx" (NOT CO2) to prove freight pricing is impact-agnostic.
@@ -23,15 +23,15 @@ _SCENARIO = {
 
 
 def _wb() -> dict:
-    # Two producers make commodity X for free; each ships X to one sink over its own
+    # Two producers make flow X for free; each ships X to one sink over its own
     # connection. Route A: cheap freight (5), dirty (2.0 t/t of a priced pollutant).
     # Route B: pricey freight (20), clean (0.1). The pollutant is "SOx" — deliberately
     # NOT CO2 — to prove freight emissions are impact-agnostic. Sink turns X into Y.
     return {
         "periods": [{"year": 2025, "duration_years": 1}],
-        "commodities": [
-            {"commodity_id": "X", "kind": "material", "unit": "t"},
-            {"commodity_id": "Y", "kind": "product", "unit": "t"},
+        "flows": [
+            {"flow_id": "X", "kind": "material", "unit": "t"},
+            {"flow_id": "Y", "kind": "product", "unit": "t"},
         ],
         "impacts": [{"impact_id": "SOx", "unit": "t"}],
         "technologies": [
@@ -60,40 +60,40 @@ def _wb() -> dict:
             {"asset_id": "vc/b", "baseline_technology": "Prod", "capacity": 1000},
             {"asset_id": "vc/sink", "baseline_technology": "Make", "capacity": 1000},
         ],
-        "connections": [
+        "links": [
             {
                 "from_node": "vc/a",
                 "to_node": "vc/sink",
-                "commodity_id": "X",
+                "flow_id": "X",
                 "freight_cost": 5,
                 "freight_energy": 0.3,
             },
             {
                 "from_node": "vc/b",
                 "to_node": "vc/sink",
-                "commodity_id": "X",
+                "flow_id": "X",
                 "freight_cost": 20,
                 "freight_energy": 0.5,
             },
         ],
         # Per-impact freight emissions live in their own sheet (impact-agnostic).
-        "connection_impacts": [
+        "link_impacts": [
             {
                 "from_node": "vc/a",
                 "to_node": "vc/sink",
-                "commodity_id": "X",
+                "flow_id": "X",
                 "impact_id": "SOx",
                 "factor": 2.0,
             },
             {
                 "from_node": "vc/b",
                 "to_node": "vc/sink",
-                "commodity_id": "X",
+                "flow_id": "X",
                 "impact_id": "SOx",
                 "factor": 0.1,
             },
         ],
-        "demand": [{"company": "vc/sink", "commodity_id": "Y", "year": 2025, "amount": 100}],
+        "demand": [{"company": "vc/sink", "flow_id": "Y", "year": 2025, "amount": 100}],
     }
 
 
@@ -104,7 +104,7 @@ def _run(price: float) -> dict:
 
 def _route(res: dict) -> str:
     """Which producer the X flow came from (the chosen freight route)."""
-    flows = [f for f in res["outputs"]["flows"] if f["commodity"] == "X" and f["value"] > 1e-6]
+    flows = [f for f in res["outputs"]["flows"] if f["flow"] == "X" and f["value"] > 1e-6]
     return max(flows, key=lambda f: f["value"])["from"] if flows else ""
 
 
@@ -127,8 +127,9 @@ def test_transport_block_reports_cost_emissions_energy() -> None:
     transport = res["outputs"]["transport"]
     assert transport, "tagged edges must populate outputs.transport"
     row = next(t for t in transport if t["from"] == "vc/a")
+    assert row["flow"] == "X"  # the flow (substance) carried on this edge
     # 100 t shipped on route A → freight cost 500, SOx 200, energy 30.
-    assert row["flow"] == pytest.approx(100.0)
+    assert row["value"] == pytest.approx(100.0)
     assert row["cost"] == pytest.approx(500.0)
     assert row["emissions"]["SOx"] == pytest.approx(200.0)
     assert row["energy"] == pytest.approx(30.0)
@@ -136,11 +137,11 @@ def test_transport_block_reports_cost_emissions_energy() -> None:
 
 def test_untagged_edges_have_no_transport_rows() -> None:
     wb = _wb()
-    wb["connections"] = [
+    wb["links"] = [
         {k: v for k, v in c.items() if k not in ("freight_cost", "freight_energy")}
-        for c in wb["connections"]
+        for c in wb["links"]
     ]
-    wb["connection_impacts"] = []
+    wb["link_impacts"] = []
     res = get_backend("linopy").run({**wb, "impact_prices": []}, _SCENARIO, {})
     assert res["status"] == "optimal"
     assert res["outputs"]["transport"] == []  # opt-in: untagged streams stay free

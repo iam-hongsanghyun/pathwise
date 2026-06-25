@@ -56,7 +56,7 @@ def test_read_model_variants_maps_each_kind() -> None:
     assert by_op["set_io_coef"] == {
         "op": "set_io_coef",
         "technology": "EAF",
-        "commodity": "scrap",
+        "flow": "scrap",
         "value": 0.8,
         "year": 2030,
     }
@@ -75,7 +75,7 @@ def test_find_variant_and_compile() -> None:
     model = _model()
     model["technologies"] = [{"technology_id": "EAF", "opex": 1}]
     model["io"] = [{"technology_id": "EAF", "target": "scrap", "role": "input", "coefficient": 1.0}]
-    model["commodities"] = [{"commodity_id": "scrap", "max_purchase": 999}]
+    model["flows"] = [{"flow_id": "scrap", "max_purchase": 999}]
     v = find_variant(model, "v1")
     assert v is not None
     edited, forced = compile_variant(model, v)
@@ -83,5 +83,5 @@ def test_find_variant_and_compile() -> None:
     # overrides were applied to the edited workbook (input untouched)
     assert edited["technologies"][0]["opex"] == 9.0
     assert model["technologies"][0]["opex"] == 1  # original intact
-    assert edited["commodities"][0]["max_purchase"] == 50.0
+    assert edited["flows"][0]["max_purchase"] == 50.0
     assert find_variant(model, "nope") is None

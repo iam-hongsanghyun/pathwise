@@ -31,7 +31,7 @@ def test_steel_lcia_example_runs_multi_category() -> None:
     res = get_backend("simulate").run(_load(), _SCENARIO, {})
     assert res["status"] == "optimal"
     lca = res["outputs"]["lca"]
-    assert lca["functional_unit"]["commodity"] == "steel"
+    assert lca["functional_unit"]["flow"] == "steel"
     by_impact = {d["impact"]: d["total"] for d in lca["by_impact"]}
     # Multi-category LCIA: GWP plus acidification, eutrophication, PM, ozone.
     for cat in ("GWP", "AP", "EP_marine", "PM", "POCP"):

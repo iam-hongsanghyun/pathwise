@@ -1,6 +1,6 @@
 """Back-compat name normalization for the generic-rename migration.
 
-pathwise's domain vocabulary is being renamed to generic terms (asset→asset,
+pathwise's domain vocabulary is being renamed to generic terms (machine→asset,
 commodity→flow, connection→link, measure→lever, value chain→network). Models on
 disk — the bundled example ``.sqlite`` files and any user model saved before the
 rename — still carry the OLD sheet / column / enum names. Rather than migrate those
@@ -10,7 +10,7 @@ boundary, which renames OLD names to the current canonical (NEW) ones.
 It is **idempotent**: a model already in new names passes through unchanged, so it
 is safe to call on every load and on already-migrated models. The maps grow one
 entry-group per rename term as the migration lands (``measure→lever``,
-``machine→asset``, ``connection→link`` so far).
+``machine→asset``, ``connection→link``, ``commodity→flow`` so far).
 """
 
 from __future__ import annotations
@@ -27,6 +27,14 @@ SHEET_RENAMES: dict[str, str] = {
     "connections": "links",
     "connection_impacts": "link_impacts",
     "connections_t": "links_t",
+    "commodities": "flows",
+    "commodity_prices": "flow_prices",
+    "commodity_properties": "flow_properties",
+    "commodity_impacts": "flow_impacts",
+    "commodity_impacts_t": "flow_impacts_t",
+    "commodities_t__price": "flows_t__price",
+    "commodities_t__sale_price": "flows_t__sale_price",
+    "commodities_t__max_purchase": "flows_t__max_purchase",
 }
 
 #: OLD column name -> NEW column name, applied to every row of every sheet (the
@@ -34,12 +42,15 @@ SHEET_RENAMES: dict[str, str] = {
 COLUMN_RENAMES: dict[str, str] = {
     "measure_id": "lever_id",
     "machine_id": "asset_id",
+    "commodity_id": "flow_id",
+    "commodity": "flow",  # bare `commodity` column (the routes sheet's stream)
 }
 
 #: (sheet, column) -> {OLD cell value -> NEW cell value} for enum-like columns
 #: (e.g. ``nodes.kind`` "machine" -> "asset": a placed asset's node kind).
 VALUE_RENAMES: dict[tuple[str, str], dict[str, str]] = {
     ("nodes", "kind"): {"machine": "asset"},
+    ("markets", "target_kind"): {"commodity": "flow"},
 }
 
 

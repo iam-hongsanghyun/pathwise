@@ -45,7 +45,7 @@ XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 # groups before any data is loaded (mirrors the old frontend emptyWorkbook()).
 CORE_SHEETS = [
     "periods",
-    "commodities",
+    "flows",
     "technologies",
     "processes",
     "io",

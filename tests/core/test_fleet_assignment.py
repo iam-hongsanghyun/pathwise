@@ -23,10 +23,10 @@ def _wb(
 ) -> dict[str, Any]:
     return {
         "periods": [{"year": 2025}],
-        "commodities": [
-            {"commodity_id": "cargo_kr", "kind": "material", "unit": "kt", "price": 0.0},
-            {"commodity_id": "cargo_a", "kind": "product", "unit": "kt"},
-            {"commodity_id": "cargo_b", "kind": "product", "unit": "kt"},
+        "flows": [
+            {"flow_id": "cargo_kr", "kind": "material", "unit": "kt", "price": 0.0},
+            {"flow_id": "cargo_a", "kind": "product", "unit": "kt"},
+            {"flow_id": "cargo_b", "kind": "product", "unit": "kt"},
         ],
         "technologies": [
             {"technology_id": "route_a", "opex": 1},
@@ -71,8 +71,8 @@ def _wb(
             {"process": "pB", "archetype": "ship", "share": share},
         ],
         "demand": [
-            {"company": "carrier", "commodity_id": "cargo_a", "year": 2025, "amount": demand_a},
-            {"company": "carrier", "commodity_id": "cargo_b", "year": 2025, "amount": demand_b},
+            {"company": "carrier", "flow_id": "cargo_a", "year": 2025, "amount": demand_a},
+            {"company": "carrier", "flow_id": "cargo_b", "year": 2025, "amount": demand_b},
         ],
     }
 
@@ -129,9 +129,9 @@ def _wb_lifecycle(build_year: int) -> dict[str, Any]:
     """One route served by a fleet class that only enters service in ``build_year``."""
     return {
         "periods": [{"year": 2025}, {"year": 2030}],
-        "commodities": [
-            {"commodity_id": "cargo_kr", "kind": "material", "unit": "kt", "price": 0.0},
-            {"commodity_id": "cargo_a", "kind": "product", "unit": "kt"},
+        "flows": [
+            {"flow_id": "cargo_kr", "kind": "material", "unit": "kt", "price": 0.0},
+            {"flow_id": "cargo_a", "kind": "product", "unit": "kt"},
         ],
         "technologies": [{"technology_id": "route_a", "opex": 1}],
         "io": [
@@ -165,8 +165,8 @@ def _wb_lifecycle(build_year: int) -> dict[str, Any]:
         ],
         "fleet_routes": [{"process": "pA", "fleet_id": "ship"}],  # share ⇒ fleet capacity
         "demand": [
-            {"company": "carrier", "commodity_id": "cargo_a", "year": 2025, "amount": 250.0},
-            {"company": "carrier", "commodity_id": "cargo_a", "year": 2030, "amount": 250.0},
+            {"company": "carrier", "flow_id": "cargo_a", "year": 2025, "amount": 250.0},
+            {"company": "carrier", "flow_id": "cargo_a", "year": 2030, "amount": 250.0},
         ],
     }
 
@@ -184,9 +184,9 @@ def _wb_distance(distance: float) -> dict[str, Any]:
     """
     return {
         "periods": [{"year": 2025}],
-        "commodities": [
-            {"commodity_id": "cargo_kr", "kind": "material", "unit": "kt", "price": 0.0},
-            {"commodity_id": "cargo_a", "kind": "product", "unit": "kt"},
+        "flows": [
+            {"flow_id": "cargo_kr", "kind": "material", "unit": "kt", "price": 0.0},
+            {"flow_id": "cargo_a", "kind": "product", "unit": "kt"},
         ],
         "technologies": [{"technology_id": "route_a", "opex": 1}],
         "io": [
@@ -221,9 +221,7 @@ def _wb_distance(distance: float) -> dict[str, Any]:
         # Distance is explicit here (no coordinates needed); capacity is derived from it.
         "routes": [{"process": "pA", "mode": "sea", "distance": distance}],
         "fleet_routes": [{"process": "pA", "fleet_id": "ship"}],
-        "demand": [
-            {"company": "carrier", "commodity_id": "cargo_a", "year": 2025, "amount": 600.0}
-        ],
+        "demand": [{"company": "carrier", "flow_id": "cargo_a", "year": 2025, "amount": 600.0}],
     }
 
 

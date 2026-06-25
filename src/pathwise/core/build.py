@@ -27,7 +27,7 @@ import xarray as xr
 from linopy import Model
 
 from pathwise.core.entities import (
-    CommodityKind,
+    FlowKind,
     LeverType,
     ObjectiveMode,
     Transition,
@@ -67,7 +67,7 @@ def build(problem: Problem) -> BuildContext:
     model = Model()
     ctx = build_context(model, problem)
     logger.info(
-        "model built: %d processes, %d techs, %d commodities, %d impacts, %d periods, "
+        "model built: %d processes, %d techs, %d flows, %d impacts, %d periods, "
         "%d edges, %d lever-slots",
         len(ctx.procs),
         len(ctx.techs),
@@ -582,9 +582,9 @@ def _vintage_gate(ctx: BuildContext) -> None:
 
 
 def _produced(ctx: BuildContext, p: str, r: str, t: int) -> Any:
-    """Output of commodity ``r`` at process ``p`` in ``t`` (expression or None).
+    """Output of flow ``r`` at process ``p`` in ``t`` (expression or None).
 
-    A commodity in a technology's output slate group is produced via the slate
+    A flow in a technology's output slate group is produced via the slate
     flow variable ``fout`` (so the optimiser picks its share within bounds);
     other outputs keep the fixed form ``yield · throughput``.
     """
@@ -592,7 +592,7 @@ def _produced(ctx: BuildContext, p: str, r: str, t: int) -> Any:
     for k in ctx.feasible[p]:
         tech = ctx.problem.technologies[k]
         if r in tech.grouped_outputs():
-            terms.append(ctx.fout.sel(process=p, tech=k, commodity=r, period=t))
+            terms.append(ctx.fout.sel(process=p, tech=k, flow=r, period=t))
         else:
             coef = tech.output_yield_at(r, t)
             if coef != 0.0:
@@ -601,9 +601,9 @@ def _produced(ctx: BuildContext, p: str, r: str, t: int) -> Any:
 
 
 def _gross_consumed(ctx: BuildContext, p: str, r: str, t: int) -> Any:
-    """Gross input of commodity ``r`` at ``p`` (before efficiency savings).
+    """Gross input of flow ``r`` at ``p`` (before efficiency savings).
 
-    A commodity that is part of a technology's blend group is consumed via the
+    A flow that is part of a technology's blend group is consumed via the
     mix flow variable ``fin`` (so the optimiser picks the share); other inputs
     keep the fixed form ``intensity · throughput``.
     """
@@ -611,7 +611,7 @@ def _gross_consumed(ctx: BuildContext, p: str, r: str, t: int) -> Any:
     for k in ctx.feasible[p]:
         tech = ctx.problem.technologies[k]
         if r in tech.grouped_inputs():
-            terms.append(ctx.fin.sel(process=p, tech=k, commodity=r, period=t))
+            terms.append(ctx.fin.sel(process=p, tech=k, flow=r, period=t))
         else:
             coef = tech.input_intensity_at(r, t)
             if coef != 0.0:
@@ -627,13 +627,13 @@ def _blend(ctx: BuildContext) -> None:
 
         Σ_{c∈C_g} fin_c = R_g · x ;   s_min_c·R_g·x ≤ fin_c ≤ s_max_c·R_g·x
 
-    Grouped commodities not used by a technology are pinned to zero.
+    Grouped flows not used by a technology are pinned to zero.
     """
     if not ctx.grouped_comms:
         return
     m, prob = ctx.model, ctx.problem
     gc = ctx.grouped_comms
-    # The mix flow is non-zero only for (process, feasible tech, member commodity);
+    # The mix flow is non-zero only for (process, feasible tech, member flow);
     # everything else is killed by ONE vectorised bound — not a per-cell Python
     # loop — so blend models scale to many facilities/technologies.
     member = np.zeros((len(ctx.procs), len(ctx.techs), len(gc)))
@@ -649,8 +649,8 @@ def _blend(ctx: BuildContext) -> None:
     big = _big_m(prob)
     member_da = xr.DataArray(
         member,
-        coords={"process": ctx.procs, "tech": ctx.techs, "commodity": gc},
-        dims=["process", "tech", "commodity"],
+        coords={"process": ctx.procs, "tech": ctx.techs, "flow": gc},
+        dims=["process", "tech", "flow"],
     )
     m.add_constraints(ctx.fin <= big * member_da, name="finmask")
 
@@ -667,14 +667,14 @@ def _blend(ctx: BuildContext) -> None:
                     req = tech.group_requirement_at(g, t)
                     m.add_constraints(
                         _lin_sum(
-                            [ctx.fin.sel(process=p, tech=k, commodity=c, period=t) for c in members]
+                            [ctx.fin.sel(process=p, tech=k, flow=c, period=t) for c in members]
                         )
                         == req * xpkt,
                         name=f"mix[{p},{k},{g},{t}]",
                     )
                     for c in members:
                         lo, hi = tech.input_share_at(g, c, t)
-                        f = ctx.fin.sel(process=p, tech=k, commodity=c, period=t)
+                        f = ctx.fin.sel(process=p, tech=k, flow=c, period=t)
                         if lo > 0.0:
                             m.add_constraints(f >= lo * req * xpkt, name=f"mixlo[{p},{k},{c},{t}]")
                         if hi < 1.0:
@@ -692,14 +692,14 @@ def _output_blend(ctx: BuildContext) -> None:
 
     so a multi-product unit (e.g. a naphtha cracker) can shift its co-product
     slate toward the most valuable mix within its physical flexibility. Slate
-    commodities not produced by a technology are pinned to zero.
+    flows not produced by a technology are pinned to zero.
     """
     if not ctx.grouped_out_comms:
         return
     m, prob = ctx.model, ctx.problem
     go = ctx.grouped_out_comms
     # The slate flow is non-zero only for (process, feasible tech, member
-    # commodity); everything else is killed by ONE vectorised bound.
+    # flow); everything else is killed by ONE vectorised bound.
     member = np.zeros((len(ctx.procs), len(ctx.techs), len(go)))
     for i, p in enumerate(ctx.procs):
         fset = set(ctx.feasible[p])
@@ -713,8 +713,8 @@ def _output_blend(ctx: BuildContext) -> None:
     big = _big_m(prob)
     member_da = xr.DataArray(
         member,
-        coords={"process": ctx.procs, "tech": ctx.techs, "commodity": go},
-        dims=["process", "tech", "commodity"],
+        coords={"process": ctx.procs, "tech": ctx.techs, "flow": go},
+        dims=["process", "tech", "flow"],
     )
     m.add_constraints(ctx.fout <= big * member_da, name="foutmask")
 
@@ -729,17 +729,14 @@ def _output_blend(ctx: BuildContext) -> None:
                     req = tech.output_group_requirement_at(g, t)
                     m.add_constraints(
                         _lin_sum(
-                            [
-                                ctx.fout.sel(process=p, tech=k, commodity=c, period=t)
-                                for c in members
-                            ]
+                            [ctx.fout.sel(process=p, tech=k, flow=c, period=t) for c in members]
                         )
                         == req * xpkt,
                         name=f"slate[{p},{k},{g},{t}]",
                     )
                     for c in members:
                         lo, hi = tech.output_share_at(g, c, t)
-                        f = ctx.fout.sel(process=p, tech=k, commodity=c, period=t)
+                        f = ctx.fout.sel(process=p, tech=k, flow=c, period=t)
                         if lo > 0.0:
                             m.add_constraints(
                                 f >= lo * req * xpkt, name=f"slatelo[{p},{k},{c},{t}]"
@@ -751,7 +748,7 @@ def _output_blend(ctx: BuildContext) -> None:
 
 
 def _efficiency_savings(ctx: BuildContext, p: str, r: str, t: int) -> Any:
-    """MACC energy-efficiency savings on commodity ``r`` at ``p`` (LP-safe)."""
+    """MACC energy-efficiency savings on flow ``r`` at ``p`` (LP-safe)."""
     terms = [
         s.reduction_at(t) * ctx.ref_consumption.get((p, r), 0.0) * ctx.z.sel(slot=s.key, period=t)
         for s in ctx.slots
@@ -761,17 +758,15 @@ def _efficiency_savings(ctx: BuildContext, p: str, r: str, t: int) -> Any:
 
 
 def _edges_in(ctx: BuildContext, p: str, r: str) -> list[int]:
-    return [i for i, e in enumerate(ctx.problem.edges) if e.to_process == p and e.commodity_id == r]
+    return [i for i, e in enumerate(ctx.problem.edges) if e.to_process == p and e.flow_id == r]
 
 
 def _edges_out(ctx: BuildContext, p: str, r: str) -> list[int]:
-    return [
-        i for i, e in enumerate(ctx.problem.edges) if e.from_process == p and e.commodity_id == r
-    ]
+    return [i for i, e in enumerate(ctx.problem.edges) if e.from_process == p and e.flow_id == r]
 
 
 def _flow_balance(ctx: BuildContext) -> None:
-    """Per-commodity node balance + edge caps + demand delivery (slack-softened).
+    """Per-flow node balance + edge caps + demand delivery (slack-softened).
 
     Vectorisation strategy
     ----------------------
@@ -780,16 +775,16 @@ def _flow_balance(ctx: BuildContext) -> None:
         buy[p,r,t] + produced[p,r,t] + inflow[p,r,t]
             == sell[p,r,t] + deliver[p,r,t] + consumed[p,r,t] + outflow[p,r,t]
 
-    For commodities whose I/O is NOT in a blend/slate group, produced and
+    For flows whose I/O is NOT in a blend/slate group, produced and
     consumed are bilinear in yield/intensity × x.  We precompute coefficient
-    DataArrays over (process, tech, commodity, period) and contract over the
-    ``tech`` dimension to get a (process, commodity, period) linear expression:
+    DataArrays over (process, tech, flow, period) and contract over the
+    ``tech`` dimension to get a (process, flow, period) linear expression:
 
         produced_expr[p,r,t]  = Σ_k yield[p,k,r,t]     * x[p,k,t]
         consumed_expr[p,r,t]  = Σ_k intensity[p,k,r,t] * x[p,k,t]
 
-    For grouped commodities (blend/slate) the ``fin``/``fout`` variables carry
-    the flow; they are already shaped (process, tech, commodity, period) and are
+    For grouped flows (blend/slate) the ``fin``/``fout`` variables carry
+    the flow; they are already shaped (process, tech, flow, period) and are
     summed over ``tech``.
 
     All three "zero-flow" families (nodeliver, nosell, nobuy) are also vectorised
@@ -800,24 +795,24 @@ def _flow_balance(ctx: BuildContext) -> None:
     as a coefficient × z variable and summed into the consumed side.
     """
     m, prob = ctx.model, ctx.problem
-    products = {r for r, c in prob.commodities.items() if c.kind == CommodityKind.PRODUCT}
+    products = {r for r, c in prob.flows.items() if c.kind == FlowKind.PRODUCT}
     produced_anywhere = {
         r for k in prob.technologies.values() for r, y in k.output_yield.items() if y != 0.0
     }
-    raw_kinds = {CommodityKind.ENERGY, CommodityKind.MATERIAL, CommodityKind.INDIRECT}
-    market_commodities = {mk.target for mk in ctx.cmarkets}
+    raw_kinds = {FlowKind.ENERGY, FlowKind.MATERIAL, FlowKind.INDIRECT}
+    market_flows = {mk.target for mk in ctx.cmarkets}
 
     def _purchasable(r: str) -> bool:
-        c = prob.commodities[r]
-        if r in market_commodities:
+        c = prob.flows[r]
+        if r in market_flows:
             return True
         if c.purchasable is not None:
             return c.purchasable
         return c.kind in raw_kinds and r not in produced_anywhere
 
     # ── Precompute yield/intensity coefficient arrays ─────────────────────────
-    # yield_coeff[p, k, r, t]: output of commodity r per unit x at (p,k,t)
-    # Only for commodities NOT in a slate group; slate members use fout.
+    # yield_coeff[p, k, r, t]: output of flow r per unit x at (p,k,t)
+    # Only for flows NOT in a slate group; slate members use fout.
     yield_arr = np.zeros((len(ctx.procs), len(ctx.techs), len(ctx.comms), len(ctx.years)))
     for i, p in enumerate(ctx.procs):
         for j, k in enumerate(ctx.techs):
@@ -835,7 +830,7 @@ def _flow_balance(ctx: BuildContext) -> None:
                     yield_arr[i, j, li, mi] = coef
 
     # intensity_coeff[p, k, r, t]: input of r per unit x at (p,k,t)
-    # Only for commodities NOT in a blend group; blend members use fin.
+    # Only for flows NOT in a blend group; blend members use fin.
     intensity_arr = np.zeros((len(ctx.procs), len(ctx.techs), len(ctx.comms), len(ctx.years)))
     for i, p in enumerate(ctx.procs):
         for j, k in enumerate(ctx.techs):
@@ -857,37 +852,37 @@ def _flow_balance(ctx: BuildContext) -> None:
         coords={
             "process": ctx.procs,
             "tech": ctx.techs,
-            "commodity": ctx.comms,
+            "flow": ctx.comms,
             "period": ctx.years,
         },
-        dims=["process", "tech", "commodity", "period"],
+        dims=["process", "tech", "flow", "period"],
     )
     intensity_da = xr.DataArray(
         intensity_arr,
         coords={
             "process": ctx.procs,
             "tech": ctx.techs,
-            "commodity": ctx.comms,
+            "flow": ctx.comms,
             "period": ctx.years,
         },
-        dims=["process", "tech", "commodity", "period"],
+        dims=["process", "tech", "flow", "period"],
     )
 
     # produced_expr[p,r,t] = Σ_k yield_da[p,k,r,t] * x[p,k,t]
-    # x is (process,tech,period); yield_da is (process,tech,commodity,period)
-    # multiplication broadcasts x over the commodity dim.
-    produced_expr = (yield_da * ctx.x).sum("tech")  # (process, commodity, period)
+    # x is (process,tech,period); yield_da is (process,tech,flow,period)
+    # multiplication broadcasts x over the flow dim.
+    produced_expr = (yield_da * ctx.x).sum("tech")  # (process, flow, period)
 
     # consumed_expr[p,r,t] = Σ_k intensity_da[p,k,r,t] * x[p,k,t]
-    consumed_expr = (intensity_da * ctx.x).sum("tech")  # (process, commodity, period)
+    consumed_expr = (intensity_da * ctx.x).sum("tech")  # (process, flow, period)
 
     # fin / fout contributions (if blend/slate groups exist): sum over tech dim.
-    # fin is (process, tech, grouped_commodity, period); sum over tech gives
-    # (process, grouped_commodity, period).
+    # fin is (process, tech, grouped_flow, period); sum over tech gives
+    # (process, grouped_flow, period).
     fin_sum = ctx.fin.sum("tech") if ctx.fin is not None and ctx.grouped_comms else None
     fout_sum = ctx.fout.sum("tech") if ctx.fout is not None and ctx.grouped_out_comms else None
 
-    # ── Determine which (process, commodity) pairs need edge or savings terms ─
+    # ── Determine which (process, flow) pairs need edge or savings terms ─
     # For the vectorised path: most cells have no edges and no savings.
     # Cells with edges or savings are handled by the scalar fallback.
     has_edges = bool(prob.edges)
@@ -901,7 +896,7 @@ def _flow_balance(ctx: BuildContext) -> None:
     nosell_mask = np.zeros((len(ctx.procs), len(ctx.comms), len(ctx.years)), dtype=bool)
     nobuy_mask = np.zeros((len(ctx.procs), len(ctx.comms), len(ctx.years)), dtype=bool)
     for li, r in enumerate(ctx.comms):
-        comm = prob.commodities[r]
+        comm = prob.flows[r]
         is_product = r in products
         is_sellable = comm.sellable
         purch = _purchasable(r)
@@ -917,18 +912,18 @@ def _flow_balance(ctx: BuildContext) -> None:
 
     nodeliver_da = xr.DataArray(
         nodeliver_mask,
-        coords={"process": ctx.procs, "commodity": ctx.comms, "period": ctx.years},
-        dims=["process", "commodity", "period"],
+        coords={"process": ctx.procs, "flow": ctx.comms, "period": ctx.years},
+        dims=["process", "flow", "period"],
     )
     nosell_da = xr.DataArray(
         nosell_mask,
-        coords={"process": ctx.procs, "commodity": ctx.comms, "period": ctx.years},
-        dims=["process", "commodity", "period"],
+        coords={"process": ctx.procs, "flow": ctx.comms, "period": ctx.years},
+        dims=["process", "flow", "period"],
     )
     nobuy_da = xr.DataArray(
         nobuy_mask,
-        coords={"process": ctx.procs, "commodity": ctx.comms, "period": ctx.years},
-        dims=["process", "commodity", "period"],
+        coords={"process": ctx.procs, "flow": ctx.comms, "period": ctx.years},
+        dims=["process", "flow", "period"],
     )
 
     m.add_constraints(ctx.deliver == 0, mask=nodeliver_da, name="nodeliver")
@@ -942,17 +937,17 @@ def _flow_balance(ctx: BuildContext) -> None:
     # produce silently when merging a subset-indexed expression into a
     # full-indexed one), the constraint rows get mis-matched.
     #
-    # Safe solution: partition the commodity dimension into disjoint subsets so
+    # Safe solution: partition the flow dimension into disjoint subsets so
     # that EVERY call to add_constraints receives expressions with the SAME
-    # commodity index on both sides.  Within each partition, all operands are
+    # flow index on both sides.  Within each partition, all operands are
     # selected with the same index (pd.Index) before any arithmetic, so the
     # coordinate order is guaranteed to match.
     #
-    # Partitions (by commodity membership in blend / slate groups):
+    # Partitions (by flow membership in blend / slate groups):
     #   (A) in grouped_out (slate): fout.sum('tech') appears on LHS
     #   (B) in grouped_in but NOT grouped_out: fin.sum('tech') on RHS
     #   (C) in neither group: pure yield/intensity × x terms
-    # A commodity may belong to both (A) and (B) (e.g. a commodity produced by
+    # A flow may belong to both (A) and (B) (e.g. a flow produced by
     # a slate and consumed by a blend); this is handled within partition (A) by
     # also selecting fin_sum at those positions.
     if not has_edges and not has_savings:
@@ -965,10 +960,10 @@ def _flow_balance(ctx: BuildContext) -> None:
         comms_C = [r for r in ctx.comms if r not in go_set and r not in gi_set]  # plain
 
         def _csel(expr: Any, comms: list[str]) -> Any:
-            """Select commodity slice; identity if comms equals full comm list."""
+            """Select flow slice; identity if comms equals full comm list."""
             if len(comms) == len(ctx.comms):
                 return expr
-            return expr.sel(commodity=pd.Index(comms, name="commodity"))
+            return expr.sel(flow=pd.Index(comms, name="flow"))
 
         # (C) Plain: no fin / fout variables involved.
         if comms_C:
@@ -990,10 +985,10 @@ def _flow_balance(ctx: BuildContext) -> None:
             )
             if fin_sum is not None:
                 # fin_sum.sel selects comms_B from grouped_comms — guaranteed subset.
-                rhs_B = rhs_B + fin_sum.sel(commodity=pd.Index(comms_B, name="commodity"))
+                rhs_B = rhs_B + fin_sum.sel(flow=pd.Index(comms_B, name="flow"))
             m.add_constraints(lhs_B == rhs_B, name="bal_blend")
 
-        # (A) Slate: fout.sum('tech') added to LHS.  A slate commodity may also
+        # (A) Slate: fout.sum('tech') added to LHS.  A slate flow may also
         # be in a blend group (extremely rare: produced as a co-product AND
         # consumed as a blend input).  In that case fall back to the scalar
         # loop for those specific (p, r, t) cells to avoid the partial-index
@@ -1005,7 +1000,7 @@ def _flow_balance(ctx: BuildContext) -> None:
                 lhs_A = (
                     _csel(ctx.buy, comms_A)
                     + _csel(produced_expr, comms_A)
-                    + fout_sum.sel(commodity=pd.Index(comms_A, name="commodity"))
+                    + fout_sum.sel(flow=pd.Index(comms_A, name="flow"))
                 )
                 rhs_A = (
                     _csel(ctx.sell, comms_A)
@@ -1020,12 +1015,12 @@ def _flow_balance(ctx: BuildContext) -> None:
                         for t in ctx.years:
                             produced = _produced(ctx, p, r, t)
                             gross = _gross_consumed(ctx, p, r, t)
-                            lhs_terms = [ctx.buy.sel(process=p, commodity=r, period=t)]
+                            lhs_terms = [ctx.buy.sel(process=p, flow=r, period=t)]
                             if produced is not None:
                                 lhs_terms.append(produced)
                             rhs_terms = [
-                                ctx.sell.sel(process=p, commodity=r, period=t),
-                                ctx.deliver.sel(process=p, commodity=r, period=t),
+                                ctx.sell.sel(process=p, flow=r, period=t),
+                                ctx.deliver.sel(process=p, flow=r, period=t),
                             ]
                             if gross is not None:
                                 rhs_terms.append(gross)
@@ -1035,13 +1030,13 @@ def _flow_balance(ctx: BuildContext) -> None:
                             )
 
     else:
-        # Fallback: scalar loop for (process, commodity, period) cells that
+        # Fallback: scalar loop for (process, flow, period) cells that
         # have edges or MACC savings (or both).  In practice, models with edges
         # are small (shipping etc.), so this loop is fast.
         year_set = set(ctx.years)
         for p in ctx.procs:
             for r in ctx.comms:
-                comm = prob.commodities[r]
+                comm = prob.flows[r]
                 for t in ctx.years:
                     produced = _produced(ctx, p, r, t)
                     gross = _gross_consumed(ctx, p, r, t)
@@ -1065,14 +1060,14 @@ def _flow_balance(ctx: BuildContext) -> None:
                     inflow = _lin_sum(in_terms)
                     outflow = _lin_sum([ctx.flow.sel(edge=i, period=t) for i in out_edges])
 
-                    lhs_terms = [ctx.buy.sel(process=p, commodity=r, period=t)]
+                    lhs_terms = [ctx.buy.sel(process=p, flow=r, period=t)]
                     if produced is not None:
                         lhs_terms.append(produced)
                     if inflow is not None:
                         lhs_terms.append(inflow)
                     rhs_terms = [
-                        ctx.sell.sel(process=p, commodity=r, period=t),
-                        ctx.deliver.sel(process=p, commodity=r, period=t),
+                        ctx.sell.sel(process=p, flow=r, period=t),
+                        ctx.deliver.sel(process=p, flow=r, period=t),
                     ]
                     if consumed is not None:
                         rhs_terms.append(consumed)
@@ -1099,7 +1094,7 @@ def _flow_balance(ctx: BuildContext) -> None:
     # ── Demand constraints ────────────────────────────────────────────────────
     for c, q, y in ctx.demand_keys:
         procs = [p.process_id for p in prob.processes if p.in_scope(c)]
-        delivered = _lin_sum([ctx.deliver.sel(process=p, commodity=q, period=y) for p in procs])
+        delivered = _lin_sum([ctx.deliver.sel(process=p, flow=q, period=y) for p in procs])
         key = f"{c}|{q}|{y}"
         rhs = prob.demand[(c, q, y)]
         if prob.objective_of(c) == ObjectiveMode.PROFIT:
@@ -1114,24 +1109,24 @@ def _flow_balance(ctx: BuildContext) -> None:
 
 
 def _purchase_caps(ctx: BuildContext) -> None:
-    r"""Per-year ceiling on a commodity's total external purchase (volume cap).
+    r"""Per-year ceiling on a flow's total external purchase (volume cap).
 
-    When :attr:`Commodity.max_purchase_by_year` is set for a stream, the total
+    When :attr:`Flow.max_purchase_by_year` is set for a stream, the total
     bought across every process (or, for a stored stream, the store's external
     purchase) in that year is bounded::
 
         Σ_p buy[p, r, t] <= max_purchase_r(t)
 
-    Unset commodities/years are unconstrained, so this is inert unless a model
+    Unset flows/years are unconstrained, so this is inert unless a model
     (or a value-chain ``volume`` link) supplies a cap.
     """
     m, prob = ctx.model, ctx.problem
-    stored = {s.commodity_id: s for s in prob.storages}
+    stored = {s.flow_id: s for s in prob.storages}
     stores_of: dict[str, list[Any]] = {}
     for st in prob.storages:
-        stores_of.setdefault(st.commodity_id, []).append(st)
+        stores_of.setdefault(st.flow_id, []).append(st)
     for r in ctx.comms:
-        comm = prob.commodities[r]
+        comm = prob.flows[r]
         if not comm.max_purchase_by_year:
             continue
         for t in ctx.years:
@@ -1143,7 +1138,7 @@ def _purchase_caps(ctx: BuildContext) -> None:
                     [ctx.extbuy.sel(store=st.storage_id, period=t) for st in stores_of[r]]
                 )
             else:
-                total = _lin_sum([ctx.buy.sel(process=p, commodity=r, period=t) for p in ctx.procs])
+                total = _lin_sum([ctx.buy.sel(process=p, flow=r, period=t) for p in ctx.procs])
             # Fleet fuel drawn through this stream counts against its supply cap too.
             fuel_d = _conn_fuel_demand(ctx, r, t)
             if fuel_d is not None:
@@ -1192,7 +1187,7 @@ def _impacts(ctx: BuildContext) -> None:
 
     # LCIA characterisation: an impact CATEGORY (e.g. GWP) is a linear combination
     # of base elementary flows (CO2, CH4, …) via factors. Base flows come from the
-    # io/commodity factors below; categories are *linked* to them afterwards, so
+    # io/flow factors below; categories are *linked* to them afterwards, so
     # pricing / caps / ETS / the inventory all see categories like any other impact.
     category_set = {cat for (_flow, cat) in prob.characterisation}
     base_impacts = [i for i in ctx.impacts if i not in category_set]
@@ -1211,10 +1206,10 @@ def _impacts(ctx: BuildContext) -> None:
                 tech = prob.technologies[k]
                 for l_i, imp in enumerate(base_impacts):
                     for m_t, t in enumerate(ctx.years):
-                        # Commodity-driven term: Σ_r factor[r,i,t] * intensity[p,k,r,t]
+                        # Flow-driven term: Σ_r factor[r,i,t] * intensity[p,k,r,t]
                         val = 0.0
                         for r in ctx.comms:
-                            factor = prob.commodity_impact(r, imp, t)
+                            factor = prob.flow_impact(r, imp, t)
                             if factor == 0.0:
                                 continue
                             intensity = tech.input_intensity_at(r, t)
@@ -1288,7 +1283,7 @@ def _impacts(ctx: BuildContext) -> None:
     # ── Impact caps ───────────────────────────────────────────────────────────
     # Each cap triple (c, i, y) bounds Σ_{p∈scope(c)} emit[p,i,y].
     # Group by (scope c, impact i) to share the process-sum computation.
-    products = {r for r, comm in prob.commodities.items() if comm.kind == CommodityKind.PRODUCT}
+    products = {r for r, comm in prob.flows.items() if comm.kind == FlowKind.PRODUCT}
     # Cache process-sum expressions per (scope, impact) to avoid recomputing.
     scope_impact_sum: dict[tuple[str, str], Any] = {}
     for c, i, y in ctx.cap_keys:
@@ -1306,7 +1301,7 @@ def _impacts(ctx: BuildContext) -> None:
         total = total_by_period.sel(impact=i, period=y) if total_by_period is not None else None
 
         # Transport: physicalised routes whose origin is in this scope also count
-        # toward the cap (their emissions = fuel · commodity_impacts, never hardcoded).
+        # toward the cap (their emissions = fuel · flow_impacts, never hardcoded).
         def _route_in_cap_scope(cr: Any, fid: str, _c: str = c) -> bool:
             # Counts if the cap's scope contains the route's ORIGIN (geography) OR the
             # carrying fleet's ownership group — so a region cap AND an alliance/company
@@ -1397,14 +1392,14 @@ def _replacement_capex(
 def _storage(ctx: BuildContext) -> None:
     """Inter-year inventory dynamics + market linkage for each store.
 
-    Algorithm (per store ``s`` of commodity ``r``, year ``t``):
+    Algorithm (per store ``s`` of flow ``r``, year ``t``):
         level_t = (1−loss)·level_{t-1} + η_c·charge_t − discharge_t/η_d
         extbuy_t = Σ_{p∈scope} buy_{p,r,t} + charge_t − discharge_t   (≥ 0)
         0 ≤ level_t, charge_t, discharge_t ≤ cap_built ≤ max_capacity
 
-    ``charge`` draws commodity from the market (raises external purchase),
+    ``charge`` draws flow from the market (raises external purchase),
     ``discharge`` returns it (lowers external purchase). Only the external
-    purchase ``extbuy`` is priced — process ``buy`` of a stored commodity is the
+    purchase ``extbuy`` is priced — process ``buy`` of a stored flow is the
     internal draw (repriced in the objective).
     """
     m, prob = ctx.model, ctx.problem
@@ -1431,9 +1426,7 @@ def _storage(ctx: BuildContext) -> None:
             m.add_constraints(lvl_t <= ctx.cap_built.sel(store=sid), name=f"slcap[{sid},{t}]")
             m.add_constraints(charge_t <= ctx.cap_built.sel(store=sid), name=f"schg[{sid},{t}]")
             m.add_constraints(dis_t <= ctx.cap_built.sel(store=sid), name=f"sdis[{sid},{t}]")
-            buys = _lin_sum(
-                [ctx.buy.sel(process=p, commodity=s.commodity_id, period=t) for p in scope]
-            )
+            buys = _lin_sum([ctx.buy.sel(process=p, flow=s.flow_id, period=t) for p in scope])
             link = charge_t - dis_t
             if buys is not None:
                 link = link + buys
@@ -1441,9 +1434,9 @@ def _storage(ctx: BuildContext) -> None:
 
 
 def _markets(ctx: BuildContext) -> None:
-    """Commodity-market clearing (least-cost mixture) + tradable ETS balance.
+    """Flow-market clearing (least-cost mixture) + tradable ETS balance.
 
-    Commodity markets supply a stream's external need (process draw, or the
+    Flow markets supply a stream's external need (process draw, or the
     store's external purchase if storable):
         Σ_m (mbuy_{m,t} − msell_{m,t}) = external_need_{r,t}
     ETS markets cover emissions with allowances (deficit bought, surplus sold):
@@ -1451,15 +1444,15 @@ def _markets(ctx: BuildContext) -> None:
     """
     m, prob = ctx.model, ctx.problem
 
-    # ── Commodity markets ────────────────────────────────────────────────────
-    by_commodity: dict[str, list[Any]] = {}
+    # ── Flow markets ────────────────────────────────────────────────────
+    by_flow: dict[str, list[Any]] = {}
     for mk in ctx.cmarkets:
-        by_commodity.setdefault(mk.target, []).append(mk)
+        by_flow.setdefault(mk.target, []).append(mk)
     storages_of: dict[str, list[Any]] = {}
     for st in prob.storages:
-        storages_of.setdefault(st.commodity_id, []).append(st)
+        storages_of.setdefault(st.flow_id, []).append(st)
 
-    for r, mkts in by_commodity.items():
+    for r, mkts in by_flow.items():
         scope_companies = {mk.company for mk in mkts}
         procs = (
             ctx.procs
@@ -1478,8 +1471,8 @@ def _markets(ctx: BuildContext) -> None:
                     [ctx.extbuy.sel(store=s.storage_id, period=t) for s in storages_of[r]]
                 )
             else:
-                target = _lin_sum([ctx.buy.sel(process=p, commodity=r, period=t) for p in procs])
-            # A fleet burning this market commodity draws on it too (bunkering): the
+                target = _lin_sum([ctx.buy.sel(process=p, flow=r, period=t) for p in procs])
+            # A fleet burning this market flow draws on it too (bunkering): the
             # market (producer msell / external mbuy) must clear the fleet's demand.
             fuel_d = _conn_fuel_demand(ctx, r, t)
             if fuel_d is not None:
@@ -1580,7 +1573,7 @@ def _controls(ctx: BuildContext) -> None:
     # Minimum annual production (hard floor on delivered product).
     for (c, q, y), amount in prob.min_production.items():
         delivered = _lin_sum(
-            [ctx.deliver.sel(process=p, commodity=q, period=y) for p in _scope_processes(ctx, c)]
+            [ctx.deliver.sel(process=p, flow=q, period=y) for p in _scope_processes(ctx, c)]
         )
         if delivered is not None:
             m.add_constraints(delivered >= amount, name=f"minprod[{c},{q},{y}]")
@@ -1588,13 +1581,13 @@ def _controls(ctx: BuildContext) -> None:
     # Maximum annual production (hard ceiling on delivered product).
     for (c, q, y), amount in prob.max_production.items():
         delivered = _lin_sum(
-            [ctx.deliver.sel(process=p, commodity=q, period=y) for p in _scope_processes(ctx, c)]
+            [ctx.deliver.sel(process=p, flow=q, period=y) for p in _scope_processes(ctx, c)]
         )
         if delivered is not None:
             m.add_constraints(delivered <= amount, name=f"maxprod[{c},{q},{y}]")
 
     # Per-asset intake bounds (the consumer side): the asset's gross consumption
-    # of a commodity, summed over its providers. min = required offtake (take-or-pay
+    # of a flow, summed over its providers. min = required offtake (take-or-pay
     # floor), max = maximum purchase (intake ceiling).
     for (c, q, y), amount in prob.min_consumption.items():
         terms = [_gross_consumed(ctx, p, q, y) for p in _scope_processes(ctx, c)]
@@ -1806,10 +1799,10 @@ def _route_emit_terms(
 
     For every candidate fleet on every in-scope physicalised route::
 
-        Σ  legflow · efficiency · distance · commodity_impact(fuel, impact, year)
+        Σ  legflow · efficiency · distance · flow_impact(fuel, impact, year)
 
     A characterised *category* impact expands into its flow components
-    (``Σ_flow CF · …``). Every factor comes from the model's ``commodity_impacts`` /
+    (``Σ_flow CF · …``). Every factor comes from the model's ``flow_impacts`` /
     ``characterisation`` — never hardcoded. This is added INTO impact caps and the LCIA
     objective so transport emissions are bound + minimised like any process emission,
     while the cost objective already prices them via the fuel term.
@@ -1837,7 +1830,7 @@ def _route_emit_terms(
                 or cr.distance <= 0
             ):
                 continue
-            coeff = sum(prob.commodity_impact(fl.fuel, fi, year) * cf for fi, cf in comps)
+            coeff = sum(prob.flow_impact(fl.fuel, fi, year) * cf for fi, cf in comps)
             coeff *= fl.efficiency * cr.distance
             if coeff:
                 terms.append(
@@ -1850,7 +1843,7 @@ def _conn_fuel_demand(ctx: BuildContext, fuel: str, t: int) -> Any:
     r"""Connection-route fleet demand for ``fuel`` in year ``t`` (a linopy expr or None).
 
     ``Σ legflow · efficiency · distance`` over every candidate leg burning ``fuel``.
-    Added to the fuel commodity's market clearing + purchase cap so a bunkering
+    Added to the fuel flow's market clearing + purchase cap so a bunkering
     producer / supply limit must actually source the fleet's fuel (the "fuel from a
     producer" model) instead of it being unlimited at a flat price.
     """
@@ -1883,11 +1876,11 @@ def _objective(ctx: BuildContext) -> None:
         obj = Σ_component  coeff_component[dims] · var_component[dims]
 
     We precompute coefficient DataArrays over all relevant dims (period, process,
-    tech, commodity, impact) and evaluate each component as a single linopy
+    tech, flow, impact) and evaluate each component as a single linopy
     expression using broadcast-multiply + ``.sum(dims)`` — the same idiom used
     in the constraint families.  This reduces the linopy merge / xarray alignment
     overhead from O(N_terms) to O(N_components), where N_components is small
-    (opex, fixed_opex, commodity_buy, commodity_sell, impact_price, capex,
+    (opex, fixed_opex, flow_buy, flow_sell, impact_price, capex,
     renewal_capex, lever_capex, lever_opex, storage, markets, slacks).
 
     ``add_objective`` is called once at the end with the combined expression.
@@ -1901,7 +1894,7 @@ def _objective(ctx: BuildContext) -> None:
     proc_by_id = {p.process_id: p for p in prob.processes}
     trans_idx = _transition_index(prob)
 
-    stored = {s.commodity_id for s in prob.storages}
+    stored = {s.flow_id for s in prob.storages}
     market_comms = {mk.target for mk in ctx.cmarkets}
     ets_impacts = {mk.target for mk in ctx.imarkets}
 
@@ -1951,19 +1944,18 @@ def _objective(ctx: BuildContext) -> None:
             if fl is None or not fl.fuel or fl.efficiency <= 0 or cr.distance <= 0:
                 return 0.0
             per_cargo = fl.efficiency * cr.distance  # fuel burned per unit cargo
-            # Bunkering: when the fuel clears through a commodity market, the market
+            # Bunkering: when the fuel clears through a flow market, the market
             # mbuy already pays for it — don't also charge the bare price here (the
             # combustion emissions below stay with the fleet regardless of source).
             fuel_price = (
                 0.0
                 if fl.fuel in market_comms
-                else prob.commodities[fl.fuel].price(t)
-                if fl.fuel in prob.commodities
+                else prob.flows[fl.fuel].price(t)
+                if fl.fuel in prob.flows
                 else 0.0
             )
             emit_price = sum(
-                prob.commodity_impact(fl.fuel, i, t) * prob.impacts[i].price(t)
-                for i in prob.impacts
+                prob.flow_impact(fl.fuel, i, t) * prob.impacts[i].price(t) for i in prob.impacts
             )
             return float(per_cargo * (fuel_price + emit_price))
 
@@ -2042,33 +2034,31 @@ def _objective(ctx: BuildContext) -> None:
         )
         obj_terms.append((w_da * fox_da * ctx.on).sum(["process", "period"]))
 
-    # ── Commodity buy/sell: w[t] * price[r,t] * buy/sell[p,r,t] ─────────────
-    if tog.commodity_cost:
-        # Only commodities not priced via storage or market.
+    # ── Flow buy/sell: w[t] * price[r,t] * buy/sell[p,r,t] ─────────────
+    if tog.flow_cost:
+        # Only flows not priced via storage or market.
         priced_comms = [r for r in ctx.comms if r not in stored and r not in market_comms]
         if priced_comms:
             price_arr = np.array(
-                [[prob.commodities[r].price(t) for t in ctx.years] for r in priced_comms]
+                [[prob.flows[r].price(t) for t in ctx.years] for r in priced_comms]
             )
             sale_arr = np.array(
-                [[prob.commodities[r].sale_price(t) for t in ctx.years] for r in priced_comms]
+                [[prob.flows[r].sale_price(t) for t in ctx.years] for r in priced_comms]
             )
             price_da = xr.DataArray(
                 price_arr,
-                coords={"commodity": priced_comms, "period": ctx.years},
-                dims=["commodity", "period"],
+                coords={"flow": priced_comms, "period": ctx.years},
+                dims=["flow", "period"],
             )
             sale_da = xr.DataArray(
                 sale_arr,
-                coords={"commodity": priced_comms, "period": ctx.years},
-                dims=["commodity", "period"],
+                coords={"flow": priced_comms, "period": ctx.years},
+                dims=["flow", "period"],
             )
-            buy_sel = ctx.buy.sel(commodity=pd.Index(priced_comms, name="commodity"))
-            sell_sel = ctx.sell.sel(commodity=pd.Index(priced_comms, name="commodity"))
-            obj_terms.append((w_da * price_da * buy_sel).sum(["process", "commodity", "period"]))
-            obj_terms.append(
-                (-1.0 * w_da * sale_da * sell_sel).sum(["process", "commodity", "period"])
-            )
+            buy_sel = ctx.buy.sel(flow=pd.Index(priced_comms, name="flow"))
+            sell_sel = ctx.sell.sel(flow=pd.Index(priced_comms, name="flow"))
+            obj_terms.append((w_da * price_da * buy_sel).sum(["process", "flow", "period"]))
+            obj_terms.append((-1.0 * w_da * sale_da * sell_sel).sum(["process", "flow", "period"]))
 
     # ── Impact prices: w[t] * price[i,t] * emit[p,i,t] ──────────────────────
     if tog.impact_price and ctx.impacts:
@@ -2086,12 +2076,12 @@ def _objective(ctx: BuildContext) -> None:
             obj_terms.append((w_da * imp_price_da * emit_sel).sum(["process", "impact", "period"]))
 
     # ── Storage external purchase + fixed O&M ────────────────────────────────
-    if tog.commodity_cost and prob.storages:
+    if tog.flow_cost and prob.storages:
         for t in ctx.years:
             w = prob.discount_factor(t) * dur[t]
             for st in prob.storages:
-                if st.commodity_id not in market_comms:
-                    price = prob.commodities[st.commodity_id].price(t)
+                if st.flow_id not in market_comms:
+                    price = prob.flows[st.flow_id].price(t)
                     if price:
                         obj_terms.append(
                             (w * price) * ctx.extbuy.sel(store=st.storage_id, period=t)
@@ -2100,8 +2090,8 @@ def _objective(ctx: BuildContext) -> None:
                 if st_fox:
                     obj_terms.append((w * st_fox) * ctx.cap_built.sel(store=st.storage_id))
 
-    # ── Commodity markets ─────────────────────────────────────────────────────
-    if tog.commodity_cost and ctx.cmarkets:
+    # ── Flow markets ─────────────────────────────────────────────────────
+    if tog.flow_cost and ctx.cmarkets:
         for t in ctx.years:
             w = prob.discount_factor(t) * dur[t]
             for mk in ctx.cmarkets:
@@ -2190,11 +2180,11 @@ def _objective(ctx: BuildContext) -> None:
     for comp, q, y in ctx.demand_keys:
         if prob.objective_of(comp) != ObjectiveMode.PROFIT:
             continue
-        price = prob.commodities[q].sale_price(y)
+        price = prob.flows[q].sale_price(y)
         if not price:
             continue
         scope = _scope_processes(ctx, comp)
-        delivered = _lin_sum([ctx.deliver.sel(process=p, commodity=q, period=y) for p in scope])
+        delivered = _lin_sum([ctx.deliver.sel(process=p, flow=q, period=y) for p in scope])
         if delivered is not None:
             obj_terms.append((-(prob.discount_factor(y) * dur[y] * price)) * delivered)
 
