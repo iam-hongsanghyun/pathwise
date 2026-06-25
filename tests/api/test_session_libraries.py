@@ -88,7 +88,7 @@ def test_no_trajectory_library_keeps_legacy_sheets() -> None:
     wb = library_to_workbook(lib)
     assert "commodity_prices" not in wb
     assert "technologies_prices" not in wb
-    assert "measure_blocks_t" not in wb
+    assert "lever_blocks_t" not in wb
     assert "notes" not in wb["technologies"][0]  # blank notes don't add a column
     assert wb["technologies"][0]["capex"] == 100.0
     assert wb["commodities"][0]["price"] == 3.0
@@ -136,7 +136,7 @@ def test_trajectories_and_notes_round_trip() -> None:
             ],
             "measures": [
                 {
-                    "measure_id": "ee1",
+                    "lever_id": "ee1",
                     "type": "energy_efficiency",
                     "target": "power",
                     "lifetime": 10,
@@ -171,7 +171,7 @@ def _new_session() -> str:
     return client.post("/api/session").json()["sessionId"]
 
 
-def test_extract_library_recovers_streams_techs_measures() -> None:
+def test_extract_library_recovers_streams_techs_levers() -> None:
     wb = {
         "commodities": [
             {"commodity_id": "elec", "kind": "energy", "unit": "MWh", "sector": "power"},
@@ -188,17 +188,17 @@ def test_extract_library_recovers_streams_techs_measures() -> None:
                 "is_product": True,
             },
         ],
-        # per-facility measure (instantiated form) + its blocks
-        "measures": [
+        # per-facility lever (instantiated form) + its blocks
+        "levers": [
             {
-                "measure_id": "mill/eaf · eaf_eff",
+                "lever_id": "mill/eaf · eaf_eff",
                 "type": "energy_efficiency",
                 "target": "elec",
                 "lifetime": 15,
             }
         ],
-        "measure_blocks": [
-            {"measure_id": "mill/eaf · eaf_eff", "block": 0, "reduction": 0.05, "capex": 1000.0}
+        "lever_blocks": [
+            {"lever_id": "mill/eaf · eaf_eff", "block": 0, "reduction": 0.05, "capex": 1000.0}
         ],
         # structure sheets must be ignored by extraction
         "nodes": [{"node_id": "mill", "kind": "group"}],
@@ -210,8 +210,8 @@ def test_extract_library_recovers_streams_techs_measures() -> None:
     assert next(c for c in lib.commodities if c.commodity_id == "elec").sector == "power"
     assert [t.technology_id for t in lib.technologies] == ["EAF"]
     assert len(lib.technologies[0].io) == 2
-    # the per-facility measure is de-instantiated to a reusable template id
-    assert [m.measure_id for m in lib.measures] == ["eaf_eff"]
+    # the per-facility lever is de-instantiated to a reusable template id
+    assert [m.lever_id for m in lib.measures] == ["eaf_eff"]
     assert lib.measures[0].blocks[0].reduction == 0.05
 
 

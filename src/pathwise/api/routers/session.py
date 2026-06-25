@@ -28,6 +28,7 @@ from pathwise.api.workbook_io import (
 )
 from pathwise.config import get_settings
 from pathwise.core.valuechain import run_value_chain
+from pathwise.data.aliases import normalize_workbook
 from pathwise.data.components import extract_library_from_workbook, load_component_library
 from pathwise.data.libraries import discover_libraries, load_library_workbook
 from pathwise.data.scenario import ScenarioConfig
@@ -53,8 +54,8 @@ CORE_SHEETS = [
     "storage",
     "demand",
     "transitions",
-    "measures",
-    "measure_blocks",
+    "levers",
+    "lever_blocks",
     "maccs",
     "macc_links",
     "edges",
@@ -166,8 +167,16 @@ def session_exists(session_id: str) -> dict[str, Any]:
 
 @router.get("/session/{session_id}/model")
 def full_model(session_id: str) -> dict[str, Any]:
-    """The whole session workbook (pathwise models are small)."""
-    return {"sessionId": session_id, "model": _model_or_404(_store(), session_id)}
+    """The whole session workbook (pathwise models are small).
+
+    Normalised through the back-compat alias map so a model stored under OLD sheet/
+    column names (a bundled example or a pre-rename user model) reaches the frontend
+    in the current vocabulary; once the frontend saves it back the store self-heals.
+    """
+    return {
+        "sessionId": session_id,
+        "model": normalize_workbook(_model_or_404(_store(), session_id)),
+    }
 
 
 @router.get("/session/{session_id}/sheet/{name}")

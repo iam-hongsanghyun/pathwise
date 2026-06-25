@@ -13,8 +13,8 @@ def _model() -> dict:
         "technologies": [{"technology_id": "A"}, {"technology_id": "B"}],
         "machines": [{"machine_id": "m1", "baseline_technology": "A"}],
         "impact_prices": [{"impact_id": "CO2", "year": 2025, "price": 0}],
-        "measures": [{"measure_id": "HP", "type": "emission_reduction", "target": "CO2"}],
-        "measure_blocks": [{"measure_id": "HP", "block": 0, "reduction": 0.1}],
+        "levers": [{"lever_id": "HP", "type": "emission_reduction", "target": "CO2"}],
+        "lever_blocks": [{"lever_id": "HP", "block": 0, "reduction": 0.1}],
     }
 
 
@@ -60,20 +60,18 @@ def test_set_carbon_price_static_fills_every_year() -> None:
     assert prices == {("CO2", 2025): 50.0, ("CO2", 2030): 50.0}
 
 
-def test_toggle_measure_off_then_on() -> None:
+def test_toggle_lever_off_then_on() -> None:
     base = _model()
-    stripped = {k: v for k, v in base.items() if k not in ("measures", "measure_blocks")}
+    stripped = {k: v for k, v in base.items() if k not in ("levers", "lever_blocks")}
 
     # Off (already absent): stays absent.
-    off = apply_overrides(stripped, [{"op": "toggle_measure", "measure": "HP", "on": False}])
-    assert off["measures"] == []
+    off = apply_overrides(stripped, [{"op": "toggle_lever", "lever": "HP", "on": False}])
+    assert off["levers"] == []
 
     # On: re-introduced from the full model passed as `source`.
-    on = apply_overrides(
-        stripped, [{"op": "toggle_measure", "measure": "HP", "on": True}], source=base
-    )
-    assert [r["measure_id"] for r in on["measures"]] == ["HP"]
-    assert [r["measure_id"] for r in on["measure_blocks"]] == ["HP"]
+    on = apply_overrides(stripped, [{"op": "toggle_lever", "lever": "HP", "on": True}], source=base)
+    assert [r["lever_id"] for r in on["levers"]] == ["HP"]
+    assert [r["lever_id"] for r in on["lever_blocks"]] == ["HP"]
 
 
 def test_unknown_op_raises() -> None:

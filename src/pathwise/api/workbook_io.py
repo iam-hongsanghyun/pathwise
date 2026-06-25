@@ -125,7 +125,7 @@ def result_to_xlsx(result: dict[str, Any]) -> bytes:
     add("Technology", outputs.get("technology"))
     add("Throughput", outputs.get("throughput"))
     add("Transitions", outputs.get("transitions"))
-    add("Measures", outputs.get("measures"))
+    add("Levers", outputs.get("levers"))
     add("Flows", outputs.get("flows"))
     add("Impacts", summary.get("impacts"))
     portfolio = outputs.get("portfolio")
@@ -158,7 +158,7 @@ def result_to_tables(result: dict[str, Any]) -> Workbook:
             "throughput",
             "transitions",
             "renewals",
-            "measures",
+            "levers",
             "flows",
             "trade",
             "consumption",

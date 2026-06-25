@@ -3,7 +3,7 @@
 
 /** One-line definition per term, surfaced via InfoTooltip and the map legend. */
 export const GLOSSARY: Record<string, string> = {
-  component: "A reusable building block defined in the Component library — a technology, stream, or measure.",
+  component: "A reusable building block defined in the Component library — a technology, stream, or lever.",
   technology: "A recipe: the inputs it consumes and outputs it produces per unit of throughput.",
   machine: "A placed instance of a technology, running at a node (a facility in the chain).",
   node: "A structural container in the hierarchy — sector / country / company / facility.",

@@ -28,7 +28,7 @@ from linopy import Model
 
 from pathwise.core.entities import (
     CommodityKind,
-    MeasureType,
+    LeverType,
     ObjectiveMode,
     Transition,
     TransitionAction,
@@ -68,7 +68,7 @@ def build(problem: Problem) -> BuildContext:
     ctx = build_context(model, problem)
     logger.info(
         "model built: %d processes, %d techs, %d commodities, %d impacts, %d periods, "
-        "%d edges, %d measure-slots",
+        "%d edges, %d lever-slots",
         len(ctx.procs),
         len(ctx.techs),
         len(ctx.comms),
@@ -755,7 +755,7 @@ def _efficiency_savings(ctx: BuildContext, p: str, r: str, t: int) -> Any:
     terms = [
         s.reduction_at(t) * ctx.ref_consumption.get((p, r), 0.0) * ctx.z.sel(slot=s.key, period=t)
         for s in ctx.slots
-        if s.measure_type == MeasureType.ENERGY_EFFICIENCY and s.process == p and s.target == r
+        if s.lever_type == LeverType.ENERGY_EFFICIENCY and s.process == p and s.target == r
     ]
     return _lin_sum(terms)
 
@@ -1157,7 +1157,7 @@ def _abatement(ctx: BuildContext, p: str, i: str, t: int) -> Any:
     terms = [
         s.reduction_at(t) * ctx.ref_impact.get((p, i), 0.0) * ctx.z.sel(slot=s.key, period=t)
         for s in ctx.slots
-        if s.measure_type in (MeasureType.EMISSION_REDUCTION, MeasureType.ENVIRONMENTAL)
+        if s.lever_type in (LeverType.EMISSION_REDUCTION, LeverType.ENVIRONMENTAL)
         and s.process == p
         and s.target == i
     ]
@@ -1243,7 +1243,7 @@ def _impacts(ctx: BuildContext) -> None:
 
         # ── MACC abatement (small scalar loop; typically absent) ──────────────
         has_abatement = ctx.z is not None and any(
-            s.measure_type in (MeasureType.EMISSION_REDUCTION, MeasureType.ENVIRONMENTAL)
+            s.lever_type in (LeverType.EMISSION_REDUCTION, LeverType.ENVIRONMENTAL)
             for s in ctx.slots
         )
 
@@ -1338,10 +1338,10 @@ def _macc(ctx: BuildContext) -> None:
     """MACC adoption: cumulative blocks + persistence across periods."""
     m, prob = ctx.model, ctx.problem
     prev = _prev(ctx.years)
-    by_measure: dict[str, list[str]] = {}
+    by_lever: dict[str, list[str]] = {}
     for s in ctx.slots:
-        by_measure.setdefault(s.measure_id, []).append(s.key)
-    for keys in by_measure.values():
+        by_lever.setdefault(s.lever_id, []).append(s.key)
+    for keys in by_lever.values():
         for a, b in itertools.pairwise(keys):  # block a adopted before b
             for t in ctx.years:
                 m.add_constraints(
@@ -1888,7 +1888,7 @@ def _objective(ctx: BuildContext) -> None:
     in the constraint families.  This reduces the linopy merge / xarray alignment
     overhead from O(N_terms) to O(N_components), where N_components is small
     (opex, fixed_opex, commodity_buy, commodity_sell, impact_price, capex,
-    renewal_capex, measure_capex, measure_opex, storage, markets, slacks).
+    renewal_capex, lever_capex, lever_opex, storage, markets, slacks).
 
     ``add_objective`` is called once at the end with the combined expression.
     """
@@ -2170,14 +2170,14 @@ def _objective(ctx: BuildContext) -> None:
             )
             obj_terms.append((ren_capex_da * ctx.ren).sum(["process", "tech", "period"]))
 
-    # ── Measure capex + opex (small — few slots) ──────────────────────────────
+    # ── Lever capex + opex (small — few slots) ────────────────────────────────
     if ctx.slots:
         for t in ctx.years:
             df = prob.discount_factor(t)
             w = df * dur[t]
             pt = prev[t]
             for s in ctx.slots:
-                if tog.measure_capex:
+                if tog.lever_capex:
                     inc = ctx.z.sel(slot=s.key, period=t)
                     if pt is not None:
                         inc = inc - ctx.z.sel(slot=s.key, period=pt)

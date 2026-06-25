@@ -17,7 +17,7 @@ def _src() -> ComponentLibrary:
             ],
             "measures": [
                 {
-                    "measure_id": "eff1",
+                    "lever_id": "eff1",
                     "type": "energy_efficiency",
                     "target": "elec",
                     "blocks": [{"reduction": 0.1, "capex_per_capacity": 5}],
@@ -48,7 +48,7 @@ def test_copy_technology_brings_its_closure() -> None:
     out = copy_component_into(_empty(), _src(), "technology", "EAF")
     assert {t.technology_id for t in out.technologies} == {"EAF"}
     assert {c.commodity_id for c in out.commodities} == {"steel", "elec", "scrap"}  # not "unused"
-    assert {m.measure_id for m in out.measures} == {"eff1"}
+    assert {m.lever_id for m in out.measures} == {"eff1"}
     assert {g.macc_id for g in out.maccs} == {"M"}
 
 
@@ -77,8 +77,8 @@ def test_copy_stream_only() -> None:
     assert out.technologies == []
 
 
-def test_copy_macc_brings_measures() -> None:
+def test_copy_macc_brings_levers() -> None:
     out = copy_component_into(_empty(), _src(), "macc", "M")
     assert {g.macc_id for g in out.maccs} == {"M"}
-    assert {m.measure_id for m in out.measures} == {"eff1"}
-    assert {c.commodity_id for c in out.commodities} == {"elec"}  # measure target
+    assert {m.lever_id for m in out.measures} == {"eff1"}
+    assert {c.commodity_id for c in out.commodities} == {"elec"}  # lever target

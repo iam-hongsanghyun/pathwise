@@ -1,11 +1,11 @@
-"""MACC tables: catalogue measures bundled into named MACCs, deployed by link.
+"""MACC tables: catalogue levers bundled into named MACCs, deployed by link.
 
-The model: ``measures`` is a catalogue (no target needed), ``maccs`` rows
-{macc, measure_id} build named bundles (a measure may sit in several), and
+The model: ``levers`` is a catalogue (no target needed), ``maccs`` rows
+{macc, lever_id} build named bundles (a lever may sit in several), and
 ``macc_links`` rows {macc, facility|technology|commodity|storage} deploy a
 bundle: a commodity (stream) reaches every facility whose baseline technology
 consumes it, a storage reaches the consumers of its stored stream. Direct
-``facility``/``technology`` columns on a measure remain a one-off shortcut.
+``facility``/``technology`` columns on a lever remain a one-off shortcut.
 """
 
 from __future__ import annotations
@@ -45,20 +45,20 @@ def _wb() -> dict:
             {"process_id": "Small", "company": "C", "baseline_technology": "T", "capacity": 10},
             {"process_id": "Other", "company": "C", "baseline_technology": "U", "capacity": 50},
         ],
-        # Catalogue: neither measure names a facility or technology directly.
-        "measures": [
-            {"measure_id": "fuel_saver", "type": "energy_efficiency", "target": "fuel"},
-            {"measure_id": "co2_scrub", "type": "energy_efficiency", "target": "fuel"},
+        # Catalogue: neither lever names a facility or technology directly.
+        "levers": [
+            {"lever_id": "fuel_saver", "type": "energy_efficiency", "target": "fuel"},
+            {"lever_id": "co2_scrub", "type": "energy_efficiency", "target": "fuel"},
         ],
-        "measure_blocks": [
-            {"measure_id": "fuel_saver", "block": 0, "reduction": 0.2, "capex": 100.0},
-            {"measure_id": "co2_scrub", "block": 0, "reduction": 0.1, "capex": 50.0},
+        "lever_blocks": [
+            {"lever_id": "fuel_saver", "block": 0, "reduction": 0.2, "capex": 100.0},
+            {"lever_id": "co2_scrub", "block": 0, "reduction": 0.1, "capex": 50.0},
         ],
         # fuel_saver is reused in BOTH bundles; co2_scrub only in the U one.
         "maccs": [
-            {"macc": "T pack", "measure_id": "fuel_saver"},
-            {"macc": "U pack", "measure_id": "fuel_saver"},
-            {"macc": "U pack", "measure_id": "co2_scrub"},
+            {"macc": "T pack", "lever_id": "fuel_saver"},
+            {"macc": "U pack", "lever_id": "fuel_saver"},
+            {"macc": "U pack", "lever_id": "co2_scrub"},
         ],
         "macc_links": [
             {"macc": "T pack", "technology": "T"},
@@ -78,7 +78,7 @@ def _problem(wb: dict):
 
 def test_macc_deploys_to_technology_and_facility() -> None:
     prob = _problem(_wb())
-    ids = sorted(m.measure_id for m in prob.measures)
+    ids = sorted(m.lever_id for m in prob.levers)
     # fuel_saver: T pack→{Big, Small} ∪ U pack→{Other}; co2_scrub: {Other} only.
     assert ids == [
         "co2_scrub",
@@ -86,29 +86,29 @@ def test_macc_deploys_to_technology_and_facility() -> None:
         "fuel_saver @ Other",
         "fuel_saver @ Small",
     ]
-    assert {m.applies_to for m in prob.measures if m.measure_id.startswith("fuel_saver")} == {
+    assert {m.applies_to for m in prob.levers if m.lever_id.startswith("fuel_saver")} == {
         "Big",
         "Small",
         "Other",
     }
 
 
-def test_catalogue_measure_without_links_creates_no_instances() -> None:
+def test_catalogue_lever_without_links_creates_no_instances() -> None:
     wb = _wb()
     wb["maccs"] = []
     wb["macc_links"] = []
     prob = _problem(wb)
-    assert prob.measures == [], "catalogue-only measures are inert until deployed"
+    assert prob.levers == [], "catalogue-only levers are inert until deployed"
 
 
 def test_direct_facility_and_technology_columns() -> None:
     wb = _wb()
     wb["maccs"] = []
     wb["macc_links"] = []
-    wb["measures"][0]["facility"] = "Other"
-    wb["measures"][1]["technology"] = "T"
+    wb["levers"][0]["facility"] = "Other"
+    wb["levers"][1]["technology"] = "T"
     prob = _problem(wb)
-    ids = sorted(m.measure_id for m in prob.measures)
+    ids = sorted(m.lever_id for m in prob.levers)
     assert ids == ["co2_scrub @ Big", "co2_scrub @ Small", "fuel_saver"]
 
 
@@ -117,7 +117,7 @@ def test_macc_deploys_via_stream() -> None:
     # Both baseline technologies (T, U) consume fuel → all three facilities.
     wb["macc_links"] = [{"macc": "T pack", "commodity": "fuel"}]
     prob = _problem(wb)
-    assert sorted(m.applies_to for m in prob.measures if m.measure_id.startswith("fuel_saver")) == [
+    assert sorted(m.applies_to for m in prob.levers if m.lever_id.startswith("fuel_saver")) == [
         "Big",
         "Other",
         "Small",
@@ -130,7 +130,7 @@ def test_macc_deploys_via_storage() -> None:
     wb["storage"] = [{"storage_id": "tank", "commodity_id": "fuel"}]
     wb["macc_links"] = [{"macc": "T pack", "storage": "tank"}]
     prob = _problem(wb)
-    assert sorted(m.applies_to for m in prob.measures if m.measure_id.startswith("fuel_saver")) == [
+    assert sorted(m.applies_to for m in prob.levers if m.lever_id.startswith("fuel_saver")) == [
         "Big",
         "Other",
         "Small",
@@ -141,7 +141,7 @@ def test_macc_storage_link_without_store_is_inert() -> None:
     wb = _wb()
     wb["macc_links"] = [{"macc": "T pack", "storage": "missing_tank"}]
     prob = _problem(wb)
-    assert all(not m.measure_id.startswith("fuel_saver") for m in prob.measures)
+    assert all(not m.lever_id.startswith("fuel_saver") for m in prob.levers)
 
 
 def test_duplicate_membership_does_not_double_instances() -> None:
@@ -152,9 +152,9 @@ def test_duplicate_membership_does_not_double_instances() -> None:
         {"macc": "U pack", "technology": "T"},
     ]
     prob = _problem(wb)
-    pairs = [(m.measure_id, m.applies_to) for m in prob.measures]
+    pairs = [(m.lever_id, m.applies_to) for m in prob.levers]
     assert len(pairs) == len(set(pairs))
-    assert sorted(m.applies_to for m in prob.measures if "fuel_saver" in m.measure_id) == [
+    assert sorted(m.applies_to for m in prob.levers if "fuel_saver" in m.lever_id) == [
         "Big",
         "Small",
     ]

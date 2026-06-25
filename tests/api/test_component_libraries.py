@@ -108,7 +108,7 @@ def test_library_template_has_fillable_sheets_with_headers() -> None:
     r = client.get("/api/component-library/template.xlsx")
     assert r.status_code == 200
     frames = pd.read_excel(io.BytesIO(r.content), sheet_name=None)
-    for sheet in ["commodities", "technologies", "io", "measures", "maccs"]:
+    for sheet in ["commodities", "technologies", "io", "levers", "maccs"]:
         assert sheet in frames, f"template missing {sheet} tab"
     # Machines are Facility-layer placed instances, not reusable components.
     assert "machines" not in frames
@@ -239,7 +239,7 @@ _SESSION_LIB = {
     ],
     "measures": [
         {
-            "measure_id": "eff1",
+            "lever_id": "eff1",
             "label": "Eff one",
             "type": "energy_efficiency",
             "target": "elec",
@@ -288,7 +288,7 @@ def test_copy_from_session_source_brings_full_closure() -> None:
     body = client.get(f"/api/session/{sid}/component-library/dst").json()
     assert {t["technology_id"] for t in body["technologies"]} == {"EAFx"}
     assert {c["commodity_id"] for c in body["commodities"]} == {"steel", "elec"}
-    assert {m["measure_id"] for m in body["measures"]} == {"eff1"}  # via the MACC
+    assert {m["lever_id"] for m in body["measures"]} == {"eff1"}  # via the MACC
     assert {g["macc_id"] for g in body["maccs"]} == {"M"}
 
 

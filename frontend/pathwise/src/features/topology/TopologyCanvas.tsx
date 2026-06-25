@@ -37,9 +37,9 @@ interface Props {
   onDropLibrary?: (key: string, x: number, y: number) => void;
   /** A technology dragged onto the canvas — the host decides Initial vs Transition. */
   onDropTech?: (techId: string, x: number, y: number) => void;
-  /** Right-click shortcuts: add a transition option / a measure. */
+  /** Right-click shortcuts: add a transition option / a lever. */
   onAddTransition?: (processId: string) => void;
-  onAddMeasure?: (kind: NodeKind, entityId: string) => void;
+  onAddLever?: (kind: NodeKind, entityId: string) => void;
   /** Link an existing named MACC set to this facility (undefined → hidden). */
   onApplySet?: (processId: string) => void;
 }
@@ -65,7 +65,7 @@ export function TopologyCanvas({
   onDropLibrary,
   onDropTech,
   onAddTransition,
-  onAddMeasure,
+  onAddLever,
   onApplySet,
 }: Props) {
   const { nodes: baseNodes, edges } = useMemo(() => workbookToGraph(workbook), [workbook]);
@@ -346,18 +346,18 @@ export function TopologyCanvas({
                 </button>
               )}
               {(menu.nodeId.startsWith("process:") || menu.nodeId.startsWith("commodity:")) &&
-                onAddMeasure && (
+                onAddLever && (
                   <button
                     onClick={() => {
                       const i = menu.nodeId!.indexOf(":");
-                      onAddMeasure(
+                      onAddLever(
                         menu.nodeId!.slice(0, i) as NodeKind,
                         menu.nodeId!.slice(i + 1),
                       );
                       setMenu(null);
                     }}
                   >
-                    Add measure…
+                    Add lever…
                   </button>
                 )}
               {menu.nodeId.startsWith("process:") && onApplySet && (

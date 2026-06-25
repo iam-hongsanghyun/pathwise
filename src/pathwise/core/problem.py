@@ -15,8 +15,8 @@ from pathwise.core.entities import (
     Commodity,
     Edge,
     Impact,
+    Lever,
     Market,
-    Measure,
     ObjectiveMode,
     Period,
     Process,
@@ -238,7 +238,7 @@ class CostToggles:
     opex: bool = True
     commodity_cost: bool = True  # purchases minus sales
     impact_price: bool = True  # carbon price / ETS, per impact
-    measure_capex: bool = True
+    lever_capex: bool = True
 
 
 @dataclass(slots=True)
@@ -251,7 +251,7 @@ class Problem:
         technologies: Technology configs keyed by id.
         commodities: Commodities keyed by id.
         impacts: Impacts keyed by id.
-        measures: MACC/measures.
+        levers: MACC abatement levers.
         edges: Inter-process commodity flows.
         transitions: Permitted technology changes (replace/renew) + compatibility.
         storages: Per-commodity inter-year stores.
@@ -282,7 +282,7 @@ class Problem:
     technologies: dict[str, Technology]
     commodities: dict[str, Commodity]
     impacts: dict[str, Impact]
-    measures: list[Measure] = field(default_factory=list)
+    levers: list[Lever] = field(default_factory=list)
     edges: list[Edge] = field(default_factory=list)
     transitions: list[Transition] = field(default_factory=list)
     storages: list[Storage] = field(default_factory=list)

@@ -1,7 +1,7 @@
 // Importable-library API client — the tiered, auto-discovered catalogue.
 //
 // A *library* is one JSON workbook bundling components (streams / technologies /
-// measures) and optionally a value chain (a node hierarchy). They live under
+// levers) and optionally a value chain (a node hierarchy). They live under
 // <tier>/<id>.json on the backend: `base` (reference building blocks),
 // `example` (illustrative models), `project` (specific real projects). There is
 // no index — dropping a JSON file into a tier folder is enough.
@@ -23,7 +23,7 @@ export interface LibraryEntry {
   label: string;
   /** The workbook carries a node hierarchy → importing rebuilds the value chain. */
   has_value_chain: boolean;
-  /** The workbook carries streams / technologies / measures → stocks the library. */
+  /** The workbook carries streams / technologies / levers → stocks the library. */
   has_components: boolean;
 }
 

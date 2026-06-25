@@ -1,7 +1,7 @@
-"""Greedy-MACC backend: cheapest-first deployment of the model's *measures*.
+"""Greedy-MACC backend: cheapest-first deployment of the model's *levers*.
 
 The MACC mode is a solve method over the framework value-chain model — it reads
-the model's measures (abatement without a technology change) and an emission cap,
+the model's levers (abatement without a technology change) and an emission cap,
 not a bolt-on schema. The expected numbers are hand-computed from the algorithm
 in ``pathwise.backends.macc_backend`` (see its module docstring).
 """
@@ -18,11 +18,11 @@ YEARS = [2025, 2026, 2027, 2028]
 #: Emission cap (target) per year — BAU is a flat 100, the cap tightens.
 TARGET = {2025: 100, 2026: 90, 2027: 80, 2028: 60}
 
-#: Three abatement measures on the one facility. Each block: reduction (× the
+#: Three abatement levers on the one facility. Each block: reduction (× the
 #: facility's 100 tCO2 baseline = potential), capex, opex; lifetime 20.
 #: rank = (capex/20 + opex)/potential → cheap 0.5 < mid 1.0 < exp 5.0.
 #: book (capex/potential) → cheap 10, mid 20, exp 100.
-MEASURES = [
+LEVERS = [
     {"id": "cheap", "reduction": 0.05, "capex": 50, "opex": 0},  # pot 5, rank .5, book 10
     {"id": "mid", "reduction": 0.05, "capex": 100, "opex": 0},  # pot 5, rank 1.0, book 20
     {"id": "exp", "reduction": 0.25, "capex": 2500, "opex": 0},  # pot 25, rank 5.0, book 100
@@ -49,25 +49,25 @@ def _model() -> dict:
         ],
         # Facility baseline emission = 100 tCO2/yr (capacity 100 × 1.0).
         "process_impacts": [{"process_id": "F", "impact_id": "CO2", "factor": 1.0}],
-        "measures": [
+        "levers": [
             {
-                "measure_id": m["id"],
+                "lever_id": m["id"],
                 "type": "emission_reduction",
                 "target": "CO2",
                 "facility": "F",
                 "lifetime": 20,
             }
-            for m in MEASURES
+            for m in LEVERS
         ],
-        "measure_blocks": [
+        "lever_blocks": [
             {
-                "measure_id": m["id"],
+                "lever_id": m["id"],
                 "block": 0,
                 "reduction": m["reduction"],
                 "capex": m["capex"],
                 "opex": m["opex"],
             }
-            for m in MEASURES
+            for m in LEVERS
         ],
         "impact_caps": [
             {"company": "all", "impact_id": "CO2", "year": y, "limit": v} for y, v in TARGET.items()
@@ -119,13 +119,13 @@ def test_greedy_reproduces_hand_computed_pathway() -> None:
     assert res["summary"]["impacts"][-1]["total"] == pytest.approx(65.0)
 
 
-def test_no_measures_is_invalid() -> None:
+def test_no_levers_is_invalid() -> None:
     model = _model()
-    model["measures"] = []
-    model["measure_blocks"] = []
+    model["levers"] = []
+    model["lever_blocks"] = []
     res = _run(model)
     assert res["status"] == "invalid"
-    assert any("measure" in e.lower() for e in res["validation"]["errors"])
+    assert any("lever" in e.lower() for e in res["validation"]["errors"])
 
 
 def test_no_cap_is_invalid() -> None:

@@ -95,5 +95,5 @@ def test_cross_border_hydrogen_and_transition(system_result: dict) -> None:
     assert {"australia", "qatar", "korea"} <= origins, origins
     # the mill transitions its iron-making (blast furnace → H2 direct reduction)
     assert any(t["to_technology"] == "H2_DRI" for t in out["transitions"])
-    # MACC measures are adopted somewhere in the chain
-    assert any(float(m.get("adoption", 0) or 0) > 1e-6 for m in out["measures"])
+    # MACC levers are adopted somewhere in the chain
+    assert any(float(m.get("adoption", 0) or 0) > 1e-6 for m in out["levers"])

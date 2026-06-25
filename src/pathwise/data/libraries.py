@@ -1,7 +1,7 @@
 """Auto-discovered, importable libraries — the sector-agnostic model catalogue.
 
 A *library* is a single **SQLite** workbook bundling **components** (streams /
-technologies / measures) and a **value chain** (nodes / machines / connections /
+technologies / levers) and a **value chain** (nodes / machines / connections /
 demand / caps). They live under ``<libraries_dir>/<tier>/<id>.sqlite`` where
 ``tier`` is the parent folder — ``base`` (reference-confirmed building blocks),
 ``example`` (illustrative models) or ``project`` (specific real projects). A
@@ -77,7 +77,10 @@ def discover_libraries(root: str | Path) -> list[dict[str, Any]]:
                     "label": _label(wb, path.stem),
                     "has_value_chain": _has_value_chain(wb),
                     "has_components": bool(
-                        wb.get("technologies") or wb.get("commodities") or wb.get("measures")
+                        wb.get("technologies")
+                        or wb.get("commodities")
+                        or wb.get("levers")
+                        or wb.get("measures")
                     ),
                 }
             )

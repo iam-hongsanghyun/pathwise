@@ -177,7 +177,7 @@ def _summary(
         "origin": "starter" if (scope == "base" and lib_id in starters) else "user",
         "commodities": len(lib.commodities),
         "technologies": len(lib.technologies),
-        "measures": len(lib.measures),
+        "levers": len(lib.measures),
         "maccs": len(lib.maccs),
         "machines": len(lib.machines),
         "groups": len(lib.groups),
@@ -216,15 +216,15 @@ def list_component_libraries() -> list[dict[str, Any]]:
 
 
 #: The fillable sheets of a component library, in author order. Components are the
-#: reusable building blocks only — streams, technology recipes, and measures/MACCs.
+#: reusable building blocks only — streams, technology recipes, and levers/MACCs.
 #: ``machines`` (placed instances) belong to the Facility layer, and ``groups``
 #: (sector structure) is built as components are placed — both are omitted.
 _LIBRARY_SHEETS = [
     "commodities",
     "technologies",
     "io",
-    "measures",
-    "measure_blocks",
+    "levers",
+    "lever_blocks",
     "maccs",
 ]
 

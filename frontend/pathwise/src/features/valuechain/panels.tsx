@@ -81,7 +81,7 @@ export function MachineInspector({
   const outputs = io.filter((r) => s(r.role) === "output");
   const impacts = io.filter((r) => s(r.role) === "impact");
 
-  // Measures (MACC) reaching THIS facility — directly (facility/technology) or via
+  // Levers (MACC) reaching THIS facility — directly (facility/technology) or via
   // a linked MACC set. A technology- or stream-scoped link is COPIED to every
   // matching facility, but each facility adopts it independently (isolated), which
   // the scope label below makes explicit.
@@ -94,22 +94,22 @@ export function MachineInspector({
     else if (s(ln.commodity) && inputStreams.has(s(ln.commodity)))
       linkScope.set(g, `stream ${s(ln.commodity)} · adopted independently`);
   }
-  const appliedMeasures = new Map<string, string>(); // measure id → scope label
-  for (const m of wb.measures ?? []) {
-    const mid = s(m.measure_id);
-    if (s(m.facility) === machineId) appliedMeasures.set(mid, "this facility");
-    else if (tech && s(m.technology) === tech) appliedMeasures.set(mid, `every ${techLabel} · adopted independently`);
+  const appliedLevers = new Map<string, string>(); // lever id → scope label
+  for (const m of wb.levers ?? []) {
+    const mid = s(m.lever_id);
+    if (s(m.facility) === machineId) appliedLevers.set(mid, "this facility");
+    else if (tech && s(m.technology) === tech) appliedLevers.set(mid, `every ${techLabel} · adopted independently`);
   }
   for (const mm of wb.maccs ?? []) {
     const scope = linkScope.get(s(mm.macc));
-    if (scope && !appliedMeasures.has(s(mm.measure_id))) appliedMeasures.set(s(mm.measure_id), scope);
+    if (scope && !appliedLevers.has(s(mm.lever_id))) appliedLevers.set(s(mm.lever_id), scope);
   }
-  const measureType = new Map((wb.measures ?? []).map((m) => [s(m.measure_id), s(m.type)]));
-  const measureTarget = new Map((wb.measures ?? []).map((m) => [s(m.measure_id), s(m.target)]));
-  const measureLabel = new Map((wb.measures ?? []).map((m) => [s(m.measure_id), s(m.label)]));
-  // A measure id may be instance-scoped ("node/path · name") — show just the name.
-  const measureName = (mid: string): string =>
-    measureLabel.get(mid) || (mid.includes("·") ? mid.split("·").pop()!.trim() : mid.split("/").pop() || mid);
+  const leverType = new Map((wb.levers ?? []).map((m) => [s(m.lever_id), s(m.type)]));
+  const leverTarget = new Map((wb.levers ?? []).map((m) => [s(m.lever_id), s(m.target)]));
+  const leverLabel = new Map((wb.levers ?? []).map((m) => [s(m.lever_id), s(m.label)]));
+  // A lever id may be instance-scoped ("node/path · name") — show just the name.
+  const leverName = (mid: string): string =>
+    leverLabel.get(mid) || (mid.includes("·") ? mid.split("·").pop()!.trim() : mid.split("/").pop() || mid);
   const scope = useMemo(() => new Set(chain(wb, machineId)), [wb, machineId]);
   const labelOf = useMemo(
     () => new Map((wb.nodes ?? []).map((r) => [s(r.node_id), s(r.label) || s(r.node_id)])),
@@ -324,16 +324,16 @@ export function MachineInspector({
         </div>
       )}
 
-      {appliedMeasures.size > 0 && (
+      {appliedLevers.size > 0 && (
         <div className="mi-block">
-          <div className="mi-section-head"><span>measures (MACC)</span></div>
-          {[...appliedMeasures.keys()].map((mid) => {
-            const t = measureTarget.get(mid);
-            const verb = measureType.get(mid) === "energy_efficiency" ? "saves" : "cuts";
+          <div className="mi-section-head"><span>levers (MACC)</span></div>
+          {[...appliedLevers.keys()].map((mid) => {
+            const t = leverTarget.get(mid);
+            const verb = leverType.get(mid) === "energy_efficiency" ? "saves" : "cuts";
             return (
               <div className="mi-measure" key={mid}>
-                <span className="mi-measure-name">{measureName(mid)}</span>
-                <span className="mi-sub">{t ? `${verb} ${t}` : measureType.get(mid) || ""}</span>
+                <span className="mi-measure-name">{leverName(mid)}</span>
+                <span className="mi-sub">{t ? `${verb} ${t}` : leverType.get(mid) || ""}</span>
               </div>
             );
           })}

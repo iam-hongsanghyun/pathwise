@@ -44,7 +44,7 @@ def empty_result(
             "vessels": [],
             "transitions": [],
             "renewals": [],
-            "measures": [],
+            "levers": [],
             "flows": [],
             "transport": [],
             "trade": [],
@@ -300,11 +300,11 @@ def extract_results(
     for (key, t), v in _series(ctx.z).items():
         if v > _EPS:
             s = slot_by_key.get(key)
-            out["outputs"]["measures"].append(
+            out["outputs"]["levers"].append(
                 {
                     "process": s.process if s else None,
-                    "measure": s.measure_id if s else key,
-                    "type": s.measure_type.value if s else None,
+                    "lever": s.lever_id if s else key,
+                    "type": s.lever_type.value if s else None,
                     "period": int(t),
                     "adoption": v,
                 }
@@ -571,7 +571,7 @@ def _period_costs(ctx: Any) -> dict[int, float]:
         for (p, k, t), v in ren.items():
             if v > _EPS:
                 cost[int(t)] += prob.technologies[k].renewal(int(t)) * cap[p] * v
-    if tog.measure_capex:
+    if tog.lever_capex:
         slot_by_key = {sl.key: sl for sl in ctx.slots}
         for (key, t), v in z.items():
             sl = slot_by_key.get(key)

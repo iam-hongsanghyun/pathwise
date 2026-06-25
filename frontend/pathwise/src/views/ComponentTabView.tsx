@@ -1,15 +1,15 @@
 // Component tab — each library has THREE fixed structures:
 //   Technology  (recipe: properties + input/output streams + linked MACCs)
 //   Stream      (commodity properties)
-//   Measures    (MACC = a group of measures · Individual = reusable measures)
+//   Levers      (MACC = a group of levers · Individual = reusable levers)
 // Left = the structure tree; right-click adds/renames/deletes; the right (main)
 // detail shows the properties of the selected item.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CommodityEditor,
+  LeverEditor,
   MaccEditor,
-  MeasureEditor,
   TechnologyEditor,
 } from "../features/component/editors";
 import { TimeSeriesRail } from "../features/component/TimeSeriesRail";
@@ -32,8 +32,8 @@ import {
   type LibrarySummary,
   type LibScope,
   listAllComponentLibraries,
+  type LeverTemplate,
   type MaccGroup,
-  type MeasureTemplate,
   saveComponentLibrary,
   saveSessionComponentLibrary,
   type TechnologyTemplate,
@@ -72,25 +72,25 @@ const removeLib = (libId: string, sid: string | null): Promise<void> => {
 
 /** Why the backend would reject this library as an incomplete draft, or null if
  *  it is saveable. Mirrors the `min_length` constraints in `data/templates.py`
- *  (a technology needs ≥1 io row; a measure needs ≥1 cost block) so a freshly
+ *  (a technology needs ≥1 io row; a lever needs ≥1 cost block) so a freshly
  *  added, not-yet-filled component is held back from autosave instead of 422ing. */
 function draftBlocker(body: ComponentLibrary): string | null {
   const t = body.technologies.find((x) => x.io.length === 0);
   if (t) return `add an input or output to “${t.technology_id}”`;
   const m = body.measures.find((x) => x.blocks.length === 0);
-  if (m) return `add a cost block to “${m.measure_id}”`;
+  if (m) return `add a cost block to “${m.lever_id}”`;
   return null;
 }
 
-type Kind = "library" | "cat" | "tech" | "stream" | "measure" | "macc";
+type Kind = "library" | "cat" | "tech" | "stream" | "lever" | "macc";
 interface Sel {
   libId: string;
   kind: Kind;
   /** For cat: the category key; for items: the item id. */
   id?: string;
 }
-const PREFIX: Record<string, Kind> = { t: "tech", s: "stream", m: "measure", g: "macc" };
-const KIND_PREFIX: Partial<Record<Kind, string>> = { tech: "t", stream: "s", measure: "m", macc: "g" };
+const PREFIX: Record<string, Kind> = { t: "tech", s: "stream", m: "lever", g: "macc" };
+const KIND_PREFIX: Partial<Record<Kind, string>> = { tech: "t", stream: "s", lever: "m", macc: "g" };
 
 const uniq = (base: string, taken: Set<string>): string => {
   if (!taken.has(base)) return base;
@@ -124,7 +124,7 @@ export interface Bucket {
   techs: TechnologyTemplate[];
   streams: CommodityTemplate[];
   maccs: MaccGroup[];
-  measures: MeasureTemplate[];
+  measures: LeverTemplate[];
 }
 export function libraryBuckets(body: ComponentLibrary): { order: string[]; buckets: Map<string, Bucket> } {
   const sec = (s: string | null | undefined): string => (s && s.trim()) || OTHER;
@@ -164,7 +164,7 @@ export function libraryBuckets(body: ComponentLibrary): { order: string[]; bucke
     B(isOut ? sec(c.sector) : OTHER).streams.push(c); // standalone (neither) → Other
   }
   for (const g of body.maccs) B(maccSectorOf.get(g.macc_id) ?? OTHER).maccs.push(g);
-  for (const m of body.measures) B(measSectorOf.get(m.measure_id) ?? sec(secOf.get(m.target))).measures.push(m);
+  for (const m of body.measures) B(measSectorOf.get(m.lever_id) ?? sec(secOf.get(m.target))).measures.push(m);
   const order = [...buckets.keys()].sort((a, b) => (a === OTHER ? 1 : b === OTHER ? -1 : a.localeCompare(b)));
   return { order, buckets };
 }
@@ -356,11 +356,11 @@ export function ComponentTabView({
         for (const t of b.techs) node(`t:${lk}:${t.technology_id}`, `cat:${lk}:${s}/tech`, t.technology_id, "leaf", false);
         node(`cat:${lk}:${s}/stream`, groupParent, "Stream", "group", b.streams.length > 0);
         for (const c of b.streams) node(`s:${lk}:${c.commodity_id}`, `cat:${lk}:${s}/stream`, c.commodity_id, "leaf", false);
-        node(`cat:${lk}:${s}/measures`, groupParent, "Measures & MACC", "group", b.maccs.length + b.measures.length > 0);
+        node(`cat:${lk}:${s}/measures`, groupParent, "Levers & MACC", "group", b.maccs.length + b.measures.length > 0);
         node(`cat:${lk}:${s}/macc`, `cat:${lk}:${s}/measures`, "MACC", "group", b.maccs.length > 0);
         for (const g of b.maccs) node(`g:${lk}:${g.macc_id}`, `cat:${lk}:${s}/macc`, g.label || g.macc_id, "leaf", false);
         node(`cat:${lk}:${s}/indiv`, `cat:${lk}:${s}/measures`, "Individual", "group", b.measures.length > 0);
-        for (const m of b.measures) node(`m:${lk}:${m.measure_id}`, `cat:${lk}:${s}/indiv`, m.label || m.measure_id, "leaf", false);
+        for (const m of b.measures) node(`m:${lk}:${m.lever_id}`, `cat:${lk}:${s}/indiv`, m.label || m.lever_id, "leaf", false);
       }
     }
     return out;
@@ -386,11 +386,11 @@ export function ComponentTabView({
       return { ...l, commodities: [...l.commodities, { commodity_id: id, kind: "material", unit: "unit", sector } as CommodityTemplate] };
     });
   }
-  function addMeasure(libId: string) {
+  function addLever(libId: string) {
     editLib(libId, (l) => {
-      const id = uniq("measure", new Set(l.measures.map((m) => m.measure_id)));
-      const m: MeasureTemplate = { measure_id: id, label: "", type: "energy_efficiency", target: l.commodities[0]?.commodity_id ?? "", lifetime: 15, blocks: [{ reduction: 0.05, capex_per_capacity: 0, opex_per_capacity: 0 }] };
-      setSel({ libId, kind: "measure", id });
+      const id = uniq("lever", new Set(l.measures.map((m) => m.lever_id)));
+      const m: LeverTemplate = { lever_id: id, label: "", type: "energy_efficiency", target: l.commodities[0]?.commodity_id ?? "", lifetime: 15, blocks: [{ reduction: 0.05, capex_per_capacity: 0, opex_per_capacity: 0 }] };
+      setSel({ libId, kind: "lever", id });
       setExpanded((p) => new Set(p).add(`lib:${libId}`).add(`cat:${libId}:${OTHER}`).add(`cat:${libId}:${OTHER}/measures`).add(`cat:${libId}:${OTHER}/indiv`));
       return { ...l, measures: [...l.measures, m] };
     });
@@ -407,7 +407,7 @@ export function ComponentTabView({
     editLib(s.libId, (l) => {
       if (s.kind === "tech") return { ...l, technologies: l.technologies.filter((t) => t.technology_id !== s.id) };
       if (s.kind === "stream") return { ...l, commodities: l.commodities.filter((c) => c.commodity_id !== s.id) };
-      if (s.kind === "measure") return { ...l, measures: l.measures.filter((m) => m.measure_id !== s.id), maccs: l.maccs.map((g) => ({ ...g, measures: g.measures.filter((x) => x !== s.id) })) };
+      if (s.kind === "lever") return { ...l, measures: l.measures.filter((m) => m.lever_id !== s.id), maccs: l.maccs.map((g) => ({ ...g, measures: g.measures.filter((x) => x !== s.id) })) };
       if (s.kind === "macc") return { ...l, maccs: l.maccs.filter((g) => g.macc_id !== s.id), technologies: l.technologies.map((t) => ({ ...t, maccs: t.maccs.filter((x) => x !== s.id) })) };
       return l;
     });
@@ -417,7 +417,7 @@ export function ComponentTabView({
     editLib(s.libId, (l) => {
       if (s.kind === "tech") return { ...l, technologies: l.technologies.map((t) => (t.technology_id === s.id ? { ...t, technology_id: name } : t)), machines: l.machines.map((m) => (m.technology === s.id ? { ...m, technology: name } : m)) };
       if (s.kind === "stream") return { ...l, commodities: l.commodities.map((c) => (c.commodity_id === s.id ? { ...c, commodity_id: name } : c)) };
-      if (s.kind === "measure") return { ...l, measures: l.measures.map((m) => (m.measure_id === s.id ? { ...m, measure_id: name } : m)), maccs: l.maccs.map((g) => ({ ...g, measures: g.measures.map((x) => (x === s.id ? name : x)) })) };
+      if (s.kind === "lever") return { ...l, measures: l.measures.map((m) => (m.lever_id === s.id ? { ...m, lever_id: name } : m)), maccs: l.maccs.map((g) => ({ ...g, measures: g.measures.map((x) => (x === s.id ? name : x)) })) };
       if (s.kind === "macc") return { ...l, maccs: l.maccs.map((g) => (g.macc_id === s.id ? { ...g, macc_id: name } : g)), technologies: l.technologies.map((t) => ({ ...t, maccs: t.maccs.map((x) => (x === s.id ? name : x)) })) };
       return l;
     });
@@ -547,14 +547,14 @@ export function ComponentTabView({
         "": [
           { id: "add-tech", label: "Add technology" },
           { id: "add-stream", label: "Add stream" },
-          { id: "add-measure", label: "Add measure" },
+          { id: "add-lever", label: "Add lever" },
           { id: "add-macc", label: "Add MACC" },
         ],
         tech: [{ id: "add-tech", label: "Add technology" }],
         stream: [{ id: "add-stream", label: "Add stream" }],
-        measures: [{ id: "add-measure", label: "Add measure" }, { id: "add-macc", label: "Add MACC" }],
+        measures: [{ id: "add-lever", label: "Add lever" }, { id: "add-macc", label: "Add MACC" }],
         macc: [{ id: "add-macc", label: "Add MACC" }],
-        indiv: [{ id: "add-measure", label: "Add measure" }],
+        indiv: [{ id: "add-lever", label: "Add lever" }],
       };
       return map[sub] ?? [];
     }
@@ -569,7 +569,7 @@ export function ComponentTabView({
     else if (actionId === "add-stream") {
       const sector = s.kind === "cat" ? (s.id ?? "").split("/")[0] : "";
       addStream(s.libId, sector && sector !== OTHER ? sector : null);
-    } else if (actionId === "add-measure") addMeasure(s.libId);
+    } else if (actionId === "add-lever") addLever(s.libId);
     else if (actionId === "add-macc") addMacc(s.libId);
     else if (actionId === "delete-lib") void removeLibrary(s.libId);
     else if (actionId === "rename-lib") {
@@ -658,12 +658,12 @@ export function ComponentTabView({
       );
     };
     const maccCard = (g: MaccGroup) => {
-      const meas = g.measures.map((mid) => (body?.measures ?? []).find((m) => m.measure_id === mid)).filter((m): m is MeasureTemplate => !!m);
+      const meas = g.measures.map((mid) => (body?.measures ?? []).find((m) => m.lever_id === mid)).filter((m): m is LeverTemplate => !!m);
       const usedBy = (body?.technologies ?? []).filter((t) => t.maccs.includes(g.macc_id)).map((t) => t.technology_id);
       return (
         <button className="comp-card" key={`g:${g.macc_id}`} onClick={() => drill("macc", g.macc_id)}>
           <div className="comp-card-row">
-            {ioCol("measures", meas.map((m) => `${m.label || m.measure_id}${m.target ? ` → ${m.target}` : ""}`), "in")}
+            {ioCol("levers", meas.map((m) => `${m.label || m.lever_id}${m.target ? ` → ${m.target}` : ""}`), "in")}
             <div className="comp-card-mid">
               <span className="lib-tier">MACC</span>
               <div className="comp-card-title">{g.label || g.macc_id}</div>
@@ -673,12 +673,12 @@ export function ComponentTabView({
         </button>
       );
     };
-    const measureCard = (m: MeasureTemplate) => (
-      <button className="comp-card" key={`m:${m.measure_id}`} onClick={() => drill("measure", m.measure_id)}>
+    const leverCard = (m: LeverTemplate) => (
+      <button className="comp-card" key={`m:${m.lever_id}`} onClick={() => drill("lever", m.lever_id)}>
         <div className="comp-card-row">
           <div className="comp-card-mid comp-card-mid-wide">
-            <span className="lib-tier">measure</span>
-            <div className="comp-card-title">{m.label || m.measure_id}</div>
+            <span className="lib-tier">lever</span>
+            <div className="comp-card-title">{m.label || m.lever_id}</div>
             <div className="comp-card-meta">{m.target ? `abates ${m.target}` : m.type} · {m.blocks.length} block{m.blocks.length === 1 ? "" : "s"}</div>
             {tsChip(tsYears(...m.blocks.flatMap((b) => [b.capex_per_capacity_by_year, b.opex_per_capacity_by_year])))}
           </div>
@@ -693,7 +693,7 @@ export function ComponentTabView({
     if (sub === "stream")
       return <BucketShell title={`${sector} · Streams`} add={() => addStream(libId, sector === OTHER ? null : sector)}>{grid(b.streams.map(streamCard), "No streams produced in this sector.")}</BucketShell>;
     if (sub === "indiv")
-      return <BucketShell title={`${sector} · Measures`} add={() => addMeasure(libId)}>{grid(b.measures.map(measureCard), "No individual measures in this sector.")}</BucketShell>;
+      return <BucketShell title={`${sector} · Levers`} add={() => addLever(libId)}>{grid(b.measures.map(leverCard), "No individual levers in this sector.")}</BucketShell>;
     if (sub === "macc")
       return <BucketShell title={`${sector} · MACCs`} add={() => addMacc(libId)}>{grid(b.maccs.map(maccCard), "No MACC bundles in this sector.")}</BucketShell>;
 
@@ -716,19 +716,19 @@ export function ComponentTabView({
       );
     }
 
-    // Measures & MACC parent ("measures") → MACC + individual-measure cards.
+    // Levers & MACC parent ("measures") → MACC + individual-lever cards.
     return (
       <section>
-        <h2 className="view-title">{sector} · Measures &amp; MACC</h2>
+        <h2 className="view-title">{sector} · Levers &amp; MACC</h2>
         <p className="muted" style={{ fontSize: "0.78rem", margin: "0 0 8px" }}>
           {b.maccs.length} MACC bundle{b.maccs.length === 1 ? "" : "s"} · {b.measures.length} individual
-          measure{b.measures.length === 1 ? "" : "s"}.
+          lever{b.measures.length === 1 ? "" : "s"}.
         </p>
         <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-          <button className="ghost" onClick={() => addMeasure(libId)}>＋ measure</button>
+          <button className="ghost" onClick={() => addLever(libId)}>＋ lever</button>
           <button className="ghost" onClick={() => addMacc(libId)}>＋ MACC</button>
         </div>
-        {grid([...b.maccs.map(maccCard), ...b.measures.map(measureCard)], "No measures in this sector yet.")}
+        {grid([...b.maccs.map(maccCard), ...b.measures.map(leverCard)], "No levers in this sector yet.")}
       </section>
     );
   }
@@ -824,7 +824,7 @@ export function ComponentTabView({
                 <div className="lib-card-stats">
                   <div><b>{l.technologies}</b><span className="muted">tech</span></div>
                   <div><b>{l.commodities}</b><span className="muted">streams</span></div>
-                  <div><b>{l.measures}</b><span className="muted">measures</span></div>
+                  <div><b>{l.levers}</b><span className="muted">levers</span></div>
                 </div>
               </button>
             ))}
@@ -871,7 +871,7 @@ export function ComponentTabView({
     const groups = [
       { sub: "tech", label: "Technologies", desc: "Process recipes — inputs, outputs, costs & impacts", n: b.techs.length },
       { sub: "stream", label: "Streams", desc: "Commodities produced here, and how they connect", n: b.streams.length },
-      { sub: "measures", label: "Measures & MACC", desc: "Abatement levers and their cost curves", n: b.maccs.length + b.measures.length },
+      { sub: "measures", label: "Levers & MACC", desc: "Abatement levers and their cost curves", n: b.maccs.length + b.measures.length },
     ];
     return groups.map((g) =>
       infoCard({
@@ -900,8 +900,8 @@ export function ComponentTabView({
             <input className="field-input" style={{ flex: 1, maxWidth: 280 }} value={body.label} onChange={(e) => editLib(sel.libId, (lib) => ({ ...lib, label: e.target.value }))} />
           </label>
           <p className="muted" style={{ fontSize: "0.78rem" }}>
-            {l?.technologies ?? 0} technologies · {l?.commodities ?? 0} streams · {l?.measures ?? 0} measures · {l?.maccs ?? 0} MACCs.
-            {" "}Open a group to add or edit components — a technology gets its own input/output streams; measures are reusable and bundled into MACCs.
+            {l?.technologies ?? 0} technologies · {l?.commodities ?? 0} streams · {l?.levers ?? 0} levers · {l?.maccs ?? 0} MACCs.
+            {" "}Open a group to add or edit components — a technology gets its own input/output streams; levers are reusable and bundled into MACCs.
           </p>
           {(() => {
             // Always offer a way in: sector cards when multi-sector, otherwise the
@@ -921,7 +921,7 @@ export function ComponentTabView({
                         stats: [
                           { n: b.techs.length, label: "tech" },
                           { n: b.streams.length, label: "streams" },
-                          { n: b.measures.length + b.maccs.length, label: "measures" },
+                          { n: b.measures.length + b.maccs.length, label: "levers" },
                         ],
                         onClick: () => {
                           setExpanded((p) => new Set(p).add(`cat:${sel.libId}:${sec}`));
@@ -969,7 +969,7 @@ export function ComponentTabView({
     if (sel.kind === "stream") {
       const c = body.commodities.find((x) => x.commodity_id === sel.id);
       if (!c) return null;
-      const targeting = body.measures.filter((m) => m.target === sel.id).map((m) => m.label || m.measure_id);
+      const targeting = body.measures.filter((m) => m.target === sel.id).map((m) => m.label || m.lever_id);
       return (
         <>
           <CommodityEditor
@@ -979,21 +979,21 @@ export function ComponentTabView({
             onRename={(id) => setSel({ libId: sel.libId, kind: "stream", id })}
           />
           <div className="rail-section" style={{ marginTop: 12 }}>
-            <div className="rail-head">Measures targeting this stream</div>
+            <div className="rail-head">Levers targeting this stream</div>
             <div className="rail-empty" style={{ fontSize: "0.78rem" }}>{targeting.length ? targeting.join(", ") : "none"}</div>
           </div>
         </>
       );
     }
-    if (sel.kind === "measure") {
-      const m = body.measures.find((x) => x.measure_id === sel.id);
+    if (sel.kind === "lever") {
+      const m = body.measures.find((x) => x.lever_id === sel.id);
       if (!m) return null;
       return (
-        <MeasureEditor
+        <LeverEditor
           value={m}
           commodityIds={commodityIds}
-          onChange={(v) => editLib(sel.libId, (l) => ({ ...l, measures: l.measures.map((x) => (x.measure_id === sel.id ? v : x)) }))}
-          onRename={(id) => setSel({ libId: sel.libId, kind: "measure", id })}
+          onChange={(v) => editLib(sel.libId, (l) => ({ ...l, measures: l.measures.map((x) => (x.lever_id === sel.id ? v : x)) }))}
+          onRename={(id) => setSel({ libId: sel.libId, kind: "lever", id })}
         />
       );
     }
@@ -1003,7 +1003,7 @@ export function ComponentTabView({
     return (
       <MaccEditor
         value={g}
-        measures={body.measures.map((m) => ({ id: m.measure_id, label: m.label || m.measure_id }))}
+        measures={body.measures.map((m) => ({ id: m.lever_id, label: m.label || m.lever_id }))}
         allMeasures={body.measures}
         onChange={(v) => editLib(sel.libId, (l) => ({ ...l, maccs: l.maccs.map((x) => (x.macc_id === sel.id ? v : x)) }))}
         onRename={(id) => setSel({ libId: sel.libId, kind: "macc", id })}
@@ -1030,12 +1030,12 @@ export function ComponentTabView({
         set: (v) => editLib(sel.libId, (l) => ({ ...l, commodities: l.commodities.map((x) => (x.commodity_id === sel.id ? { ...x, notes: v } : x)) })),
       };
     }
-    if (sel.kind === "measure") {
-      const m = body.measures.find((x) => x.measure_id === sel.id);
+    if (sel.kind === "lever") {
+      const m = body.measures.find((x) => x.lever_id === sel.id);
       return m == null ? null : {
-        label: `Measure · ${m.measure_id}`,
+        label: `Lever · ${m.lever_id}`,
         value: m.notes ?? "",
-        set: (v) => editLib(sel.libId, (l) => ({ ...l, measures: l.measures.map((x) => (x.measure_id === sel.id ? { ...x, notes: v } : x)) })),
+        set: (v) => editLib(sel.libId, (l) => ({ ...l, measures: l.measures.map((x) => (x.lever_id === sel.id ? { ...x, notes: v } : x)) })),
       };
     }
     if (sel.kind === "macc") {
@@ -1073,9 +1073,9 @@ export function ComponentTabView({
       const c = body.commodities.find((x) => x.commodity_id === sel.id);
       return c == null ? null : <TimeSeriesRail kind="stream" value={c} onChange={(v) => editLib(sel.libId, (l) => ({ ...l, commodities: l.commodities.map((x) => (x.commodity_id === sel.id ? v : x)) }))} />;
     }
-    if (sel.kind === "measure") {
-      const m = body.measures.find((x) => x.measure_id === sel.id);
-      return m == null ? null : <TimeSeriesRail kind="measure" value={m} onChange={(v) => editLib(sel.libId, (l) => ({ ...l, measures: l.measures.map((x) => (x.measure_id === sel.id ? v : x)) }))} />;
+    if (sel.kind === "lever") {
+      const m = body.measures.find((x) => x.lever_id === sel.id);
+      return m == null ? null : <TimeSeriesRail kind="lever" value={m} onChange={(v) => editLib(sel.libId, (l) => ({ ...l, measures: l.measures.map((x) => (x.lever_id === sel.id ? v : x)) }))} />;
     }
     return null;
   }

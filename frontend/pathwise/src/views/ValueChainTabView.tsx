@@ -122,12 +122,12 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   async function deleteNode(id: string) {
     if (!(await confirm({ title: "Delete item", message: `Delete '${nodeById.get(id)?.label ?? id}' and everything inside it?`, danger: true, confirmLabel: "Delete" }))) return;
     const doomed = descendantsOf(id);
-    const deadMeasures = new Set((workbook.measures ?? []).filter((r) => doomed.has(s(r.facility))).map((r) => s(r.measure_id)));
+    const deadLevers = new Set((workbook.levers ?? []).filter((r) => doomed.has(s(r.facility))).map((r) => s(r.lever_id)));
     let wb = setSheet(workbook, "nodes", (workbook.nodes ?? []).filter((r) => !doomed.has(s(r.node_id))));
     wb = setSheet(wb, "machines", (wb.machines ?? []).filter((r) => !doomed.has(s(r.machine_id))));
     wb = setSheet(wb, "connections", (wb.connections ?? []).filter((r) => !doomed.has(s(r.from_node)) && !doomed.has(s(r.to_node))));
-    wb = setSheet(wb, "measures", (wb.measures ?? []).filter((r) => !doomed.has(s(r.facility))));
-    wb = setSheet(wb, "measure_blocks", (wb.measure_blocks ?? []).filter((r) => !deadMeasures.has(s(r.measure_id))));
+    wb = setSheet(wb, "levers", (wb.levers ?? []).filter((r) => !doomed.has(s(r.facility))));
+    wb = setSheet(wb, "lever_blocks", (wb.lever_blocks ?? []).filter((r) => !deadLevers.has(s(r.lever_id))));
     wb = setSheet(wb, "markets", (wb.markets ?? []).filter((r) => !doomed.has(s(r.company))));
     wb = setSheet(wb, "demand", (wb.demand ?? []).filter((r) => !doomed.has(s(r.company))));
     wb = setSheet(wb, "ports", (wb.ports ?? []).filter((r) => !doomed.has(s(r.node_id))));

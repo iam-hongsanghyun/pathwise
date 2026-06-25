@@ -1,43 +1,43 @@
-"""MACC backend: greedy marginal-cost abatement over the framework's *measures*.
+"""MACC backend: greedy marginal-cost abatement over the framework's *levers*.
 
 A standalone optimisation *mode* — selectable alongside the MILP (``linopy``) and
 ``portfolio`` backends. It is a SOLVE METHOD over the same value-chain model, not
 a separate data format: it reuses the front of the pipeline (validate → assemble
 the :class:`~pathwise.core.problem.Problem`), then — instead of building a MILP —
-reads the model's **measures** (abatement actions applied to a facility WITHOUT
+reads the model's **levers** (abatement actions applied to a facility WITHOUT
 changing its technology — the framework's MACC concept) and greedily deploys them
 cheapest-first against the emission cap (``impact_caps``).
 
 This reproduces the greedy annual-deployment runners common in sector
-decarbonisation models (e.g. the Korean petrochemical MACC): rank measures by
+decarbonisation models (e.g. the Korean petrochemical MACC): rank levers by
 $/tCO2, fill the gap to the policy target each year, carry deployment forward
-irreversibly. Because deployment is irreversible, once measure potentials
+irreversibly. Because deployment is irreversible, once lever potentials
 saturate the residual emissions can drift above an ever-tightening target.
 
 Distinction the framework draws: a **transition** changes a facility's technology
-(decided by the MILP); a **measure** abates without a technology change (this
+(decided by the MILP); a **lever** abates without a technology change (this
 backend). The two are not interchangeable.
 
 Algorithm:
     For each year ``y`` (ascending), with sector BAU ``b(y) = Σ_f e_f(y)`` (every
-    facility's gross emission of the capped impact at full capacity, no measures)
+    facility's gross emission of the capped impact at full capacity, no levers)
     and target ``g(y)`` (the impact cap)::
 
         required(y) = max(0, b(y) - g(y))
         remaining   = max(0, required(y) - Σ_k d_k)          # d_k carried forward
-        for measure k in ascending $/tCO2:
+        for lever k in ascending $/tCO2:
             add = min(remaining, P_k(y) - d_k)                # capped at potential
             d_k += add ; remaining -= add ; C += add · κ_k(y) # C = cumulative CAPEX
         actual(y) = b(y) - Σ_k d_k
 
-    where, summing a measure's facility-instances (each block on each linked
+    where, summing a lever's facility-instances (each block on each linked
     facility), with baseline emission ``e_f(y)`` and lifetime ``L``::
 
         P_k(y) = Σ_f reduction_f(y) · e_f(y)                  # abatement potential
         $/tCO2 = (Σ_f capex_f(y)/L + Σ_f opex_f(y)) / P_k(y)  # ranking key
         κ_k(y) = (Σ_f capex_f(y)) / P_k(y)                    # CAPEX booked per unit
 
-    ASCII fallback: deploy the cheapest measure first up to its potential, carry
+    ASCII fallback: deploy the cheapest lever first up to its potential, carry
     deployment forward, book CAPEX in proportion to abatement added.
 """
 
@@ -45,7 +45,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pathwise.core.entities import MeasureType
+from pathwise.core.entities import LeverType
 from pathwise.core.extract import empty_result, macc_result
 from pathwise.core.problem import Problem
 from pathwise.data.scenario import ScenarioConfig
@@ -56,11 +56,11 @@ from pathwise.progress import ProgressFn
 
 logger = get_logger(__name__)
 
-_ABATING = (MeasureType.EMISSION_REDUCTION, MeasureType.ENVIRONMENTAL)
+_ABATING = (LeverType.EMISSION_REDUCTION, LeverType.ENVIRONMENTAL)
 
 
 class MaccBackend:
-    """Greedy marginal-cost abatement over the model's measures (no MILP)."""
+    """Greedy marginal-cost abatement over the model's levers (no MILP)."""
 
     name = "macc"
     label = "MACC (greedy abatement)"
@@ -73,7 +73,7 @@ class MaccBackend:
             "solver": "greedy",
             "features": {
                 "macc": True,
-                "measures": True,
+                "levers": True,
                 "multiPeriod": True,
                 "transitions": False,
                 "network": False,
@@ -89,13 +89,13 @@ class MaccBackend:
         *,
         progress: ProgressFn | None = None,
     ) -> dict[str, Any]:
-        """Validate, assemble, and greedily deploy measures against the cap.
+        """Validate, assemble, and greedily deploy levers against the cap.
 
         ``progress`` is accepted for backend-protocol uniformity (the greedy
         pass is fast and reports no incremental progress).
 
         Args:
-            model: The in-memory workbook (a value-chain model with measures + an
+            model: The in-memory workbook (a value-chain model with levers + an
                 impact cap).
             scenario: The run definition (a :class:`ScenarioConfig` as a dict).
             options: ``domain`` override and ``impact`` (the capped impact to
@@ -104,7 +104,7 @@ class MaccBackend:
 
         Returns:
             pathwise's result dict with an ``outputs.macc`` block, or an
-            ``invalid`` result if the model has no measures or no emission cap.
+            ``invalid`` result if the model has no levers or no emission cap.
         """
         options = options or {}
         sc = ScenarioConfig.from_dict(scenario)
@@ -128,7 +128,7 @@ class MaccBackend:
 
         block = _greedy(problem, impact_id)
         logger.info(
-            "MACC greedy: %d years, %d measure(s), cumulative CAPEX=%.3f",
+            "MACC greedy: %d years, %d lever(s), cumulative CAPEX=%.3f",
             len(block["by_year"]),
             len(block["options"]),
             block["cumulative_capex"],
@@ -157,7 +157,7 @@ def _baseline_emission(problem: Problem, process: Any, impact: str, year: int) -
     """A facility's gross emission of ``impact`` at full capacity in ``year``.
 
     Mirrors the MILP's emission expression but evaluated at the facility's
-    nameplate capacity with no measures applied (the BAU contribution).
+    nameplate capacity with no levers applied (the BAU contribution).
     """
     cap = process.capacity_at(year)
     tech = problem.technologies.get(process.baseline_technology)
@@ -175,16 +175,16 @@ def _baseline_emission(problem: Problem, process: Any, impact: str, year: int) -
 
 
 def _preflight(problem: Problem, impact: str) -> list[str]:
-    """Errors that block a greedy run (no measures / no cap for the impact).
+    """Errors that block a greedy run (no levers / no cap for the impact).
 
-    MACC is an abatement-only *mode*, not a cost optimiser: with no measures to
+    MACC is an abatement-only *mode*, not a cost optimiser: with no levers to
     rank and no target to chase it has nothing to compute. When that's the case
     the message points at the ``linopy`` backend — plain least-cost optimisation,
     where an emission target is OPTIONAL — so a user who just wants cost
     minimisation is steered to the right engine rather than told to invent a
     ``CO2`` target they never wanted.
     """
-    abating = [m for m in problem.measures if m.measure_type in _ABATING and m.target == impact]
+    abating = [m for m in problem.levers if m.lever_type in _ABATING and m.target == impact]
     capped = any(i == impact for (_c, i, _y) in problem.impact_caps)
     if abating and capped:
         return []
@@ -192,13 +192,13 @@ def _preflight(problem: Problem, impact: str) -> list[str]:
     missing: list[str] = []
     if not abating:
         missing.append(
-            f"at least one abatement measure targeting '{impact}' "
+            f"at least one abatement lever targeting '{impact}' "
             "(with cost-curve blocks, linked to facilities)"
         )
     if not capped:
         missing.append(f"a '{impact}' emission cap to chase (an impact_caps row)")
     return [
-        f"The MACC backend is an abatement-only mode — it ranks measures by "
+        f"The MACC backend is an abatement-only mode — it ranks levers by "
         f"$/{impact} and deploys them cheapest-first against a '{impact}' target, "
         "so it needs " + " and ".join(missing) + ". "
         f"If you just want least-cost optimisation (where the '{impact}' target is "
@@ -211,28 +211,28 @@ def _preflight(problem: Problem, impact: str) -> list[str]:
 # ── The greedy deployment ─────────────────────────────────────────────────────
 
 
-def _base_id(measure_id: str) -> str:
-    """The shared measure id behind a per-facility instance (``"HP @ F1"`` → ``"HP"``)."""
-    return measure_id.split(" @ ", 1)[0]
+def _base_id(lever_id: str) -> str:
+    """The shared lever id behind a per-facility instance (``"HP @ F1"`` → ``"HP"``)."""
+    return lever_id.split(" @ ", 1)[0]
 
 
 def _options(problem: Problem, impact: str) -> list[dict[str, Any]]:
-    """Group abatement measures into curve options (one per base measure × block).
+    """Group abatement levers into curve options (one per base lever × block).
 
     Each option aggregates its facility-instances: per year it carries the total
-    abatement potential, total CAPEX and total OPEX, plus the measure lifetime.
+    abatement potential, total CAPEX and total OPEX, plus the lever lifetime.
     """
-    # base id → block index → list of (measure, block, process)
+    # base id → block index → list of (lever, block, process)
     grouped: dict[tuple[str, int], list[tuple[Any, Any, Any]]] = {}
     proc_by = {p.process_id: p for p in problem.processes}
-    for m in problem.measures:
-        if m.measure_type not in _ABATING or m.target != impact:
+    for m in problem.levers:
+        if m.lever_type not in _ABATING or m.target != impact:
             continue
         proc = proc_by.get(m.applies_to)
         if proc is None:
             continue
         for b, blk in enumerate(m.blocks):
-            grouped.setdefault((_base_id(m.measure_id), b), []).append((m, blk, proc))
+            grouped.setdefault((_base_id(m.lever_id), b), []).append((m, blk, proc))
 
     options: list[dict[str, Any]] = []
     for (base, block_idx), instances in grouped.items():
@@ -254,7 +254,7 @@ def _options(problem: Problem, impact: str) -> list[dict[str, Any]]:
 
 
 def _greedy(problem: Problem, impact: str) -> dict[str, Any]:
-    """Run the greedy annual deployment over measures; return the result block."""
+    """Run the greedy annual deployment over levers; return the result block."""
     options = _options(problem, impact)
     deployed: dict[str, float] = {o["id"]: 0.0 for o in options}
     cumulative_capex = 0.0

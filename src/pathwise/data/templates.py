@@ -2,7 +2,7 @@
 
 These pydantic models are the single source of truth for a component's shape: a
 technology recipe (costs + per-unit-throughput I/O coefficients), the streams it
-consumes/produces, and measure cost-curves. The editable, SQLite-backed component
+consumes/produces, and lever cost-curves. The editable, SQLite-backed component
 library (:mod:`pathwise.data.components`) builds on these models and reuses the
 ``_*_row`` helpers below to project a template into workbook sheet rows.
 
@@ -69,7 +69,7 @@ class TechnologyTemplate(BaseModel):
     """A technology recipe: costs + per-unit-throughput coefficients.
 
     ``maccs`` lists the ids of the MACC bundles that apply to this technology
-    (Component-library authoring); placing the technology stamps their measures
+    (Component-library authoring); placing the technology stamps their levers
     onto the machine.
     """
 
@@ -127,8 +127,8 @@ class CommodityTemplate(BaseModel):
     notes: str = ""
 
 
-class MeasureBlockTemplate(BaseModel):
-    """One piecewise step of a measure's cost curve.
+class LeverBlockTemplate(BaseModel):
+    """One piecewise step of a lever's cost curve.
 
     ``capex_per_capacity`` (and ``opex_per_capacity``) scale with the facility
     instance the block is stamped onto (block cost = value × instance capacity),
@@ -144,20 +144,20 @@ class MeasureBlockTemplate(BaseModel):
     opex_per_capacity_by_year: dict[int, float] = Field(default_factory=dict)
 
 
-class MeasureTemplate(BaseModel):
-    """A measure template: a small retrofit of the SAME system (no tech switch).
+class LeverTemplate(BaseModel):
+    """A lever template: a small retrofit of the SAME system (no tech switch).
 
     Efficiency or abatement upgrades applied to a facility's existing technology,
     with a piecewise cost curve the optimiser may adopt fractionally and
     cumulatively.
     """
 
-    measure_id: str
+    lever_id: str
     label: str = ""
     type: str = Field(pattern="^(energy_efficiency|emission_reduction|environmental)$")
     target: str  # commodity id (energy_efficiency) or impact id (otherwise)
     lifetime: int = Field(default=15, ge=1)
-    blocks: list[MeasureBlockTemplate] = Field(min_length=1)
+    blocks: list[LeverBlockTemplate] = Field(min_length=1)
     #: Free-text notes / references for the authoring UI (optimiser ignores it).
     notes: str = ""
 
@@ -224,18 +224,18 @@ def _tech_row(tech: TechnologyTemplate) -> dict[str, Any]:
     return row
 
 
-def _measure_block_t_rows(
-    measure_id: str, block_index: int, blk: MeasureBlockTemplate, capacity: float
+def _lever_block_t_rows(
+    lever_id: str, block_index: int, blk: LeverBlockTemplate, capacity: float
 ) -> list[dict[str, Any]]:
-    """Per-year absolute block-cost rows (× capacity) for a model's ``measure_blocks_t``.
+    """Per-year absolute block-cost rows (× capacity) for a model's ``lever_blocks_t``.
 
-    The per-year analogue of the scalar ``measure_blocks`` row a placement stamps:
+    The per-year analogue of the scalar ``lever_blocks`` row a placement stamps:
     block cost = per-capacity value × the instance capacity, one row per year the
     block overrides. Empty when the block has no per-year cost.
     """
     rows: list[dict[str, Any]] = []
     for y in sorted(set(blk.capex_per_capacity_by_year) | set(blk.opex_per_capacity_by_year)):
-        row: dict[str, Any] = {"measure_id": measure_id, "block": block_index, "year": y}
+        row: dict[str, Any] = {"lever_id": lever_id, "block": block_index, "year": y}
         if y in blk.capex_per_capacity_by_year:
             row["capex"] = round(blk.capex_per_capacity_by_year[y] * capacity, 2)
         if y in blk.opex_per_capacity_by_year:

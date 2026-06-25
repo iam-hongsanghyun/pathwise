@@ -12,7 +12,7 @@ import { RailList, type RailItem } from "../layout/RailList";
 import { Resizer } from "../layout/Resizer";
 import type { RunResult, Workbook } from "../types";
 
-type Cat = "overview" | "map" | "routes" | "consumption" | "cost" | "impacts" | "transitions" | "measures" | "macc";
+type Cat = "overview" | "map" | "routes" | "consumption" | "cost" | "impacts" | "transitions" | "levers" | "macc";
 
 const CAT_LABEL: Record<Cat, string> = {
   overview: "Overview",
@@ -22,7 +22,7 @@ const CAT_LABEL: Record<Cat, string> = {
   cost: "Cost over time",
   impacts: "Impacts",
   transitions: "Transitions",
-  measures: "Measures",
+  levers: "Levers",
   macc: "MACC",
 };
 
@@ -148,7 +148,7 @@ export function AnalyticsView({ workbook, result, leftW, setLeftW }: Props) {
     { id: "cost", label: "Cost over time" },
     { id: "impacts", label: "Impacts" },
     { id: "transitions", label: "Transitions" },
-    { id: "measures", label: "Measures" },
+    { id: "levers", label: "Levers" },
     { id: "macc", label: "MACC" },
   ];
 
@@ -209,7 +209,7 @@ function Body({ cat, result, years }: { cat: Cat; result: RunResult; years: numb
         <h3>Result · {result.status}</h3>
         {result.objective != null && <p>Net cost (NPV): <strong>{result.objective.toLocaleString()}</strong></p>}
         <p className="muted">
-          {result.outputs.transitions.length} transition(s), {result.outputs.measures.length} measure
+          {result.outputs.transitions.length} transition(s), {result.outputs.levers.length} lever
           adoption(s){result.outputs.demand_slack.length ? `, ${result.outputs.demand_slack.length} unmet demand` : ""}.
         </p>
       </div>
@@ -272,17 +272,17 @@ function Body({ cat, result, years }: { cat: Cat; result: RunResult; years: numb
   }
   return (
     <div className="card">
-      <h3>Measures adopted (MACC upgrades)</h3>
-      {result.outputs.measures.length ? (
+      <h3>Levers adopted (MACC upgrades)</h3>
+      {result.outputs.levers.length ? (
         <ul>
-          {result.outputs.measures.map((m, i) => (
+          {result.outputs.levers.map((m, i) => (
             <li key={i}>
-              {m.measure} @ {m.process} ({m.type}) — {(m.adoption * 100).toFixed(0)}% in {m.period}
+              {m.lever} @ {m.process} ({m.type}) — {(m.adoption * 100).toFixed(0)}% in {m.period}
             </li>
           ))}
         </ul>
       ) : (
-        <p className="muted">No measures adopted.</p>
+        <p className="muted">No levers adopted.</p>
       )}
     </div>
   );

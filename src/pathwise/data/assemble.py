@@ -16,11 +16,11 @@ from pathwise.core.entities import (
     CommodityKind,
     Edge,
     Impact,
+    Lever,
+    LeverBlock,
+    LeverType,
     Market,
     MarketTarget,
-    Measure,
-    MeasureBlock,
-    MeasureType,
     ObjectiveMode,
     Period,
     Process,
@@ -38,6 +38,7 @@ from pathwise.core.problem import (
     Problem,
     Route,
 )
+from pathwise.data.aliases import normalize_workbook
 from pathwise.data.hierarchy import Hierarchy, load_hierarchy
 from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.sheets import (
@@ -69,6 +70,10 @@ from pathwise.data.sheets import (
     INVESTMENT_BUDGET_T_LIMIT,
     IO,
     IO_T,
+    LEVER_BLOCKS,
+    LEVER_BLOCKS_T,
+    LEVER_LINKS,
+    LEVERS,
     MACC_LINKS,
     MACCS,
     MACHINES,
@@ -83,10 +88,6 @@ from pathwise.data.sheets import (
     MAX_CONSUMPTION_T_AMOUNT,
     MAX_PRODUCTION,
     MAX_PRODUCTION_T_AMOUNT,
-    MEASURE_BLOCKS,
-    MEASURE_BLOCKS_T,
-    MEASURE_LINKS,
-    MEASURES,
     META,
     MIN_CONSUMPTION,
     MIN_CONSUMPTION_T_AMOUNT,
@@ -720,6 +721,9 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     Returns:
         The assembled problem instance.
     """
+    # Normalise any old-vocabulary sheet/column names (back-compat: models saved
+    # before the measure→lever rename carry "measures"/"measure_id" etc.).
+    workbook = normalize_workbook(workbook)
     # A node hierarchy (optional) expands to flat processes/edges first, so the
     # rest of assembly is unchanged; absent ⇒ the model stays flat.
     hierarchy = load_hierarchy(workbook)
@@ -1273,12 +1277,12 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             )
         )
 
-    # ── Measures (+ blocks, + optional per-year block cost) ──────────────────
-    # Long-format measure_blocks_t (measure_id, block, year, capex, opex —
-    # absolute, already scaled to the instance, matching measure_blocks).
+    # ── Levers (+ blocks, + optional per-year block cost) ────────────────────
+    # Long-format lever_blocks_t (lever_id, block, year, capex, opex —
+    # absolute, already scaled to the instance, matching lever_blocks).
     block_traj: dict[tuple[str, int], dict[str, dict[int, float]]] = {}
-    for r in _rows(workbook, MEASURE_BLOCKS_T):
-        mid = _str(r.get("measure_id"))
+    for r in _rows(workbook, LEVER_BLOCKS_T):
+        mid = _str(r.get("lever_id"))
         yr = _int(r.get("year"))
         if mid is None or yr is None:
             continue
@@ -1290,17 +1294,17 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         if (rx := _num(r.get("reduction"))) is not None:
             block_traj.setdefault((mid, bi), {}).setdefault("reduction", {})[yr] = rx
 
-    blocks_by_measure: dict[str, list[tuple[int, MeasureBlock]]] = {}
-    for r in _rows(workbook, MEASURE_BLOCKS):
-        mid = _str(r.get("measure_id"))
+    blocks_by_lever: dict[str, list[tuple[int, LeverBlock]]] = {}
+    for r in _rows(workbook, LEVER_BLOCKS):
+        mid = _str(r.get("lever_id"))
         if mid is None:
             continue
         bi = _int(r.get("block"), 0) or 0
         bt = block_traj.get((mid, bi), {})
-        blocks_by_measure.setdefault(mid, []).append(
+        blocks_by_lever.setdefault(mid, []).append(
             (
                 bi,
-                MeasureBlock(
+                LeverBlock(
                     reduction=_num(r.get("reduction"), 0.0) or 0.0,
                     capex=_num(r.get("capex"), 0.0) or 0.0,
                     opex=_num(r.get("opex"), 0.0) or 0.0,
@@ -1312,29 +1316,29 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 ),
             )
         )
-    # Measures are a CATALOGUE of individual retrofits. A measure reaches
+    # Levers are a CATALOGUE of individual retrofits. A lever reaches
     # facilities three ways, all optional and combinable:
     #   1. direct `facility` (that one plant) / `technology` (every facility
-    #      whose baseline runs it) columns on the measure row;
-    #   2. membership in a named MACC (`maccs` rows {macc, measure_id} — the
-    #      same measure may sit in several MACCs) deployed via `macc_links`
+    #      whose baseline runs it) columns on the lever row;
+    #   2. membership in a named MACC (`maccs` rows {macc, lever_id} — the
+    #      same lever may sit in several MACCs) deployed via `macc_links`
     #      rows {macc, facility|technology|commodity|storage} — a commodity
     #      (stream) reaches every facility whose baseline technology consumes
     #      it; a storage reaches the consumers of its stored stream;
-    #   3. legacy `applies_to` / `set` + `measure_links` columns (older files).
-    # Every (measure, facility) pair becomes its OWN independent Measure
+    #   3. legacy `applies_to` / `set` + `lever_links` columns (older files).
+    # Every (lever, facility) pair becomes its OWN independent Lever
     # instance — adoption is per facility, never grouped.
     links_by_set: dict[str, list[str]] = {}
-    for r in _rows(workbook, MEASURE_LINKS):  # legacy sheet
+    for r in _rows(workbook, LEVER_LINKS):  # legacy sheet
         set_id, target = _str(r.get("set")), _str(r.get("applies_to"))
         if set_id and target:
             links_by_set.setdefault(set_id, []).append(target)
 
-    maccs_by_measure: dict[str, list[str]] = {}
+    maccs_by_lever: dict[str, list[str]] = {}
     for r in _rows(workbook, MACCS):
-        macc, member = _str(r.get("macc")), _str(r.get("measure_id"))
+        macc, member = _str(r.get("macc")), _str(r.get("lever_id"))
         if macc and member:
-            maccs_by_measure.setdefault(member, []).append(macc)
+            maccs_by_lever.setdefault(member, []).append(macc)
 
     macc_targets: dict[str, list[tuple[str, str]]] = {}  # macc → [(kind, name)]
     for r in _rows(workbook, MACC_LINKS):
@@ -1377,19 +1381,19 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             return _consumers(stored) if stored else []
         return _resolve(target)
 
-    measures: list[Measure] = []
-    for r in _rows(workbook, MEASURES):
-        mid = _str(r.get("measure_id"))
+    levers: list[Lever] = []
+    for r in _rows(workbook, LEVERS):
+        mid = _str(r.get("lever_id"))
         mtype_s = (_str(r.get("type")) or "energy_efficiency").lower()
-        if mid is None or mtype_s not in {m.value for m in MeasureType}:
+        if mid is None or mtype_s not in {m.value for m in LeverType}:
             continue
-        ordered = [b for _, b in sorted(blocks_by_measure.get(mid, []), key=lambda t: t[0])]
+        ordered = [b for _, b in sorted(blocks_by_lever.get(mid, []), key=lambda t: t[0])]
         targets: list[str] = []
         if direct_fac := _str(r.get("facility")):
             targets.extend(_resolve(direct_fac))
         if direct_tech := _str(r.get("technology")):
             targets.extend(_resolve(direct_tech))
-        for macc in maccs_by_measure.get(mid, []):
+        for macc in maccs_by_lever.get(mid, []):
             for link_kind, link in macc_targets.get(macc, []):
                 targets.extend(_resolve_link(link_kind, link))
         if direct_link := _str(r.get("applies_to")):  # legacy column
@@ -1399,12 +1403,12 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 targets.extend(_resolve(link))
         unique = list(dict.fromkeys(targets))
         for pid in unique:
-            measures.append(
-                Measure(
+            levers.append(
+                Lever(
                     # Keep the plain id for the simple 1:1 case (backwards
                     # compatible); suffix with the facility when expanded.
-                    measure_id=mid if len(unique) == 1 else f"{mid} @ {pid}",
-                    measure_type=MeasureType(mtype_s),
+                    lever_id=mid if len(unique) == 1 else f"{mid} @ {pid}",
+                    lever_type=LeverType(mtype_s),
                     applies_to=pid,
                     target=_str(r.get("target")) or "",
                     lifetime=_int(r.get("lifetime"), 15) or 15,
@@ -1672,7 +1676,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         technologies=technologies,
         commodities=commodities,
         impacts=impacts,
-        measures=measures,
+        levers=levers,
         edges=edges,
         transitions=transitions,
         storages=storages,

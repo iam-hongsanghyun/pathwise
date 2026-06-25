@@ -10,7 +10,7 @@ async function json<T>(resp: Response): Promise<T> {
 // ── Types mirroring src/pathwise/data/components.py + library.py ───────────────
 
 export type IoRole = "input" | "output" | "impact";
-export type MeasureType = "energy_efficiency" | "emission_reduction" | "environmental";
+export type LeverType = "energy_efficiency" | "emission_reduction" | "environmental";
 export type CommodityKind = "energy" | "material" | "indirect" | "product" | "byproduct";
 
 export interface IoRow {
@@ -53,7 +53,7 @@ export interface TechnologyTemplate {
   notes?: string;
 }
 
-export interface MeasureBlock {
+export interface LeverBlock {
   reduction: number;
   capex_per_capacity: number;
   opex_per_capacity: number;
@@ -62,18 +62,18 @@ export interface MeasureBlock {
   opex_per_capacity_by_year?: ByYear;
 }
 
-export interface MeasureTemplate {
-  measure_id: string;
+export interface LeverTemplate {
+  lever_id: string;
   label: string;
-  type: MeasureType;
+  type: LeverType;
   target: string;
   lifetime: number;
-  blocks: MeasureBlock[];
+  blocks: LeverBlock[];
   /** Free-text notes / references (optimiser ignores it). */
   notes?: string;
 }
 
-/** A MACC — a named, reusable bundle linking individual measures by id. */
+/** A MACC — a named, reusable bundle linking individual levers by id. */
 export interface MaccGroup {
   macc_id: string;
   label: string;
@@ -87,7 +87,7 @@ export interface MachineComponent {
   label: string;
   technology: string;
   capacity: number;
-  measures: MeasureTemplate[];
+  measures: LeverTemplate[];
 }
 
 export interface CommodityTemplate {
@@ -132,9 +132,9 @@ export interface ComponentLibrary {
   label: string;
   commodities: CommodityTemplate[];
   technologies: TechnologyTemplate[];
-  /** Standalone, reusable measures. */
-  measures: MeasureTemplate[];
-  /** MACC bundles grouping measures. */
+  /** Standalone, reusable levers. */
+  measures: LeverTemplate[];
+  /** MACC bundles grouping levers. */
   maccs: MaccGroup[];
   /** Legacy composite components (no longer authored). */
   machines: MachineComponent[];
@@ -156,7 +156,7 @@ export interface LibrarySummary {
   origin?: "starter" | "user";
   commodities: number;
   technologies: number;
-  measures: number;
+  levers: number;
   maccs: number;
   machines: number;
   groups: number;
@@ -164,7 +164,7 @@ export interface LibrarySummary {
 
 /** A blank library — every list defaults to empty. */
 export function emptyLibrary(label = ""): ComponentLibrary {
-  return { label, commodities: [], technologies: [], measures: [], maccs: [], machines: [], groups: [] };
+  return { label, commodities: [], technologies: [], measures: [], maccs: [], machines: [], groups: [] }; // `measures` = lever list (field name unchanged)
 }
 
 // ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -293,7 +293,7 @@ export async function instantiateComponent(
 
 /** The component kinds a project can copy in — the dispatch keys of the backend
  *  `copy_component_into` (a "stream" is a commodity). */
-export type ComponentCatalogKind = "technology" | "stream" | "measure" | "macc";
+export type ComponentCatalogKind = "technology" | "stream" | "lever" | "macc";
 
 /** Hard-copy a component (+ its dependency closure) into the session project
  *  `dstId`. Returns the project's new summary. */

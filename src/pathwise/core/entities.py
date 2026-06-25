@@ -35,8 +35,8 @@ class TransitionAction(StrEnum):
     REPLACE = "replace"  # switch to a different technology (capex)
 
 
-class MeasureType(StrEnum):
-    """The lever a MACC/measure pulls."""
+class LeverType(StrEnum):
+    """The lever a MACC/abatement option pulls."""
 
     ENERGY_EFFICIENCY = "energy_efficiency"  # cut an input commodity's intensity
     EMISSION_REDUCTION = "emission_reduction"  # cut a (CO2) impact directly
@@ -166,9 +166,9 @@ class Impact:
 class Technology:
     """A process configuration: what it consumes, yields, costs, and emits.
 
-    Rates are **per unit of process throughput**. Energy-efficiency measures cut
+    Rates are **per unit of process throughput**. Energy-efficiency levers cut
     ``input_intensity`` for their target commodity; emission/environmental
-    measures cut ``direct_impact`` for their target impact.
+    levers cut ``direct_impact`` for their target impact.
 
     Attributes:
         technology_id: Unique id.
@@ -568,8 +568,8 @@ class Edge:
 
 
 @dataclass(slots=True, frozen=True)
-class MeasureBlock:
-    """One piecewise step of a measure's cost curve.
+class LeverBlock:
+    """One piecewise step of a lever's cost curve.
 
     Attributes:
         reduction: Fractional reduction of the target at full adoption [—], 0–1.
@@ -602,24 +602,24 @@ class MeasureBlock:
 
 
 @dataclass(slots=True, frozen=True)
-class Measure:
-    """A MACC/measure adopted on a process to cut an input or an impact.
+class Lever:
+    """A MACC abatement lever adopted on a process to cut an input or an impact.
 
     Attributes:
-        measure_id: Unique id.
-        measure_type: Which lever (energy efficiency / emission / environmental).
-        applies_to: Process id the measure can be installed on.
+        lever_id: Unique id.
+        lever_type: Which lever (energy efficiency / emission / environmental).
+        applies_to: Process id the lever can be installed on.
         target: Commodity id (energy efficiency) or impact id (reduction/environmental).
         lifetime: Economic lifetime [yr].
         blocks: Ordered piecewise blocks (cumulative reduction).
     """
 
-    measure_id: str
-    measure_type: MeasureType
+    lever_id: str
+    lever_type: LeverType
     applies_to: str
     target: str
     lifetime: int = 15
-    blocks: list[MeasureBlock] = field(default_factory=list)
+    blocks: list[LeverBlock] = field(default_factory=list)
 
 
 class MarketTarget(StrEnum):

@@ -1,9 +1,9 @@
-"""Measure opex: a recurring O&M cost charged every period while adopted.
+"""Lever opex: a recurring O&M cost charged every period while adopted.
 
 A block now carries both ``capex`` (a one-off lump at adoption) and ``opex`` (a
 fixed cost per year while adopted, scaled by the adoption level). The opex term
 is weighted by discount × duration like any other O&M, so a recurring cost above
-the annual saving makes a measure uneconomic even when its capex is trivial.
+the annual saving makes a lever uneconomic even when its capex is trivial.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from pathwise.data import ScenarioConfig, assemble_problem
 
 
 def _wb(opex: float) -> dict:
-    """One facility on T (fuel 2/unit @ 10) — a 20% fuel measure saves 400/yr.
+    """One facility on T (fuel 2/unit @ 10) — a 20% fuel lever saves 400/yr.
 
     Capacity 100 → baseline fuel reference 100·2 = 200 units → bill 2,000/yr; a
     0.2 reduction saves 0.2·200·10 = 400/yr. Capex is a one-off 100 (saving beats
@@ -39,16 +39,16 @@ def _wb(opex: float) -> dict:
         "processes": [
             {"process_id": "P", "company": "C", "baseline_technology": "T", "capacity": 100}
         ],
-        "measures": [
+        "levers": [
             {
-                "measure_id": "fuel_saver",
+                "lever_id": "fuel_saver",
                 "type": "energy_efficiency",
                 "target": "fuel",
                 "facility": "P",
             }
         ],
-        "measure_blocks": [
-            {"measure_id": "fuel_saver", "block": 0, "reduction": 0.2, "capex": 100.0, "opex": opex}
+        "lever_blocks": [
+            {"lever_id": "fuel_saver", "block": 0, "reduction": 0.2, "capex": 100.0, "opex": opex}
         ],
         "demand": [{"company": "C", "commodity_id": "widget", "year": 2025, "amount": 100}],
         "impacts": [],
@@ -63,7 +63,7 @@ def _solve(wb: dict) -> dict:
 
 
 def _adoption(res: dict) -> float:
-    return next((m["adoption"] for m in res["outputs"]["measures"] if m["process"] == "P"), 0.0)
+    return next((m["adoption"] for m in res["outputs"]["levers"] if m["process"] == "P"), 0.0)
 
 
 def test_zero_opex_block_is_adopted() -> None:
@@ -74,7 +74,7 @@ def test_zero_opex_block_is_adopted() -> None:
 
 def test_recurring_opex_above_saving_blocks_adoption() -> None:
     # Capex stays a trivial 100, but a 600/yr opex outweighs the 400/yr saving,
-    # so the measure must NOT be adopted — proving opex is charged per period.
+    # so the lever must NOT be adopted — proving opex is charged per period.
     res = _solve(_wb(600.0))
     assert res["status"] == "optimal"
     assert _adoption(res) < 0.01, "recurring opex above the annual saving must deter adoption"

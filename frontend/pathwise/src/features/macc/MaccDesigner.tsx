@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
-import { resolveMeasures } from "../../lib/graph";
+import { resolveLevers } from "../../lib/graph";
 import type { Row, Workbook } from "../../types";
 
 const str = (v: unknown, d = ""): string => (v == null ? d : String(v));
 const num = (v: unknown, d = 0): number => (v == null || v === "" ? d : Number(v));
 
 export interface MaccBar {
-  measure: string;
+  lever: string;
   machine: string;
   type: string;
   target: string;
@@ -67,26 +67,26 @@ function references(wb: Workbook) {
 export function maccBars(wb: Workbook, macc?: string): MaccBar[] {
   const { refConsumption, refImpact } = references(wb);
   const blocks = new Map<string, Row[]>();
-  for (const b of wb.measure_blocks ?? [])
-    (blocks.get(str(b.measure_id)) ?? blocks.set(str(b.measure_id), []).get(str(b.measure_id))!).push(b);
-  // Levelise opex over the measure's lifetime alongside the one-off capex.
+  for (const b of wb.lever_blocks ?? [])
+    (blocks.get(str(b.lever_id)) ?? blocks.set(str(b.lever_id), []).get(str(b.lever_id))!).push(b);
+  // Levelise opex over the lever's lifetime alongside the one-off capex.
   const lifetimeOf = new Map<string, number>(
-    (wb.measures ?? []).map((r) => [str(r.measure_id), num(r.lifetime, 15) || 15]),
+    (wb.levers ?? []).map((r) => [str(r.lever_id), num(r.lifetime, 15) || 15]),
   );
 
-  // Restricted to one MACC's member measures when given.
+  // Restricted to one MACC's member levers when given.
   const members = macc
     ? new Set(
         (wb.maccs ?? [])
           .filter((r) => str(r.macc) === macc)
-          .map((r) => str(r.measure_id)),
+          .map((r) => str(r.lever_id)),
       )
     : null;
   const out: MaccBar[] = [];
   // Expanded per-facility instances (MACC deployments + direct links included).
-  for (const m of resolveMeasures(wb)) {
+  for (const m of resolveLevers(wb)) {
     if (members && !members.has(m.base_id)) continue;
-    const id = m.measure_id;
+    const id = m.lever_id;
     const p = m.applies_to;
     const type = m.type;
     const target = m.target;
@@ -97,11 +97,11 @@ export function maccBars(wb: Workbook, macc?: string): MaccBar[] {
       const capex = num(blk.capex);
       const opex = num(blk.opex);
       const potential = reduction * ref;
-      // Lifetime cost = one-off capex + opex over the measure's life; reduces to
+      // Lifetime cost = one-off capex + opex over the lever's life; reduces to
       // the previous capex-only metric when opex is 0.
       const lifetimeCost = capex + opex * lifetime;
       out.push({
-        measure: id,
+        lever: id,
         machine: p,
         type,
         target,
@@ -155,7 +155,7 @@ export function MaccChart({
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const usable = data.filter((b) => Number.isFinite(b.cost) && b.potential > 0);
-  if (!usable.length) return <p className="muted">No measures with a positive potential yet.</p>;
+  if (!usable.length) return <p className="muted">No levers with a positive potential yet.</p>;
   // Colors stay keyed to the FULL facility list so toggling doesn't reshuffle.
   const machines = [...new Set(usable.map((b) => b.machine))];
   const color = (m: string) => PALETTE[machines.indexOf(m) % PALETTE.length];
@@ -208,7 +208,7 @@ export function MaccChart({
     const x0 = cursor;
     const x1 = cursor + b.potential;
     cursor = x1;
-    const key = `${b.measure}|${b.machine}|${i}`;
+    const key = `${b.lever}|${b.machine}|${i}`;
     return {
       ...b,
       key,
@@ -267,7 +267,7 @@ export function MaccChart({
               className={`macc-bar${activeBar ? " is-active" : ""}`}
               tabIndex={0}
               role="button"
-              aria-label={`${b.measure} at ${b.machine}: ${b.potential.toFixed(
+              aria-label={`${b.lever} at ${b.machine}: ${b.potential.toFixed(
                 1,
               )} potential, ${b.cost.toFixed(1)} dollars per unit`}
               onFocus={() => setActiveKey(b.key)}
@@ -275,7 +275,7 @@ export function MaccChart({
               onClick={() => setActiveKey(b.key)}
             >
               <title>
-                {b.measure} @ {b.machine}: {b.potential.toFixed(1)} potential, {b.cost.toFixed(1)} $/unit
+                {b.lever} @ {b.machine}: {b.potential.toFixed(1)} potential, {b.cost.toFixed(1)} $/unit
               </title>
             </rect>
             );
@@ -297,7 +297,7 @@ export function MaccChart({
       <div className="macc-chart-readout" aria-live="polite">
         <div>
           <span className="rail-count">BAR</span>
-          <strong>{active.measure}</strong>
+          <strong>{active.lever}</strong>
         </div>
         <dl>
           <div>
@@ -333,7 +333,7 @@ export function MaccMeasureTable({ data }: { data: MaccBar[] }) {
   const byMachine = new Map<string, MaccBar[]>();
   for (const b of data) byMachine.set(b.machine, [...(byMachine.get(b.machine) ?? []), b]);
 
-  if (!data.length) return <p className="muted">No deployed measures yet.</p>;
+  if (!data.length) return <p className="muted">No deployed levers yet.</p>;
 
   return (
     <div>
@@ -343,7 +343,7 @@ export function MaccMeasureTable({ data }: { data: MaccBar[] }) {
           <table>
             <thead>
               <tr>
-                <th>measure</th>
+                <th>lever</th>
                 <th>type</th>
                 <th>target</th>
                 <th>potential</th>
@@ -353,7 +353,7 @@ export function MaccMeasureTable({ data }: { data: MaccBar[] }) {
             <tbody>
               {bs.map((b, i) => (
                 <tr key={i}>
-                  <td>{b.measure}</td>
+                  <td>{b.lever}</td>
                   <td>{b.type}</td>
                   <td>{b.target}</td>
                   <td>{b.potential.toFixed(1)}</td>
@@ -370,7 +370,7 @@ export function MaccMeasureTable({ data }: { data: MaccBar[] }) {
 
 interface Props {
   workbook: Workbook;
-  /** Restrict the chart to one MACC's member measures. */
+  /** Restrict the chart to one MACC's member levers. */
   macc?: string;
 }
 
@@ -383,9 +383,9 @@ export function MaccDesigner({ workbook, macc }: Props) {
     <div>
       <h3>Aggregate MACC (whole process)</h3>
       <MaccChart data={data} />
-      <h3>Per-machine measures</h3>
+      <h3>Per-machine levers</h3>
       <MaccMeasureTable data={data} />
-      {!data.length && <p className="muted">Add measures and cost blocks to build MACC curves.</p>}
+      {!data.length && <p className="muted">Add levers and cost blocks to build MACC curves.</p>}
     </div>
   );
 }

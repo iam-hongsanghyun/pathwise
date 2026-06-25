@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from pathwise.data.aliases import normalize_workbook
 from pathwise.data.hierarchy import load_hierarchy
 from pathwise.data.schema import REQUIRED_SHEETS
 from pathwise.data.sheets import (
@@ -18,8 +19,8 @@ from pathwise.data.sheets import (
     EDGES,
     IMPACTS,
     IO,
+    LEVERS,
     MACHINES,
-    MEASURES,
     NODES,
     PROCESS_INPUTS,
     PROCESS_OUTPUTS,
@@ -60,7 +61,7 @@ def validate(workbook: Workbook) -> ValidationReport:
     """Validate a process-network workbook.
 
     Checks required sheets are present and that cross-references resolve
-    (baseline technologies, edge endpoints, input/output streams, measure targets,
+    (baseline technologies, edge endpoints, input/output streams, lever targets,
     demand products).
 
     Args:
@@ -69,6 +70,8 @@ def validate(workbook: Workbook) -> ValidationReport:
     Returns:
         A :class:`ValidationReport`.
     """
+    # Normalise any old-vocabulary sheet/column names before checking.
+    workbook = normalize_workbook(workbook)
     report = ValidationReport()
 
     # A node hierarchy synthesises its `processes` from `machines` at assemble
@@ -213,16 +216,16 @@ def validate(workbook: Workbook) -> ValidationReport:
         if c and c not in commodities:
             report.errors.append(f"edge references unknown stream '{c}'")
 
-    for r in workbook.get(MEASURES, []):
+    for r in workbook.get(LEVERS, []):
         ap = str(r.get("applies_to", ""))
         if ap and ap not in processes:
             report.warnings.append(
-                f"measure '{r.get('measure_id')}' applies to unknown facility '{ap}'"
+                f"lever '{r.get('lever_id')}' applies to unknown facility '{ap}'"
             )
         tgt, mtype = str(r.get("target", "")), str(r.get("type", ""))
         pool = commodities if mtype == "energy_efficiency" else impacts
         if tgt and tgt not in pool:
-            report.warnings.append(f"measure '{r.get('measure_id')}' targets unknown '{tgt}'")
+            report.warnings.append(f"lever '{r.get('lever_id')}' targets unknown '{tgt}'")
 
     product_ids = {
         str(r["commodity_id"])

@@ -52,10 +52,10 @@ interface Props {
 /** Which kind a dragged Library leaf carries (encoded as the leaf id's prefix). */
 type DragKind = "t" | "s" | "m" | "g";
 
-// The PREFIXED modelling groups — Technology / Stream / Measures & MACC — are
+// The PREFIXED modelling groups — Technology / Stream / Levers & MACC — are
 // auto-created when a component is dropped, and are distinct from the user's own
-// (free-text) groups like sector / company.
-const PREFIXED_LEVELS = new Set(["Technology", "Stream", "Measures & MACC"]);
+// (free-text) groups like sector / company / facility.
+const PREFIXED_LEVELS = new Set(["Technology", "Stream", "Levers & MACC"]);
 const isPrefixedLevel = (lvl?: string | null): boolean => !!lvl && PREFIXED_LEVELS.has(lvl);
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
@@ -178,11 +178,11 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   const KIND_GROUP: Record<DragKind, string> = {
     t: "Technology",
     s: "Stream",
-    m: "Measures & MACC",
-    g: "Measures & MACC",
+    m: "Levers & MACC",
+    g: "Levers & MACC",
   };
 
-  // Technology / Stream / Measures & MACC are the LAST group level — under them
+  // Technology / Stream / Levers & MACC are the LAST group level — under them
   // live only components, never another group. So a drop onto a kind-group (or a
   // machine inside one) files under its nearest NORMAL ancestor group, so the
   // kind-group is a SIBLING, never nested inside another kind-group.
@@ -207,19 +207,19 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   }
 
   // Drop a component from the Library onto a facility node: prompt for a name,
-  // ensure its KIND group (Technology / Stream / Measures & MACC) under the
+  // ensure its KIND group (Technology / Stream / Levers & MACC) under the
   // target, then place it there. A technology becomes a real machine (recipe
   // hard-copied via placeTechnology) carrying physical data; other kinds become
   // a named real-world entry under their group.
   async function dropComponent(scope: LibScope, libId: string, kind: DragKind, compId: string, parentId: string) {
     if (!sessionId) return;
-    const kindWord = { t: "technology", s: "stream", m: "measure", g: "MACC" }[kind];
+    const kindWord = { t: "technology", s: "stream", m: "lever", g: "MACC" }[kind];
     const name = (await prompt({ title: `Name this ${kindWord}`, label: "name", defaultValue: compId, placeholder: "e.g. Pohang BF#3" }))?.trim();
     if (!name) return;
     setError(null);
     try {
       // File under the target's nearest normal group, so the Technology / Stream /
-      // Measures & MACC group is a sibling — never nested inside another kind-group.
+      // "Levers & MACC" group is a sibling — never nested inside another kind-group.
       const np = normalParentOf(parentId);
       const [kgId, wb] = ensureKindGroup(workbook, np, kind);
       const expand = (p: Set<string>) => {
@@ -241,7 +241,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         setExpanded(expand);
         if (newId) setSelId(newId);
       } else {
-        // Stream / Measure / MACC → a named real-world entry under its group.
+        // Stream / Lever / MACC → a named real-world entry under its group.
         const leafId = genId("c");
         const next = setSheet(wb, "nodes", [
           ...(wb.nodes ?? []),
@@ -291,14 +291,14 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   }, [nodes]);
 
   // The Library catalogue (bottom): READ-ONLY drag source — base + project libs.
-  // Each library shows its components by kind (Technology / Stream / Measures &
+  // Each library shows its components by kind (Technology / Stream / Levers &
   // MACC); every component leaf is draggable, its id encoding kind + scope + lib
   // so placement resolves the right (base vs project) library.
   const libraryNodes = useMemo<TreeNode[]>(() => {
     const out: TreeNode[] = [];
     for (const l of allLibs) {
       const key = `${l.scope}/${l.id}`;
-      const total = l.technologies + l.commodities + l.measures + l.maccs;
+      const total = l.technologies + l.commodities + l.levers + l.maccs;
       out.push({
         id: `lib:${key}`,
         parentId: null,
@@ -322,11 +322,11 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
       const sg = grp("stream", "Stream", body.commodities.length > 0);
       for (const c of body.commodities)
         out.push({ id: `s:${l.scope}:${l.id}:${c.commodity_id}`, parentId: sg, kind: "leaf", label: c.commodity_id, hasChildren: false, draggable: true });
-      const mg = grp("meas", "Measures & MACC", body.measures.length + body.maccs.length > 0);
+      const mg = grp("meas", "Levers & MACC", body.measures.length + body.maccs.length > 0);
       for (const g of body.maccs)
         out.push({ id: `g:${l.scope}:${l.id}:${g.macc_id}`, parentId: mg, kind: "leaf", label: g.label || g.macc_id, hasChildren: false, draggable: true });
       for (const m of body.measures)
-        out.push({ id: `m:${l.scope}:${l.id}:${m.measure_id}`, parentId: mg, kind: "leaf", label: m.label || m.measure_id, hasChildren: false, draggable: true });
+        out.push({ id: `m:${l.scope}:${l.id}:${m.lever_id}`, parentId: mg, kind: "leaf", label: m.label || m.lever_id, hasChildren: false, draggable: true });
     }
     return out;
   }, [allLibs, libBodies]);
@@ -368,7 +368,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   function actionsFor(node: TreeNode): TreeAction[] {
     if (node.kind === "machine")
       return [{ id: "edit", label: "Edit" }, { id: "dup", label: "Duplicate" }, { id: "dupN", label: "Duplicate ×N…" }, { id: "delete", label: "Delete", danger: true }];
-    // A kind-group (Technology / Stream / Measures & MACC) is leaf-level — you
+    // A kind-group (Technology / Stream / Levers & MACC) is leaf-level — you
     // can't add a sub-group inside it, only drop components.
     const prefixed = isPrefixedLevel(node.level);
     return [
@@ -418,7 +418,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     if (sel.kind === "machine") {
       const r = machineRow(sel.id);
       if (!r) {
-        // A non-technology real-world entry (stream / measure / MACC leaf).
+        // A non-technology real-world entry (stream / lever / MACC leaf).
         return (
           <section className="detail-col">
             <h2 className="view-title">{sel.label}</h2>
@@ -533,7 +533,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
       );
     }
     // group node — show its children as CARDS (like the component view). The
-    // Technology / Stream / Measures & MACC groups are PREFIXED (modelling)
+    // Technology / Stream / Levers & MACC groups are PREFIXED (modelling)
     // groups, distinct from normal user groups (sector/company/…).
     const prefixed = isPrefixedLevel(sel.level);
     const kids = childrenOf(nodes, sel.id);
@@ -570,8 +570,8 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         )}
         <p className="detail-note" style={{ marginBottom: 8 }}>
           {prefixed
-            ? `Drag a ${sel.level === "Technology" ? "technology" : sel.level === "Stream" ? "stream" : "measure / MACC"} from the Library below to add one here.`
-            : "Right-click in the tree to add a group inside (like a folder), or drag a component from the Library below — it files under a Technology / Stream / Measures & MACC group."}
+            ? `Drag a ${sel.level === "Technology" ? "technology" : sel.level === "Stream" ? "stream" : "lever / MACC"} from the Library below to add one here.`
+            : "Right-click in the tree to add a group inside (like a folder), or drag a component from the Library below — it files under a Technology / Stream / Levers & MACC group."}
         </p>
         {kids.length === 0 ? (
           <p className="detail-note">Empty — drag a component from the Library at the bottom-left.</p>

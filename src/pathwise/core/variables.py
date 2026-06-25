@@ -13,19 +13,19 @@ from typing import Any
 import pandas as pd
 from linopy import Model
 
-from pathwise.core.entities import MarketTarget, MeasureType, TransitionAction
+from pathwise.core.entities import LeverType, MarketTarget, TransitionAction
 from pathwise.core.problem import Problem, leg_key
 
 
 @dataclass(slots=True)
-class MeasureSlot:
-    """A flattened ``(measure, block)`` decision slot.
+class LeverSlot:
+    """A flattened ``(lever, block)`` decision slot.
 
     Attributes:
-        key: Stable string key ``"{measure_id}#{block}"``.
-        measure_id: Owning measure.
-        process: Process the measure is installed on.
-        measure_type: Lever (energy efficiency / emission / environmental).
+        key: Stable string key ``"{lever_id}#{block}"``.
+        lever_id: Owning lever.
+        process: Process the lever is installed on.
+        lever_type: Lever kind (energy efficiency / emission / environmental).
         target: Target commodity id (efficiency) or impact id (reduction/env).
         reduction: Fractional reduction at full adoption of this block [—].
         capex: Block capital cost — a one-off lump at adoption [currency].
@@ -35,9 +35,9 @@ class MeasureSlot:
     """
 
     key: str
-    measure_id: str
+    lever_id: str
     process: str
-    measure_type: MeasureType
+    lever_type: LeverType
     target: str
     reduction: float
     capex: float
@@ -76,7 +76,7 @@ class BuildContext:
     years: list[int]
 
     feasible: dict[str, list[str]]  # process -> feasible technologies
-    slots: list[MeasureSlot]
+    slots: list[LeverSlot]
     ref_consumption: dict[tuple[str, str], float]  # (process, commodity) -> baseline use
     ref_impact: dict[tuple[str, str], float]  # (process, impact) -> baseline emission
     grouped_comms: list[str] = field(default_factory=list)  # commodities in any blend group
@@ -92,7 +92,7 @@ class BuildContext:
     sell: Any = None  # external sale/disposal [process, commodity, period]
     deliver: Any = None  # product delivered to demand [process, commodity, period]
     flow: Any = None  # inter-process flow [edge, period]
-    z: Any = None  # measure adoption [slot, period]
+    z: Any = None  # lever adoption [slot, period]
     emit: Any = None  # impact emitted [process, impact, period]
     units: Any = None  # integer ships assigned to a fleet route [process, period]
     cunits: Any = None  # integer carriers of a fleet on a physicalised connection [leg, period]
@@ -141,17 +141,17 @@ def _feasible_techs(problem: Problem) -> dict[str, list[str]]:
     return out
 
 
-def _measure_slots(problem: Problem) -> list[MeasureSlot]:
-    """Flatten measures × blocks into addressable slots."""
-    slots: list[MeasureSlot] = []
-    for m in problem.measures:
+def _lever_slots(problem: Problem) -> list[LeverSlot]:
+    """Flatten levers × blocks into addressable slots."""
+    slots: list[LeverSlot] = []
+    for m in problem.levers:
         for b, blk in enumerate(m.blocks):
             slots.append(
-                MeasureSlot(
-                    key=f"{m.measure_id}#{b}",
-                    measure_id=m.measure_id,
+                LeverSlot(
+                    key=f"{m.lever_id}#{b}",
+                    lever_id=m.lever_id,
                     process=m.applies_to,
-                    measure_type=m.measure_type,
+                    lever_type=m.lever_type,
                     target=m.target,
                     reduction=blk.reduction,
                     capex=blk.capex,
@@ -170,7 +170,7 @@ def _references(
 ) -> tuple[dict[tuple[str, str], float], dict[tuple[str, str], float]]:
     """Precompute baseline consumption and emission references per process.
 
-    Used to linearise MACC savings: a measure's saving is ``reduction × ref``
+    Used to linearise MACC savings: a lever's saving is ``reduction × ref``
     (a constant), not ``reduction × throughput`` (which would be bilinear).
     Reference uses the process's full capacity on its baseline technology, with
     coefficients read at the first horizon year ``t₀`` (so a recipe whose
@@ -211,7 +211,7 @@ def build_context(model: Model, problem: Problem) -> BuildContext:
     years = problem.years
 
     feasible = _feasible_techs(problem)
-    slots = _measure_slots(problem)
+    slots = _lever_slots(problem)
     ref_cons, ref_imp = _references(problem)
     grouped_comms = sorted({c for k in problem.technologies.values() for c in k.grouped_inputs()})
     grouped_out = sorted({c for k in problem.technologies.values() for c in k.grouped_outputs()})

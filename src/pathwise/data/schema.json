@@ -11,7 +11,7 @@
     "technology": "Technology",
     "commodity": "Stream",
     "impact": "Environmental impact",
-    "measure": "Measure",
+    "lever": "Lever",
     "company": "Company",
     "throughput": "Production"
   },
@@ -613,11 +613,11 @@
         }
       }
     },
-    "measure_blocks_t": {
-      "label": "Measure block cost / reduction · by year",
+    "lever_blocks_t": {
+      "label": "Lever block cost / reduction · by year",
       "columns": {
-        "measure_id": {
-          "label": "Measure",
+        "lever_id": {
+          "label": "Lever",
           "type": "string",
           "required": true
         },
@@ -1067,14 +1067,14 @@
         }
       }
     },
-    "measures": {
-      "label": "Measures",
+    "levers": {
+      "label": "Levers",
       "columns": {
-        "measure_id": {
-          "label": "Measure",
+        "lever_id": {
+          "label": "Lever",
           "type": "string",
           "required": true,
-          "desc": "Unique name of this retrofit measure."
+          "desc": "Unique name of this retrofit lever."
         },
         "type": {
           "label": "Type",
@@ -1091,12 +1091,12 @@
         "facility": {
           "label": "Facility (direct)",
           "type": "string",
-          "desc": "Optional direct install on one facility (that plant only). Leave empty for a catalogue measure deployed through a MACC."
+          "desc": "Optional direct install on one facility (that plant only). Leave empty for a catalogue lever deployed through a MACC."
         },
         "technology": {
           "label": "Technology (direct)",
           "type": "string",
-          "desc": "Optional direct install on a technology — every facility running it, each adopting independently. Leave empty for a catalogue measure deployed through a MACC."
+          "desc": "Optional direct install on a technology — every facility running it, each adopting independently. Leave empty for a catalogue lever deployed through a MACC."
         },
         "lifetime": {
           "label": "Lifetime (yr)",
@@ -1105,19 +1105,19 @@
       }
     },
     "maccs": {
-      "label": "MACC sets (measure bundles)",
+      "label": "MACC sets (lever bundles)",
       "columns": {
         "macc": {
           "label": "MACC",
           "type": "string",
           "required": true,
-          "desc": "Name of the MACC table this row adds a measure to. The same measure may appear in several MACCs."
+          "desc": "Name of the MACC table this row adds a lever to. The same lever may appear in several MACCs."
         },
-        "measure_id": {
-          "label": "Measure",
+        "lever_id": {
+          "label": "Lever",
           "type": "string",
           "required": true,
-          "desc": "A measure from the measures sheet to include in this MACC."
+          "desc": "A lever from the levers sheet to include in this MACC."
         }
       }
     },
@@ -1152,14 +1152,14 @@
         }
       }
     },
-    "measure_blocks": {
-      "label": "Measure cost curve",
+    "lever_blocks": {
+      "label": "Lever cost curve",
       "columns": {
-        "measure_id": {
-          "label": "Measure",
+        "lever_id": {
+          "label": "Lever",
           "type": "string",
           "required": true,
-          "desc": "Unique name of this retrofit measure."
+          "desc": "Unique name of this retrofit lever."
         },
         "block": {
           "label": "Block",

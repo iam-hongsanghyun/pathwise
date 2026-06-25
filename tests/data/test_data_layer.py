@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import copy
 
-from pathwise.core.entities import CommodityKind, MeasureType
+from pathwise.core.entities import CommodityKind, LeverType
 from pathwise.data import ScenarioConfig, assemble_problem, validate
 from pathwise.data.workbook import frames_to_workbook, workbook_to_frames
 from tests.data.example import example_workbook
@@ -39,10 +39,10 @@ def test_assemble_builds_problem() -> None:
     # Impact price trajectory interpolated onto modelled years.
     assert prob.impacts["CO2"].price(2025) == 50.0
     assert prob.impacts["CO2"].price(2030) == 120.0
-    # Measure typed with its block.
-    assert len(prob.measures) == 1
-    assert prob.measures[0].measure_type == MeasureType.ENERGY_EFFICIENCY
-    assert prob.measures[0].blocks[0].reduction == 0.1
+    # Lever typed with its block.
+    assert len(prob.levers) == 1
+    assert prob.levers[0].lever_type == LeverType.ENERGY_EFFICIENCY
+    assert prob.levers[0].blocks[0].reduction == 0.1
     # Network + demand.
     assert len(prob.edges) == 1 and prob.edges[0].commodity_id == "iron"
     assert len(prob.transitions) == 1

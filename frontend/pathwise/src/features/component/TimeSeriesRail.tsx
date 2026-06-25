@@ -9,7 +9,7 @@ import { YearSeriesChart } from "./YearSeriesChart";
 import type {
   ByYear,
   CommodityTemplate,
-  MeasureTemplate,
+  LeverTemplate,
   TechnologyTemplate,
 } from "../../lib/api/components";
 
@@ -150,11 +150,39 @@ function TechTimeSeries({ value, onChange }: { value: TechnologyTemplate; onChan
 type RailProps =
   | { kind: "tech"; value: TechnologyTemplate; onChange: (v: TechnologyTemplate) => void }
   | { kind: "stream"; value: CommodityTemplate; onChange: (v: CommodityTemplate) => void }
-  | { kind: "measure"; value: MeasureTemplate; onChange: (v: MeasureTemplate) => void };
+  | { kind: "lever"; value: LeverTemplate; onChange: (v: LeverTemplate) => void };
 
 /** Per-year editor for the selected single item's trajectories. */
 export function TimeSeriesRail(p: RailProps) {
   if (p.kind === "tech") return <TechTimeSeries value={p.value} onChange={p.onChange} />;
+  if (p.kind === "lever") {
+    // lever — one table per block (block cost is per-capacity, scaled at placement)
+    const m = p.value;
+    const setBlock = (bi: number, patch: Partial<LeverTemplate["blocks"][number]>) =>
+      p.onChange({ ...m, blocks: m.blocks.map((b, j) => (j === bi ? { ...b, ...patch } : b)) });
+    return (
+      <>
+        {m.blocks.length === 0 && <p className="muted" style={{ fontSize: "0.74rem" }}>No cost-curve blocks yet.</p>}
+        {m.blocks.map((b, bi) => (
+          <TimeSeriesTable
+            key={bi}
+            title={`Block ${bi} cost by year`}
+            hint={`reduction ${b.reduction}`}
+            series={[
+              { key: "capex", label: "capex /cap", metaKey: "capex_per_capacity", values: b.capex_per_capacity_by_year ?? {}, fallback: b.capex_per_capacity },
+              { key: "opex", label: "opex /cap", metaKey: "opex_per_capacity", values: b.opex_per_capacity_by_year ?? {}, fallback: b.opex_per_capacity },
+            ]}
+            onChange={(u) =>
+              setBlock(bi, {
+                ...("capex" in u ? { capex_per_capacity_by_year: u.capex } : {}),
+                ...("opex" in u ? { opex_per_capacity_by_year: u.opex } : {}),
+              })
+            }
+          />
+        ))}
+      </>
+    );
+  }
   if (p.kind === "stream") {
     const c = p.value;
     return (
@@ -175,30 +203,5 @@ export function TimeSeriesRail(p: RailProps) {
       />
     );
   }
-  // measure — one table per block (block cost is per-capacity, scaled at placement)
-  const m = p.value;
-  const setBlock = (bi: number, patch: Partial<MeasureTemplate["blocks"][number]>) =>
-    p.onChange({ ...m, blocks: m.blocks.map((b, j) => (j === bi ? { ...b, ...patch } : b)) });
-  return (
-    <>
-      {m.blocks.length === 0 && <p className="muted" style={{ fontSize: "0.74rem" }}>No cost-curve blocks yet.</p>}
-      {m.blocks.map((b, bi) => (
-        <TimeSeriesTable
-          key={bi}
-          title={`Block ${bi} cost by year`}
-          hint={`reduction ${b.reduction}`}
-          series={[
-            { key: "capex", label: "capex /cap", metaKey: "capex_per_capacity", values: b.capex_per_capacity_by_year ?? {}, fallback: b.capex_per_capacity },
-            { key: "opex", label: "opex /cap", metaKey: "opex_per_capacity", values: b.opex_per_capacity_by_year ?? {}, fallback: b.opex_per_capacity },
-          ]}
-          onChange={(u) =>
-            setBlock(bi, {
-              ...("capex" in u ? { capex_per_capacity_by_year: u.capex } : {}),
-              ...("opex" in u ? { opex_per_capacity_by_year: u.opex } : {}),
-            })
-          }
-        />
-      ))}
-    </>
-  );
+  return null;
 }

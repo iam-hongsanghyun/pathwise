@@ -2,7 +2,7 @@
 
 Completes the "every number can be a scalar OR a per-year trajectory" guarantee:
 technology must-run floor, blend/slate share bounds, facility outage rate, edge
-capacity, storage costs/efficiencies, and measure reduction.
+capacity, storage costs/efficiencies, and lever reduction.
 """
 
 from __future__ import annotations
@@ -256,8 +256,8 @@ def test_storage_costs_and_efficiencies_assemble_per_year() -> None:
     assert s.capex_per_capacity_at(2030) == pytest.approx(4.0)
 
 
-def test_measure_reduction_assembles_per_year() -> None:
-    # Assemble-level: a measure block's abatement fraction can grow over time.
+def test_lever_reduction_assembles_per_year() -> None:
+    # Assemble-level: a lever block's abatement fraction can grow over time.
     wb = {
         "periods": [{"year": y, "duration_years": 1} for y in YEARS],
         "commodities": [{"commodity_id": "widget", "kind": "product", "unit": "t"}],
@@ -276,19 +276,19 @@ def test_measure_reduction_assembles_per_year() -> None:
             },
             {"technology_id": "T", "target": "CO2", "role": "impact", "coefficient": 1.0},
         ],
-        "measures": [
-            {"measure_id": "M", "type": "emission_reduction", "facility": "P", "target": "CO2"}
+        "levers": [
+            {"lever_id": "M", "type": "emission_reduction", "facility": "P", "target": "CO2"}
         ],
-        "measure_blocks": [{"measure_id": "M", "block": 0, "reduction": 0.2, "capex": 5}],
-        "measure_blocks_t": [
-            {"measure_id": "M", "block": 0, "year": 2025, "reduction": 0.2},
-            {"measure_id": "M", "block": 0, "year": 2030, "reduction": 0.6},
+        "lever_blocks": [{"lever_id": "M", "block": 0, "reduction": 0.2, "capex": 5}],
+        "lever_blocks_t": [
+            {"lever_id": "M", "block": 0, "year": 2025, "reduction": 0.2},
+            {"lever_id": "M", "block": 0, "year": 2030, "reduction": 0.6},
         ],
         "demand": [
             {"company": "C", "commodity_id": "widget", "year": y, "amount": 100} for y in YEARS
         ],
     }
     prob = assemble_problem(wb, SC)
-    block = prob.measures[0].blocks[0]
+    block = prob.levers[0].blocks[0]
     assert block.reduction_at(2025) == pytest.approx(0.2)
     assert block.reduction_at(2030) == pytest.approx(0.6)

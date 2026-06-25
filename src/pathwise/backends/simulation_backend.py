@@ -3,12 +3,12 @@
 Not an optimiser — a *what-if / LCA* lens over the **same** value-chain model
 (``Workbook`` → ``Problem``), in the spirit of the ``macc`` backend: a different
 SOLVE METHOD, not a new data format. Where ``linopy`` *chooses* technologies,
-transitions, and measures to minimise cost, this backend **evaluates a pinned
+transitions, and levers to minimise cost, this backend **evaluates a pinned
 configuration** and reports its lifecycle emission inventory and cost.
 
 The **baseline** is the **as-is** configuration — the current plant with no
 technology switching and no auto-adopted abatement (the *free-choice* sheets
-``transitions`` / ``measures`` are stripped) — reported under ``outputs.lca``:
+``transitions`` / ``levers`` are stripped) — reported under ``outputs.lca``:
 
 * ``by_impact``  — total emissions per impact (the engine's own totals), per
   functional unit;
@@ -23,7 +23,7 @@ into ``outputs.variants``, with a baseline-vs-variant ``outputs.comparison``
 
 P3 (shipped) adds the **policy lever**: ``outputs.policy_sweep`` traces every
 config's cost & emissions across a parametric carbon-price range (analytic for a
-pinned config, re-solved when a measure is on the table), and
+pinned config, re-solved when a lever is on the table), and
 ``outputs.cap_compliance`` checks each config's per-year emissions against the
 ``impact_caps`` (read from the full model; the caps are stripped before
 evaluation so they cannot distort the inventory). The **use phase** needs no
@@ -37,7 +37,7 @@ selected variant. The simulator evaluates **every** variant against the baseline
 a ``tech`` intervention is a **forced timed switch** (the machine runs its baseline
 before ``forced_year`` and the target technology from it, via
 ``Problem.forced_switches``), booking the straight-line **sunk cost** of retiring
-the incumbent early; ``stream`` / ``measure`` interventions reuse the override
+the incumbent early; ``stream`` / ``lever`` interventions reuse the override
 applier. See ``docs/proposals/simulation-backend.md``.
 """
 
@@ -53,6 +53,7 @@ from pathwise.core.build import build
 from pathwise.core.extract import empty_result, extract_results
 from pathwise.core.run import run_model
 from pathwise.core.solve import options_from_scenario, solve
+from pathwise.data.aliases import normalize_workbook
 from pathwise.data.assemble import assemble_problem
 from pathwise.data.scenario import ScenarioConfig
 from pathwise.data.workbook import Workbook, default_impact
@@ -64,12 +65,12 @@ logger = get_logger(__name__)
 
 #: Sheets that hand the optimiser a *choice*. Stripping them pins each machine to
 #: its baseline technology with no auto-adopted abatement — the "current" config.
-_FREE_CHOICE_SHEETS = ("transitions", "measures", "measure_blocks", "measure_blocks_t")
+_FREE_CHOICE_SHEETS = ("transitions", "levers", "lever_blocks", "lever_blocks_t")
 
 #: Emission-cap sheets are policy *targets* the simulator checks post-hoc (see
 #: ``_cap_map`` / ``_compliance``), NOT constraints it should let bind during a
 #: fixed-config evaluation — a binding cap would distort the very inventory we are
-#: trying to measure (forcing demand slack). Read from the full model, evaluated
+#: trying to assess (forcing demand slack). Read from the full model, evaluated
 #: without them.
 _CAP_SHEETS = ("impact_caps", "impact_caps_t__limit")
 
@@ -121,6 +122,12 @@ class SimulationBackend:
             pathwise's result dict with an added ``outputs.lca`` block.
         """
         options = options or {}
+        # Normalise OLD sheet/column names → current ones up front: this backend
+        # STRIPS the free-choice sheets (``levers``/``transitions``) from the raw
+        # model before assembling, so an old-named model (e.g. a bundled example
+        # with a ``measures`` sheet) must be renamed first or the strip would miss
+        # it and the as-is inventory would wrongly keep the abatement on the table.
+        model = normalize_workbook(model)
         sc = ScenarioConfig.from_dict(scenario)
         domain = get_domain(options.get("domain") or sc.domain)
         logger.info("running domain=%s backend=%s", domain.name, self.name)
@@ -244,7 +251,7 @@ def _evaluate_variants(
     """Evaluate each variant (baseline + its overrides + forced switches) and LCA it.
 
     A variant inherits the baseline's *as-is* pinning (technology switching off);
-    its ``overrides`` then perturb that — change a price, or put a measure back on
+    its ``overrides`` then perturb that — change a price, or put a lever back on
     the table (the full ``model`` is the override *source*) — and its ``forced``
     timed tech switches pin a machine onto a new technology from a given year,
     booking the stranded-asset (sunk) cost of retiring the incumbent early.
@@ -374,10 +381,10 @@ def _compare(variant: dict[str, Any], base_lca: dict[str, Any], impact: str) -> 
 
 
 def _is_pinned(eval_model: Workbook) -> bool:
-    """True if the configuration has no free choices left (no measures /
+    """True if the configuration has no free choices left (no levers /
     transitions). For a pinned config the physical flows — and hence emissions —
     do not move with the carbon price, so the sweep is exact arithmetic."""
-    return not eval_model.get("measures") and not eval_model.get("transitions")
+    return not eval_model.get("levers") and not eval_model.get("transitions")
 
 
 def _price_points(lo: float, hi: float, step: float, *, cap: int = 200) -> list[float]:
@@ -403,7 +410,7 @@ def _sweep_series(
 
     A *pinned* config is evaluated analytically — ``cost(p) = ex_carbon + p·E``
     with constant emissions ``E``. A config with free choices (an available
-    measure the LP may adopt under a price) is re-solved at each price.
+    lever the LP may adopt under a price) is re-solved at each price.
     """
     if _is_pinned(config["model"]):
         ex = _ex_carbon_cost(config["lca"])

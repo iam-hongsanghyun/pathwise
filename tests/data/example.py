@@ -84,17 +84,17 @@ def example_workbook() -> Workbook:
         "edges": [
             {"from_process": "F1", "to_process": "F2", "commodity_id": "iron"},
         ],
-        "measures": [
+        "levers": [
             {
-                "measure_id": "M_eff",
+                "lever_id": "M_eff",
                 "type": "energy_efficiency",
                 "applies_to": "F1",
                 "target": "coal",
                 "lifetime": 15,
             },
         ],
-        "measure_blocks": [
-            {"measure_id": "M_eff", "block": 0, "reduction": 0.1, "capex": 500.0},
+        "lever_blocks": [
+            {"lever_id": "M_eff", "block": 0, "reduction": 0.1, "capex": 500.0},
         ],
         "transitions": [
             {

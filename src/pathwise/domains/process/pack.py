@@ -9,7 +9,7 @@ from pathwise.domains.base import DomainPack
 
 
 class ProcessDomain(DomainPack):
-    """Generic process-network domain (facilities, streams, impacts, measures)."""
+    """Generic process-network domain (facilities, streams, impacts, levers)."""
 
     name = "process"
     label = "Process network"

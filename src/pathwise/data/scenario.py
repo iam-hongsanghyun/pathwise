@@ -35,7 +35,7 @@ class CostComponents(BaseModel):
     opex: bool = True
     commodity_cost: bool = True
     impact_price: bool = True
-    measure_capex: bool = True
+    lever_capex: bool = True
 
 
 class SolverConfig(BaseModel):
@@ -159,7 +159,7 @@ class ScenarioConfig(BaseModel):
     cost_weight: float = Field(default=1.0, ge=0.0)
     # Active model-resident variant (its ``variant_id``) to FORCE for an optimise
     # run: the optimiser pins that variant's interventions (a forced transition,
-    # price/measure change) and optimises everything else. ``None`` ⇒ a plain
+    # price/lever change) and optimises everything else. ``None`` ⇒ a plain
     # free optimisation. The simulator ignores this (it compares every variant).
     variant: str | None = None
     # Project-level unit-rate overrides, layered over the global ``units.yaml`` when

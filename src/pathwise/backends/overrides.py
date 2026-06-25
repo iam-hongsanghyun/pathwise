@@ -15,10 +15,10 @@ Supported ops (P2):
   which case the wide temporal price sheet is edited for that year.
 * ``set_carbon_price`` — ``{op, impact, price, year?}``: set an impact (carbon)
   price; static across years, or one ``year`` of the long ``impact_prices`` sheet.
-* ``toggle_measure`` — ``{op, measure, on}``: with ``on=True`` re-introduce a
-  measure (and its blocks) from ``source`` so the fixed-config LP may adopt it
+* ``toggle_lever`` — ``{op, lever, on}``: with ``on=True`` re-introduce a
+  lever (and its blocks) from ``source`` so the fixed-config LP may adopt it
   when economic; ``on=False`` removes it. The simulator's baseline strips all
-  measures, so ``toggle_measure`` is how a variant puts one back on the table.
+  levers, so ``toggle_lever`` is how a variant puts one back on the table.
 
 Value edits (change an existing entity's number, static or per-``year``):
 
@@ -40,12 +40,12 @@ from pathwise.logger import get_logger
 
 logger = get_logger(__name__)
 
-#: Measure sheets re-introduced together when a measure is toggled on.
-_MEASURE_SHEETS = (
-    sheets.MEASURES,
-    sheets.MEASURE_BLOCKS,
-    sheets.MEASURE_BLOCKS_T,
-    sheets.MEASURE_LINKS,
+#: Lever sheets re-introduced together when a lever is toggled on.
+_LEVER_SHEETS = (
+    sheets.LEVERS,
+    sheets.LEVER_BLOCKS,
+    sheets.LEVER_BLOCKS_T,
+    sheets.LEVER_LINKS,
 )
 
 
@@ -66,7 +66,7 @@ def apply_overrides(
             view). Not mutated.
         overrides: Ordered list of typed op dicts.
         source: The full, un-stripped workbook to pull rows from (used by
-            ``toggle_measure on`` to re-introduce a stripped measure). Defaults
+            ``toggle_lever on`` to re-introduce a stripped lever). Defaults
             to ``base``.
 
     Returns:
@@ -155,19 +155,19 @@ def _set_carbon_price(wb: Workbook, ov: dict[str, Any], _src: Workbook) -> None:
     ]
 
 
-def _toggle_measure(wb: Workbook, ov: dict[str, Any], src: Workbook) -> None:
-    measure, on = str(ov.get("measure") or ""), bool(ov.get("on", True))
-    if not measure:
-        raise OverrideError("toggle_measure needs 'measure'")
-    for sheet in _MEASURE_SHEETS:
-        kept = [r for r in _rows(wb, sheet) if str(r.get("measure_id")) != measure]
+def _toggle_lever(wb: Workbook, ov: dict[str, Any], src: Workbook) -> None:
+    lever, on = str(ov.get("lever") or ""), bool(ov.get("on", True))
+    if not lever:
+        raise OverrideError("toggle_lever needs 'lever'")
+    for sheet in _LEVER_SHEETS:
+        kept = [r for r in _rows(wb, sheet) if str(r.get("lever_id")) != lever]
         wb[sheet] = kept
         if on:
             kept.extend(
-                copy.deepcopy(r) for r in src.get(sheet, []) if str(r.get("measure_id")) == measure
+                copy.deepcopy(r) for r in src.get(sheet, []) if str(r.get("lever_id")) == lever
             )
-    if on and not any(str(r.get("measure_id")) == measure for r in wb.get(sheets.MEASURES, [])):
-        raise OverrideError(f"toggle_measure: unknown measure {measure!r}")
+    if on and not any(str(r.get("lever_id")) == lever for r in wb.get(sheets.LEVERS, [])):
+        raise OverrideError(f"toggle_lever: unknown lever {lever!r}")
 
 
 def _set_wide(wb: Workbook, sheet: str, year: int, column: str, value: float) -> None:
@@ -281,7 +281,7 @@ _OPS = {
     "set_machine_tech": _set_machine_tech,
     "set_price": _set_price,
     "set_carbon_price": _set_carbon_price,
-    "toggle_measure": _toggle_measure,
+    "toggle_lever": _toggle_lever,
     "set_tech_cost": _set_tech_cost,
     "set_io_coef": _set_io_coef,
     "set_stream_cap": _set_stream_cap,

@@ -233,7 +233,7 @@ def test_named_demand_component_with_temporal() -> None:
     assert res["outputs"]["demand_slack"] == []
 
 
-def _measure_wb(blocks_t: list | None = None) -> dict:
+def _lever_wb(blocks_t: list | None = None) -> dict:
     wb = {
         "periods": [{"year": 2025}, {"year": 2030}, {"year": 2035}],
         "commodities": [
@@ -254,44 +254,44 @@ def _measure_wb(blocks_t: list | None = None) -> dict:
         "processes": [
             {"process_id": "P", "company": "C", "baseline_technology": "T", "capacity": 100}
         ],
-        "measures": [
-            {"measure_id": "fs", "type": "energy_efficiency", "target": "fuel", "facility": "P"}
+        "levers": [
+            {"lever_id": "fs", "type": "energy_efficiency", "target": "fuel", "facility": "P"}
         ],
-        "measure_blocks": [
-            {"measure_id": "fs", "block": 0, "reduction": 0.2, "capex": 100.0, "opex": 50.0}
+        "lever_blocks": [
+            {"lever_id": "fs", "block": 0, "reduction": 0.2, "capex": 100.0, "opex": 50.0}
         ],
         "demand": [{"company": "C", "commodity_id": "widget", "year": 2025, "amount": 100}],
     }
     if blocks_t is not None:
-        wb["measure_blocks_t"] = blocks_t
+        wb["lever_blocks_t"] = blocks_t
     return wb
 
 
-def test_measure_block_cost_can_be_temporal() -> None:
-    # measure_blocks_t makes a block's capex vary by year (absolute, like measure_blocks).
+def test_lever_block_cost_can_be_temporal() -> None:
+    # lever_blocks_t makes a block's capex vary by year (absolute, like lever_blocks).
     sc = ScenarioConfig.from_dict({"economics": {"base_year": 2025, "discount_rate": 0.0}})
-    wb = _measure_wb(
+    wb = _lever_wb(
         [
-            {"measure_id": "fs", "block": 0, "year": 2025, "capex": 100.0},
-            {"measure_id": "fs", "block": 0, "year": 2035, "capex": 300.0},
+            {"lever_id": "fs", "block": 0, "year": 2025, "capex": 100.0},
+            {"lever_id": "fs", "block": 0, "year": 2035, "capex": 300.0},
         ]
     )
-    blk = assemble_problem(wb, sc).measures[0].blocks[0]
+    blk = assemble_problem(wb, sc).levers[0].blocks[0]
     assert blk.capex_at(2025) == 100.0
     assert blk.capex_at(2030) == 200.0  # linear midpoint
     assert blk.capex_at(2035) == 300.0
     assert blk.opex_at(2030) == 50.0  # no opex trajectory → scalar fallback
 
 
-def test_constant_measure_block_traj_equals_scalar_objective() -> None:
-    # A flat measure_blocks_t must reproduce the bare-scalar solved objective.
-    scalar = _solve(_measure_wb(None))
+def test_constant_lever_block_traj_equals_scalar_objective() -> None:
+    # A flat lever_blocks_t must reproduce the bare-scalar solved objective.
+    scalar = _solve(_lever_wb(None))
     flat = _solve(
-        _measure_wb(
+        _lever_wb(
             [
-                {"measure_id": "fs", "block": 0, "year": 2025, "capex": 100.0, "opex": 50.0},
-                {"measure_id": "fs", "block": 0, "year": 2030, "capex": 100.0, "opex": 50.0},
-                {"measure_id": "fs", "block": 0, "year": 2035, "capex": 100.0, "opex": 50.0},
+                {"lever_id": "fs", "block": 0, "year": 2025, "capex": 100.0, "opex": 50.0},
+                {"lever_id": "fs", "block": 0, "year": 2030, "capex": 100.0, "opex": 50.0},
+                {"lever_id": "fs", "block": 0, "year": 2035, "capex": 100.0, "opex": 50.0},
             ]
         )
     )

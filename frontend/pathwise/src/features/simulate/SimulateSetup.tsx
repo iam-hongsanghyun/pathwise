@@ -78,7 +78,7 @@ export function SimulateSetup({
         <h2 className="view-title">Scenario simulator</h2>
         <p className="view-lead">
           Evaluate the as-is baseline and compare it against the <strong>variants</strong> you
-          defined in the Value chain (per-machine forced switches, price or measure changes).
+          defined in the Value chain (per-machine forced switches, price or lever changes).
           Optionally sweep a carbon price.
         </p>
 

@@ -87,7 +87,7 @@ def test_blank_template_has_entity_and_temporal_tabs_with_headers() -> None:
     cols = template_columns()
     frames = pd.read_excel(io.BytesIO(write_template_xlsx(cols)), sheet_name=None)
     # Each entity is its own tab.
-    for sheet in ["technologies", "measures", "commodities", "markets", "io", "impacts", "demand"]:
+    for sheet in ["technologies", "levers", "commodities", "markets", "io", "impacts", "demand"]:
         assert sheet in frames, f"missing entity tab {sheet}"
     # Temporal data lives in _t / _t__field tabs.
     assert "io_t" in frames and "markets_t__price" in frames

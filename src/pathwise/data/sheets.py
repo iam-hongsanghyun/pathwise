@@ -209,27 +209,28 @@ EDGE_IMPACTS = "edge_impacts"
 #: year, max_flow).
 EDGES_T = "edges_t"
 
-# ── Measures and MACCs ───────────────────────────────────────────────────────
+# ── Levers and MACCs ─────────────────────────────────────────────────────────
 
-#: Individual retrofit measure definitions (measure_id, type, target, …).
-MEASURES = "measures"
+#: Individual retrofit lever definitions (lever_id, type, target, …).
+LEVERS = "levers"
 
-#: Piecewise cost-curve blocks for each measure (measure_id, block, reduction, …).
-MEASURE_BLOCKS = "measure_blocks"
+#: Piecewise cost-curve blocks for each lever (lever_id, block, reduction, …).
+LEVER_BLOCKS = "lever_blocks"
 
-#: Long-format per-year block-cost trajectory (measure_id, block, year, capex?, opex?).
-MEASURE_BLOCKS_T = "measure_blocks_t"
+#: Long-format per-year block-cost trajectory (lever_id, block, year, capex?, opex?).
+LEVER_BLOCKS_T = "lever_blocks_t"
 
-#: MACC bundle membership: which measures belong to which named MACC
-#: (macc, measure_id).
+#: MACC bundle membership: which levers belong to which named MACC
+#: (macc, lever_id).
 MACCS = "maccs"
 
 #: MACC deployment links: which facilities/technologies a MACC applies to
 #: (macc, facility?, technology?, commodity?, storage?).
 MACC_LINKS = "macc_links"
 
-#: Legacy named-set membership for measures (set, applies_to).
-MEASURE_LINKS = "measure_links"
+#: Legacy named-set membership for levers (set, applies_to).
+LEVER_LINKS = "lever_links"
+
 
 # ── Storage ───────────────────────────────────────────────────────────────────
 
@@ -365,7 +366,7 @@ VARIANTS = "variants"
 #: (variant_id, kind, target, value, forced_year, field?).
 #: ``tech`` → force ``target`` machine onto technology ``value`` from ``forced_year``;
 #: ``stream`` → set commodity ``target`` price to ``value`` from ``forced_year``;
-#: ``measure`` → toggle measure ``target`` (``value`` truthy = on);
+#: ``lever`` → toggle lever ``target`` (``value`` truthy = on);
 #: ``tech_cost`` → set technology ``target``'s ``field`` (capex|opex) to ``value``;
 #: ``io_coef`` → set technology ``target``'s coefficient for commodity ``field``;
 #: ``stream_cap`` → set commodity ``target``'s ``field`` (max_purchase|

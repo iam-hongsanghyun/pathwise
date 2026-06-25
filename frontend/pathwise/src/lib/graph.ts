@@ -246,7 +246,7 @@ export function deleteEntity(wb: Workbook, id: string): Workbook {
     out.edges = (wb.edges ?? []).filter(
       (r) => s(r.from_process) !== entityId && s(r.to_process) !== entityId,
     );
-    out.measures = (wb.measures ?? []).filter(
+    out.levers = (wb.levers ?? []).filter(
       (r) => s(r.facility) !== entityId && s(r.applies_to) !== entityId,
     );
     out.macc_links = (wb.macc_links ?? []).filter((r) => s(r.facility) !== entityId);
@@ -326,11 +326,11 @@ export function ensureTechnology(wb: Workbook, techId: string): Workbook {
   };
 }
 
-/** Add a measure (one starter block). Install it directly on a `facility`
+/** Add a lever (one starter block). Install it directly on a `facility`
  *  (that plant only) or a `technology` (every facility running it — each
- *  still adopts independently) — or NEITHER: a catalogue measure, deployed
+ *  still adopts independently) — or NEITHER: a catalogue lever, deployed
  *  later by bundling it into a MACC. `macc` adds it to that bundle. */
-export function addMeasure(
+export function addLever(
   wb: Workbook,
   opts: {
     facility?: string;
@@ -344,11 +344,11 @@ export function addMeasure(
   },
 ): Workbook {
   const where = opts.facility || opts.technology || "catalogue";
-  const taken = new Set((wb.measures ?? []).map((r) => s(r.measure_id)));
-  let mid = `${where} · ${opts.target} measure`;
-  for (let i = 2; taken.has(mid); i += 1) mid = `${where} · ${opts.target} measure ${i}`;
+  const taken = new Set((wb.levers ?? []).map((r) => s(r.lever_id)));
+  let mid = `${where} · ${opts.target} lever`;
+  for (let i = 2; taken.has(mid); i += 1) mid = `${where} · ${opts.target} lever ${i}`;
   const row: Row = {
-    measure_id: mid,
+    lever_id: mid,
     type: opts.type,
     target: opts.target,
     lifetime: opts.lifetime ?? 15,
@@ -357,13 +357,13 @@ export function addMeasure(
   if (opts.technology) row.technology = opts.technology;
   const out: Workbook = {
     ...wb,
-    measures: [...(wb.measures ?? []), row],
-    measure_blocks: [
-      ...(wb.measure_blocks ?? []),
-      { measure_id: mid, block: 0, reduction: opts.reduction, capex: opts.capex },
+    levers: [...(wb.levers ?? []), row],
+    lever_blocks: [
+      ...(wb.lever_blocks ?? []),
+      { lever_id: mid, block: 0, reduction: opts.reduction, capex: opts.capex },
     ],
   };
-  if (opts.macc) out.maccs = [...(wb.maccs ?? []), { macc: opts.macc, measure_id: mid }];
+  if (opts.macc) out.maccs = [...(wb.maccs ?? []), { macc: opts.macc, lever_id: mid }];
   return out;
 }
 
@@ -371,14 +371,14 @@ export function addMeasure(
 export const MACC_LINK_KINDS = ["facility", "technology", "commodity", "storage"] as const;
 export type MaccLinkKind = (typeof MACC_LINK_KINDS)[number];
 
-/** Expand measure definitions into per-facility instances — the TS mirror of
+/** Expand lever definitions into per-facility instances — the TS mirror of
  *  the assembler: direct `facility` / `technology` columns, plus every MACC
- *  the measure belongs to (`maccs`) that is deployed (`macc_links` — on a
+ *  the lever belongs to (`maccs`) that is deployed (`macc_links` — on a
  *  facility, a technology, a stream, or a store), plus the legacy
- *  `applies_to` / `set` columns. One row per (measure, facility). */
-export function resolveMeasures(
+ *  `applies_to` / `set` columns. One row per (lever, facility). */
+export function resolveLevers(
   wb: Workbook,
-): { measure_id: string; base_id: string; applies_to: string; type: string; target: string }[] {
+): { lever_id: string; base_id: string; applies_to: string; type: string; target: string }[] {
   const procIds = new Set((wb.processes ?? []).map((r) => s(r.process_id)));
   const byBaseline = new Map<string, string[]>();
   for (const p of wb.processes ?? []) {
@@ -412,15 +412,15 @@ export function resolveMeasures(
     return resolve(target);
   };
   const linksBySet = new Map<string, string[]>();
-  for (const r of wb.measure_links ?? []) {
+  for (const r of wb.lever_links ?? []) {
     const set = s(r.set);
     if (set && s(r.applies_to))
       linksBySet.set(set, [...(linksBySet.get(set) ?? []), s(r.applies_to)]);
   }
-  const maccsByMeasure = new Map<string, string[]>();
+  const maccsByLever = new Map<string, string[]>();
   for (const r of wb.maccs ?? []) {
-    const mid = s(r.measure_id);
-    if (mid && s(r.macc)) maccsByMeasure.set(mid, [...(maccsByMeasure.get(mid) ?? []), s(r.macc)]);
+    const mid = s(r.lever_id);
+    if (mid && s(r.macc)) maccsByLever.set(mid, [...(maccsByLever.get(mid) ?? []), s(r.macc)]);
   }
   const maccTargets = new Map<string, { kind: MaccLinkKind; name: string }[]>();
   for (const r of wb.macc_links ?? []) {
@@ -431,13 +431,13 @@ export function resolveMeasures(
       if (name) maccTargets.set(macc, [...(maccTargets.get(macc) ?? []), { kind, name }]);
     }
   }
-  const out: { measure_id: string; base_id: string; applies_to: string; type: string; target: string }[] = [];
-  for (const m of wb.measures ?? []) {
-    const mid = s(m.measure_id);
+  const out: { lever_id: string; base_id: string; applies_to: string; type: string; target: string }[] = [];
+  for (const m of wb.levers ?? []) {
+    const mid = s(m.lever_id);
     const targets: string[] = [];
     if (s(m.facility)) targets.push(...resolve(s(m.facility)));
     if (s(m.technology)) targets.push(...resolve(s(m.technology)));
-    for (const macc of maccsByMeasure.get(mid) ?? [])
+    for (const macc of maccsByLever.get(mid) ?? [])
       for (const link of maccTargets.get(macc) ?? [])
         targets.push(...resolveLink(link.kind, link.name));
     if (s(m.applies_to)) targets.push(...resolve(s(m.applies_to))); // legacy
@@ -445,7 +445,7 @@ export function resolveMeasures(
     const unique = [...new Set(targets)];
     for (const pid of unique)
       out.push({
-        measure_id: unique.length === 1 ? mid : `${mid} @ ${pid}`,
+        lever_id: unique.length === 1 ? mid : `${mid} @ ${pid}`,
         base_id: mid,
         applies_to: pid,
         type: s(m.type, "energy_efficiency"),

@@ -41,11 +41,11 @@ from pathwise.data.sheets import (
     IMPACTS,
     IO,
     IO_T,
+    LEVER_BLOCKS,
+    LEVER_BLOCKS_T,
+    LEVERS,
     MACCS,
     MACHINES,
-    MEASURE_BLOCKS,
-    MEASURE_BLOCKS_T,
-    MEASURES,
     META,
     NODES,
     TECHNOLOGIES,
@@ -55,12 +55,12 @@ from pathwise.data.sheets import (
 from pathwise.data.templates import (
     CommodityTemplate,
     IoRow,
-    MeasureBlockTemplate,
-    MeasureTemplate,
+    LeverBlockTemplate,
+    LeverTemplate,
     TechnologyTemplate,
     _io_rows,
     _io_t_rows,
-    _measure_block_t_rows,
+    _lever_block_t_rows,
     _tech_row,
 )
 from pathwise.data.workbook import Workbook
@@ -72,12 +72,12 @@ class MachineComponent(BaseModel):
     This is the **Project** layer's core primitive. A component (technology) is
     the per-unit technical spec; a machine is a named instance of it with its
     real-world facts: an owning **company**, a physical **capacity** (size), a
-    **build_year** / **close_year**, and its own **measures** (a per-machine MACC
+    **build_year** / **close_year**, and its own **levers** (a per-machine MACC
     — the same technology's retrofits, which may differ machine-to-machine). The
     same technology appears as many differently-named machines across companies.
 
-    Each machine is independent (a hard copy): editing one machine's measures
-    never affects another. Instantiating a machine stamps each measure onto the
+    Each machine is independent (a hard copy): editing one machine's levers
+    never affects another. Instantiating a machine stamps each lever onto the
     resulting node, with block capex/opex scaled to the instance capacity.
     """
 
@@ -90,7 +90,7 @@ class MachineComponent(BaseModel):
     #: Real-world lifecycle: the year the machine is built / retired (0 = unset).
     build_year: int = Field(default=0, ge=0)
     close_year: int = Field(default=0, ge=0)
-    measures: list[MeasureTemplate] = Field(default_factory=list)
+    measures: list[LeverTemplate] = Field(default_factory=list)
 
 
 class ChildRef(BaseModel):
@@ -147,17 +147,17 @@ class GroupComponent(BaseModel):
 
 
 class MaccGroup(BaseModel):
-    """A MACC — a named, reusable BUNDLE of individual measures.
+    """A MACC — a named, reusable BUNDLE of individual levers.
 
-    The "group of measures" of the Component builder: it links a set of
-    standalone, reusable :class:`MeasureTemplate`\\ s by id. A technology lists
+    The "group of levers" of the Component builder: it links a set of
+    standalone, reusable :class:`LeverTemplate`\\ s by id. A technology lists
     the MACCs that apply to it (``TechnologyTemplate.maccs``); placing that
-    technology stamps every measure of those MACCs onto the resulting machine.
+    technology stamps every lever of those MACCs onto the resulting machine.
     """
 
     macc_id: str
     label: str = ""
-    measures: list[str] = Field(default_factory=list)  # individual measure ids
+    measures: list[str] = Field(default_factory=list)  # individual lever ids
     #: Free-text notes / references for the authoring UI (optimiser ignores it).
     notes: str = ""
 
@@ -172,7 +172,7 @@ class ComponentLibrary(BaseModel):
     label: str = ""
     commodities: list[CommodityTemplate] = Field(default_factory=list)
     technologies: list[TechnologyTemplate] = Field(default_factory=list)
-    measures: list[MeasureTemplate] = Field(default_factory=list)
+    measures: list[LeverTemplate] = Field(default_factory=list)
     maccs: list[MaccGroup] = Field(default_factory=list)
     machines: list[MachineComponent] = Field(default_factory=list)
     groups: list[GroupComponent] = Field(default_factory=list)
@@ -197,24 +197,24 @@ class ComponentLibrary(BaseModel):
     def technology(self, tech_id: str) -> TechnologyTemplate | None:
         return next((t for t in self.technologies if t.technology_id == tech_id), None)
 
-    def measure(self, measure_id: str) -> MeasureTemplate | None:
-        return next((m for m in self.measures if m.measure_id == measure_id), None)
+    def lever(self, lever_id: str) -> LeverTemplate | None:
+        return next((m for m in self.measures if m.lever_id == lever_id), None)
 
     def macc(self, macc_id: str) -> MaccGroup | None:
         return next((g for g in self.maccs if g.macc_id == macc_id), None)
 
-    def technology_measures(self, tech_id: str) -> list[MeasureTemplate]:
-        """Every measure reachable from a technology via its linked MACCs."""
+    def technology_measures(self, tech_id: str) -> list[LeverTemplate]:
+        """Every lever reachable from a technology via its linked MACCs."""
         tech = self.technology(tech_id)
         if tech is None:
             return []
-        seen: dict[str, MeasureTemplate] = {}
+        seen: dict[str, LeverTemplate] = {}
         for macc_id in tech.maccs:
             macc = self.macc(macc_id)
             if macc is None:
                 continue
             for mid in macc.measures:
-                m = self.measure(mid)
+                m = self.lever(mid)
                 if m is not None:
                     seen[mid] = m
         return list(seen.values())
@@ -228,14 +228,14 @@ def copy_component_into(
     A *project* (a session library) is built by dragging components in from base /
     other libraries; the copy is a HARD copy so the project owns its own values.
     The closure follows references so a placed component actually works:
-    technology → its io-target commodities + its MACCs (+ those MACCs' measures);
-    MACC → its measures; measure → its target commodity; stream → itself. A
+    technology → its io-target commodities + its MACCs (+ those MACCs' levers);
+    MACC → its levers; lever → its target commodity; stream → itself. A
     dependency the destination already has (by id) is REUSED, never overwritten —
     the project keeps its own edits. Returns a NEW library (pure).
     """
     out = dst.model_copy(deep=True)
     have_c = {c.commodity_id for c in out.commodities}
-    have_m = {m.measure_id for m in out.measures}
+    have_m = {m.lever_id for m in out.measures}
     have_g = {g.macc_id for g in out.maccs}
     have_t = {t.technology_id for t in out.technologies}
 
@@ -250,7 +250,7 @@ def copy_component_into(
     def add_measure(mid: str) -> None:
         if not mid or mid in have_m:
             return
-        m = src.measure(mid)
+        m = src.lever(mid)
         if m is not None:
             out.measures.append(m.model_copy(deep=True))
             have_m.add(mid)
@@ -434,10 +434,10 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
             for t in lib.technologies
             for r in t.io
         ],
-        MEASURES: [
+        LEVERS: [
             with_notes(
                 {
-                    "measure_id": m.measure_id,
+                    "lever_id": m.lever_id,
                     "label": m.label,
                     "type": m.type,
                     "target": m.target,
@@ -447,9 +447,9 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
             )
             for m in lib.measures
         ],
-        MEASURE_BLOCKS: [
+        LEVER_BLOCKS: [
             {
-                "measure_id": m.measure_id,
+                "lever_id": m.lever_id,
                 "block": i,
                 "reduction": b.reduction,
                 "capex_per_capacity": b.capex_per_capacity,
@@ -500,8 +500,8 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
         wb[TECHNOLOGIES_PRICES] = tp
     if iot := [row for t in lib.technologies for row in _io_t_rows(t)]:
         wb[IO_T] = iot
-    if mb := _measure_block_traj_rows(lib):
-        wb[MEASURE_BLOCKS_T] = mb
+    if mb := _lever_block_traj_rows(lib):
+        wb[LEVER_BLOCKS_T] = mb
     if props := [
         {"commodity_id": c.commodity_id, "property": k, "value": v}
         for c in lib.commodities
@@ -551,17 +551,17 @@ def _technology_price_rows(lib: ComponentLibrary) -> list[dict[str, Any]]:
     return [row for t in lib.technologies for row in _tech_traj_rows(t)]
 
 
-def _measure_block_traj_rows(lib: ComponentLibrary) -> list[dict[str, Any]]:
-    """Long-format measure-block trajectory rows, keyed (measure_id, block, year).
+def _lever_block_traj_rows(lib: ComponentLibrary) -> list[dict[str, Any]]:
+    """Long-format lever-block trajectory rows, keyed (lever_id, block, year).
 
-    Blocks have no own id, so the block ORDINAL (its index in the measure's
-    ``blocks`` list, matching the ``measure_blocks`` sheet) completes the key.
+    Blocks have no own id, so the block ORDINAL (its index in the lever's
+    ``blocks`` list, matching the ``lever_blocks`` sheet) completes the key.
     """
     rows: list[dict[str, Any]] = []
     for m in lib.measures:
         for i, b in enumerate(m.blocks):
             for y in sorted(set(b.capex_per_capacity_by_year) | set(b.opex_per_capacity_by_year)):
-                row: dict[str, Any] = {"measure_id": m.measure_id, "block": i, "year": y}
+                row: dict[str, Any] = {"lever_id": m.lever_id, "block": i, "year": y}
                 if y in b.capex_per_capacity_by_year:
                     row["capex_per_capacity"] = b.capex_per_capacity_by_year[y]
                 if y in b.opex_per_capacity_by_year:
@@ -617,8 +617,8 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
     )
     block_traj = _read_traj(
         [
-            {**r, "_key": (_es(r.get("measure_id")), _year(r.get("block")) or 0)}
-            for r in wb.get(MEASURE_BLOCKS_T, [])
+            {**r, "_key": (_es(r.get("lever_id")), _year(r.get("block")) or 0)}
+            for r in wb.get(LEVER_BLOCKS_T, [])
         ],
         "capex_per_capacity",
         "opex_per_capacity",
@@ -677,34 +677,34 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
     ]
 
     blocks_by: dict[str, list[dict[str, object]]] = {}
-    for r in wb.get(MEASURE_BLOCKS, []):
-        blocks_by.setdefault(_es(r.get("measure_id")), []).append(r)
+    for r in wb.get(LEVER_BLOCKS, []):
+        blocks_by.setdefault(_es(r.get("lever_id")), []).append(r)
     measures = [
-        MeasureTemplate(
-            measure_id=_es(r.get("measure_id")),
+        LeverTemplate(
+            lever_id=_es(r.get("lever_id")),
             label=_es(r.get("label")),
             type=_es(r.get("type")) or "energy_efficiency",
             target=_es(r.get("target")),
             lifetime=int(_enum(r.get("lifetime"), 15)) or 15,
             blocks=[
-                MeasureBlockTemplate(
+                LeverBlockTemplate(
                     reduction=_enum(b.get("reduction"), 0.01),
                     capex_per_capacity=_enum(b.get("capex_per_capacity")),
                     opex_per_capacity=_enum(b.get("opex_per_capacity")),
                     capex_per_capacity_by_year=block_traj.get(
-                        (_es(r.get("measure_id")), _year(b.get("block")) or 0), {}
+                        (_es(r.get("lever_id")), _year(b.get("block")) or 0), {}
                     ).get("capex_per_capacity", {}),
                     opex_per_capacity_by_year=block_traj.get(
-                        (_es(r.get("measure_id")), _year(b.get("block")) or 0), {}
+                        (_es(r.get("lever_id")), _year(b.get("block")) or 0), {}
                     ).get("opex_per_capacity", {}),
                 )
                 for b in sorted(
-                    blocks_by.get(_es(r.get("measure_id")), []), key=lambda b: _enum(b.get("block"))
+                    blocks_by.get(_es(r.get("lever_id")), []), key=lambda b: _enum(b.get("block"))
                 )
             ],
             notes=_es(r.get("notes")),
         )
-        for r in wb.get(MEASURES, [])
+        for r in wb.get(LEVERS, [])
     ]
 
     maccs = [
@@ -743,7 +743,7 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
             build_year=int(_enum(r.get("build_year"))),
             close_year=int(_enum(r.get("close_year"))),
             measures=[
-                MeasureTemplate.model_validate(m)
+                LeverTemplate.model_validate(m)
                 for m in json.loads(_es(r.get("measures_json")) or "[]")
             ],
         )
@@ -793,9 +793,9 @@ def instantiate(
     nodes: list[dict[str, Any]] = []
     machines: list[dict[str, Any]] = []
     connections: list[dict[str, Any]] = []
-    measures: list[dict[str, Any]] = []
-    measure_blocks: list[dict[str, Any]] = []
-    measure_blocks_t: list[dict[str, Any]] = []
+    levers: list[dict[str, Any]] = []
+    lever_blocks: list[dict[str, Any]] = []
+    lever_blocks_t: list[dict[str, Any]] = []
 
     def place(name: str, node_id: str, parent_id: str | None) -> None:
         machine = library.machine(name)
@@ -821,19 +821,19 @@ def instantiate(
             if machine.close_year:
                 m_row["decommission_year"] = machine.close_year
             machines.append(m_row)
-            # Measures come from the machine's technology's linked MACCs, plus
+            # Levers come from the machine's technology's linked MACCs, plus
             # any embedded directly on the machine (legacy); deduped by id.
             applied = list(machine.measures)
-            seen_ids = {m.measure_id for m in applied}
+            seen_ids = {m.lever_id for m in applied}
             for m in library.technology_measures(machine.technology):
-                if m.measure_id not in seen_ids:
+                if m.lever_id not in seen_ids:
                     applied.append(m)
-                    seen_ids.add(m.measure_id)
+                    seen_ids.add(m.lever_id)
             for m in applied:
-                mid = f"{node_id} · {m.measure_id}"
-                measures.append(
+                mid = f"{node_id} · {m.lever_id}"
+                levers.append(
                     {
-                        "measure_id": mid,
+                        "lever_id": mid,
                         "type": m.type,
                         "facility": node_id,
                         "target": m.target,
@@ -841,16 +841,16 @@ def instantiate(
                     }
                 )
                 for i, blk in enumerate(m.blocks):
-                    measure_blocks.append(
+                    lever_blocks.append(
                         {
-                            "measure_id": mid,
+                            "lever_id": mid,
                             "block": i,
                             "reduction": blk.reduction,
                             "capex": round(blk.capex_per_capacity * machine.capacity, 2),
                             "opex": round(blk.opex_per_capacity * machine.capacity, 2),
                         }
                     )
-                    measure_blocks_t.extend(_measure_block_t_rows(mid, i, blk, machine.capacity))
+                    lever_blocks_t.extend(_lever_block_t_rows(mid, i, blk, machine.capacity))
             return
         group = library.group(name)
         if group is None:
@@ -920,11 +920,11 @@ def instantiate(
         out[IO_T] = io_t
     if properties:
         out[COMMODITY_PROPERTIES] = properties
-    if measures:
-        out[MEASURES] = measures
-        out[MEASURE_BLOCKS] = measure_blocks
-        if measure_blocks_t:
-            out[MEASURE_BLOCKS_T] = measure_blocks_t
+    if levers:
+        out[LEVERS] = levers
+        out[LEVER_BLOCKS] = lever_blocks
+        if lever_blocks_t:
+            out[LEVER_BLOCKS_T] = lever_blocks_t
     # Per-year cost trajectories so authored per-year capex/opex/price drive the
     # optimiser once the instance is solved (assembler reads these sheets).
     if tp := _technology_price_rows(library):
@@ -949,7 +949,7 @@ def instantiate_into(
     :func:`instantiate` stamps a brand-new instance (path-qualified ids, so two
     companies never share a facility), then this merges that instance into the
     existing workbook — appending ``nodes`` / ``machines`` / ``connections`` /
-    ``measures`` / ``measure_blocks`` and merging the referenced
+    ``levers`` / ``lever_blocks`` and merging the referenced
     ``technologies`` / ``io`` / ``commodities`` by id (existing rows win, recipes
     are shared). The instance's root node is re-parented to ``parent_id``.
 
@@ -979,15 +979,15 @@ def instantiate_into(
         if row["node_id"] == root_id:
             row["parent_id"] = parent_id
 
-    # measure_blocks_t rows are per-instance (path-qualified measure ids), so
-    # they append cleanly like measure_blocks.
+    # lever_blocks_t rows are per-instance (path-qualified lever ids), so
+    # they append cleanly like lever_blocks.
     append_keys = (
         NODES,
         MACHINES,
         CONNECTIONS,
-        MEASURES,
-        MEASURE_BLOCKS,
-        MEASURE_BLOCKS_T,
+        LEVERS,
+        LEVER_BLOCKS,
+        LEVER_BLOCKS_T,
     )
     for key in append_keys:
         if fresh.get(key):
@@ -1137,7 +1137,7 @@ def place_technology(
 
     The Value-Chain builder's "add component": a technology becomes one machine
     node (a process); its recipe (``technologies`` / ``io``) + referenced streams
-    + impacts are merged in, and every measure of the technology's linked MACCs is
+    + impacts are merged in, and every lever of the technology's linked MACCs is
     stamped onto the machine (block cost scaled to ``capacity``). Pure — returns a
     new workbook.
 
@@ -1185,13 +1185,13 @@ def place_technology(
     for imp in sorted({r.target for r in tech.io if r.role == "impact"}):
         _merge_row(wb, IMPACTS, "impact_id", {"impact_id": imp, "unit": "t"})
 
-    measures = wb.setdefault(MEASURES, [])
-    blocks = wb.setdefault(MEASURE_BLOCKS, [])
+    levers_out = wb.setdefault(LEVERS, [])
+    blocks = wb.setdefault(LEVER_BLOCKS, [])
     for m in library.technology_measures(technology_id):
-        mid = f"{node_id} · {m.measure_id}"
-        measures.append(
+        mid = f"{node_id} · {m.lever_id}"
+        levers_out.append(
             {
-                "measure_id": mid,
+                "lever_id": mid,
                 "type": m.type,
                 "facility": node_id,
                 "target": m.target,
@@ -1201,15 +1201,15 @@ def place_technology(
         for i, blk in enumerate(m.blocks):
             blocks.append(
                 {
-                    "measure_id": mid,
+                    "lever_id": mid,
                     "block": i,
                     "reduction": blk.reduction,
                     "capex": round(blk.capex_per_capacity * capacity, 2),
                     "opex": round(blk.opex_per_capacity * capacity, 2),
                 }
             )
-            if t_rows := _measure_block_t_rows(mid, i, blk, capacity):
-                wb.setdefault(MEASURE_BLOCKS_T, []).extend(t_rows)
+            if t_rows := _lever_block_t_rows(mid, i, blk, capacity):
+                wb.setdefault(LEVER_BLOCKS_T, []).extend(t_rows)
     return wb
 
 
@@ -1296,15 +1296,15 @@ def extract_library_from_workbook(workbook: Workbook, *, label: str = "") -> Com
     """Recover a component library (the *details*) from an assembled workbook.
 
     The near-inverse of :func:`instantiate`: an imported scenario carries its
-    component DEFINITIONS (streams, technology recipes, measures) interleaved with
+    component DEFINITIONS (streams, technology recipes, levers) interleaved with
     its value-chain STRUCTURE (nodes/machines/connections). This pulls the
     definitions back out into a :class:`ComponentLibrary` so the Component view can
     show the scenario's components, leaving the structure to the Value-chain view.
 
     Best-effort: ``io`` is grouped back under its technology, and per-facility
-    measures (``"<node> · <measure>"``) are de-duplicated to reusable templates.
+    levers (``"<node> · <lever>"``) are de-duplicated to reusable templates.
     The MACC *bundles* and technology→MACC links are not present in an assembled
-    workbook, so they are omitted (the individual measures are still recovered).
+    workbook, so they are omitted (the individual levers are still recovered).
     """
     commodities: list[CommodityTemplate] = []
     seen_c: set[str] = set()
@@ -1375,18 +1375,18 @@ def extract_library_from_workbook(workbook: Workbook, *, label: str = "") -> Com
         )
 
     blocks_by_m: dict[str, list[dict[str, object]]] = {}
-    for r in workbook.get(MEASURE_BLOCKS, []):
-        blocks_by_m.setdefault(_es(r.get("measure_id")), []).append(r)
-    measures: list[MeasureTemplate] = []
+    for r in workbook.get(LEVER_BLOCKS, []):
+        blocks_by_m.setdefault(_es(r.get("lever_id")), []).append(r)
+    measures: list[LeverTemplate] = []
     seen_m: set[str] = set()
-    for r in workbook.get(MEASURES, []):
-        mid = _es(r.get("measure_id"))
+    for r in workbook.get(LEVERS, []):
+        mid = _es(r.get("lever_id"))
         base = mid.split(" · ")[-1]  # de-instantiate the per-facility prefix
         if not base or base in seen_m:
             continue
         blks = sorted(blocks_by_m.get(mid, []), key=lambda b: _enum(b.get("block")))
         templates = [
-            MeasureBlockTemplate(
+            LeverBlockTemplate(
                 reduction=min(max(_enum(b.get("reduction"), 0.01), 1e-6), 1.0),
                 capex_per_capacity=max(_enum(b.get("capex")), 0.0),
                 opex_per_capacity=max(_enum(b.get("opex")), 0.0),
@@ -1394,12 +1394,12 @@ def extract_library_from_workbook(workbook: Workbook, *, label: str = "") -> Com
             for b in blks
         ]
         if not templates:
-            continue  # a measure needs at least one block
+            continue  # a lever needs at least one block
         seen_m.add(base)
         mtype = _es(r.get("type")) or "energy_efficiency"
         measures.append(
-            MeasureTemplate(
-                measure_id=base,
+            LeverTemplate(
+                lever_id=base,
                 label="",
                 type=mtype
                 if mtype in ("energy_efficiency", "emission_reduction", "environmental")

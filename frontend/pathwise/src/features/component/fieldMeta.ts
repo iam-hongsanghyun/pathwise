@@ -36,17 +36,17 @@ export const FIELD_META: Record<string, FieldMeta> = {
   share_min: { info: "Minimum share of the blend/slate group this stream must take.", unit: "fraction 0–1" },
   share_max: { info: "Maximum share of the blend/slate group this stream may take.", unit: "fraction 0–1" },
 
-  // ── Measure + block ────────────────────────────────────────────────────────────
-  measure_id: { info: "Unique id of the measure (a retrofit of the same technology)." },
+  // ── Lever + block ─────────────────────────────────────────────────────────────
+  lever_id: { info: "Unique id of the lever (an abatement retrofit applied to a facility)." },
   label: { info: "Human-readable label shown in the UI." },
-  measure_type: { info: "energy_efficiency · emission_reduction · environmental — which lever the measure pulls." },
+  lever_type: { info: "energy_efficiency · emission_reduction · environmental — which lever this pulls." },
   lifetime: { info: "Economic lifetime of the retrofit.", unit: "years" },
   reduction: { info: "Fractional reduction of the target at full adoption of this block.", unit: "fraction 0–1" },
   capex_per_capacity: { info: "Block capital cost, per unit of the facility's capacity (scales with the plant it is stamped onto).", unit: "currency / unit capacity" },
   opex_per_capacity: { info: "Block fixed operating cost while adopted, per unit capacity, per year.", unit: "currency / unit capacity / yr" },
 
   // ── MACC / group ───────────────────────────────────────────────────────────────
-  macc_id: { info: "Unique id of the MACC — a named bundle of individual measures." },
+  macc_id: { info: "Unique id of the MACC — a named bundle of individual levers." },
   level: { info: "The designed level this group sits at (free text, e.g. facility, company)." },
   notes: { info: "Free-text notes / references for your own use. The optimiser ignores it." },
 

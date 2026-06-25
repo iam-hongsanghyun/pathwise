@@ -27,8 +27,8 @@ _SHARED_SHEETS = {
     "periods",
     "meta",
     "transitions",
-    "measures",
-    "measure_blocks",
+    "levers",
+    "lever_blocks",
     "maccs",
     "macc_links",
     "tech_impacts",
@@ -198,7 +198,7 @@ def is_partitionable(hierarchy: Hierarchy, level: str, targets: list[str] | None
 
 def subset_workbook(workbook: Workbook, hierarchy: Hierarchy, keep: list[str]) -> Workbook:
     """A workbook restricted to the subtrees rooted at ``keep`` (for a JOINT solve
-    of a chosen set of units). Node/machine/connection/measure/scope rows outside
+    of a chosen set of units). Node/machine/connection/lever/scope rows outside
     the kept subtrees are dropped; shared catalogue + scenario sheets are kept.
     """
     members: set[str] = set()
@@ -219,7 +219,7 @@ def subset_workbook(workbook: Workbook, hierarchy: Hierarchy, keep: list[str]) -
             ]
         elif sheet == "ports":
             sub[sheet] = [r for r in rows if str(r.get("node_id")) in members]
-        elif sheet == "measures":
+        elif sheet == "levers":
             sub[sheet] = [r for r in rows if str(r.get("facility")) in members]
         elif sheet in (
             "demand",
@@ -237,9 +237,9 @@ def subset_workbook(workbook: Workbook, hierarchy: Hierarchy, keep: list[str]) -
             ]
         else:
             sub[sheet] = list(rows)  # shared catalogue / scenario sheet
-    surviving = {str(r.get("measure_id")) for r in sub.get("measures", [])}
-    if "measure_blocks" in sub:
-        sub["measure_blocks"] = [
-            r for r in sub["measure_blocks"] if str(r.get("measure_id")) in surviving
+    surviving = {str(r.get("lever_id")) for r in sub.get("levers", [])}
+    if "lever_blocks" in sub:
+        sub["lever_blocks"] = [
+            r for r in sub["lever_blocks"] if str(r.get("lever_id")) in surviving
         ]
     return sub

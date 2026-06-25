@@ -10,9 +10,9 @@ import type {
   CommodityTemplate,
   GroupComponent,
   IoRow,
+  LeverTemplate,
   MachineComponent,
   MaccGroup,
-  MeasureTemplate,
   TechnologyTemplate,
 } from "../../lib/api/components";
 
@@ -302,15 +302,15 @@ export function MachineEditor({
   onChange: (v: MachineComponent) => void;
   onRename: (id: string) => void;
 }) {
-  const setMeasure = (i: number, patch: Partial<MeasureTemplate>) =>
+  const setLever = (i: number, patch: Partial<LeverTemplate>) =>
     onChange({ ...value, measures: value.measures.map((m, j) => (j === i ? { ...m, ...patch } : m)) });
-  const addMeasure = () =>
+  const addLever = () =>
     onChange({
       ...value,
       measures: [
         ...value.measures,
         {
-          measure_id: `measure_${value.measures.length + 1}`,
+          lever_id: `lever_${value.measures.length + 1}`,
           label: "",
           type: "energy_efficiency",
           target: commodityIds[0] ?? "",
@@ -319,7 +319,7 @@ export function MachineEditor({
         },
       ],
     });
-  const delMeasure = (i: number) => onChange({ ...value, measures: value.measures.filter((_, j) => j !== i) });
+  const delLever = (i: number) => onChange({ ...value, measures: value.measures.filter((_, j) => j !== i) });
 
   return (
     <section>
@@ -351,33 +351,33 @@ export function MachineEditor({
       {embeddedTech}
 
       <h3 style={{ margin: "12px 0 6px", fontSize: "0.85rem" }}>
-        Measures <span className="muted">(MACC retrofits of this machine)</span>
-        <button className="ghost" style={{ marginLeft: 8 }} onClick={addMeasure}>
-          ＋ add measure
+        Levers <span className="muted">(MACC retrofits of this machine)</span>
+        <button className="ghost" style={{ marginLeft: 8 }} onClick={addLever}>
+          ＋ add lever
         </button>
       </h3>
       {value.measures.map((m, i) => (
         <div key={i} style={{ border: "1px solid var(--border)", borderRadius: 4, padding: 10, marginBottom: 8 }}>
           <Row>
             <Field label="id">
-              <input style={inputStyle} value={m.measure_id} onChange={(e) => setMeasure(i, { measure_id: e.target.value })} />
+              <input style={inputStyle} value={m.lever_id} onChange={(e) => setLever(i, { lever_id: e.target.value })} />
             </Field>
             <Field label="label">
-              <input style={inputStyle} value={m.label} onChange={(e) => setMeasure(i, { label: e.target.value })} />
+              <input style={inputStyle} value={m.label} onChange={(e) => setLever(i, { label: e.target.value })} />
             </Field>
             <Field label="type">
-              <SearchSelect value={m.type} onChange={(v) => setMeasure(i, { type: v as MeasureTemplate["type"] })}
+              <SearchSelect value={m.type} onChange={(v) => setLever(i, { type: v as LeverTemplate["type"] })}
                 options={[{ value: "energy_efficiency" }, { value: "emission_reduction" }, { value: "environmental" }]} />
             </Field>
             <Field label="target">
               <div style={{ minWidth: 140 }}>
-                <SearchableSelect value={m.target} options={commodityIds} onChange={(v) => setMeasure(i, { target: v })} onCreate={(name) => setMeasure(i, { target: name })} placeholder="stream / impact" />
+                <SearchableSelect value={m.target} options={commodityIds} onChange={(v) => setLever(i, { target: v })} onCreate={(name) => setLever(i, { target: name })} placeholder="stream / impact" />
               </div>
             </Field>
             <Field label="lifetime">
-              <input style={{ ...inputStyle, width: 70 }} type="number" value={m.lifetime} onChange={(e) => setMeasure(i, { lifetime: num(e.target.value) })} />
+              <input style={{ ...inputStyle, width: 70 }} type="number" value={m.lifetime} onChange={(e) => setLever(i, { lifetime: num(e.target.value) })} />
             </Field>
-            <button className="ghost" style={{ alignSelf: "flex-end" }} onClick={() => delMeasure(i)} title="remove measure">
+            <button className="ghost" style={{ alignSelf: "flex-end" }} onClick={() => delLever(i)} title="remove lever">
               ✕
             </button>
           </Row>
@@ -396,16 +396,16 @@ export function MachineEditor({
                 <tr key={bi}>
                   <td className="muted">{bi}</td>
                   <td>
-                    <input style={{ ...inputStyle, width: 70 }} type="number" step="0.01" value={b.reduction} onChange={(e) => setMeasure(i, { blocks: m.blocks.map((x, j) => (j === bi ? { ...x, reduction: num(e.target.value) } : x)) })} />
+                    <input style={{ ...inputStyle, width: 70 }} type="number" step="0.01" value={b.reduction} onChange={(e) => setLever(i, { blocks: m.blocks.map((x, j) => (j === bi ? { ...x, reduction: num(e.target.value) } : x)) })} />
                   </td>
                   <td>
-                    <input style={{ ...inputStyle, width: 90 }} type="number" value={b.capex_per_capacity} onChange={(e) => setMeasure(i, { blocks: m.blocks.map((x, j) => (j === bi ? { ...x, capex_per_capacity: num(e.target.value) } : x)) })} />
+                    <input style={{ ...inputStyle, width: 90 }} type="number" value={b.capex_per_capacity} onChange={(e) => setLever(i, { blocks: m.blocks.map((x, j) => (j === bi ? { ...x, capex_per_capacity: num(e.target.value) } : x)) })} />
                   </td>
                   <td>
-                    <input style={{ ...inputStyle, width: 90 }} type="number" value={b.opex_per_capacity} onChange={(e) => setMeasure(i, { blocks: m.blocks.map((x, j) => (j === bi ? { ...x, opex_per_capacity: num(e.target.value) } : x)) })} />
+                    <input style={{ ...inputStyle, width: 90 }} type="number" value={b.opex_per_capacity} onChange={(e) => setLever(i, { blocks: m.blocks.map((x, j) => (j === bi ? { ...x, opex_per_capacity: num(e.target.value) } : x)) })} />
                   </td>
                   <td>
-                    <button className="ghost" onClick={() => setMeasure(i, { blocks: m.blocks.filter((_, j) => j !== bi) })} title="remove block">
+                    <button className="ghost" onClick={() => setLever(i, { blocks: m.blocks.filter((_, j) => j !== bi) })} title="remove block">
                       ✕
                     </button>
                   </td>
@@ -413,40 +413,40 @@ export function MachineEditor({
               ))}
             </tbody>
           </table>
-          <button className="ghost" style={{ marginTop: 4 }} onClick={() => setMeasure(i, { blocks: [...m.blocks, { reduction: 0.02, capex_per_capacity: 0, opex_per_capacity: 0 }] })}>
+          <button className="ghost" style={{ marginTop: 4 }} onClick={() => setLever(i, { blocks: [...m.blocks, { reduction: 0.02, capex_per_capacity: 0, opex_per_capacity: 0 }] })}>
             ＋ add block
           </button>
         </div>
       ))}
-      {value.measures.length === 0 && <p className="muted" style={{ fontSize: "0.78rem" }}>No measures — this machine has no MACC retrofits.</p>}
+      {value.measures.length === 0 && <p className="muted" style={{ fontSize: "0.78rem" }}>No levers — this machine has no MACC retrofits.</p>}
     </section>
   );
 }
 
-// ── Standalone measure (reusable) ─────────────────────────────────────────────
-export function MeasureEditor({
+// ── Standalone lever (reusable) ───────────────────────────────────────────────
+export function LeverEditor({
   value,
   commodityIds,
   onChange,
   onRename,
 }: {
-  value: MeasureTemplate;
+  value: LeverTemplate;
   commodityIds: string[];
-  onChange: (v: MeasureTemplate) => void;
+  onChange: (v: LeverTemplate) => void;
   onRename: (id: string) => void;
 }) {
   return (
     <section>
-      <h2 style={{ margin: "0 0 12px" }}>Measure <span className="muted" style={{ fontSize: "0.8rem" }}>(reusable)</span></h2>
+      <h2 style={{ margin: "0 0 12px" }}>Lever <span className="muted" style={{ fontSize: "0.8rem" }}>(reusable)</span></h2>
       <Row>
-        <Field label="id" meta="measure_id">
-          <input style={inputStyle} value={value.measure_id} onChange={(e) => { onChange({ ...value, measure_id: e.target.value }); onRename(e.target.value); }} />
+        <Field label="id" meta="lever_id">
+          <input style={inputStyle} value={value.lever_id} onChange={(e) => { onChange({ ...value, lever_id: e.target.value }); onRename(e.target.value); }} />
         </Field>
         <Field label="label" meta="label">
           <input style={inputStyle} value={value.label} onChange={(e) => onChange({ ...value, label: e.target.value })} />
         </Field>
-        <Field label="type" meta="measure_type">
-          <SearchSelect value={value.type} onChange={(v) => onChange({ ...value, type: v as MeasureTemplate["type"] })}
+        <Field label="type" meta="lever_type">
+          <SearchSelect value={value.type} onChange={(v) => onChange({ ...value, type: v as LeverTemplate["type"] })}
             options={[{ value: "energy_efficiency" }, { value: "emission_reduction" }, { value: "environmental" }]} />
         </Field>
         <Field label="target" meta="target">
@@ -478,20 +478,20 @@ export function MeasureEditor({
           ))}
         </tbody>
       </table>
-      {value.blocks.length === 0 && <p className="muted" style={{ fontSize: "0.78rem" }}>No blocks — a measure needs at least one cost-curve step.</p>}
+      {value.blocks.length === 0 && <p className="muted" style={{ fontSize: "0.78rem" }}>No blocks — a lever needs at least one cost-curve step.</p>}
     </section>
   );
 }
 
-// ── MACC (a group/bundle of measures) ─────────────────────────────────────────
-// A marginal-abatement-cost curve: one bar per measure block, width ∝ the
+// ── MACC (a group/bundle of levers) ───────────────────────────────────────────
+// A marginal-abatement-cost curve: one bar per lever block, width ∝ the
 // reduction it delivers, height ∝ its marginal cost (capex per unit reduced),
 // sorted cheapest-first. Negative-cost ("no-regret") blocks sit below the axis.
-export function MaccChart({ measures }: { measures: MeasureTemplate[] }) {
+export function MaccChart({ measures }: { measures: LeverTemplate[] }) {
   const blocks = measures
     .flatMap((m) =>
       m.blocks.map((b) => ({
-        name: m.label || m.measure_id,
+        name: m.label || m.lever_id,
         width: b.reduction,
         cost: b.reduction > 0 ? b.capex_per_capacity / b.reduction : 0,
       })),
@@ -499,7 +499,7 @@ export function MaccChart({ measures }: { measures: MeasureTemplate[] }) {
     .filter((b) => b.width > 0)
     .sort((a, b) => a.cost - b.cost);
   if (blocks.length === 0)
-    return <p className="muted" style={{ fontSize: "0.78rem" }}>Bundle measures (with blocks) to see the MACC curve.</p>;
+    return <p className="muted" style={{ fontSize: "0.78rem" }}>Bundle levers (with blocks) to see the MACC curve.</p>;
 
   const W = 520, H = 210, padL = 52, padB = 30, padT = 12, padR = 12;
   const plotW = W - padL - padR, plotH = H - padT - padB;
@@ -550,19 +550,19 @@ export function MaccEditor({
   onRename,
 }: {
   value: MaccGroup;
-  /** All standalone measures available to bundle. */
+  /** All standalone levers available to bundle. */
   measures: { id: string; label: string }[];
   /** Full templates (for the MACC chart). */
-  allMeasures: MeasureTemplate[];
+  allMeasures: LeverTemplate[];
   onChange: (v: MaccGroup) => void;
   onRename: (id: string) => void;
 }) {
   const toggle = (mid: string, on: boolean) =>
     onChange({ ...value, measures: on ? [...value.measures, mid] : value.measures.filter((m) => m !== mid) });
-  const bundled = allMeasures.filter((m) => value.measures.includes(m.measure_id));
+  const bundled = allMeasures.filter((m) => value.measures.includes(m.lever_id));
   return (
     <section>
-      <h2 style={{ margin: "0 0 12px" }}>MACC <span className="muted" style={{ fontSize: "0.8rem" }}>(group of measures)</span></h2>
+      <h2 style={{ margin: "0 0 12px" }}>MACC <span className="muted" style={{ fontSize: "0.8rem" }}>(group of levers)</span></h2>
       <Row>
         <Field label="id" meta="macc_id">
           <input style={inputStyle} value={value.macc_id} onChange={(e) => { onChange({ ...value, macc_id: e.target.value }); onRename(e.target.value); }} />
@@ -573,8 +573,8 @@ export function MaccEditor({
       </Row>
       <h3 style={{ margin: "8px 0 6px", fontSize: "0.85rem" }}>MACC curve</h3>
       <MaccChart measures={bundled} />
-      <h3 style={{ margin: "12px 0 6px", fontSize: "0.85rem" }}>Measures in this MACC</h3>
-      {measures.length === 0 && <p className="muted" style={{ fontSize: "0.78rem" }}>No measures yet — add individual measures first.</p>}
+      <h3 style={{ margin: "12px 0 6px", fontSize: "0.85rem" }}>Levers in this MACC</h3>
+      {measures.length === 0 && <p className="muted" style={{ fontSize: "0.78rem" }}>No levers yet — add individual levers first.</p>}
       {measures.map((m) => (
         <label key={m.id} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.82rem", padding: "2px 0" }}>
           <input type="checkbox" checked={value.measures.includes(m.id)} onChange={(e) => toggle(m.id, e.target.checked)} />

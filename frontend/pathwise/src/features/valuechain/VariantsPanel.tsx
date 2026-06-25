@@ -1,7 +1,7 @@
 // Authoring of model-resident **variants** (simulate what-if scenarios) in the
 // value chain. A variant is a named key; each row under it is a timed
 // intervention — force a machine onto an alternative technology, change a
-// commodity's price, or enable a measure, from a given year. Writes the
+// commodity's price, or enable a lever, from a given year. Writes the
 // `variants` + `variant_interventions` sheets the simulate backend reads (the
 // optimiser ignores them). No API call — edits flow through the workbook like
 // every other value-chain edit.
@@ -19,7 +19,7 @@ const slug = (x: string): string =>
 const KIND_OPTS = [
   { value: "tech", label: "Switch technology" },
   { value: "stream", label: "Change price" },
-  { value: "measure", label: "Enable measure" },
+  { value: "lever", label: "Enable lever" },
   { value: "tech_cost", label: "Change tech cost" },
   { value: "io_coef", label: "Change I/O rate" },
   { value: "stream_cap", label: "Change stream cap" },
@@ -50,7 +50,7 @@ export function VariantsPanel({
     ? [machineId, ...ids(workbook.machines, "machine_id").filter((m) => m !== machineId)]
     : ids(workbook.machines, "machine_id");
   const commodities = ids(workbook.commodities, "commodity_id");
-  const measures = ids(workbook.measures, "measure_id");
+  const levers = ids(workbook.levers, "lever_id");
   const technologies = ids(workbook.technologies, "technology_id");
   // Commodities a technology actually uses (its io targets) — for io_coef.
   const ioOf = (tech: string): string[] =>
@@ -119,7 +119,7 @@ export function VariantsPanel({
     if (kind === "tech") return machines;
     if (kind === "stream" || kind === "stream_cap") return commodities;
     if (kind === "tech_cost" || kind === "io_coef") return technologies;
-    return measures;
+    return levers;
   };
   // The "field" sub-attribute options for a kind (io_coef uses the tech's io commodities).
   const fieldList = (kind: string, target: string): string[] =>
@@ -139,7 +139,7 @@ export function VariantsPanel({
 
   // The starting value when a row's kind/target changes.
   const defaultValue = (kind: string, target: string): string | number =>
-    kind === "tech" ? (altsFor(target)[0] ?? "") : kind === "measure" ? "on" : 0;
+    kind === "tech" ? (altsFor(target)[0] ?? "") : kind === "lever" ? "on" : 0;
 
   const valueCell = (r: Row, i: number) => {
     const kind = s(r.kind);
@@ -170,7 +170,7 @@ export function VariantsPanel({
         />
       );
     }
-    // measure
+    // lever
     return (
       <SearchSelect
         value={s(r.value) || "on"}
@@ -187,7 +187,7 @@ export function VariantsPanel({
       <h4 style={{ margin: "0 0 2px", fontSize: ".82rem" }}>Variants (what-if)</h4>
       <p className="muted" style={{ fontSize: ".72rem", margin: "0 0 8px" }}>
         Named what-ifs the <strong>Scenario simulator</strong> evaluates — force a switch (or price /
-        measure change) from a year. The optimiser ignores these.
+        lever change) from a year. The optimiser ignores these.
       </p>
 
       <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8 }}>

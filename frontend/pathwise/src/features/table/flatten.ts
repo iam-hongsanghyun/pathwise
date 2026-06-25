@@ -36,7 +36,7 @@ export interface FlatRow {
   /** Sub-group labels from the triggered group down to the component (excl. both). */
   path: string[];
   name: string;
-  /** Technology / Stream / Measure — or the fleet's mode. */
+  /** Technology / Stream / Lever — or the fleet's mode. */
   type: string;
 }
 

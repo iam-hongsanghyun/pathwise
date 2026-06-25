@@ -21,7 +21,7 @@ from pathwise.data.components import (
     library_to_workbook,
     place_technology,
 )
-from pathwise.data.templates import MeasureBlockTemplate, MeasureTemplate
+from pathwise.data.templates import LeverBlockTemplate, LeverTemplate
 
 SC = ScenarioConfig.from_dict({"economics": {"base_year": 2025, "discount_rate": 0.0}})
 
@@ -110,37 +110,37 @@ def test_a_component_can_be_reused_as_distinct_instances() -> None:
     assert res["status"] == "optimal" and not res["outputs"]["demand_slack"]
 
 
-def test_machine_measures_are_stamped_per_instance() -> None:
+def test_machine_levers_are_stamped_per_instance() -> None:
     lib = _library()
     bf = lib.machine("bf")
     assert bf is not None
     bf.measures.append(  # the MACC subgroup authored on the machine
-        MeasureTemplate(
-            measure_id="eff",
+        LeverTemplate(
+            lever_id="eff",
             type="energy_efficiency",
             target="power",
             blocks=[
-                MeasureBlockTemplate(reduction=0.1, capex_per_capacity=5.0, opex_per_capacity=1.0)
+                LeverBlockTemplate(reduction=0.1, capex_per_capacity=5.0, opex_per_capacity=1.0)
             ],
         )
     )
     wb = instantiate(lib, "co")
-    # one measure stamped onto the bf instance, block capex scaled by capacity (100)
-    assert wb["measures"] == [
+    # one lever stamped onto the bf instance, block capex scaled by capacity (100)
+    assert wb["levers"] == [
         {
-            "measure_id": "co/m1/bf · eff",
+            "lever_id": "co/m1/bf · eff",
             "type": "energy_efficiency",
             "facility": "co/m1/bf",
             "target": "power",
             "lifetime": 15,
         }
     ]
-    blk = wb["measure_blocks"][0]
+    blk = wb["lever_blocks"][0]
     assert blk["capex"] == pytest.approx(500.0) and blk["opex"] == pytest.approx(100.0)
 
 
 def test_instantiate_stamps_a_machines_technology_macc() -> None:
-    # a machine with NO embedded measures, but a technology that links a MACC
+    # a machine with NO embedded levers, but a technology that links a MACC
     lib = ComponentLibrary.model_validate(
         {
             "commodities": [
@@ -159,7 +159,7 @@ def test_instantiate_stamps_a_machines_technology_macc() -> None:
             ],
             "measures": [
                 {
-                    "measure_id": "vfd",
+                    "lever_id": "vfd",
                     "type": "energy_efficiency",
                     "target": "power",
                     "blocks": [{"reduction": 0.1, "capex_per_capacity": 5.0}],
@@ -171,7 +171,7 @@ def test_instantiate_stamps_a_machines_technology_macc() -> None:
         }
     )
     wb = instantiate(lib, "plant")
-    assert any(str(m["measure_id"]).endswith("· vfd") for m in wb.get("measures", []))
+    assert any(str(m["lever_id"]).endswith("· vfd") for m in wb.get("levers", []))
 
 
 def test_place_technology_makes_a_machine_with_its_macc() -> None:
@@ -193,7 +193,7 @@ def test_place_technology_makes_a_machine_with_its_macc() -> None:
             ],
             "measures": [
                 {
-                    "measure_id": "vfd",
+                    "lever_id": "vfd",
                     "type": "energy_efficiency",
                     "target": "power",
                     "blocks": [{"reduction": 0.1, "capex_per_capacity": 5.0}],
@@ -209,10 +209,10 @@ def test_place_technology_makes_a_machine_with_its_macc() -> None:
     # source_technology.
     assert machine["baseline_technology"] == "EAF@co/EAF" and machine["capacity"] == 200
     assert machine["source_technology"] == "EAF"
-    # the linked MACC's measure is stamped onto the machine, scaled to capacity
-    meas = [m for m in model["measures"] if m["facility"] == "co/EAF"]
-    assert meas and meas[0]["measure_id"] == "co/EAF · vfd"
-    assert model["measure_blocks"][0]["capex"] == pytest.approx(1000.0)  # 5 × 200
+    # the linked MACC's lever is stamped onto the machine, scaled to capacity
+    meas = [m for m in model["levers"] if m["facility"] == "co/EAF"]
+    assert meas and meas[0]["lever_id"] == "co/EAF · vfd"
+    assert model["lever_blocks"][0]["capex"] == pytest.approx(1000.0)  # 5 × 200
     # solves
     model["periods"] = [{"year": 2025, "duration_years": 1}]
     model["demand"] = [{"company": "co", "commodity_id": "steel", "year": 2025, "amount": 100}]
@@ -287,9 +287,9 @@ def test_placing_a_technology_twice_makes_independent_instances() -> None:
     assert baselines <= tech_ids
 
 
-def test_place_technology_carries_per_year_measure_block_cost() -> None:
-    # A measure block authored with per-year per-capacity cost must stamp
-    # per-year absolute rows (× capacity) onto the placed model's measure_blocks_t.
+def test_place_technology_carries_per_year_lever_block_cost() -> None:
+    # A lever block authored with per-year per-capacity cost must stamp
+    # per-year absolute rows (× capacity) onto the placed model's lever_blocks_t.
     lib = ComponentLibrary.model_validate(
         {
             "commodities": [
@@ -308,7 +308,7 @@ def test_place_technology_carries_per_year_measure_block_cost() -> None:
             ],
             "measures": [
                 {
-                    "measure_id": "vfd",
+                    "lever_id": "vfd",
                     "type": "energy_efficiency",
                     "target": "power",
                     "blocks": [
@@ -327,8 +327,8 @@ def test_place_technology_carries_per_year_measure_block_cost() -> None:
     model = place_technology(model, lib, "EAF", parent_id="co", capacity=200)
     rows = {
         r["year"]: r.get("capex")
-        for r in model.get("measure_blocks_t", [])
-        if r["measure_id"] == "co/EAF · vfd"
+        for r in model.get("lever_blocks_t", [])
+        if r["lever_id"] == "co/EAF · vfd"
     }
     assert rows == {2025: 1000.0, 2035: 1800.0}  # 5×200, 9×200
 

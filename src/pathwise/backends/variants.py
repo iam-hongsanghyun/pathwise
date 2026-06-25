@@ -4,7 +4,7 @@ A variant (authored in the value chain, stored in the ``variants`` +
 ``variant_interventions`` sheets) is a named bundle of timed interventions. Both
 the optimiser (``linopy``) and the simulator consume the *same* variant: a ``tech``
 intervention becomes a **forced timed switch** (``Problem.forced_switches``), and
-``stream`` / ``measure`` interventions become workbook **overrides** (see
+``stream`` / ``lever`` interventions become workbook **overrides** (see
 :mod:`pathwise.backends.overrides`). The optimiser forces a *selected* variant and
 optimises the rest; the simulator evaluates every variant against the baseline.
 """
@@ -24,7 +24,7 @@ def read_model_variants(model: Workbook) -> list[dict[str, Any]]:
     A ``tech`` intervention becomes a forced timed switch ``forced[machine] =
     (to_tech, year)`` (default year = the first modelled year — a whole-horizon
     swap — when ``forced_year`` is blank); a ``stream`` intervention a ``set_price``
-    override; a ``measure`` intervention a ``toggle_measure`` override. Returns
+    override; a ``lever`` intervention a ``toggle_lever`` override. Returns
     ``[]`` when the model defines no variant interventions.
     """
     interventions = model.get("variant_interventions", [])
@@ -55,9 +55,9 @@ def read_model_variants(model: Workbook) -> list[dict[str, Any]]:
             slot["overrides"].append(
                 {"op": "set_price", "commodity": target, "price": float(value or 0.0), **yr_kw}
             )
-        elif kind == "measure" and target:
+        elif kind == "lever" and target:
             on = str(value).strip().lower() not in ("0", "false", "off", "no", "")
-            slot["overrides"].append({"op": "toggle_measure", "measure": target, "on": on})
+            slot["overrides"].append({"op": "toggle_lever", "lever": target, "on": on})
         elif kind == "tech_cost" and target and value not in (None, ""):
             slot["overrides"].append(
                 {
@@ -113,8 +113,8 @@ def compile_variant(
 ) -> tuple[Workbook, dict[str, tuple[str, int]]]:
     """Apply a variant's overrides to ``base`` and return ``(edited, forced)``.
 
-    ``source`` (default ``base``) is where ``toggle_measure on`` pulls a stripped
-    measure back from — the simulator passes the full model while evaluating its
+    ``source`` (default ``base``) is where ``toggle_lever on`` pulls a stripped
+    lever back from — the simulator passes the full model while evaluating its
     *as-is* (stripped) view.
 
     Returns:
