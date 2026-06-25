@@ -153,6 +153,14 @@ ROUTES = "routes"
 #: traverses the corridor (priced as toll·legflow/ship_size); independent of probability.
 CORRIDORS = "corridors"
 
+#: Green corridors (Layer 1c+): per-lane transport emission-intensity caps —
+#: (from_node, to_node, flow, impact, limit[, year][, soft][, penalty]). All freight
+#: on the lane (every mode/fleet carrying ``flow``) must keep its cargo-weighted
+#: emission intensity ``Σ emissions / Σ cargo`` below ``limit`` for ``impact``, so the
+#: optimiser must shift cargo onto cleaner modes/fuels. Blank ``year`` ⇒ all years;
+#: soft by default (exceedance penalised). See ``build._connection_fleet``.
+GREEN_CORRIDORS = "green_corridors"
+
 #: Long-format per-year transition capex (from_technology, to_technology, year,
 #: capex_per_capacity).
 TRANSITIONS_T = "transitions_t"

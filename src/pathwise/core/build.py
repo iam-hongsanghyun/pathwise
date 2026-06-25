@@ -33,7 +33,7 @@ from pathwise.core.entities import (
     Transition,
     TransitionAction,
 )
-from pathwise.core.problem import Problem, leg_key
+from pathwise.core.problem import Problem, green_key, leg_key
 from pathwise.core.variables import BuildContext, build_context
 from pathwise.logger import get_logger
 
@@ -92,6 +92,7 @@ def build(problem: Problem) -> BuildContext:
     _adoption_caps(ctx)
     _fleet(ctx)
     _connection_fleet(ctx)
+    _green_corridors(ctx)
     _objective(ctx)
     return ctx
 
@@ -1803,6 +1804,68 @@ def _connection_fleet(ctx: BuildContext) -> None:
                 m.add_constraints(total <= avail, name=f"cpool[{fid},{t}]")
 
 
+def _green_corridors(ctx: BuildContext) -> None:
+    r"""Per-lane transport emission-intensity caps — "green corridors".
+
+    For each authored corridor and capped year, all freight on the lane (every mode
+    and fleet carrying its flow) must keep its cargo-weighted emission intensity below
+    the limit::
+
+        Σ_legs legflow·efficiency·distance·flow_impact(fuel, impact)  ≤  limit · cargo
+
+    where ``cargo`` is the lane's carried flow (Σ of its edge flows). Soft by default
+    (a penalised slack); a hard corridor pins the slack to 0. A characterised
+    *category* impact expands into its flow components (``Σ_flow CF·…``); every factor
+    comes from the model's ``flow_impacts`` / ``characterisation`` — never hardcoded.
+    """
+    prob = ctx.problem
+    m = ctx.model
+    if not prob.green_corridors or ctx.legflow is None or ctx.flow is None:
+        return
+    # Candidate (route, leg) pairs per lane (edge-set), so a corridor binds EVERY mode
+    # carrying the flow — matched on the same edges the routes physicalise.
+    legs_by_lane: dict[tuple[int, ...], list[tuple[Any, Any]]] = {}
+    for cr in prob.connection_routes:
+        legs_by_lane.setdefault(tuple(cr.edges), []).extend((cr, leg) for leg in cr.legs)
+    for gc in prob.green_corridors:
+        comps = [(f, cf) for (f, cat), cf in prob.characterisation.items() if cat == gc.impact]
+        if not comps:
+            comps = [(gc.impact, 1.0)]
+        lane_legs = legs_by_lane.get(tuple(gc.edges), [])
+        for t, limit in gc.limits.items():
+            if t not in ctx.years:
+                continue
+            cargo = _lin_sum([ctx.flow.sel(edge=e, period=t) for e in gc.edges])
+            if cargo is None:
+                continue
+            terms: list[Any] = []
+            for cr, leg in lane_legs:
+                fl = prob.fleets.get(leg.fleet_id)
+                if (
+                    fl is None
+                    or not fl.active(t)
+                    or not fl.fuel
+                    or fl.efficiency <= 0
+                    or cr.distance <= 0
+                ):
+                    continue
+                coeff = sum(prob.flow_impact(fl.fuel, fi, t) * cf for fi, cf in comps)
+                coeff *= fl.efficiency * cr.distance
+                if coeff:
+                    terms.append(
+                        coeff * ctx.legflow.sel(leg=leg_key(cr.process, leg.fleet_id), period=t)
+                    )
+            emis = _lin_sum(terms)
+            if emis is None:
+                continue  # no emitting leg ⇒ intensity 0, trivially under any cap
+            key = green_key(gc.label, gc.impact, t)
+            slack = ctx.slk_green.sel(gkey=key)
+            if not gc.soft:
+                m.add_constraints(slack == 0, name=f"greenhard[{key}]")
+            # emissions − limit·cargo ≤ slack  ⇔  Σemis/Σcargo ≤ limit (soft by slack).
+            m.add_constraints(emis - limit * cargo - slack <= 0, name=f"green[{key}]")
+
+
 def _route_emit_terms(
     ctx: BuildContext, impact: str, year: int, in_scope: Callable[[Any, str], bool]
 ) -> Any:
@@ -2216,6 +2279,12 @@ def _objective(ctx: BuildContext) -> None:
         for cap_c, cap_i, cap_y in ctx.cap_keys:
             pen = prob.impact_cap_penalty.get((cap_c, cap_i), prob.slack_penalty)
             penalty_terms.append(pen * ctx.slk_cap.sel(ckey=f"{cap_c}|{cap_i}|{cap_y}"))
+    if ctx.green_keys:
+        for gc in prob.green_corridors:
+            pen = gc.penalty or prob.slack_penalty
+            for gy in gc.limits:
+                gk = green_key(gc.label, gc.impact, gy)
+                penalty_terms.append(pen * ctx.slk_green.sel(gkey=gk))
 
     # ── LCIA-aware blend: cost_weight·cost + impact_weight·Σ emit[category] ──────
     # Defaults (cost_weight 1, impact_weight 0) reproduce plain least-cost. The

@@ -35,6 +35,7 @@ from pathwise.core.problem import (
     CostToggles,
     Fleet,
     FleetRoute,
+    GreenCorridor,
     Problem,
     Route,
 )
@@ -62,6 +63,7 @@ from pathwise.data.sheets import (
     FLOWS_T_MAX_PURCHASE,
     FLOWS_T_PRICE,
     FLOWS_T_SALE_PRICE,
+    GREEN_CORRIDORS,
     IMPACT_CAPS,
     IMPACT_CAPS_T_LIMIT,
     IMPACT_PRICES,
@@ -1265,6 +1267,43 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             )
         )
 
+    # ── Green corridors: per-lane transport emission-intensity caps ───────────
+    # Rows group by (from, to, flow, impact); a row's limit applies to its `year`
+    # (or every model year when blank). The lane is resolved to the SAME edge-set as
+    # its routes, so the cap binds every mode carrying the flow on that lane.
+    green_by_lane: dict[tuple[str, str, str, str], GreenCorridor] = {}
+    for r in _rows(workbook, GREEN_CORRIDORS):
+        gflow = _str(r.get("flow"))
+        gimp = _str(r.get("impact"))
+        limit = _num(r.get("limit"))
+        if not gflow or not gimp or limit is None:
+            continue
+        gfrom, gto = _str(r.get("from_node")) or "", _str(r.get("to_node")) or ""
+        gfroms, gtos = _leaves(gfrom), _leaves(gto)
+        geidx = tuple(
+            i
+            for i, e in enumerate(edges)
+            if e.flow_id == gflow and e.from_process in gfroms and e.to_process in gtos
+        )
+        if not geidx:
+            continue  # no matching lane edges ⇒ nothing to bind
+        lane_key = (gfrom, gto, gflow, gimp)
+        gc = green_by_lane.get(lane_key)
+        if gc is None:
+            label = f"{gfrom}->{gto}.{gflow}"
+            gc = GreenCorridor(
+                label=label,
+                edges=geidx,
+                impact=gimp,
+                soft=_bool(r.get("soft"), True),
+                penalty=_num(r.get("penalty"), 0.0) or 0.0,
+            )
+            green_by_lane[lane_key] = gc
+        yr = _int(r.get("year"))
+        for y in [yr] if yr is not None else years:
+            gc.limits[y] = limit
+    green_corridors = [gc for gc in green_by_lane.values() if gc.limits]
+
     # ── Levers (+ blocks, + optional per-year block cost) ────────────────────
     # Long-format lever_blocks_t (lever_id, block, year, capex, opex —
     # absolute, already scaled to the instance, matching lever_blocks).
@@ -1686,6 +1725,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         fleet_routes=fleet_routes,
         routes=routes,
         connection_routes=connection_routes,
+        green_corridors=green_corridors,
         company_objective=company_objective,
         default_objective=ObjectiveMode(scenario.objective),
         objective_impact=scenario.objective_impact,

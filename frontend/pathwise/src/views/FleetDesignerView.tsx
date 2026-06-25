@@ -32,6 +32,7 @@ import {
 } from "../features/fleet/fleetGraph";
 import { routeExposure, routePath, type CorridorExposure } from "../lib/api/routing";
 import { modelCurrency } from "../lib/caps";
+import { impactIds } from "../lib/scope";
 import { FlatTablePanel } from "../features/table/FlatTablePanel";
 import { flattenFleetGroup } from "../features/table/flatten.fleet";
 import type { Row, Workbook } from "../types";
@@ -103,7 +104,9 @@ export function FleetDesignerView({
   const fgById = useMemo(() => new Map(fleetGroups.map((g) => [g.id, g])), [fleetGroups]);
   const routes = useMemo(() => (workbook.routes ?? []) as Row[], [workbook]);
   const fleetRoutes = useMemo(() => (workbook.fleet_routes ?? []) as Row[], [workbook]);
+  const greenCorridors = useMemo(() => (workbook.green_corridors ?? []) as Row[], [workbook]);
   const flows = useMemo(() => (workbook.flows ?? []).map((r) => s(r.flow_id)).filter(Boolean), [workbook]);
+  const impacts = useMemo(() => impactIds(workbook), [workbook]);
   const coord = useMemo(() => buildCoordMap(workbook), [workbook]);
   const fleetByNode = useMemo(() => new Map(fleets.map((f) => [fleetId(f), f])), [fleets]);
   // Per-corridor ANNUAL CLOSURE PROBABILITY [0,1] — the chokepoint-risk input.
@@ -615,6 +618,8 @@ export function FleetDesignerView({
           setFleetRoutes={(rows) => setWorkbook(setSheet(workbook, "fleet_routes", rows))}
           onAddMode={(mode) => addModeRoute(editRoute, mode)}
           onSwitch={(p) => { setSelId(p); setEdit({ kind: "route", id: p }); }}
+          impacts={impacts} green={greenCorridors}
+          setGreen={(rows) => setWorkbook(setSheet(workbook, "green_corridors", rows))}
           onDelete={() => { setWorkbook(setSheet(setSheet(workbook, "routes", routes.filter((r) => s(r.process) !== edit!.id)), "fleet_routes", fleetRoutes.filter((r) => s(r.process) !== edit!.id))); setEdit(null); }}
           onClose={() => setEdit(null)} />
       )}
@@ -793,14 +798,29 @@ function NodePanel({ id, label, level, coord, onRename, onLevel, onCoord, onClos
   );
 }
 
-function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, onChange, onToggleBlock, setFleetRoutes, onAddMode, onSwitch, onDelete, onClose }: {
+function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, onChange, onToggleBlock, setFleetRoutes, onAddMode, onSwitch, impacts, green, setGreen, onDelete, onClose }: {
   route: Row; routes: Row[]; fleets: Row[]; fleetRoutes: Row[]; labelOf: (id: string) => string; fleetLabel: (id: string) => string;
   onChange: (p: Row) => void; onToggleBlock: (on: boolean) => void; setFleetRoutes: (rows: Row[]) => void;
-  onAddMode: (mode: string) => void; onSwitch: (proc: string) => void; onDelete: () => void; onClose: () => void;
+  onAddMode: (mode: string) => void; onSwitch: (proc: string) => void;
+  impacts: string[]; green: Row[]; setGreen: (rows: Row[]) => void; onDelete: () => void; onClose: () => void;
 }) {
   const proc = s(route.process);
   const blocked = s(route.blocked) === "true";
   const flow = s(route.flow);
+  const fromN = s(route.from_node), toN = s(route.to_node);
+  // Green corridors on THIS lane (from, to, flow) — flat (all-year) caps managed here;
+  // per-year caps are authored in the model grid. One row per capped impact.
+  const isLaneCap = (r: Row) =>
+    s(r.from_node) === fromN && s(r.to_node) === toN && s(r.flow) === flow && !s(r.year);
+  const laneGreen = green.filter(isLaneCap);
+  const cappedImpacts = new Set(laneGreen.map((r) => s(r.impact)));
+  const addableImpacts = impacts.filter((i) => !cappedImpacts.has(i));
+  const patchGreen = (impact: string, p: Row) =>
+    setGreen(green.map((r) => (isLaneCap(r) && s(r.impact) === impact ? { ...r, ...p } : r)));
+  const addGreen = (impact: string) =>
+    setGreen([...green, { from_node: fromN, to_node: toN, flow, impact, limit: 0, soft: "true" }]);
+  const removeGreen = (impact: string) =>
+    setGreen(green.filter((r) => !(isLaneCap(r) && s(r.impact) === impact)));
   // Sibling routes on the SAME lane (from, to, flow) — the modal alternatives the
   // optimiser splits the lane's flow across. Modes already on the lane can't be re-added.
   const siblings = routes.filter(
@@ -850,6 +870,36 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
           <input type="checkbox" checked={blocked} onChange={(e) => onToggleBlock(e.target.checked)} />
           <span>Block this corridor (scenario) <InfoTooltip text="Close this corridor to test a disruption (e.g. Hormuz / Suez): the route's flow is forced to 0, so the flow must reroute or go undelivered." /></span>
         </label>
+        {flow && (
+          <div className="rail-section" style={{ marginTop: 8 }}>
+            <div className="rail-head">Green corridor <InfoTooltip text="Cap the lane's cargo-weighted transport emission intensity (emissions ÷ cargo moved) for an impact. The optimiser must shift cargo onto cleaner modes/fuels to keep the corridor under the cap — across every mode on the lane. Soft = exceedance allowed at a penalty; hard = must hold. (Per-year caps: author in the model grid.)" /></div>
+            {laneGreen.length === 0 ? (
+              <p className="rail-empty" style={{ margin: "2px 0 4px" }}>No cap — transport runs at least cost.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, margin: "4px 0" }}>
+                {laneGreen.map((r) => {
+                  const imp = s(r.impact);
+                  const soft = s(r.soft) !== "false" && s(r.soft) !== "";
+                  return (
+                    <div key={imp} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ minWidth: 44, fontSize: ".74rem", color: "var(--text)" }}>{imp}</span>
+                      <input className="field-input" type="number" style={{ width: 80 }} placeholder="max ⁄ unit"
+                        value={s(r.limit)} title="max impact per unit of cargo moved"
+                        onChange={(e) => patchGreen(imp, { limit: blank(e.target.value) })} />
+                      <label style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: ".72rem" }} title="soft = penalised slack; unchecked = hard">
+                        <input type="checkbox" checked={soft} onChange={(e) => patchGreen(imp, { soft: e.target.checked ? "true" : "false" })} />
+                        soft
+                      </label>
+                      <button className="rail-add" title="remove cap" onClick={() => removeGreen(imp)}>✕</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {addableImpacts.length > 0 &&
+              row("cap impact", <SearchSelect value="" onChange={(v) => v && addGreen(v)} options={[{ value: "", label: "— add an emission cap" }, ...addableImpacts.map((i) => ({ value: i }))]} />)}
+          </div>
+        )}
         {!blocked && flow && (
           <div className="rail-section" style={{ marginTop: 8 }}>
             <div className="rail-head">Candidate fleets <InfoTooltip text="Fleets that MAY carry this flow — the optimiser picks which one(s) run the route (some, not all). Leave empty to let it choose from every fleet that carries this flow." /></div>

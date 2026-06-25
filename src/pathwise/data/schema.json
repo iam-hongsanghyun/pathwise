@@ -784,6 +784,19 @@
         "blocked": {"label": "Blocked", "type": "boolean", "desc": "Close this passage — every sea route through it reroutes (longer) or becomes infeasible."}
       }
     },
+    "green_corridors": {
+      "label": "Green corridors (emission caps)",
+      "columns": {
+        "from_node": {"label": "From", "type": "string", "required": true, "desc": "Lane origin node — the same from_node as the lane's route(s)."},
+        "to_node": {"label": "To", "type": "string", "required": true, "desc": "Lane destination node — the same to_node as the lane's route(s)."},
+        "flow": {"label": "Flow", "type": "string", "required": true, "desc": "The flow carried on the lane (matches the route's flow)."},
+        "impact": {"label": "Impact", "type": "string", "required": true, "desc": "The capped impact id (as defined in the impacts sheet); characterised categories expand to their flow components."},
+        "limit": {"label": "Intensity cap", "type": "number", "required": true, "desc": "Max cargo-weighted transport emission intensity: impact-units per unit of cargo moved on the lane."},
+        "year": {"label": "Year", "type": "number", "desc": "Year the cap applies to; blank ⇒ every model year."},
+        "soft": {"label": "Soft", "type": "boolean", "desc": "Soft (exceedance allowed at a penalty) vs hard (must hold). Default soft."},
+        "penalty": {"label": "Penalty", "type": "number", "desc": "Per-unit exceedance penalty; blank/0 ⇒ the model's default slack penalty."}
+      }
+    },
     "fleet_routes": {
       "label": "Fleet → route assignment",
       "columns": {
@@ -1080,7 +1093,7 @@
           "label": "Type",
           "type": "string",
           "required": true,
-          "desc": "Lever it pulls: energy_efficiency cuts an input flow; emission_reduction cuts CO2; environmental cuts another impact."
+          "desc": "Lever it pulls: energy_efficiency cuts an input flow; emission_reduction cuts the primary emission impact; environmental cuts another impact."
         },
         "target": {
           "label": "Target flow/impact",

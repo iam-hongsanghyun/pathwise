@@ -14,7 +14,7 @@ import pandas as pd
 from linopy import Model
 
 from pathwise.core.entities import LeverType, MarketTarget, TransitionAction
-from pathwise.core.problem import Problem, leg_key
+from pathwise.core.problem import Problem, green_key, leg_key
 
 
 @dataclass(slots=True)
@@ -113,9 +113,11 @@ class BuildContext:
     imarkets: list[Any] = field(default_factory=list)  # impact (ETS) Market entities
     slk_dem: Any = None  # demand slack [demand_key]
     slk_cap: Any = None  # impact-cap slack [cap_key]
+    slk_green: Any = None  # green-corridor intensity-cap slack [green_key]
 
     demand_keys: list[tuple[str, str, int]] = field(default_factory=list)
     cap_keys: list[tuple[str, str, int]] = field(default_factory=list)
+    green_keys: list[str] = field(default_factory=list)
 
 
 def _feasible_techs(problem: Problem) -> dict[str, list[str]]:
@@ -325,5 +327,13 @@ def build_context(model: Model, problem: Problem) -> BuildContext:
     if ctx.cap_keys:
         ck_idx = pd.Index([f"{c}|{i}|{y}" for (c, i, y) in ctx.cap_keys], name="ckey")
         ctx.slk_cap = model.add_variables(lower=0.0, coords=[ck_idx], name="slk_cap")
+
+    # Green-corridor (transport intensity-cap) slack — one per (lane·impact·year).
+    ctx.green_keys = sorted(
+        green_key(gc.label, gc.impact, y) for gc in problem.green_corridors for y in gc.limits
+    )
+    if ctx.green_keys:
+        gk_idx = pd.Index(ctx.green_keys, name="gkey")
+        ctx.slk_green = model.add_variables(lower=0.0, coords=[gk_idx], name="slk_green")
 
     return ctx

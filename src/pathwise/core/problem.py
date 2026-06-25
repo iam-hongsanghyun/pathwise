@@ -204,6 +204,42 @@ class ConnectionRoute:
     scope_chain: tuple[str, ...] = ()
 
 
+def green_key(label: str, impact: str, year: int) -> str:
+    """Stable slack/constraint key for a green-corridor cap (lane·impact·year)."""
+    return f"{label}|{impact}|{year}"
+
+
+@dataclass(slots=True)
+class GreenCorridor:
+    r"""A per-lane transport emission-intensity cap — a "green corridor".
+
+    All freight on a lane (every mode/fleet carrying its flow) must keep its
+    cargo-weighted emission intensity below ``limit`` for the capped impact::
+
+        Σ legflow·efficiency·distance·flow_impact(fuel, impact)  ≤  limit · cargo
+
+    so the optimiser must shift cargo onto cleaner modes/fuels (or build them) to
+    keep the corridor green. Soft by default — exceedance is allowed at a penalty;
+    set ``soft=False`` to forbid it (a hard regulatory corridor).
+
+    Attributes:
+        label: Readable lane id (``<from>→<to>·<flow>``) for keys + outputs.
+        edges: Indices into :attr:`Problem.edges` for the lane this binds — matched
+            against :attr:`ConnectionRoute.edges` so it applies to every mode on the lane.
+        impact: The capped impact (e.g. ``co2``); characterised categories expand.
+        limits: ``{year: limit}`` intensity cap [impact-unit / cargo-unit].
+        soft: Soft (penalised slack) vs hard (must hold).
+        penalty: Per-unit exceedance penalty; ``0`` ⇒ the global slack penalty.
+    """
+
+    label: str
+    edges: tuple[int, ...]
+    impact: str
+    limits: dict[int, float] = field(default_factory=dict)
+    soft: bool = True
+    penalty: float = 0.0
+
+
 @dataclass(slots=True, frozen=True)
 class Route:
     """The physical geography of a transport process (Layer 1c).
@@ -340,6 +376,9 @@ class Problem:
     # carriers + fuel. Inert unless connection routes are present (then teleport is
     # the default for every connection without one). See ``build._connection_fleet``.
     connection_routes: list[ConnectionRoute] = field(default_factory=list)
+    # Green corridors (Layer 1c+): per-lane transport emission-intensity caps. Inert
+    # unless authored. See ``build._connection_fleet`` + ``GreenCorridor``.
+    green_corridors: list[GreenCorridor] = field(default_factory=list)
     company_objective: dict[str, ObjectiveMode] = field(default_factory=dict)
     # Default goal for companies without a company_config override (the run-level
     # objective set in the Optimisation tab). Falls back to COST.
