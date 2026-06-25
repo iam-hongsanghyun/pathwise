@@ -6,11 +6,14 @@
 // min-height: 0; overflow: auto) unless the section opts out with grow:false.
 
 import { useState, type ReactNode } from "react";
+import { InfoTooltip } from "../features/controls/InfoTooltip";
 import { Resizer } from "./Resizer";
 
 export interface AccordionSection {
   id: string;
   title: string;
+  /** One-line explanation shown behind a (ⓘ) next to the title (keeps the body clean). */
+  info?: string;
   /** Optional node rendered on the right side of the section header. */
   headAction?: ReactNode;
   body: ReactNode;
@@ -110,7 +113,18 @@ export function AccordionSidebar({
                 title={`${isOpen ? "collapse" : "expand"} ${sec.title}`}
               >
                 <span className="acc-chevron">{isOpen ? "▾" : "▸"}</span>
-                <span className="rail-head" style={{ flex: 1, padding: 0 }}>{sec.title}</span>
+                <span
+                  className="rail-head"
+                  style={{ width: "auto", padding: 0, display: "inline-flex", alignItems: "center", gap: 4 }}
+                >
+                  {sec.title}
+                  {sec.info && (
+                    <span style={{ display: "inline-flex" }} onClick={(e) => e.stopPropagation()}>
+                      <InfoTooltip text={sec.info} />
+                    </span>
+                  )}
+                </span>
+                <span style={{ flex: 1 }} />
                 {sec.headAction && (
                   <span
                     className="acc-head-action"

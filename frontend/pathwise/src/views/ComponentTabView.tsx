@@ -1264,17 +1264,10 @@ export function ComponentTabView({
                   {
                     id: "timeseries",
                     title: "Time series",
+                    info: "Per-year overrides — an empty cell uses the latest value.",
                     defaultOpen: false,
                     grow: true,
-                    body: (
-                      <>
-                        <div style={{ padding: "6px 10px 4px" }}>
-                          <span className="eyebrow">per-year overrides</span>
-                          <span className="eyebrow-soft"> · empty = latest value</span>
-                        </div>
-                        {rail}
-                      </>
-                    ),
+                    body: rail,
                   } satisfies AccordionSection,
                 ]
               : []),

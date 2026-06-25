@@ -6,6 +6,7 @@
 // them into one editable list and scatters edits back. Edits debounce-sync via the host.
 
 import { useMemo, useState } from "react";
+import { InfoTooltip } from "../features/controls/InfoTooltip";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { TemporalValue, type TemporalVal } from "../features/controls/TemporalValue";
 import { flowUnit, impactUnit, modelCurrency, modelDiscount } from "../lib/caps";
@@ -201,10 +202,10 @@ export function TargetsTabView({
     <div className="body-row">
       <main className="main-area" style={{ overflow: "auto", padding: "16px 22px", maxWidth: 980 }}>
         <div className="eyebrow">optimisation</div>
-        <h2 className="view-title">Optimisation</h2>
-        <p className="view-lead">
-          Define the whole run here — the objective, any number of constraints, then ▶ Run.
-        </p>
+        <h2 className="view-title">
+          Optimisation{" "}
+          <InfoTooltip text="Define the whole run here — the objective, any number of constraints, then ▶ Run." />
+        </h2>
 
         {/* Objective */}
         <section style={{ marginBottom: 22 }}>
@@ -285,12 +286,10 @@ export function TargetsTabView({
 
         {/* Constraints */}
         <section style={{ marginBottom: 22 }}>
-          <h3 className="section-title" style={{ marginBottom: 2 }}>Constraints</h3>
-          <p className="muted" style={{ fontSize: "0.74rem", margin: "0 0 8px" }}>
-            Each row: pick what (a flow.s production, an emission, or the budget), the scope it
-            applies to, whether it's a target / minimum / maximum, and the value. The value is one
-            number for the whole horizon, or click it to set a value <b>per year</b>.
-          </p>
+          <h3 className="section-title" style={{ marginBottom: 2 }}>
+            Constraints{" "}
+            <InfoTooltip text="Each row: pick what (a flow's production, an emission, or the budget), the scope it applies to, whether it's a target / minimum / maximum, and the value. The value is one number for the whole horizon, or click it to set a value per year." />
+          </h3>
           <button className="ghost" style={{ marginBottom: 8 }} onClick={add}>
             ＋ add constraint
           </button>

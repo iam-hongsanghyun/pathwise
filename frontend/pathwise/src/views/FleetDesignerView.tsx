@@ -504,6 +504,7 @@ export function FleetDesignerView({
             {
               id: "chokepoints",
               title: "Chokepoint risk",
+              info: "Each chokepoint has an annual closure probability (sub-100% = sensitivity only; 100% reroutes every run) and a per-voyage toll. Exposure = the detour a closure forces × its probability.",
               defaultOpen: false,
               grow: true,
               headAction: (
@@ -636,11 +637,6 @@ function ChokepointDesigner({
 
   return (
     <div style={{ padding: "8px 12px" }}>
-      <p className="rail-empty" style={{ margin: "0 0 8px" }}>
-        Each chokepoint has an annual closure probability (sub-100% = sensitivity only;
-        100% reroutes every run) and a per-voyage toll. Exposure = the detour a closure
-        forces × its probability.
-      </p>
       {routes.length === 0 ? (
         <p className="rail-empty">Place both ends of a sea route on the map to see exposure.</p>
       ) : (

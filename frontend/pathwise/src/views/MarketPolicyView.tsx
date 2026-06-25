@@ -8,6 +8,7 @@
 // `markets` / `impact_prices` sheets, just given an editor.
 
 import { useMemo } from "react";
+import { InfoTooltip } from "../features/controls/InfoTooltip";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { TemporalValue, type TemporalVal } from "../features/controls/TemporalValue";
 import { flowUnit, impactUnit, modelCurrency } from "../lib/caps";
@@ -119,22 +120,19 @@ export function MarketPolicyView({
     <div className="body-row">
       <main className="main-area" style={{ overflow: "auto", padding: "16px 22px", maxWidth: 1040 }}>
         <div className="eyebrow">market &amp; policy</div>
-        <h2 className="view-title">Market &amp; Policy</h2>
-        <p className="view-lead">
-          The institutional layer: where flows are bought/sold (pools), emissions are traded (ETS),
-          and carbon is priced — each scoped to a region/company/node, so policy can differ by place.
-          Emission caps live in Optimisation.
-        </p>
+        <h2 className="view-title">
+          Market &amp; Policy{" "}
+          <InfoTooltip text="The institutional layer: where flows are bought/sold (pools), emissions are traded (ETS), and carbon is priced — each scoped to a region/company/node, so policy can differ by place. Emission caps live in Optimisation." />
+        </h2>
 
         {/* Markets */}
         <section style={{ marginBottom: 24 }}>
-          <h3 className="section-title" style={{ marginBottom: 2 }}>Markets &amp; ETS</h3>
-          <p className="muted" style={{ fontSize: ".74rem", margin: "0 0 8px" }}>
-            A <b>flow</b> target is a supply/offtake pool (buy at <i>price</i>, sell at <i>sell</i>).
-            An <b>impact</b> target is an ETS: a free <i>allocation</i> per year, with the deficit
-            bought / surplus sold at <i>price</i>. Allocation 0 + a price = a scoped carbon charge.
-            Prices are in {currency} per target unit.
-          </p>
+          <h3 className="section-title" style={{ marginBottom: 2 }}>
+            Markets &amp; ETS{" "}
+            <InfoTooltip
+              text={`A flow target is a supply/offtake pool (buy at price, sell at sell). An impact target is an ETS: a free allocation per year, with the deficit bought / surplus sold at price. Allocation 0 + a price = a scoped carbon charge. Prices are in ${currency} per target unit.`}
+            />
+          </h3>
           <button className="ghost" style={{ marginBottom: 8 }} onClick={addMarket}>＋ add market</button>
           {markets.length === 0 ? (
             <p className="muted" style={{ fontSize: ".78rem" }}>No markets yet — ＋ add one.</p>
@@ -192,12 +190,10 @@ export function MarketPolicyView({
 
         {/* Carbon price */}
         <section style={{ marginBottom: 24 }}>
-          <h3 className="section-title" style={{ marginBottom: 2 }}>Carbon price (tax on all emissions)</h3>
-          <p className="muted" style={{ fontSize: ".74rem", margin: "0 0 8px" }}>
-            A blanket price on every unit of an impact (a carbon/pollutant tax), applied model-wide —
-            distinct from an ETS, which only charges the deficit against an allocation. For
-            region-specific pricing use an ETS market above with allocation 0.
-          </p>
+          <h3 className="section-title" style={{ marginBottom: 2 }}>
+            Carbon price (tax on all emissions){" "}
+            <InfoTooltip text="A blanket price on every unit of an impact (a carbon/pollutant tax), applied model-wide — distinct from an ETS, which only charges the deficit against an allocation. For region-specific pricing use an ETS market above with allocation 0." />
+          </h3>
           <button className="ghost" style={{ marginBottom: 8 }} onClick={addPrice} disabled={!impacts.length}>
             ＋ add carbon price
           </button>
