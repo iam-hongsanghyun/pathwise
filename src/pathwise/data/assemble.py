@@ -7,6 +7,7 @@ objects and no I/O.
 
 from __future__ import annotations
 
+import itertools
 import math
 from typing import Any
 
@@ -579,6 +580,67 @@ def _assemble_fleet(
         except Exception:
             return great_circle_km(a, b) * 4.0
 
+    # Representative per-unit fuel cost for cost-weighted routing: the static price
+    # of each commodity (a fleet's fuel), used as ``fuel_price`` below.
+    comm_price = {
+        c: _numd(r.get("price"), 0.0)
+        for r in _rows(workbook, COMMODITIES)
+        if (c := _str(r.get("commodity_id")))
+    }
+
+    def _toll_of(passages: list[str]) -> float:
+        return sum(corridor_tolls.get(c, 0.0) for c in passages if c in corridor_tolls)
+
+    def _unit_cost(commodity: str | None) -> tuple[float, float] | None:
+        """(fuel cost / cargo / km, ship_size) of the cheapest candidate fleet that
+        carries ``commodity`` — the lane the optimiser most likely runs. ``None`` when
+        no carrier exists (the connection is a teleport; cost routing doesn't apply)."""
+        best: tuple[float, float] | None = None
+        for fl in fleets.values():
+            if fl.cargo != commodity or fl.efficiency <= 0:
+                continue
+            c = fl.efficiency * comm_price.get(fl.fuel, 0.0)
+            if best is None or c < best[0]:
+                best = (c, fl.ship_size)
+        return best
+
+    def _cost_route(a: Point, b: Point, mode: str, commodity: str | None) -> tuple[float, float]:
+        r"""Cost-weighted shortest path → (distance, per-voyage toll).
+
+        Picks the path minimising ``fuel_price·efficiency·distance + toll/ship_size``
+        (the owner's "toll + fuel cost × distance"). Because cost only diverges from
+        distance AT tolled chokepoints, the optimum is one of the few paths that cross
+        some subset of the tolled chokepoints the shortest lane hits — so we enumerate
+        those subsets (cap 3 ⇒ ≤ 8 paths; beyond, just cross-all vs avoid-all) and take
+        the cheapest. With no carrier/cost info it falls back to distance-shortest.
+        """
+        shortest = _derived_distance(a, b, mode)
+        uc = _unit_cost(commodity)
+        if uc is None:
+            return shortest, _toll_of(route_passages(a, b, avoid))
+        c_per_km, ship_size = uc
+        base_pass = route_passages(a, b, avoid)
+        tolled_on = [c for c in dict.fromkeys(base_pass) if c in corridor_tolls]
+        if not tolled_on:
+            return shortest, _toll_of(base_pass)  # nothing to trade off
+        subsets: list[tuple[str, ...]] = (
+            [s for k in range(len(tolled_on) + 1) for s in itertools.combinations(tolled_on, k)]
+            if len(tolled_on) <= 3
+            else [(), tuple(tolled_on)]
+        )
+        best: tuple[float, float, float] | None = None  # (cost, distance, toll)
+        for s in subsets:
+            av = (*avoid, *s)
+            try:
+                dist = route_distance_km(a, b, mode, av)
+                toll = _toll_of(route_passages(a, b, av))
+            except Exception:
+                continue
+            cost = c_per_km * dist + (toll / ship_size if ship_size > 0 else 0.0)
+            if best is None or cost < best[0]:
+                best = (cost, dist, toll)
+        return (best[1], best[2]) if best is not None else (shortest, _toll_of(base_pass))
+
     routes: dict[str, Route] = {}
     route_tolls: dict[str, float] = {}  # process -> Σ per-voyage toll over corridors crossed
     for r in _rows(workbook, ROUTES):
@@ -588,16 +650,25 @@ def _assemble_fleet(
         rfrom, rto = _str(r.get("from_node")) or "", _str(r.get("to_node")) or ""
         rmode = _str(r.get("mode")) or ""
         rdist = _num(r.get("distance"))
+        located = rfrom in coords and rto in coords
+        # When we derive the distance AND tolls exist, pick the COST-weighted path
+        # (fuel × distance + toll), not just the shortest — the solver-selected lane.
+        if corridor_tolls and located and (rdist is None or avoid):
+            rdist, rtoll = _cost_route(coords[rfrom], coords[rto], rmode, _str(r.get("commodity")))
+            route_tolls[rproc] = rtoll
+            routes[rproc] = Route(
+                process=rproc, from_node=rfrom, to_node=rto, mode=rmode, distance=rdist or 0.0
+            )
+            continue
         # An AUTHORED distance wins UNLESS a corridor is blocked — then we always
         # re-derive so the disruption reroutes even hand-set lanes.
-        if (rdist is None or avoid) and rfrom in coords and rto in coords:
+        if (rdist is None or avoid) and located:
             rdist = _derived_distance(coords[rfrom], coords[rto], rmode)
         routes[rproc] = Route(
             process=rproc, from_node=rfrom, to_node=rto, mode=rmode, distance=rdist or 0.0
         )
-        # Per-voyage toll: Σ over the maritime chokepoints this lane traverses (only
-        # when tolls are defined AND both ends are located — pure geometry).
-        if corridor_tolls and rfrom in coords and rto in coords:
+        # Per-voyage toll on the (authored) lane's actual passages — pure geometry.
+        if corridor_tolls and located:
             route_tolls[rproc] = sum(
                 corridor_tolls.get(c, 0.0)
                 for c in route_passages(coords[rfrom], coords[rto], avoid)
