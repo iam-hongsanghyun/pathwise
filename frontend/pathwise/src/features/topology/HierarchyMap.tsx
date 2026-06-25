@@ -166,6 +166,19 @@ export function HierarchyMap({
     () => new Map(parseNodes(workbook).map((n) => [n.id, n.parentId])),
     [workbook],
   );
+  // Per-asset component KIND (Technology / Storage / Station) + its baseline tech —
+  // a leaf's TYPE is the kind of component it instantiates, not the raw node level.
+  const assetMeta = useMemo(() => {
+    const kind = new Map<string, string>();
+    const base = new Map<string, string>();
+    for (const m of workbook.assets ?? []) {
+      const id = String(m.asset_id ?? "");
+      const k = String(m.kind ?? "").toLowerCase();
+      kind.set(id, k === "storage" ? "Storage" : k === "station" ? "Station" : "Technology");
+      base.set(id, String(m.baseline_technology ?? ""));
+    }
+    return { kind, base };
+  }, [workbook]);
   const resolveVisible = (id: string): string | null => {
     let cur: string | null = id;
     const seen = new Set<string>();
@@ -734,7 +747,16 @@ export function HierarchyMap({
           const toTech = isAsset ? overlay?.transitionedTo(n.id) : undefined;
           const tput = isAsset ? overlay?.throughput(n.id) : undefined;
           const idle = isAsset && !!overlay && tech == null;
-          const sub = isAsset ? (tech ? (toTech ? `⇄ ${tech}` : tech) : n.level || "idle") : n.level || "group";
+          // A leaf's badge is its component KIND; its sub is the running tech (under a
+          // result overlay) else its baseline tech — never the raw node level ("machine").
+          const kindLabel = isAsset ? (assetMeta.kind.get(n.id) ?? "Technology") : null;
+          const sub = isAsset
+            ? tech
+              ? toTech
+                ? `⇄ ${tech}`
+                : tech
+              : assetMeta.base.get(n.id) || "idle"
+            : n.level || "group";
           const isSel = selectedId === n.id;
           const stroke = toTech ? "var(--warn)" : isSel ? "var(--brand)" : undefined;
           // White, slightly translucent fill so a flow line passing BEHIND the box
@@ -750,7 +772,7 @@ export function HierarchyMap({
               style={{ cursor: "pointer" }}
             >
               <rect width={n.w} height={n.h} rx={3} fill={fill} fillOpacity={isSel ? 1 : 0.92} stroke={stroke} strokeWidth={isSel || toTech ? 2.5 : undefined} />
-              <text className="topo-kind" x={8} y={14}>{isAsset ? "asset" : !editable && n.collapsed ? "group ▸" : "group"}</text>
+              <text className="topo-kind" x={8} y={14}>{isAsset ? kindLabel : !editable && n.collapsed ? "group ▸" : "group"}</text>
               {tput != null && <text className="topo-kind" x={n.w - 8} y={14} textAnchor="end">{fmtVal(tput)}</text>}
               <text className="topo-label" x={8} y={31}>{clip(n.label, 22)}</text>
               <text className="topo-sub" x={8} y={46} fill={toTech ? "var(--warn-text)" : undefined}>{clip(sub, 24)}</text>

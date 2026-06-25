@@ -240,6 +240,13 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
 
   // ── Trees ────────────────────────────────────────────────────────────────────
   const facilityNodes = useMemo<TreeNode[]>(() => {
+    // A leaf's TYPE is the kind of component it instantiates (Technology / Storage /
+    // Station), not the raw node `level` (which carried legacy strings like "machine").
+    const kindOf = new Map<string, string>();
+    for (const m of workbook.assets ?? []) {
+      const k = s(m.kind).toLowerCase();
+      kindOf.set(s(m.asset_id), k === "storage" ? "Storage" : k === "station" ? "Station" : "Technology");
+    }
     const out: TreeNode[] = [];
     const walk = (parentId: string | null) => {
       for (const nd of childrenOf(nodes, parentId)) {
@@ -249,7 +256,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
           parentId: nd.parentId,
           kind: nd.kind === "asset" ? "asset" : "group",
           label: nd.label,
-          level: nd.level || undefined,
+          level: nd.kind === "asset" ? (kindOf.get(nd.id) ?? "Technology") : (nd.level || undefined),
           hasChildren: kids.length > 0,
           droppable: nd.kind !== "asset",
         });
@@ -258,7 +265,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     };
     walk(null);
     return out;
-  }, [nodes]);
+  }, [nodes, workbook]);
 
   const libraryNodes = useMemo<TreeNode[]>(() => {
     const out: TreeNode[] = [];

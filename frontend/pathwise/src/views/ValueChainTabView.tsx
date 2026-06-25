@@ -330,7 +330,14 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
 
   const treeNodes = useMemo<TreeNode[]>(() => {
     const baselineOf = new Map<string, string>();
-    for (const m of workbook.assets ?? []) baselineOf.set(s(m.asset_id), s(m.baseline_technology));
+    // A leaf's TYPE is the kind of component it instantiates (Technology / Storage /
+    // Station) — not the raw node `level` (which carried legacy strings like "machine").
+    const kindOf = new Map<string, string>();
+    for (const m of workbook.assets ?? []) {
+      baselineOf.set(s(m.asset_id), s(m.baseline_technology));
+      const k = s(m.kind).toLowerCase();
+      kindOf.set(s(m.asset_id), k === "storage" ? "Storage" : k === "station" ? "Station" : "Technology");
+    }
     const altsOf = (machineId: string): string[] => {
       const base = baselineOf.get(machineId);
       if (!base) return [];
@@ -341,7 +348,8 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
       const alts = n.kind === "asset" ? altsOf(n.id) : [];
       out.push({
         id: n.id, parentId: n.parentId, kind: n.kind, label: n.label,
-        level: n.level || undefined, order: n.order,
+        level: n.kind === "asset" ? (kindOf.get(n.id) ?? "Technology") : (n.level || undefined),
+        order: n.order,
         hasChildren: nodes.some((c) => c.parentId === n.id) || alts.length > 0,
         droppable: n.kind === "group",
         badge: badges.get(n.id),
