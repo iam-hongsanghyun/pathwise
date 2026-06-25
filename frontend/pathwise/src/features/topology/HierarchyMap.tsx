@@ -4,7 +4,7 @@
 //
 // Read-only (Analytics result map): pass `result` → a year slider scrubs active
 // technology / throughput / flows per year.
-// Editable (Value-chain map): pass `editable` + the connection callbacks → links
+// Editable (Value-chain map): pass `editable` + the link callbacks → links
 // are drawn between nodes; drag a node's right port to another's left port to add
 // a link, click a link to delete it, click a node to select it (right rail).
 
@@ -45,9 +45,9 @@ interface Props {
   editable?: boolean;
   selectedId?: string | null;
   onSelect?: (id: string) => void;
-  onAddConnection?: (from: string, to: string, commodity: string, lag: number) => void;
-  onEditConnection?: (rowIndex: number, commodity: string, lag: number) => void;
-  onDeleteConnection?: (rowIndex: number) => void;
+  onAddLink?: (from: string, to: string, commodity: string, lag: number) => void;
+  onEditLink?: (rowIndex: number, commodity: string, lag: number) => void;
+  onDeleteLink?: (rowIndex: number) => void;
   /** A no-drag click on empty canvas — clears the selection / closes the inspector. */
   onBackgroundClick?: () => void;
   commodities?: string[];
@@ -59,9 +59,9 @@ export function HierarchyMap({
   editable = false,
   selectedId,
   onSelect,
-  onAddConnection,
-  onEditConnection,
-  onDeleteConnection,
+  onAddLink,
+  onEditLink,
+  onDeleteLink,
   onBackgroundClick,
   commodities = [],
 }: Props) {
@@ -156,7 +156,7 @@ export function HierarchyMap({
     [laid, bandH],
   );
   const boxById = useMemo(() => new Map(placed.map((n) => [n.id, n])), [placed]);
-  // Connection ports follow the flow direction: horizontal links exit the right
+  // Link ports follow the flow direction: horizontal links exit the right
   // edge → enter the left edge; vertical links exit the bottom → enter the top.
   const outPt = (b: LaidNode) => (horiz ? { x: b.x + b.w, y: b.y + b.h / 2 } : { x: b.x + b.w / 2, y: b.y + b.h });
   const inPt = (b: LaidNode) => (horiz ? { x: b.x, y: b.y + b.h / 2 } : { x: b.x + b.w / 2, y: b.y });
@@ -591,7 +591,7 @@ export function HierarchyMap({
         </span>
         {sources.length > 0 && (
           <span className="muted" style={{ fontSize: "0.72rem", marginLeft: "auto", display: "inline-flex", gap: 12, alignItems: "center" }}>
-            <span title="a node→node flow inside the chain (free internal transfer)"><span style={{ color: "#0f766e", fontWeight: 700 }}>→</span> connection (in-chain)</span>
+            <span title="a node→node flow inside the chain (free internal transfer)"><span style={{ color: "#0f766e", fontWeight: 700 }}>→</span> link (in-chain)</span>
             <span title="a raw stream produced by no node — bought from outside the chain"><span style={{ color: "var(--warn)", fontWeight: 700 }}>▾</span> source (bought outside)</span>
           </span>
         )}
@@ -813,14 +813,14 @@ export function HierarchyMap({
               const m = poly[Math.floor(poly.length / 2)];
               return (
                 <g key={`ec-${edgeKey(e)}`}>
-                  {onEditConnection && (
+                  {onEditLink && (
                     <g style={{ cursor: "pointer" }} onPointerDown={(ev) => ev.stopPropagation()} onClick={(ev) => setForm({ from: e.from, to: e.to, sx: ev.clientX, sy: ev.clientY, editRowIndex: e.rowIndex, commodity: e.commodity, lag: e.lag })}>
                       <circle cx={m.x - 11} cy={m.y} r={8} fill="var(--brand)" />
                       <text x={m.x - 11} y={m.y + 1} fontSize={9} fill="#fff" textAnchor="middle" dominantBaseline="middle">✎</text>
                     </g>
                   )}
-                  {onDeleteConnection && (
-                    <g style={{ cursor: "pointer" }} onPointerDown={(ev) => ev.stopPropagation()} onClick={() => { onDeleteConnection(e.rowIndex); setSelEdge(null); }}>
+                  {onDeleteLink && (
+                    <g style={{ cursor: "pointer" }} onPointerDown={(ev) => ev.stopPropagation()} onClick={() => { onDeleteLink(e.rowIndex); setSelEdge(null); }}>
                       <circle cx={m.x + 11} cy={m.y} r={8} fill="var(--danger)" />
                       <text x={m.x + 11} y={m.y + 1} fontSize={10} fill="#fff" textAnchor="middle" dominantBaseline="middle">✕</text>
                     </g>
@@ -909,8 +909,8 @@ export function HierarchyMap({
           y={form.sy}
           onCancel={() => setForm(null)}
           onConfirm={(commodity, lag) => {
-            if (form.editRowIndex != null) onEditConnection?.(form.editRowIndex, commodity, lag);
-            else onAddConnection?.(form.from, form.to, commodity, lag);
+            if (form.editRowIndex != null) onEditLink?.(form.editRowIndex, commodity, lag);
+            else onAddLink?.(form.from, form.to, commodity, lag);
             setForm(null);
             setSelEdge(null);
           }}

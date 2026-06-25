@@ -1,5 +1,5 @@
 // Pure graph logic for the recursive group/component hierarchy.
-// No React, no I/O. Mirrors the workbook sheets: nodes, connections, assets.
+// No React, no I/O. Mirrors the workbook sheets: nodes, links, assets.
 
 import type { Workbook } from "../types";
 
@@ -138,7 +138,7 @@ function ancestorChildOf(
 /** Compute the subgraph visible at a given level.
  *
  *  `children` = direct children of `groupId` (or top-level roots when null).
- *  `edges`    = workbook connections projected to this level: only edges where
+ *  `edges`    = workbook links projected to this level: only edges where
  *               both endpoints resolve to *distinct* children of `groupId`. */
 export function levelGraph(
   wb: Workbook,
@@ -155,7 +155,7 @@ export function levelGraph(
   const edges: GroupEdge[] = [];
   const seen = new Set<string>(); // dedup key
 
-  for (const row of wb.connections ?? []) {
+  for (const row of wb.links ?? []) {
     const fromRaw = s(row.from_node);
     const toRaw = s(row.to_node);
     if (!fromRaw || !toRaw) continue;
@@ -238,13 +238,13 @@ export function columnLayout(
   return pos;
 }
 
-// ── Editable level connections ────────────────────────────────────────────────
+// ── Editable level links ────────────────────────────────────────────────
 
-/** One workbook connection, projected to a level. Carries its row index so the
+/** One workbook link, projected to a level. Carries its row index so the
  *  editor can address/delete the exact row, and keeps `lag` (unlike `levelGraph`,
  *  which dedupes and loses it). */
-export interface LevelConnection {
-  /** Index into `wb.connections` — the addressable handle for delete. */
+export interface LevelLink {
+  /** Index into `wb.links` — the addressable handle for delete. */
   rowIndex: number;
   /** Direct child of the level the source resolves to. */
   from: string;
@@ -254,17 +254,17 @@ export interface LevelConnection {
   lag: number;
 }
 
-/** Every `connections` row whose endpoints resolve to two *distinct* children of
+/** Every `links` row whose endpoints resolve to two *distinct* children of
  *  `groupId` — one entry per row (no dedupe), so each edge is independently
  *  selectable/deletable and its lag is preserved. */
-export function levelConnections(wb: Workbook, groupId: string | null): LevelConnection[] {
+export function levelLinks(wb: Workbook, groupId: string | null): LevelLink[] {
   const nodes = parseNodes(wb);
   const children = childrenOf(nodes, groupId);
   if (children.length === 0) return [];
   const subtreeMap = buildSubtreeMap(nodes);
 
-  const out: LevelConnection[] = [];
-  (wb.connections ?? []).forEach((row, rowIndex) => {
+  const out: LevelLink[] = [];
+  (wb.links ?? []).forEach((row, rowIndex) => {
     const fromRaw = s(row.from_node);
     const toRaw = s(row.to_node);
     if (!fromRaw || !toRaw) return;

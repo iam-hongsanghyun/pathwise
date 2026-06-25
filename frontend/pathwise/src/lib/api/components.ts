@@ -111,7 +111,7 @@ export interface ChildRef {
   alias: string;
 }
 
-export interface ConnectionTemplate {
+export interface LinkTemplate {
   source: string;
   target: string;
   commodity: string;
@@ -123,7 +123,7 @@ export interface GroupComponent {
   label: string;
   level: string;
   children: ChildRef[];
-  connections: ConnectionTemplate[];
+  links: LinkTemplate[];
   /** Free-text notes / references (optimiser ignores it). */
   notes?: string;
 }

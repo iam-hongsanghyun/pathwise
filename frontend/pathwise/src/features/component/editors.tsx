@@ -644,29 +644,29 @@ export function GroupEditor({
         </Row>
       ))}
       <h3 style={{ margin: "12px 0 6px", fontSize: "0.85rem" }}>
-        Connections <span className="muted">(internal wiring — e.g. GT → ST on steam)</span>
-        <button className="ghost" style={{ marginLeft: 8 }} disabled={value.children.length < 2} onClick={() => onChange({ ...value, connections: [...value.connections, { source: aliases[0] ?? "", target: aliases[1] ?? "", commodity: commodityIds[0] ?? "", lag_years: 0 }] })}>
-          ＋ add connection
+        Links <span className="muted">(internal wiring — e.g. GT → ST on steam)</span>
+        <button className="ghost" style={{ marginLeft: 8 }} disabled={value.children.length < 2} onClick={() => onChange({ ...value, links: [...value.links, { source: aliases[0] ?? "", target: aliases[1] ?? "", commodity: commodityIds[0] ?? "", lag_years: 0 }] })}>
+          ＋ add link
         </button>
       </h3>
-      {value.connections.map((cn, i) => (
+      {value.links.map((cn, i) => (
         <Row key={i}>
           <Field label="from">
-            <SearchSelect value={cn.source} onChange={(v) => onChange({ ...value, connections: value.connections.map((x, j) => (j === i ? { ...x, source: v } : x)) })}
+            <SearchSelect value={cn.source} onChange={(v) => onChange({ ...value, links: value.links.map((x, j) => (j === i ? { ...x, source: v } : x)) })}
               options={aliases.map((a) => ({ value: a }))} />
           </Field>
           <Field label="to">
-            <SearchSelect value={cn.target} onChange={(v) => onChange({ ...value, connections: value.connections.map((x, j) => (j === i ? { ...x, target: v } : x)) })}
+            <SearchSelect value={cn.target} onChange={(v) => onChange({ ...value, links: value.links.map((x, j) => (j === i ? { ...x, target: v } : x)) })}
               options={aliases.map((a) => ({ value: a }))} />
           </Field>
           <Field label="commodity">
-            <SearchSelect value={cn.commodity} onChange={(v) => onChange({ ...value, connections: value.connections.map((x, j) => (j === i ? { ...x, commodity: v } : x)) })}
+            <SearchSelect value={cn.commodity} onChange={(v) => onChange({ ...value, links: value.links.map((x, j) => (j === i ? { ...x, commodity: v } : x)) })}
               options={commodityIds.map((a) => ({ value: a }))} />
           </Field>
           <Field label="lag (yr)">
-            <input style={{ ...inputStyle, width: 64 }} type="number" value={cn.lag_years} onChange={(e) => onChange({ ...value, connections: value.connections.map((x, j) => (j === i ? { ...x, lag_years: num(e.target.value) } : x)) })} />
+            <input style={{ ...inputStyle, width: 64 }} type="number" value={cn.lag_years} onChange={(e) => onChange({ ...value, links: value.links.map((x, j) => (j === i ? { ...x, lag_years: num(e.target.value) } : x)) })} />
           </Field>
-          <button className="ghost" style={{ alignSelf: "flex-end" }} onClick={() => onChange({ ...value, connections: value.connections.filter((_, j) => j !== i) })}>✕</button>
+          <button className="ghost" style={{ alignSelf: "flex-end" }} onClick={() => onChange({ ...value, links: value.links.filter((_, j) => j !== i) })}>✕</button>
         </Row>
       ))}
     </section>

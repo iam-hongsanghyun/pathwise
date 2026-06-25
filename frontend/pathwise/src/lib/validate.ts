@@ -109,7 +109,7 @@ export function validateModel(wb: Workbook): Issue[] {
   const assets = wb.assets ?? [];
   const io = wb.io ?? [];
   const commodities = wb.commodities ?? [];
-  const connections = wb.connections ?? [];
+  const links = wb.links ?? [];
   const markets = wb.markets ?? [];
   const demand = wb.demand ?? [];
   const technologies = wb.technologies ?? [];
@@ -234,19 +234,19 @@ export function validateModel(wb: Workbook): Issue[] {
     // unsatisfied-input — mirrors AssetInspector.inFrom verbatim.
     const scope = scopeOf(mid);
     for (const c of inputsOfTech.get(tech) ?? []) {
-      const fedByConnection = connections.some(
+      const fedByLink = links.some(
         (x) => s(x.commodity_id) === c && scope.has(s(x.to_node)) && !scope.has(s(x.from_node)),
       );
       const boughtAtNode = markets.some((x) => s(x.target) === c && s(x.price) !== "" && scope.has(s(x.company)));
       const comm = commodities.find((x) => s(x.commodity_id) === c);
       const purchasable = !!comm && (comm.purchasable === true || s(comm.price) !== "");
-      if (!fedByConnection && !boughtAtNode && !purchasable) {
+      if (!fedByLink && !boughtAtNode && !purchasable) {
         add({
           id: `unsatisfied-input:${mid}:${c}`,
           rule: "unsatisfied-input",
           severity: "error",
           title: "Unsatisfied input",
-          message: `"${mid}" needs "${c}" but nothing supplies it — no upstream connection, no market, and it isn't purchasable.`,
+          message: `"${mid}" needs "${c}" but nothing supplies it — no upstream link, no market, and it isn't purchasable.`,
           scope: { nodeId: mid, commodityId: c },
           fix: {
             label: `Make ${c} purchasable`,
@@ -308,21 +308,21 @@ export function validateModel(wb: Workbook): Issue[] {
     }
   }
 
-  // ── Connections to/from a node that doesn't exist ────────────────────────────
-  connections.forEach((r, rowIndex) => {
+  // ── Links to/from a node that doesn't exist ────────────────────────────
+  links.forEach((r, rowIndex) => {
     const from = s(r.from_node);
     const to = s(r.to_node);
     const bad = (from && !nodeIds.has(from)) || (to && !nodeIds.has(to));
     if (bad) {
       add({
-        id: `connection-dangling-node:${rowIndex}`,
-        rule: "connection-dangling-node",
+        id: `link-dangling-node:${rowIndex}`,
+        rule: "link-dangling-node",
         severity: "warning",
-        title: "Dangling connection",
-        message: `A "${s(r.commodity_id)}" connection references a node that no longer exists.`,
-        sheet: "connections",
+        title: "Dangling link",
+        message: `A "${s(r.commodity_id)}" link references a node that no longer exists.`,
+        sheet: "links",
         rowIndex,
-        fix: { label: "Remove", descriptor: { kind: "removeRow", sheet: "connections", rowIndex } },
+        fix: { label: "Remove", descriptor: { kind: "removeRow", sheet: "links", rowIndex } },
       });
     }
   });

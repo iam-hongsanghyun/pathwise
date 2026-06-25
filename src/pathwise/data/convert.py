@@ -2,15 +2,15 @@
 
 A pre-hierarchy workbook describes facilities in a flat ``processes`` sheet wired
 by ``edges``, scoped by ``company`` / ``group`` strings. :func:`to_hierarchy`
-turns that into the ``nodes`` / ``assets`` / ``connections`` tree the builder
+turns that into the ``nodes`` / ``assets`` / ``links`` tree the builder
 and per-level solver use: a value-chain root → company groups → facility groups
-→ one asset per process; edges become connections. No sector knowledge — it
+→ one asset per process; edges become links. No sector knowledge — it
 reads only the generic scope columns.
 """
 
 from __future__ import annotations
 
-from pathwise.data.sheets import ASSETS, CONNECTIONS, EDGES, NODE_LAYOUT, NODES, PROCESSES
+from pathwise.data.sheets import ASSETS, EDGES, LINKS, NODE_LAYOUT, NODES, PROCESSES
 from pathwise.data.workbook import Workbook
 
 
@@ -45,7 +45,7 @@ def to_hierarchy(
 
     A no-op if it already has ``nodes`` (already a hierarchy) or no ``processes``.
     The catalogue/scenario sheets are kept verbatim; ``processes`` / ``edges`` /
-    ``node_layout`` are replaced by ``nodes`` / ``assets`` / ``connections``.
+    ``node_layout`` are replaced by ``nodes`` / ``assets`` / ``links``.
     """
     if workbook.get(NODES):
         return workbook
@@ -122,17 +122,17 @@ def to_hierarchy(
             m["max_renewals"] = p.get("max_renewals")
         assets.append(m)
 
-    connections: list[dict[str, object]] = []
+    links: list[dict[str, object]] = []
     for e in workbook.get(EDGES, []):
         f, t, c = _s(e.get("from_process")), _s(e.get("to_process")), _s(e.get("commodity_id"))
         if f and t and c:
             row: dict[str, object] = {"from_node": f, "to_node": t, "commodity_id": c}
             if e.get("lag_years") is not None:
                 row["lag_years"] = e.get("lag_years")
-            connections.append(row)
+            links.append(row)
 
     out = {k: v for k, v in workbook.items() if k not in (PROCESSES, EDGES, NODE_LAYOUT)}
     out[NODES] = _dedupe_nodes(nodes, root_id)
     out[ASSETS] = assets
-    out[CONNECTIONS] = connections
+    out[LINKS] = links
     return out

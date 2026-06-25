@@ -125,7 +125,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     const deadLevers = new Set((workbook.levers ?? []).filter((r) => doomed.has(s(r.facility))).map((r) => s(r.lever_id)));
     let wb = setSheet(workbook, "nodes", (workbook.nodes ?? []).filter((r) => !doomed.has(s(r.node_id))));
     wb = setSheet(wb, "assets", (wb.assets ?? []).filter((r) => !doomed.has(s(r.asset_id))));
-    wb = setSheet(wb, "connections", (wb.connections ?? []).filter((r) => !doomed.has(s(r.from_node)) && !doomed.has(s(r.to_node))));
+    wb = setSheet(wb, "links", (wb.links ?? []).filter((r) => !doomed.has(s(r.from_node)) && !doomed.has(s(r.to_node))));
     wb = setSheet(wb, "levers", (wb.levers ?? []).filter((r) => !doomed.has(s(r.facility))));
     wb = setSheet(wb, "lever_blocks", (wb.lever_blocks ?? []).filter((r) => !deadLevers.has(s(r.lever_id))));
     wb = setSheet(wb, "markets", (wb.markets ?? []).filter((r) => !doomed.has(s(r.company))));
@@ -201,18 +201,18 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
       (workbook.transitions ?? []).filter((r) => !(s(r.from_technology) === baseline && s(r.to_technology) === technology))));
   }
 
-  // ── Connections (pure wiring — flow limits are asset→asset, set in the
-  //    asset popup per provider asset; a group connection just routes flow). ──
-  function addConnection(from: string, to: string, commodity: string, lag: number) {
+  // ── Links (pure wiring — flow limits are asset→asset, set in the
+  //    asset popup per provider asset; a group link just routes flow). ──
+  function addLink(from: string, to: string, commodity: string, lag: number) {
     if (!from || !to || from === to || !commodity) return;
-    setWorkbook(setSheet(workbook, "connections", [...(workbook.connections ?? []), { from_node: from, to_node: to, commodity_id: commodity, lag_years: lag }]));
+    setWorkbook(setSheet(workbook, "links", [...(workbook.links ?? []), { from_node: from, to_node: to, commodity_id: commodity, lag_years: lag }]));
   }
-  function editConnection(rowIndex: number, commodity: string, lag: number) {
+  function editLink(rowIndex: number, commodity: string, lag: number) {
     if (!commodity) return;
-    setWorkbook(setSheet(workbook, "connections", (workbook.connections ?? []).map((r, i) => (i === rowIndex ? { ...r, commodity_id: commodity, lag_years: lag } : r))));
+    setWorkbook(setSheet(workbook, "links", (workbook.links ?? []).map((r, i) => (i === rowIndex ? { ...r, commodity_id: commodity, lag_years: lag } : r))));
   }
-  function deleteConnection(rowIndex: number) {
-    setWorkbook(setSheet(workbook, "connections", (workbook.connections ?? []).filter((_, i) => i !== rowIndex)));
+  function deleteLink(rowIndex: number) {
+    setWorkbook(setSheet(workbook, "links", (workbook.links ?? []).filter((_, i) => i !== rowIndex)));
   }
 
   // ── Purchasing (markets scoped to a node) ───────────────────────────────────
@@ -437,9 +437,9 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 editable
                 selectedId={selId}
                 onSelect={(id) => { setShowHealth(false); setSelId(id); }}
-                onAddConnection={addConnection}
-                onEditConnection={editConnection}
-                onDeleteConnection={deleteConnection}
+                onAddLink={addLink}
+                onEditLink={editLink}
+                onDeleteLink={deleteLink}
                 onBackgroundClick={() => { setShowHealth(false); setSelId(null); }}
                 commodities={commodities}
               />
@@ -568,7 +568,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
           fromLabel={nodeById.get(connectFrom)?.label ?? connectFrom}
           targets={nodes.filter((n) => n.id !== connectFrom).map((n) => ({ id: n.id, label: `${n.label}${n.level ? ` · ${n.level}` : ""}` }))}
           commodities={commodities}
-          onConfirm={(to, commodity, lag) => { addConnection(connectFrom, to, commodity, lag); setConnectFrom(null); }}
+          onConfirm={(to, commodity, lag) => { addLink(connectFrom, to, commodity, lag); setConnectFrom(null); }}
           onClose={() => setConnectFrom(null)}
         />
       )}

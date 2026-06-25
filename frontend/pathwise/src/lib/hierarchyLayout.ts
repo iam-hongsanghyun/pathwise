@@ -3,7 +3,7 @@
 // three render modes — nested containers, swimlanes-by-level, and an expandable
 // (collapsible) nested view. No React, no I/O; mirrors the .topo-* sizing.
 
-import { childrenOf, levelConnections, parseNodes, type GroupNode } from "./groupGraph";
+import { childrenOf, levelLinks, parseNodes, type GroupNode } from "./groupGraph";
 import type { Workbook } from "../types";
 
 export type MapMode = "nested" | "swimlane" | "expandable";
@@ -30,7 +30,7 @@ export interface LaidNode {
 }
 
 /** A asset→asset flow to draw, resolved to the deepest VISIBLE endpoints.
- *  `origFrom`/`origTo` keep the real connection endpoints so the per-year
+ *  `origFrom`/`origTo` keep the real link endpoints so the per-year
  *  overlay (keyed by the actual asset ids) can be looked up even when the
  *  drawn endpoints are collapsed group boxes. */
 export interface LaidEdge {
@@ -138,7 +138,7 @@ export function layoutNested(wb: Workbook, opts: NestOpts = {}): Laid {
       box = { w: LEAF_W, h: LEAF_H };
     } else {
       const kids = childrenOf(nodes, n.id);
-      const edges = levelConnections(wb, n.id);
+      const edges = levelLinks(wb, n.id);
       const col = columnsOf(kids.map((k) => k.id), edges);
       const byCol = new Map<number, GroupNode[]>();
       for (const k of kids) {
@@ -190,7 +190,7 @@ export function layoutNested(wb: Workbook, opts: NestOpts = {}): Laid {
     });
     if (!open) return;
     const kids = childrenOf(nodes, n.id);
-    const edges = levelConnections(wb, n.id);
+    const edges = levelLinks(wb, n.id);
     const col = columnsOf(kids.map((k) => k.id), edges);
     const byCol = new Map<number, GroupNode[]>();
     for (const k of kids) {
@@ -306,7 +306,7 @@ function resolveEdges(wb: Workbook, nodes: GroupNode[], laid: LaidNode[]): LaidE
   const toVisible = visibleAncestor(nodes, visible);
   const out: LaidEdge[] = [];
   const seen = new Set<string>();
-  (wb.connections ?? []).forEach((row, i) => {
+  (wb.links ?? []).forEach((row, i) => {
     const origFrom = s(row.from_node);
     const origTo = s(row.to_node);
     const from = toVisible(origFrom);
@@ -368,12 +368,12 @@ export function layoutFor(
   return layoutNested(wb, { orientation });
 }
 
-/** One editable edge per `connections` row, resolved to the deepest VISIBLE
+/** One editable edge per `links` row, resolved to the deepest VISIBLE
  *  endpoints (so a collapsed group still receives its descendants' links). Keeps
  *  `rowIndex`/`lag` so the editor can address and delete the exact row — unlike
  *  the read-only `Laid.edges`, which dedupes for display. */
 export interface EditEdge {
-  /** The connections-sheet row, or -1 when this is an AGGREGATE of several rows
+  /** The links-sheet row, or -1 when this is an AGGREGATE of several rows
    *  (many asset→asset links, or several commodities, folded onto one arrow). */
   rowIndex: number;
   from: string;
@@ -387,7 +387,7 @@ export interface EditEdge {
   /** Per-provider annual flow bounds (null = unset). */
   maxFlow: number | null;
   minFlow: number | null;
-  /** How many underlying connections this arrow represents (1 = a single link). */
+  /** How many underlying links this arrow represents (1 = a single link). */
   count: number;
 }
 
@@ -518,7 +518,7 @@ export function editEdges(wb: Workbook, laid: LaidNode[], flowLevel: string | nu
     const ct = childOnSide(at);
     return cf && ct ? [cf, ct] : null;
   };
-  // Resolve one connection's drawn endpoints for the current flow level:
+  // Resolve one link's drawn endpoints for the current flow level:
   //   • a level  → that level if the two sides sit in DIFFERENT level-groups;
   //                otherwise (an intra-group link) fall back to the diverging
   //                level so it is still shown rather than dropped. The top
@@ -535,12 +535,12 @@ export function editEdges(wb: Workbook, laid: LaidNode[], flowLevel: string | nu
     }
     return [toVisible(rawFrom), toVisible(rawTo)];
   };
-  // Map every connection onto its drawn endpoints, then aggregate by (from, to)
+  // Map every link onto its drawn endpoints, then aggregate by (from, to)
   // — ALL commodities between the same two boxes fold onto ONE arrow that lists
   // each flow's name. A single underlying link stays editable; anything folded
   // (several links, or several commodities) becomes a display-only arrow.
   const groups = new Map<string, EditEdge[]>();
-  (wb.connections ?? []).forEach((row, rowIndex) => {
+  (wb.links ?? []).forEach((row, rowIndex) => {
     const [from, to] = endpointsFor(s(row.from_node), s(row.to_node));
     if (!from || !to || from === to) return;
     const commodity = s(row.commodity_id, "—");

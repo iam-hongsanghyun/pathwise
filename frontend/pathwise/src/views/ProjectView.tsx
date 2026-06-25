@@ -85,7 +85,7 @@ export function ProjectView({
 
   const nodes = workbook.nodes?.length ?? 0;
   const assets = workbook.assets?.length ?? 0;
-  const connections = workbook.connections?.length ?? 0;
+  const links = workbook.links?.length ?? 0;
 
   // Project-wide economics (stored on the model `meta` sheet, so they travel).
   const currency = modelCurrency(workbook);
@@ -418,8 +418,8 @@ export function ProjectView({
             <span>{nodes}</span>
             <span className="muted">assets</span>
             <span>{assets}</span>
-            <span className="muted">connections</span>
-            <span>{connections}</span>
+            <span className="muted">links</span>
+            <span>{links}</span>
           </div>
         </section>
       </main>

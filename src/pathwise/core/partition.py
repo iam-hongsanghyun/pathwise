@@ -72,7 +72,7 @@ def _project(flat: Workbook, members: set[str], cut: str, h: Hierarchy) -> Workb
     """A flat, self-contained sub-workbook for one cut node."""
     sub: Workbook = {}
     for sheet, rows in flat.items():
-        if sheet in ("nodes", "assets", "connections", "ports"):
+        if sheet in ("nodes", "assets", "links", "ports"):
             continue  # the sub-workbook is flat (no re-expansion)
         if sheet == "processes":
             sub[sheet] = [r for r in rows if str(r.get("process_id")) in members]
@@ -142,7 +142,7 @@ def partition(
 
     links: list[CouplingLink] = []
     seen: set[tuple[str, str, str]] = set()
-    for conn in hierarchy.connections:
+    for conn in hierarchy.links:
         for fc in _cuts_for(conn.from_node, cut_set, hierarchy):
             for tc in _cuts_for(conn.to_node, cut_set, hierarchy):
                 if fc == tc or fc not in cut_set or tc not in cut_set:
@@ -211,7 +211,7 @@ def subset_workbook(workbook: Workbook, hierarchy: Hierarchy, keep: list[str]) -
             sub[sheet] = [r for r in rows if str(r.get("node_id")) in members]
         elif sheet == "assets":
             sub[sheet] = [r for r in rows if str(r.get("asset_id")) in members]
-        elif sheet == "connections":
+        elif sheet == "links":
             sub[sheet] = [
                 r
                 for r in rows

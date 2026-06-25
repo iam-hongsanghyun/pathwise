@@ -308,7 +308,7 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
 
     Each asset becomes one ``Process`` — so a facility is the *sum of its
     assets* and can run **multiple technologies in parallel** — and
-    asset↔asset connections become edges. ``company`` is set to the asset's
+    asset↔asset links become edges. ``company`` is set to the asset's
     top-level subdivision (the child of the root, e.g. the company/sector) and
     ``group`` to its parent (the facility), so the existing facility/company/
     asset scope still resolves for the canonical depth; arbitrary mid-levels are
@@ -387,7 +387,7 @@ def _expand_hierarchy(workbook: Workbook, h: Hierarchy) -> Workbook:
         and (t := _str(e.get("to_process")))
         and (ci := _str(e.get("commodity_id")))
     }
-    for c in h.connections:
+    for c in h.links:
         for s in producers(c.from_node, c.commodity_id):
             for d in consumers(c.to_node, c.commodity_id):
                 if s == d or (s, d, c.commodity_id) in seen_edges:
@@ -1211,7 +1211,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             )
         )
 
-    # ── Connection routes: physicalised value-chain stream connections ───────
+    # ── Connection routes: physicalised value-chain stream links ───────
     # A ``routes`` row that names a stream (``commodity``) and is NOT itself a
     # transport process is a *physicalised connection*: it governs the producer→
     # consumer edges of that connection (under its from/to nodes) and is carried by

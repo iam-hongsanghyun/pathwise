@@ -57,7 +57,7 @@ const IMPACT_ID_SHEETS = [
   "process_impacts_t",
   "commodity_impacts",
   "commodity_impacts_t",
-  "connection_impacts",
+  "link_impacts",
   "edge_impacts",
   "impact_caps",
   "impact_caps_t__limit",

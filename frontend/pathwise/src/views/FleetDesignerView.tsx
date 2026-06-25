@@ -1,7 +1,7 @@
 // Fleet designer — a NEW transport layer, SEPARATE from facility / value chain.
 // LEFT sidebar = AccordionSidebar with four sections:
 //   1. Fleets  — fleet registry (fleet_groups + fleet; NEVER nodes)
-//   2. Routes  — value-chain stream connections whose two endpoints are located
+//   2. Routes  — value-chain stream links whose two endpoints are located
 //   3. Facility — drag an endpoint onto the map to give it a location
 //   4. Chokepoint risk — maritime chokepoint probability + per-voyage toll editor
 // CENTER = the world map. Pop-ups (FloatingPanel) edit a fleet / port / route.
@@ -23,7 +23,7 @@ import {
   facilityTree,
   fleetId,
   fleetRegistryTree,
-  parseConnections,
+  parseLinks,
   parseFleetGroups,
   routeTree,
   type RouteLeaf,
@@ -137,8 +137,8 @@ export function FleetDesignerView({
     [corridorProbs],
   );
 
-  const connections = useMemo(() => parseConnections(workbook), [workbook]);
-  const routeLeaves = useMemo(() => buildRouteLeaves(connections, routes, coord), [connections, routes, coord]);
+  const links = useMemo(() => parseLinks(workbook), [workbook]);
+  const routeLeaves = useMemo(() => buildRouteLeaves(links, routes, coord), [links, routes, coord]);
   const leafByProc = useMemo(() => new Map(routeLeaves.map((l) => [l.proc, l])), [routeLeaves]);
   const leftTree = useMemo(() => fleetRegistryTree(fleetGroups, fleets), [fleetGroups, fleets]);
   const routesTree = useMemo(() => routeTree(routeLeaves, (id) => nodeById.get(id)?.label ?? id), [routeLeaves, nodeById]);
@@ -364,7 +364,7 @@ export function FleetDesignerView({
     else patchFleetGroup(e.dragId, { parent_id: newParent ?? "" });
   }
 
-  // ── Routes: physicalise a stream connection + locate its endpoints ───────────
+  // ── Routes: physicalise a stream link + locate its endpoints ───────────
   function selectRoute(leaf: RouteLeaf) {
     if (!leaf.physical && !routes.some((r) => s(r.process) === leaf.proc))
       setWorkbook(setSheet(workbook, "routes", [...routes, { process: leaf.proc, from_node: leaf.from, to_node: leaf.to, commodity: leaf.commodity, mode: "sea" }]));

@@ -189,36 +189,36 @@ export function setSupplyCap(wb: Workbook, commodity: string, value: Bound | nul
   return { ...wb, commodities, [SUPPLY_T]: Array.from(byYearRow.values()) };
 }
 
-// ── Per-connection flow bounds (min / max offtake on one provider→consumer link) ─
-// A static bound is the `min_flow` / `max_flow` column on the connection row; a
-// temporal bound lives in the long `connections_t` sheet (from_node, to_node,
+// ── Per-link flow bounds (min / max offtake on one provider→consumer link) ─
+// A static bound is the `min_flow` / `max_flow` column on the link row; a
+// temporal bound lives in the long `links_t` sheet (from_node, to_node,
 // commodity_id, year, min_flow, max_flow), which the engine fans onto edges and
 // interpolates. The two stores are kept mutually exclusive per bound.
 
-const CONN_T = "connections_t";
+const CONN_T = "links_t";
 type FlowSide = "min_flow" | "max_flow";
 
-const matchesConn = (r: Row, from: string, to: string, commodity: string): boolean =>
+const matchesLink = (r: Row, from: string, to: string, commodity: string): boolean =>
   s(r.from_node) === from && s(r.to_node) === to && s(r.commodity_id) === commodity;
 
-/** One side's bound for a connection: a {year: value} map if `connections_t`
+/** One side's bound for a link: a {year: value} map if `links_t`
  *  carries it, a number if a static column, else null. */
 function connBound(wb: Workbook, from: string, to: string, commodity: string, side: FlowSide): Bound | null {
   const by: ByYear = {};
   for (const r of wb[CONN_T] ?? []) {
-    if (!matchesConn(r, from, to, commodity)) continue;
+    if (!matchesLink(r, from, to, commodity)) continue;
     const v = (r as Record<string, Cell>)[side];
     if (!isYearless(r) && v != null && String(v).trim() !== "")
       by[String(Math.round(Number(r.year)))] = Number(v) || 0;
   }
   if (Object.keys(by).length) return by;
-  const row = (wb.connections ?? []).find((r) => matchesConn(r, from, to, commodity));
+  const row = (wb.links ?? []).find((r) => matchesLink(r, from, to, commodity));
   const v = (row as Record<string, Cell> | undefined)?.[side];
   return v == null || String(v).trim() === "" ? null : Number(v) || 0;
 }
 
-/** Both bounds for a connection (for the connection editor's initial state). */
-export const connectionFlow = (
+/** Both bounds for a link (for the link editor's initial state). */
+export const linkFlow = (
   wb: Workbook,
   from: string,
   to: string,
@@ -228,13 +228,13 @@ export const connectionFlow = (
   max: connBound(wb, from, to, commodity, "max_flow"),
 });
 
-/** The scalar to write on a connection row: the number itself, else blank (a
- *  temporal or absent bound lives in `connections_t`, not the row). */
+/** The scalar to write on a link row: the number itself, else blank (a
+ *  temporal or absent bound lives in `links_t`, not the row). */
 export const connStatic = (b: Bound | null): Cell => (typeof b === "number" ? b : "");
 
-/** Rewrite the `connections_t` rows for one connection: drop its existing rows,
+/** Rewrite the `links_t` rows for one link: drop its existing rows,
  *  then add a per-year row for each temporal bound (min/max merged per year). */
-export function setConnectionTemporal(
+export function setLinkTemporal(
   wb: Workbook,
   from: string,
   to: string,
@@ -242,7 +242,7 @@ export function setConnectionTemporal(
   min: Bound | null,
   max: Bound | null,
 ): Workbook {
-  const rows = (wb[CONN_T] ?? []).filter((r) => !matchesConn(r, from, to, commodity));
+  const rows = (wb[CONN_T] ?? []).filter((r) => !matchesLink(r, from, to, commodity));
   const byYear = new Map<string, Row>();
   const add = (b: Bound | null, side: FlowSide) => {
     if (b == null || typeof b === "number") return;
@@ -261,10 +261,10 @@ export function setConnectionTemporal(
   return rest;
 }
 
-/** Set BOTH stores for an EXISTING connection (no new wiring): the static column
- *  on the connection row + the temporal `connections_t` rows. Used when editing a
- *  per-provider bound from the buyer's popup rather than the connection editor. */
-export function setConnectionBounds(
+/** Set BOTH stores for an EXISTING link (no new wiring): the static column
+ *  on the link row + the temporal `links_t` rows. Used when editing a
+ *  per-provider bound from the buyer's popup rather than the link editor. */
+export function setLinkBounds(
   wb: Workbook,
   from: string,
   to: string,
@@ -274,11 +274,11 @@ export function setConnectionBounds(
 ): Workbook {
   const withStatic: Workbook = {
     ...wb,
-    connections: (wb.connections ?? []).map((r) =>
-      matchesConn(r, from, to, commodity) ? { ...r, min_flow: connStatic(min), max_flow: connStatic(max) } : r,
+    links: (wb.links ?? []).map((r) =>
+      matchesLink(r, from, to, commodity) ? { ...r, min_flow: connStatic(min), max_flow: connStatic(max) } : r,
     ),
   };
-  return setConnectionTemporal(withStatic, from, to, commodity, min, max);
+  return setLinkTemporal(withStatic, from, to, commodity, min, max);
 }
 
 // ── Per-asset→asset edge flow bounds (the asset-only per-provider model) ──

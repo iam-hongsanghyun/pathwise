@@ -72,8 +72,8 @@ export function facilityTree(nodes: GroupNode[], coord: Map<string, { lon: numbe
   }));
 }
 
-// ── Routes = physicalised value-chain stream connections ──────────────────────
-// A value-chain `connection` (from_node → to_node carrying a commodity) is a VIRTUAL
+// ── Routes = physicalised value-chain stream links ──────────────────────
+// A value-chain `link` (from_node → to_node carrying a commodity) is a VIRTUAL
 // stream flow — "teleportation": free + instant. It becomes a PHYSICAL route once its
 // two endpoints carry a location AND it is given physical info (mode/fleet). The TOP
 // of the right rail lists these grouped by stream; the BOTTOM lets a user drag an
@@ -84,19 +84,19 @@ export const NODE_DRAG_TYPE = "application/x-pathwise-node";
 
 const slug = (v: string): string => v.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 
-/** Stable `routes`/`fleet_routes` process key for a (from, to, commodity) connection. */
+/** Stable `routes`/`fleet_routes` process key for a (from, to, commodity) link. */
 export const routeProc = (from: string, to: string, commodity: string): string =>
   `r_${slug(from)}__${slug(to)}__${slug(commodity)}`;
 
-/** A directed stream flow between two nodes (from the hierarchy `connections` or the
+/** A directed stream flow between two nodes (from the hierarchy `links` or the
  *  flat `edges`), deduped by (from, to, commodity). */
-export interface StreamConn {
+export interface StreamLink {
   from: string;
   to: string;
   commodity: string;
 }
-export function parseConnections(wb: Workbook): StreamConn[] {
-  const out: StreamConn[] = [];
+export function parseLinks(wb: Workbook): StreamLink[] {
+  const out: StreamLink[] = [];
   const seen = new Set<string>();
   const add = (from: string, to: string, commodity: string) => {
     if (!from || !to || from === to) return;
@@ -105,32 +105,32 @@ export function parseConnections(wb: Workbook): StreamConn[] {
     seen.add(k);
     out.push({ from, to, commodity });
   };
-  for (const r of wb.connections ?? []) add(s(r.from_node), s(r.to_node), s(r.commodity_id));
+  for (const r of wb.links ?? []) add(s(r.from_node), s(r.to_node), s(r.commodity_id));
   for (const r of wb.edges ?? []) add(s(r.from_process), s(r.to_process), s(r.commodity_id));
   return out;
 }
 
-/** One route leaf: a physicalised route row, or a located connection ready to become one. */
+/** One route leaf: a physicalised route row, or a located link ready to become one. */
 export interface RouteLeaf {
   proc: string;
   from: string;
   to: string;
   commodity: string;
   mode: string;
-  /** true = a real `routes` row exists; false = a located connection candidate. */
+  /** true = a real `routes` row exists; false = a located link candidate. */
   physical: boolean;
 }
 
-/** All route leaves: every existing `routes` row, plus every located `connection` that
+/** All route leaves: every existing `routes` row, plus every located `link` that
  *  doesn't yet have one (a candidate the user can physicalise). */
 export function buildRouteLeaves(
-  connections: StreamConn[],
+  links: StreamLink[],
   routesRows: Row[],
   coord: Map<string, { lon: number; lat: number }>,
 ): RouteLeaf[] {
   const leaves: RouteLeaf[] = [];
   const byProc = new Set<string>();
-  // Dedup a connection candidate against an existing route row that already covers
+  // Dedup a link candidate against an existing route row that already covers
   // the same (from, to, commodity) — even if that row's process id doesn't follow
   // the routeProc convention (e.g. an imported example using its own ids).
   const byTriple = new Set<string>();
@@ -145,7 +145,7 @@ export function buildRouteLeaves(
     byTriple.add(triple(from, to, commodity));
     leaves.push({ proc, from, to, commodity, mode: s(r.mode) || "sea", physical: true });
   }
-  for (const c of connections) {
+  for (const c of links) {
     if (!coord.has(c.from) || !coord.has(c.to)) continue;
     if (byTriple.has(triple(c.from, c.to, c.commodity))) continue;
     const proc = routeProc(c.from, c.to, c.commodity);
@@ -156,7 +156,7 @@ export function buildRouteLeaves(
   return leaves;
 }
 
-/** TOP rail tree: streams (commodity) → located connection leaves. */
+/** TOP rail tree: streams (commodity) → located link leaves. */
 export function routeTree(leaves: RouteLeaf[], labelOf: (id: string) => string): TreeNode[] {
   const groups = new Map<string, RouteLeaf[]>();
   for (const l of leaves) {
@@ -173,19 +173,19 @@ export function routeTree(leaves: RouteLeaf[], labelOf: (id: string) => string):
   return out;
 }
 
-/** BOTTOM rail: distinct connection endpoints to place on the map (unplaced first). */
+/** BOTTOM rail: distinct link endpoints to place on the map (unplaced first). */
 export interface Endpoint {
   id: string;
   label: string;
   located: boolean;
 }
 export function endpointList(
-  connections: StreamConn[],
+  links: StreamLink[],
   labelOf: (id: string) => string,
   coord: Map<string, { lon: number; lat: number }>,
 ): Endpoint[] {
   const ids = new Set<string>();
-  for (const c of connections) {
+  for (const c of links) {
     ids.add(c.from);
     ids.add(c.to);
   }

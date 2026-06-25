@@ -152,7 +152,7 @@ export function RouteAnalytics({ workbook, result }: { workbook: Workbook; resul
   const fmt = (v: number) => (v >= 1000 ? Math.round(v).toLocaleString() : v.toPrecision(3));
 
   if (years.length === 0 || geo.size === 0)
-    return <p className="muted" style={{ padding: 16 }}>No physical routes in this result. Physicalise a value-chain connection in the Fleet tab and re-run.</p>;
+    return <p className="muted" style={{ padding: 16 }}>No physical routes in this result. Physicalise a value-chain link in the Fleet tab and re-run.</p>;
 
   return (
     <>

@@ -118,17 +118,17 @@ export function AssetInspector({
   const lab = (id: string): string => labelOf.get(id) || id.split("/").pop() || id;
 
   // Connected counterpart group(s) for a stream: who sends it in / takes it out
-  // (a connection wired at this node or any ancestor).
+  // (a link wired at this node or any ancestor).
   const partners = (c: string, dir: "in" | "out"): string[] => {
     const near = dir === "in" ? "to_node" : "from_node";
     const far = dir === "in" ? "from_node" : "to_node";
-    const g = (wb.connections ?? [])
+    const g = (wb.links ?? [])
       .filter((x) => s(x.commodity_id) === c && scope.has(s(x[near])) && !scope.has(s(x[far])))
       .map((x) => lab(s(x[far])));
     return [...new Set(g)];
   };
   // The actual provider ASSETS feeding input commodity `c` to THIS asset —
-  // resolved through connections (at any level) down to the producing assets, so
+  // resolved through links (at any level) down to the producing assets, so
   // a per-provider limit is genuinely asset→asset. Groups are visual only.
   const providerAssets = (c: string): { id: string; label: string; via: string }[] => {
     const techMakes = (techId: string): boolean =>
@@ -137,7 +137,7 @@ export function AssetInspector({
       );
     const seen = new Set<string>();
     const out: { id: string; label: string; via: string }[] = [];
-    for (const x of wb.connections ?? []) {
+    for (const x of wb.links ?? []) {
       if (s(x.commodity_id) !== c) continue;
       const from = s(x.from_node);
       const to = s(x.to_node);
@@ -224,7 +224,7 @@ export function AssetInspector({
 
   // One stream (an io commodity): a grid of [name | min | max]. OUTPUT bounds the
   // asset's production; INPUT bounds the pooled intake (min = required offtake,
-  // max = max purchase) AND lists each provider connection so the buyer can cap
+  // max = max purchase) AND lists each provider link so the buyer can cap
   // purchase per producer.
   const streamFlow = (r: Record<string, Cell>, role: "IN" | "OUT") => {
     const c = s(r.target);
@@ -303,7 +303,7 @@ export function AssetInspector({
 
       {/* Asset-level facts are FIXED properties of the asset, shown read-only
           here (dense). They are edited in the Facility view; the value-chain map is
-          the market — connections, prices and per-stream limits (above). */}
+          the market — links, prices and per-stream limits (above). */}
       <div className="mi-section-head"><span>asset</span><span className="muted">fixed — edit in Facility</span></div>
       <div className="mi-note" style={{ display: "flex", flexWrap: "wrap", gap: "2px 14px", marginTop: 4 }}>
         <span>capacity <b>{fmt(Number(asset.capacity) || 0)}</b> {thru}/yr</span>
@@ -344,8 +344,8 @@ export function AssetInspector({
 }
 
 // ── Flow context: what feeds a node, and what it feeds ────────────────────────
-// Reads the raw `connections` (which may be wired at any level — e.g. a
-// country→country link), and shows every connection touching the selected node
+// Reads the raw `links` (which may be wired at any level — e.g. a
+// country→country link), and shows every link touching the selected node
 // OR an ancestor of it, so even a lone asset displays its upstream/downstream.
 // When one input commodity has MORE THAN ONE supplier, it lists them as N
 // "sources" (distinct from the alternative-technologies feature).
@@ -358,7 +358,7 @@ export function FlowContext({ wb, nodeId }: { wb: Workbook; nodeId: string }) {
   const lab = (id: string): string => labelOf.get(id) || id.split("/").pop() || id;
 
   // What this node's SUBTREE actually produces / consumes — so a country-level
-  // connection is attributed to a node only for commodities it really handles
+  // link is attributed to a node only for commodities it really handles
   // (the iron-ore mine produces iron_ore, not the hydrogen its sibling makes).
   const { produces, consumes } = useMemo(() => {
     const childrenOf = new Map<string, string[]>();
@@ -383,7 +383,7 @@ export function FlowContext({ wb, nodeId }: { wb: Workbook; nodeId: string }) {
 
   const inByComm = new Map<string, Set<string>>(); // commodity → source nodes (before)
   const outByComm = new Map<string, Set<string>>(); // commodity → target nodes (next)
-  for (const c of wb.connections ?? []) {
+  for (const c of wb.links ?? []) {
     const f = s(c.from_node), t = s(c.to_node), cm = s(c.commodity_id);
     if (!cm) continue;
     if (anc.has(t) && !anc.has(f) && consumes.has(cm)) (inByComm.get(cm) ?? inByComm.set(cm, new Set()).get(cm)!).add(f);

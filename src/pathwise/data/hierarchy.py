@@ -10,7 +10,7 @@ asset" is just one example — ``level`` is free text and depth is unbounded, so
 nothing here is sector-specific.
 
 This module is **pure and read-only**: it parses the optional ``nodes`` /
-``assets`` / ``connections`` / ``ports`` sheets into an immutable
+``assets`` / ``links`` / ``ports`` sheets into an immutable
 :class:`Hierarchy` and answers tree queries (subtree membership, leaf assets,
 designed levels, derived ports). The optimisation engine consumes it elsewhere;
 when these sheets are absent the model stays flat (``load_hierarchy`` returns
@@ -26,9 +26,9 @@ from typing import Any
 
 from pathwise.data.sheets import (
     ASSETS,
-    CONNECTION_IMPACTS,
-    CONNECTIONS,
-    CONNECTIONS_T,
+    LINK_IMPACTS,
+    LINKS,
+    LINKS_T,
     NODES,
     PORTS,
 )
@@ -81,7 +81,7 @@ class Asset:
 
 
 @dataclass(frozen=True, slots=True)
-class Connection:
+class Link:
     """A directed commodity flow between two sibling nodes (generalises an edge).
 
     Attributes:
@@ -150,11 +150,11 @@ def _str(v: Any) -> str | None:
 
 @dataclass(slots=True)
 class Hierarchy:
-    """An immutable node tree plus its connections and ports."""
+    """An immutable node tree plus its links and ports."""
 
     nodes: dict[str, Node]
     assets: dict[str, Asset]
-    connections: list[Connection]
+    links: list[Link]
     ports: list[Port]
     _children: dict[str, list[str]] = field(default_factory=dict)
 
@@ -242,7 +242,7 @@ class Hierarchy:
         return sorted(nid for nid, n in self.nodes.items() if (n.level or n.kind.value) == level)
 
     def derive_ports(self) -> list[Port]:
-        """Boundary ports implied by connections crossing a group boundary.
+        """Boundary ports implied by links crossing a group boundary.
 
         For each connection, every group that contains exactly one of its two
         endpoints exposes a port (``out`` for the producer side, ``in`` for the
@@ -251,7 +251,7 @@ class Hierarchy:
         """
         explicit = {(p.node_id, p.commodity_id, p.direction) for p in self.ports}
         derived: dict[tuple[str, str, str], Port] = {}
-        for c in self.connections:
+        for c in self.links:
             up = {c.from_node} | set(self.ancestors(c.from_node))
             down = {c.to_node} | set(self.ancestors(c.to_node))
             for g in up - down:  # groups containing the producer but not the consumer
@@ -289,7 +289,7 @@ class Hierarchy:
         for nid, n in self.nodes.items():
             if n.kind == NodeKind.ASSET and nid not in self.assets:
                 errors.append(f"asset node '{nid}' has no row in the assets sheet")
-        for c in self.connections:
+        for c in self.links:
             for end in (c.from_node, c.to_node):
                 if end not in self.nodes:
                     errors.append(f"connection references unknown node '{end}'")
@@ -337,7 +337,7 @@ def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
     # Per-year flow bounds (long format), keyed by the connection's node triple.
     minflow_t: dict[tuple[str, str, str], dict[int, float]] = {}
     maxflow_t: dict[tuple[str, str, str], dict[int, float]] = {}
-    for r in workbook.get(CONNECTIONS_T, []):
+    for r in workbook.get(LINKS_T, []):
         f, t, c = _str(r.get("from_node")), _str(r.get("to_node")), _str(r.get("commodity_id"))
         yr = _int(r.get("year"))
         if not (f and t and c) or yr is None:
@@ -349,18 +349,18 @@ def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
 
     # Per-impact freight emissions, keyed by (from, to, commodity) — impact-agnostic.
     conn_emissions: dict[tuple[str, str, str], dict[str, float]] = {}
-    for r in workbook.get(CONNECTION_IMPACTS, []):
+    for r in workbook.get(LINK_IMPACTS, []):
         f, t, c = _str(r.get("from_node")), _str(r.get("to_node")), _str(r.get("commodity_id"))
         imp, fac = _str(r.get("impact_id")), _num(r.get("factor"))
         if f and t and c and imp and fac:
             conn_emissions.setdefault((f, t, c), {})[imp] = fac
 
-    connections: list[Connection] = []
-    for r in workbook.get(CONNECTIONS, []):
+    links: list[Link] = []
+    for r in workbook.get(LINKS, []):
         f, t, c = _str(r.get("from_node")), _str(r.get("to_node")), _str(r.get("commodity_id"))
         if f and t and c:
-            connections.append(
-                Connection(
+            links.append(
+                Link(
                     from_node=f,
                     to_node=t,
                     commodity_id=c,
@@ -382,4 +382,4 @@ def load_hierarchy(workbook: Workbook) -> Hierarchy | None:
         if nid and c and direction in {"in", "out"}:
             ports.append(Port(nid, c, direction, _str(r.get("bind_node"))))
 
-    return Hierarchy(nodes=nodes, assets=assets, connections=connections, ports=ports)
+    return Hierarchy(nodes=nodes, assets=assets, links=links, ports=ports)

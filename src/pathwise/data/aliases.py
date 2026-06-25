@@ -9,8 +9,8 @@ boundary, which renames OLD names to the current canonical (NEW) ones.
 
 It is **idempotent**: a model already in new names passes through unchanged, so it
 is safe to call on every load and on already-migrated models. The maps grow one
-entry-group per rename term as the migration lands; only ``measure→lever`` is wired
-so far.
+entry-group per rename term as the migration lands (``measure→lever``,
+``machine→asset``, ``connection→link`` so far).
 """
 
 from __future__ import annotations
@@ -24,6 +24,9 @@ SHEET_RENAMES: dict[str, str] = {
     "measure_blocks_t": "lever_blocks_t",
     "measure_links": "lever_links",
     "machines": "assets",
+    "connections": "links",
+    "connection_impacts": "link_impacts",
+    "connections_t": "links_t",
 }
 
 #: OLD column name -> NEW column name, applied to every row of every sheet (the

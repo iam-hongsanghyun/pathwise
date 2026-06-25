@@ -15,12 +15,12 @@ from pathwise.data.sheets import (
     ASSETS,
     COMMODITIES,
     COMMODITY_PROPERTIES,
-    CONNECTIONS,
     DEMAND,
     EDGES,
     IMPACTS,
     IO,
     LEVERS,
+    LINKS,
     NODES,
     PROCESS_INPUTS,
     PROCESS_OUTPUTS,
@@ -114,7 +114,7 @@ def validate(workbook: Workbook) -> ValidationReport:
         h = load_hierarchy(workbook)
         if h is not None:
             report.errors.extend(h.check())  # node/cycle/kind/endpoint checks
-            for r in workbook.get(CONNECTIONS, []):
+            for r in workbook.get(LINKS, []):
                 c = str(r.get("commodity_id", ""))
                 if c and c not in commodities:
                     report.errors.append(f"connection references unknown stream '{c}'")
@@ -134,7 +134,7 @@ def validate(workbook: Workbook) -> ValidationReport:
                     io_out.setdefault(tech, set()).add(tgt)
                 elif role == "input":
                     io_in.setdefault(tech, set()).add(tgt)
-            for r in workbook.get(CONNECTIONS, []):
+            for r in workbook.get(LINKS, []):
                 fn, tn = str(r.get("from_node", "")), str(r.get("to_node", ""))
                 com = str(r.get("commodity_id", ""))
                 if not (fn in h.nodes and tn in h.nodes and com):

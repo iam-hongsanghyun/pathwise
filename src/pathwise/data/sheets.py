@@ -175,17 +175,17 @@ ASSETS = "assets"
 #: lag_years, min_flow, max_flow). Optional spatial-transport physics per stream
 #: (opt-in; untagged links stay free): ``freight_cost`` [currency/unit] and
 #: ``freight_energy`` [energy/unit] columns on the flow; per-impact freight emissions
-#: live in ``connection_impacts`` (impact-agnostic — any/all impacts, no hardcoded CO₂).
-CONNECTIONS = "connections"
+#: live in ``link_impacts`` (impact-agnostic — any/all impacts, no hardcoded CO₂).
+LINKS = "links"
 
 #: Per-impact freight emissions on a connection (from_node, to_node, commodity_id,
 #: impact_id, factor [impact unit / commodity unit]). Mirrors ``commodity_impacts``;
 #: priced at each impact's own price in the objective. No privileged impact.
-CONNECTION_IMPACTS = "connection_impacts"
+LINK_IMPACTS = "link_impacts"
 
 #: Long-format per-year connection flow bounds (from_node, to_node, commodity_id,
 #: year, min_flow, max_flow) — the node-space counterpart of ``edges_t``.
-CONNECTIONS_T = "connections_t"
+LINKS_T = "links_t"
 
 #: Boundary ports exposed by group nodes (node_id, commodity_id, direction, …).
 PORTS = "ports"
@@ -198,11 +198,11 @@ NODE_LAYOUT = "node_layout"
 #: Directed commodity flows between flat processes (from_process, to_process,
 #: commodity_id, min_flow, max_flow, lag_years). Optional spatial-transport physics
 #: per edge: ``freight_cost`` / ``freight_energy`` columns; per-impact freight
-#: emissions live in ``edge_impacts`` (see CONNECTIONS / CONNECTION_IMPACTS).
+#: emissions live in ``edge_impacts`` (see LINKS / LINK_IMPACTS).
 EDGES = "edges"
 
 #: Per-impact freight emissions on a flat edge (from_process, to_process,
-#: commodity_id, impact_id, factor) — the flat-model counterpart of CONNECTION_IMPACTS.
+#: commodity_id, impact_id, factor) — the flat-model counterpart of LINK_IMPACTS.
 EDGE_IMPACTS = "edge_impacts"
 
 #: Long-format per-year edge capacity (from_process, to_process, commodity_id,

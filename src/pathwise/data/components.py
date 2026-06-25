@@ -4,17 +4,17 @@ The authoring model: every reusable thing has a unique name and lives in a
 *component library*. A **asset** component is a leaf (a technology recipe + a
 capacity). A **group** component is a composite: it lists its children (each a
 reference to another component, by name, with an instance *alias*) and the
-**connections between those children** — so a group carries its own internal
+**links between those children** — so a group carries its own internal
 wiring and reusing the group reuses the wiring.
 
 Placing a component **instantiates** it: :func:`instantiate` walks the chosen
 component top-down and stamps a fresh INSTANCE of every descendant into the
-recursive ``nodes`` / ``assets`` / ``connections`` hierarchy (path-qualified
+recursive ``nodes`` / ``assets`` / ``links`` hierarchy (path-qualified
 ids keep instances unique), so one definition can be reused in many groups, and
 produces a workbook the engine (and :func:`pathwise.core.run.run_model`) consumes
 directly.
 
-This is the "vertical" (composition) and "horizontal" (connections) design,
+This is the "vertical" (composition) and "horizontal" (links) design,
 together, as data.
 
 :class:`ComponentLibrary` is the *component library*: the editable, SQLite-backed
@@ -37,7 +37,6 @@ from pathwise.data.sheets import (
     COMMODITIES,
     COMMODITY_PRICES,
     COMMODITY_PROPERTIES,
-    CONNECTIONS,
     GROUPS,
     IMPACTS,
     IO,
@@ -45,6 +44,7 @@ from pathwise.data.sheets import (
     LEVER_BLOCKS,
     LEVER_BLOCKS_T,
     LEVERS,
+    LINKS,
     MACCS,
     META,
     NODES,
@@ -103,7 +103,7 @@ class ChildRef(BaseModel):
         return self.alias or self.component
 
 
-class ConnectionTemplate(BaseModel):
+class LinkTemplate(BaseModel):
     """A connection between two sibling children of a group (by their aliases)."""
 
     source: str  # producer child alias
@@ -113,11 +113,11 @@ class ConnectionTemplate(BaseModel):
 
 
 class GroupComponent(BaseModel):
-    """A composite component: named children + the connections that wire them.
+    """A composite component: named children + the links that wire them.
 
     .. deprecated:: legacy / backward-compat
         The builder no longer authors :class:`GroupComponent` objects; composite
-        structures are expressed directly in the ``nodes`` / ``connections``
+        structures are expressed directly in the ``nodes`` / ``links``
         hierarchy via :func:`instantiate_into`.  This class is retained only to
         round-trip legacy ``groups`` sheet rows from older SQLite component
         libraries.
@@ -127,7 +127,7 @@ class GroupComponent(BaseModel):
     label: str = ""
     level: str = ""  # the designed level this group sits at (free text)
     children: list[ChildRef] = Field(min_length=1)
-    connections: list[ConnectionTemplate] = Field(default_factory=list)
+    links: list[LinkTemplate] = Field(default_factory=list)
     #: Free-text notes / references for the authoring UI (optimiser ignores it).
     notes: str = ""
 
@@ -137,7 +137,7 @@ class GroupComponent(BaseModel):
         if len(aliases) != len(set(aliases)):
             raise ValueError(f"group '{self.name}' has duplicate child aliases")
         known = set(aliases)
-        for conn in self.connections:
+        for conn in self.links:
             for end in (conn.source, conn.target):
                 if end not in known:
                     raise ValueError(
@@ -305,7 +305,7 @@ class ProjectBundle(BaseModel):
     Maps onto the three-layer model:
 
     - ``model``: the shared Facility + Value-Chain workbook
-      (nodes / assets / connections / … + the ``project`` sheet that carries the
+      (nodes / assets / links / … + the ``project`` sheet that carries the
       name). The engine runs off this alone — placed recipes are already inlined.
     - ``session_libraries``: the project's OWN (project-specific) component
       libraries, kept verbatim. They live only with the project, never in the base
@@ -384,7 +384,7 @@ def load_component_library(path: str | Path) -> ComponentLibrary:
 # A component library is a nested document; we store it the same generic
 # sheets-in-SQLite way the examples use, so libraries are inspectable with any
 # SQLite tool. The cleanly-flat kinds become tables; the genuinely-nested legacy
-# bits (a asset's measures, a group's children/connections) ride along as a
+# bits (a asset's measures, a group's children/links) ride along as a
 # JSON column so the round-trip stays lossless.
 
 
@@ -485,7 +485,7 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
                     "label": g.label,
                     "level": g.level,
                     "children_json": js([c.model_dump() for c in g.children]),
-                    "connections_json": js([c.model_dump() for c in g.connections]),
+                    "links_json": js([c.model_dump() for c in g.links]),
                 },
                 g.notes,
             )
@@ -757,9 +757,13 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
             children=[
                 ChildRef.model_validate(c) for c in json.loads(_es(r.get("children_json")) or "[]")
             ],
-            connections=[
-                ConnectionTemplate.model_validate(c)
-                for c in json.loads(_es(r.get("connections_json")) or "[]")
+            links=[
+                LinkTemplate.model_validate(c)
+                # ``connections_json`` is the pre-rename column name — read it as a
+                # fallback so component libraries saved before connection→link load.
+                for c in json.loads(
+                    _es(r.get("links_json")) or _es(r.get("connections_json")) or "[]"
+                )
             ],
             notes=_es(r.get("notes")),
         )
@@ -783,7 +787,7 @@ def instantiate(
     """Stamp a component into a recursive hierarchy workbook (one fresh instance).
 
     Recursively places ``component`` and all its descendants as instance nodes
-    (path-qualified ids), emitting the ``nodes`` / ``assets`` / ``connections``
+    (path-qualified ids), emitting the ``nodes`` / ``assets`` / ``links``
     sheets plus the referenced ``technologies`` / ``io`` / ``commodities``. The
     result is a runnable workbook (add ``periods`` + ``demand`` to solve).
 
@@ -792,7 +796,7 @@ def instantiate(
     """
     nodes: list[dict[str, Any]] = []
     assets: list[dict[str, Any]] = []
-    connections: list[dict[str, Any]] = []
+    links: list[dict[str, Any]] = []
     levers: list[dict[str, Any]] = []
     lever_blocks: list[dict[str, Any]] = []
     lever_blocks_t: list[dict[str, Any]] = []
@@ -870,8 +874,8 @@ def instantiate(
             child_id = f"{node_id}/{alias}"
             alias_to_id[alias] = child_id
             place(child.component, child_id, node_id)
-        for conn in group.connections:
-            connections.append(
+        for conn in group.links:
+            links.append(
                 {
                     "from_node": alias_to_id[conn.source],
                     "to_node": alias_to_id[conn.target],
@@ -910,7 +914,7 @@ def instantiate(
     out: Workbook = {
         NODES: nodes,
         ASSETS: assets,
-        CONNECTIONS: connections,
+        LINKS: links,
         TECHNOLOGIES: technologies,
         IO: io,
         COMMODITIES: commodities,
@@ -948,7 +952,7 @@ def instantiate_into(
     The "place a facility into a company" operation of the Value-Chain builder:
     :func:`instantiate` stamps a brand-new instance (path-qualified ids, so two
     companies never share a facility), then this merges that instance into the
-    existing workbook — appending ``nodes`` / ``assets`` / ``connections`` /
+    existing workbook — appending ``nodes`` / ``assets`` / ``links`` /
     ``levers`` / ``lever_blocks`` and merging the referenced
     ``technologies`` / ``io`` / ``commodities`` by id (existing rows win, recipes
     are shared). The instance's root node is re-parented to ``parent_id``.
@@ -984,7 +988,7 @@ def instantiate_into(
     append_keys = (
         NODES,
         ASSETS,
-        CONNECTIONS,
+        LINKS,
         LEVERS,
         LEVER_BLOCKS,
         LEVER_BLOCKS_T,
@@ -1297,7 +1301,7 @@ def extract_library_from_workbook(workbook: Workbook, *, label: str = "") -> Com
 
     The near-inverse of :func:`instantiate`: an imported scenario carries its
     component DEFINITIONS (streams, technology recipes, levers) interleaved with
-    its value-chain STRUCTURE (nodes/assets/connections). This pulls the
+    its value-chain STRUCTURE (nodes/assets/links). This pulls the
     definitions back out into a :class:`ComponentLibrary` so the Component view can
     show the scenario's components, leaving the structure to the Value-chain view.
 
