@@ -35,6 +35,10 @@ export interface MapRoute {
   commodity?: string;
   distanceKm?: number;
   fleets?: string[];
+  /** Maritime chokepoints this lane crosses that carry a risk/toll (labels). */
+  chokepoints?: string[];
+  /** Σ per-voyage toll over those chokepoints (in the model currency). */
+  tollPerVoyage?: number;
 }
 
 interface View {
@@ -72,6 +76,7 @@ export function FleetMap({
   routes,
   selId,
   pendingFrom,
+  currency = "",
   onMovePort,
   onClickPort,
   onDropNode,
@@ -82,6 +87,7 @@ export function FleetMap({
   routes: MapRoute[];
   selId: string | null;
   pendingFrom: string | null;
+  currency?: string;
   onMovePort: (id: string, lon: number, lat: number) => void;
   onClickPort: (id: string) => void;
   /** A Facility node dragged from the rail was dropped here — give it a location. */
@@ -244,7 +250,8 @@ export function FleetMap({
       {LAND.features.map((f, i) => (
         <path key={i} className="fleet-land" d={d(f)} />
       ))}
-      {/* Alternative (detour) paths — dotted, drawn under the base lines. */}
+      {/* Alternative (detour) paths — dotted, drawn under the base lines. Each segment
+          gets a wide invisible hit path so it's easy to hover/click near the line. */}
       {routes.map((r) => {
         if (!r.altPath || r.altPath.length < 2) return null;
         const segs = mode === "globe" ? [r.altPath] : splitDateline(r.altPath);
@@ -252,13 +259,15 @@ export function FleetMap({
           const dd = d({ type: "LineString", coordinates: seg });
           if (!dd) return null;
           return (
-            <path key={`${r.process}-alt-${i}`} className={`fleet-route is-alt-path${selId === r.process ? " is-selected" : ""}`} d={dd}
-              onMouseMove={onRouteHover(r)} onMouseLeave={() => setHover(null)}
-              onClick={(e) => { e.stopPropagation(); onSelectRoute(r.process); }} />
+            <g key={`${r.process}-alt-${i}`} onMouseMove={onRouteHover(r)} onMouseLeave={() => setHover(null)}
+              onClick={(e) => { e.stopPropagation(); onSelectRoute(r.process); }}>
+              <path className="fleet-route-hit" d={dd} />
+              <path className={`fleet-route is-alt-path${selId === r.process ? " is-selected" : ""}`} d={dd} />
+            </g>
           );
         });
       })}
-      {/* Base routes. */}
+      {/* Base routes (+ a wide invisible hit path under each segment). */}
       {routes.map((r) => {
         const line = r.path && r.path.length > 1 ? r.path : [[r.from.lon, r.from.lat], [r.to.lon, r.to.lat]] as [number, number][];
         const segs = mode === "globe" ? [line] : splitDateline(line);
@@ -266,9 +275,11 @@ export function FleetMap({
           const dd = d({ type: "LineString", coordinates: seg });
           if (!dd) return null;
           return (
-            <path key={`${r.process}-${i}`} className={routeCls(r)} d={dd}
-              onMouseMove={onRouteHover(r)} onMouseLeave={() => setHover(null)}
-              onClick={(e) => { e.stopPropagation(); onSelectRoute(r.process); }} />
+            <g key={`${r.process}-${i}`} onMouseMove={onRouteHover(r)} onMouseLeave={() => setHover(null)}
+              onClick={(e) => { e.stopPropagation(); onSelectRoute(r.process); }}>
+              <path className="fleet-route-hit" d={dd} />
+              <path className={routeCls(r)} d={dd} />
+            </g>
           );
         });
       })}
@@ -317,22 +328,30 @@ export function FleetMap({
         {mode === "globe" ? worldLayers(0) : OFFSETS.map((dx) => worldLayers(dx))}
       </svg>
 
-      {hover && (
-        <div className="route-tip" style={{ left: Math.min(hover.x + 14, MAP_W * 2), top: hover.y + 14 }}>
-          <div className="route-tip-title">{hover.r.fromLabel ?? "?"} → {hover.r.toLabel ?? "?"}</div>
-          <table className="route-tip-tbl">
-            <tbody>
-              {hover.r.distanceKm != null && <tr><td>Distance</td><td>{Math.round(hover.r.distanceKm).toLocaleString()} km</td></tr>}
-              {hover.r.mode && <tr><td>Mode</td><td>{hover.r.mode}</td></tr>}
-              {hover.r.commodity && <tr><td>Cargo</td><td>{hover.r.commodity}</td></tr>}
-              {hover.r.altPath && <tr><td>If shut</td><td>reroutes (dotted)</td></tr>}
-            </tbody>
-          </table>
-          {hover.r.fleets && hover.r.fleets.length > 0 && (
-            <div className="route-tip-fleets">{hover.r.fleets.join(" · ")}</div>
-          )}
-        </div>
-      )}
+      {hover && (() => {
+        const r = hover.r;
+        const fleets = (r.fleets ?? []).filter(Boolean);
+        return (
+          <div className="route-tip" style={{ left: Math.min(hover.x + 14, MAP_W * 2), top: hover.y + 14 }}>
+            <div className="route-tip-title">{r.fromLabel ?? "?"} → {r.toLabel ?? "?"}</div>
+            <table className="route-tip-tbl">
+              <tbody>
+                {r.distanceKm != null && <tr><td>Distance</td><td>{Math.round(r.distanceKm).toLocaleString()} km</td></tr>}
+                {r.mode && <tr><td>Mode</td><td>{r.mode}</td></tr>}
+                {r.commodity && <tr><td>Cargo</td><td>{r.commodity}</td></tr>}
+                <tr><td>Fleets</td><td>{fleets.length ? fleets.join(", ") : "any (optimiser)"}</td></tr>
+                {r.chokepoints && r.chokepoints.length > 0 && (
+                  <tr><td>Chokepoints</td><td>{r.chokepoints.join(", ")}</td></tr>
+                )}
+                {!!r.tollPerVoyage && r.tollPerVoyage > 0 && (
+                  <tr><td>Toll</td><td>{currency ? `${currency} ` : ""}{Math.round(r.tollPerVoyage).toLocaleString()}/voyage</td></tr>
+                )}
+                {r.altPath && <tr><td>If shut</td><td>reroutes (dotted)</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
 
       <div className="fleet-zoom">
         <button type="button" title="Zoom in" aria-label="Zoom in" onClick={() => zoomCenter(1 / 1.5)}>＋</button>

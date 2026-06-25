@@ -76,6 +76,7 @@ const CORRIDORS: [string, string][] = [
   ["bosporus", "Bosporus"],
   ["sunda", "Sunda Strait"],
 ];
+const CORRIDOR_LABEL = new Map(CORRIDORS);
 
 export function FleetDesignerView({
   workbook,
@@ -173,6 +174,8 @@ export function FleetDesignerView({
   // The dotted ALTERNATIVE (detour) polyline per route (process), drawn when a lane
   // traverses an "active" chokepoint (a sub-100% closure probability OR a toll).
   const [altPaths, setAltPaths] = useState<Map<string, [number, number][]>>(new Map());
+  // Active chokepoint ids each route crosses (for the hover tooltip).
+  const [routeChokepoints, setRouteChokepoints] = useState<Map<string, string[]>>(new Map());
   // Chokepoints worth showing a detour for: a closure probability in (0,1) — 100% is
   // already the base reroute — OR a per-voyage toll (here's the toll-free way round).
   const activeCorridorIds = useMemo(() => {
@@ -227,9 +230,17 @@ export function FleetDesignerView({
   const mapRoutes = useMemo<MapRoute[]>(
     () => drawRoutes.map((r) => {
       const path = paths.get(r.key);
-      return { ...r, path, distanceKm: path ? polyKm(path) : undefined, altPath: altPaths.get(r.process) };
+      const cps = routeChokepoints.get(r.process) ?? [];
+      return {
+        ...r,
+        path,
+        distanceKm: path ? polyKm(path) : undefined,
+        altPath: altPaths.get(r.process),
+        chokepoints: cps.map((id) => CORRIDOR_LABEL.get(id) ?? id),
+        tollPerVoyage: cps.reduce((sum, id) => sum + (corridorTolls.get(id) ?? 0), 0),
+      };
     }),
-    [drawRoutes, paths, altPaths],
+    [drawRoutes, paths, altPaths, routeChokepoints, corridorTolls],
   );
   // Sea routes (located) fed to the chokepoint-exposure analysis. Memoised so its
   // identity only changes with the geometry — the panel refetches on that, not on
@@ -262,12 +273,13 @@ export function FleetDesignerView({
   const blockedKey = blockedCorridors.join(",");
   useEffect(() => {
     let alive = true;
-    if (exposureRoutes.length === 0 || activeCorridorIds.length === 0) { setAltPaths(new Map()); return; }
+    if (exposureRoutes.length === 0 || activeCorridorIds.length === 0) { setAltPaths(new Map()); setRouteChokepoints(new Map()); return; }
     const t = setTimeout(() => {
       void routeExposure(exposureRoutes, activeCorridorIds.map((id) => ({ id, prob: corridorProbs.get(id) ?? 0 })))
         .then((list) => {
           const used = new Map<string, string[]>(); // process -> active corridors it crosses
           for (const c of list) for (const r of c.routes) (used.get(r.route_id) ?? used.set(r.route_id, []).get(r.route_id)!).push(c.id);
+          if (alive) setRouteChokepoints(new Map(used));
           return Promise.all(
             [...used.entries()].map(([proc, cors]) => {
               const r = drawRoutes.find((d) => d.process === proc);
@@ -473,7 +485,7 @@ export function FleetDesignerView({
             </button>
           </div>
           <div style={{ flex: 1, minHeight: 0, display: "flex", padding: "10px 14px" }}>
-            <FleetMap ports={ports} routes={mapRoutes} selId={selId} pendingFrom={null}
+            <FleetMap ports={ports} routes={mapRoutes} selId={selId} pendingFrom={null} currency={currency}
               onMovePort={(id, lon, lat) => patchNode(id, { lon, lat })}
               onClickPort={(id) => { setSelId(id); setEdit({ kind: "node", id }); }}
               onDropNode={locateNode}

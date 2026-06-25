@@ -746,6 +746,16 @@
 .fleet-land { fill: var(--surface); stroke: var(--border); stroke-width: 0.6; }
 .fleet-graticule { fill: none; stroke: var(--border); stroke-width: 0.4; opacity: 0.55; }
 .fleet-route { fill: none; stroke: var(--muted); stroke-width: 1.6; cursor: pointer; }
+/* A wide invisible hit area under each route so it's easy to hover/click near the
+   thin line (constant on-screen width via non-scaling-stroke). */
+.fleet-route-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 16;
+  pointer-events: stroke;
+  cursor: pointer;
+  vector-effect: non-scaling-stroke;
+}
 .fleet-route.is-alt { stroke-dasharray: 6 4; }
 .fleet-route.is-blocked { stroke: var(--danger); stroke-dasharray: 2 4; }
 .fleet-route.is-selected { stroke: var(--brand); stroke-width: 2.6; }
