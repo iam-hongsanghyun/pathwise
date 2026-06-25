@@ -406,6 +406,26 @@ export function FleetDesignerView({
     setSelId(proc);
     setEdit({ kind: "route", id: proc });
   }
+  // Remove a route (a mode on a lane): drop its row + its fleet candidates. Lane-scoped
+  // green corridors are left as-is (they bind the lane, which other modes may still serve).
+  function removeRoute(proc: string) {
+    setWorkbook(
+      setSheet(
+        setSheet(workbook, "routes", routes.filter((r) => s(r.process) !== proc)),
+        "fleet_routes",
+        fleetRoutes.filter((r) => s(r.process) !== proc),
+      ),
+    );
+    if (selId === proc) { setSelId(null); setEdit(null); }
+  }
+  const routeActions = (n: TreeNode): TreeAction[] =>
+    n.kind === "asset" && routes.some((r) => s(r.process) === n.id)
+      ? [{ id: "edit", label: "Edit" }, { id: "delete", label: "Delete route", danger: true }]
+      : [];
+  function onRouteAction(a: string, n: TreeNode) {
+    if (a === "delete") void removeRoute(n.id);
+    else if (a === "edit") { const leaf = leafByProc.get(n.id); if (leaf) selectRoute(leaf); }
+  }
   // A Facility endpoint dropped on the map (or its marker dragged) → set its location.
   function locateNode(id: string, lon: number, lat: number) {
     patchNode(id, { lon, lat });
@@ -504,8 +524,8 @@ export function FleetDesignerView({
                   expandedIds={expR}
                   onToggle={(id, e) => setExpR((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
                   onSelect={(id) => { const leaf = leafByProc.get(id); if (leaf) selectRoute(leaf); else setExpR((p) => { const m = new Set(p); m.has(id) ? m.delete(id) : m.add(id); return m; }); }}
-                  actionsFor={() => []}
-                  onContextAction={() => undefined}
+                  actionsFor={routeActions}
+                  onContextAction={onRouteAction}
                   onMove={() => undefined}
                   emptyHint="Place both ends of a network flow to see it here as a route."
                 />
@@ -620,7 +640,7 @@ export function FleetDesignerView({
           onSwitch={(p) => { setSelId(p); setEdit({ kind: "route", id: p }); }}
           impacts={impacts} green={greenCorridors}
           setGreen={(rows) => setWorkbook(setSheet(workbook, "green_corridors", rows))}
-          onDelete={() => { setWorkbook(setSheet(setSheet(workbook, "routes", routes.filter((r) => s(r.process) !== edit!.id)), "fleet_routes", fleetRoutes.filter((r) => s(r.process) !== edit!.id))); setEdit(null); }}
+          onDelete={() => { removeRoute(edit!.id); setEdit(null); }}
           onClose={() => setEdit(null)} />
       )}
       {dialogNode}
