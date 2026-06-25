@@ -11,12 +11,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useDialogs } from "../features/controls/Dialog";
 import { FloatingPanel } from "../layout/FloatingPanel";
 import { CollapsibleRail } from "../layout/CollapsibleRail";
+import { Resizer } from "../layout/Resizer";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { InfoTooltip } from "../features/controls/InfoTooltip";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
 import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types";
 import { parseNodes } from "../lib/groupGraph";
-import { MODES, makeProjection } from "../features/fleet/basemap";
+import { MODES } from "../features/fleet/basemap";
 import { FleetMap, type MapPort, type MapRoute } from "../features/fleet/FleetMap";
 import {
   buildCoordMap,
@@ -39,6 +40,27 @@ const blank = (v: string): number | string => (v === "" ? "" : Number(v));
 const has = (v: unknown): boolean => v != null && v !== "";
 let _ctr = 0;
 const genId = (p: string): string => `${p}_${Date.now().toString(36)}${(_ctr++).toString(36)}`;
+
+// Great-circle length [km] of a [lon,lat] polyline (longitude deltas normalised to
+// ±180 so an antimeridian crossing measures the short way, not the long way round).
+const R_EARTH = 6371;
+function polyKm(line: [number, number][]): number {
+  const rad = (x: number) => (x * Math.PI) / 180;
+  let total = 0;
+  for (let i = 1; i < line.length; i++) {
+    const a = line[i - 1];
+    const b = line[i];
+    let dLon = b[0] - a[0];
+    if (dLon > 180) dLon -= 360;
+    if (dLon < -180) dLon += 360;
+    const dLat = b[1] - a[1];
+    const s1 = Math.sin(rad(dLat) / 2);
+    const s2 = Math.sin(rad(dLon) / 2);
+    const aa = s1 * s1 + Math.cos(rad(a[1])) * Math.cos(rad(b[1])) * s2 * s2;
+    total += 2 * R_EARTH * Math.asin(Math.min(1, Math.sqrt(aa)));
+  }
+  return total;
+}
 
 type Edit = { kind: "fleet" | "node" | "route" | "corridors"; id: string } | null;
 
@@ -66,6 +88,7 @@ export function FleetDesignerView({
   const [expL, setExpL] = useState<Set<string>>(new Set());
   const [expR, setExpR] = useState<Set<string>>(new Set());
   const [expF, setExpF] = useState<Set<string>>(new Set());
+  const [facilityH, setFacilityH] = useState(220); // right-rail Routes↕Facility split
   const [leftW, setLeftW] = useState(240);
   const [rightW, setRightW] = useState(260);
   const [leftOpen, setLeftOpen] = useState(true);
@@ -75,7 +98,6 @@ export function FleetDesignerView({
   const [tableH, setTableH] = useState(260);
   const [edit, setEdit] = useState<Edit>(null);
 
-  const projection = useMemo(() => makeProjection(), []);
   const nodes = useMemo(() => parseNodes(workbook), [workbook]);
   const nodeById = useMemo(() => new Map(nodes.map((nd) => [nd.id, nd])), [nodes]);
   const fleets = useMemo(() => (workbook.fleet ?? []) as Row[], [workbook]);
@@ -133,6 +155,26 @@ export function FleetDesignerView({
   // Each map route carries a cache key (rounded endpoints + mode) so a port's sea
   // polyline is fetched once and re-used; the polyline itself lives in `paths`.
   const [paths, setPaths] = useState<Map<string, [number, number][]>>(new Map());
+  // Candidate fleets per route — pinned (fleet_routes) first, else any fleet whose
+  // cargo matches the route's commodity (the optimiser's candidate set).
+  const fleetsByProc = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const fr of fleetRoutes) {
+      const proc = s(fr.process);
+      if (!proc) continue;
+      (m.get(proc) ?? m.set(proc, []).get(proc)!).push(s(fleetByNode.get(s(fr.fleet))?.label) || s(fr.fleet));
+    }
+    return m;
+  }, [fleetRoutes, fleetByNode]);
+  const fleetsByCargo = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const f of fleets) {
+      const cargo = s(f.cargo);
+      if (!cargo) continue;
+      (m.get(cargo) ?? m.set(cargo, []).get(cargo)!).push(s(f.label) || fleetId(f));
+    }
+    return m;
+  }, [fleets]);
   const drawRoutes = useMemo(
     () =>
       routes
@@ -141,14 +183,26 @@ export function FleetDesignerView({
           const to = coord.get(s(r.to_node));
           if (!from || !to) return null;
           const mode = s(r.mode) || "sea";
+          const proc = s(r.process);
+          const commodity = s(r.commodity);
           const key = `${from.lon.toFixed(2)},${from.lat.toFixed(2)}|${to.lon.toFixed(2)},${to.lat.toFixed(2)}|${mode}|${blockedCorridors.join(",")}`;
-          return { process: s(r.process), from, to, mode, key, blocked: s(r.blocked) === "true", alt: has(r.alternative_of) };
+          return {
+            process: proc, from, to, mode, key,
+            blocked: s(r.blocked) === "true", alt: has(r.alternative_of),
+            fromLabel: nodeById.get(s(r.from_node))?.label ?? s(r.from_node),
+            toLabel: nodeById.get(s(r.to_node))?.label ?? s(r.to_node),
+            commodity,
+            fleets: fleetsByProc.get(proc) ?? fleetsByCargo.get(commodity) ?? [],
+          };
         })
-        .filter((r): r is { process: string; from: { lon: number; lat: number }; to: { lon: number; lat: number }; mode: string; key: string; blocked: boolean; alt: boolean } => r !== null),
-    [routes, coord, blockedCorridors],
+        .filter((r): r is NonNullable<typeof r> => r !== null),
+    [routes, coord, blockedCorridors, nodeById, fleetsByProc, fleetsByCargo],
   );
   const mapRoutes = useMemo<MapRoute[]>(
-    () => drawRoutes.map((r) => ({ ...r, path: paths.get(r.key) })),
+    () => drawRoutes.map((r) => {
+      const path = paths.get(r.key);
+      return { ...r, path, distanceKm: path ? polyKm(path) : undefined };
+    }),
     [drawRoutes, paths],
   );
   // Sea routes (located) fed to the chokepoint-exposure analysis. Memoised so its
@@ -331,7 +385,7 @@ export function FleetDesignerView({
             </button>
           </div>
           <div style={{ flex: 1, minHeight: 0, display: "flex", padding: "10px 14px" }}>
-            <FleetMap projection={projection} ports={ports} routes={mapRoutes} selId={selId} pendingFrom={null}
+            <FleetMap ports={ports} routes={mapRoutes} selId={selId} pendingFrom={null}
               onMovePort={(id, lon, lat) => patchNode(id, { lon, lat })}
               onClickPort={(id) => { setSelId(id); setEdit({ kind: "node", id }); }}
               onDropNode={locateNode}
@@ -348,25 +402,28 @@ export function FleetDesignerView({
         <CollapsibleRail side="right" open={rightOpen} setOpen={setRightOpen} width={rightW} setWidth={setRightW} min={220} max={440}
           title="Routes" scroll={false}
           headAction={<span className="rail-foot" style={{ padding: "0 10px" }}>stream → route</span>}>
-          <div className="rail-scroll" style={{ flex: "3 1 0", minHeight: 80 }}>
+          <div className="rail-scroll" style={{ flex: "1 1 0", minHeight: 80 }}>
             <TreeExplorer nodes={routesTree} selectedId={selId} expandedIds={expR}
               onToggle={(id, e) => setExpR((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
               onSelect={(id) => { const leaf = leafByProc.get(id); if (leaf) selectRoute(leaf); else setExpR((p) => { const m = new Set(p); m.has(id) ? m.delete(id) : m.add(id); return m; }); }}
               actionsFor={() => []} onContextAction={() => undefined} onMove={() => undefined}
               emptyHint="Place both ends of a value-chain stream to see it here as a route." />
           </div>
-          <div className="rail-head-row is-divided">
-            <span className="rail-head">Facility</span>
-            <span className="rail-foot" style={{ padding: "0 10px" }}>{[...coord.keys()].length} placed</span>
+          <Resizer side="top" width={facilityH} setWidth={setFacilityH} min={90} max={560} />
+          <div style={{ flex: `0 0 ${facilityH}px`, display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <div className="rail-head-row is-divided">
+              <span className="rail-head">Facility</span>
+              <span className="rail-foot" style={{ padding: "0 10px" }}>{[...coord.keys()].length} placed</span>
+            </div>
+            <div className="rail-scroll" style={{ flex: 1, minHeight: 0 }}>
+              <TreeExplorer nodes={facilityNodes} selectedId={selId} expandedIds={expF}
+                onToggle={(id, e) => setExpF((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
+                onSelect={(id) => { setSelId(id); setEdit({ kind: "node", id }); }}
+                actionsFor={() => []} onContextAction={() => undefined} onMove={() => undefined} canDrop={() => false}
+                emptyHint="The facility / value-chain structure — drag a node onto the map to place it." />
+            </div>
+            <div className="rail-foot">Drag a facility node onto the map to give it a location.</div>
           </div>
-          <div className="rail-scroll" style={{ flex: "2 1 0", minHeight: 70 }}>
-            <TreeExplorer nodes={facilityNodes} selectedId={selId} expandedIds={expF}
-              onToggle={(id, e) => setExpF((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
-              onSelect={(id) => { setSelId(id); setEdit({ kind: "node", id }); }}
-              actionsFor={() => []} onContextAction={() => undefined} onMove={() => undefined} canDrop={() => false}
-              emptyHint="The facility / value-chain structure — drag a node onto the map to place it." />
-          </div>
-          <div className="rail-foot">Drag a facility node onto the map to give it a location.</div>
         </CollapsibleRail>
       </div>
 

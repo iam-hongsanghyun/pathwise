@@ -798,6 +798,43 @@
 .route-tip-tbl td { padding: 1px 0; }
 .route-tip-tbl td:first-child { color: var(--muted); padding-right: 12px; }
 .route-tip-tbl td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.route-tip-title { font-weight: 600; margin-bottom: 2px; }
+.route-tip-fleets { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border); color: var(--muted); }
+
+/* Globe view: the sphere is the ocean disc, so the panel behind it stays neutral. */
+.fleet-map.is-globe { background: transparent; }
+/* The dotted ALTERNATIVE (detour) line a chokepoint closure would force. */
+.fleet-route.is-alt-path {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.4;
+  stroke-dasharray: 3 4;
+  opacity: 0.8;
+}
+/* Map / Globe view switch (bottom-left of the map). */
+.fleet-viewtoggle {
+  position: absolute;
+  bottom: 18px;
+  left: 18px;
+  display: flex;
+  gap: 0;
+  z-index: 2;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.fleet-viewtoggle button {
+  padding: 4px 10px;
+  background: var(--surface);
+  color: var(--muted);
+  border: none;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 0.72rem;
+}
+.fleet-viewtoggle button:last-child { border-right: none; }
+.fleet-viewtoggle button.is-active { background: var(--brand); color: #fff; }
+.fleet-viewtoggle button:hover:not(.is-active) { background: var(--bg-hover); }
 /* Centered empty-state inside a canvas panel. */
 .vc-empty {
   flex: 1;
@@ -1122,7 +1159,7 @@
   align-content: start;
   border: 1px solid var(--border);
   border-radius: var(--radius-button);
-  background: var(--surface);
+  background: transparent;
   /* The right/bottom 1px of each cell paints the grid lines; the panel border
      closes the open edges so we don't get a double line on the right/bottom. */
   border-right: 0;
