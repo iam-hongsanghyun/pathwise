@@ -1511,6 +1511,8 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 discharge_efficiency=_num(r.get("discharge_efficiency"), 1.0) or 1.0,
                 standing_loss=_num(r.get("standing_loss"), 0.0) or 0.0,
                 initial_level=_num(r.get("initial_level"), 0.0) or 0.0,
+                energy_flow=_str(r.get("energy_flow")) or "",
+                energy_per_throughput=_num(r.get("energy_per_throughput"), 0.0) or 0.0,
                 capex_per_capacity_by_year=_sto_by_year(sid, sto_capex_t),
                 fixed_opex_per_capacity_by_year=_sto_by_year(sid, sto_fopex_t),
                 charge_efficiency_by_year=_sto_by_year(sid, sto_chg_t),

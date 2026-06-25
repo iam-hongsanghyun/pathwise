@@ -66,6 +66,61 @@ def test_storage_arbitrages_rising_prices() -> None:
     assert store and store[0]["capacity"] > 0
 
 
+def _energy_storage_wb(
+    *, energy_price: float, energy_per_throughput: float, elec_cap: float | None = None
+) -> dict:
+    """The arbitrage base + a store that burns a priced ``elec`` flow per throughput."""
+    wb = _base_wb()
+    elec: dict = {"flow_id": "elec", "kind": "energy", "price": energy_price}
+    if elec_cap is not None:
+        elec["max_purchase"] = elec_cap
+    wb["flows"] = [*wb["flows"], elec]
+    wb["storage"] = [
+        {
+            "storage_id": "S",
+            "flow_id": "gas",
+            "company": "all",
+            "max_capacity": 100,
+            "capex_per_capacity": 1.0,
+            "charge_efficiency": 1.0,
+            "discharge_efficiency": 1.0,
+            "energy_flow": "elec",
+            "energy_per_throughput": energy_per_throughput,
+        }
+    ]
+    return wb
+
+
+def test_storage_running_energy_adds_cost() -> None:
+    # Base storage objective is 210. Throughput = charge 10 + discharge 10 = 20; at
+    # elec $1/unit that adds $20 ⇒ 230, and the store still beats the $1100 no-store cost.
+    res = _solve(_energy_storage_wb(energy_price=1.0, energy_per_throughput=1.0))
+    np.testing.assert_allclose(res["objective"], 230.0, rtol=1e-6)
+    assert res["outputs"]["storage"][0]["capacity"] > 0
+
+
+def test_expensive_running_energy_kills_storage_arbitrage() -> None:
+    # 20 throughput at $100 running-energy = $2000 makes the store (210 + 2000) dearer
+    # than just buying the dear gas ($1100) ⇒ the optimiser abandons the store.
+    res = _solve(_energy_storage_wb(energy_price=100.0, energy_per_throughput=1.0))
+    np.testing.assert_allclose(res["objective"], 1100.0, rtol=1e-6)
+    store = res["outputs"]["storage"]
+    assert not store or store[0]["capacity"] <= 1e-6
+
+
+def test_storage_energy_counts_against_a_supply_cap() -> None:
+    # The store's running energy (charge+discharge) must fit under elec's per-year cap,
+    # so a 5/yr cap throttles cycling to ≤5 units — less than the uncapped 10.
+    free = _solve(_energy_storage_wb(energy_price=1.0, energy_per_throughput=1.0))
+    capped = _solve(_energy_storage_wb(energy_price=1.0, energy_per_throughput=1.0, elec_cap=5.0))
+    assert capped["status"] == "optimal"
+    fcap = free["outputs"]["storage"][0]["capacity"]
+    cstore = capped["outputs"]["storage"]
+    ccap = cstore[0]["capacity"] if cstore else 0.0
+    assert ccap <= 5.0 + 1e-6
+    assert ccap < fcap
+
+
 def test_zero_discharge_efficiency_does_not_crash_the_build() -> None:
     # A 0 in the per-year discharge-efficiency sheet used to reach 1/0 in the
     # storage balance and crash the build; it must be clamped, not divided by.

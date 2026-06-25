@@ -466,6 +466,10 @@ class Storage:
         discharge_efficiency: Fraction of removed level that reaches the market [—].
         standing_loss: Fraction of level lost per year [—].
         initial_level: Inventory at the horizon start [flow unit].
+        energy_flow: Flow consumed to operate the store (blank ⇒ none) — the
+            running energy of charging/discharging (pumps, refrigeration, handling).
+        energy_per_throughput: Units of ``energy_flow`` consumed per unit of flow
+            moved through the store (charged + discharged) [energy-unit / flow-unit].
     """
 
     storage_id: str
@@ -478,6 +482,8 @@ class Storage:
     discharge_efficiency: float = 1.0
     standing_loss: float = 0.0
     initial_level: float = 0.0
+    energy_flow: str = ""
+    energy_per_throughput: float = 0.0
     # Optional year-varying overrides; each falls back to the scalar above.
     # (``max_capacity`` and ``initial_level`` are one-time/structural and stay
     # scalar by design.)

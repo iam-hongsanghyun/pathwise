@@ -1275,6 +1275,16 @@
           "label": "Initial level",
           "type": "number"
         },
+        "energy_flow": {
+          "label": "Running-energy flow",
+          "type": "string",
+          "desc": "Flow consumed to operate the store (charging/discharging: pumps, refrigeration, handling). Blank → none."
+        },
+        "energy_per_throughput": {
+          "label": "Energy / throughput",
+          "type": "number",
+          "desc": "Units of the running-energy flow consumed per unit of flow moved through the store (charged + discharged)."
+        },
         "enabled": {
           "label": "Included in model",
           "type": "boolean"

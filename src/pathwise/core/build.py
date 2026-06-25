@@ -1140,10 +1140,11 @@ def _purchase_caps(ctx: BuildContext) -> None:
                 )
             else:
                 total = _lin_sum([ctx.buy.sel(process=p, flow=r, period=t) for p in ctx.procs])
-            # Fleet fuel drawn through this stream counts against its supply cap too.
-            fuel_d = _conn_fuel_demand(ctx, r, t)
-            if fuel_d is not None:
-                total = fuel_d if total is None else (total + fuel_d)
+            # Fleet fuel + store operating-energy drawn through this stream count
+            # against its supply cap too.
+            for extra in (_conn_fuel_demand(ctx, r, t), _storage_energy_demand(ctx, r, t)):
+                if extra is not None:
+                    total = extra if total is None else (total + extra)
             if total is not None:
                 m.add_constraints(total <= cap, name=f"buycap[{r},{t}]")
 
@@ -1473,11 +1474,11 @@ def _markets(ctx: BuildContext) -> None:
                 )
             else:
                 target = _lin_sum([ctx.buy.sel(process=p, flow=r, period=t) for p in procs])
-            # A fleet burning this market flow draws on it too (bunkering): the
-            # market (producer msell / external mbuy) must clear the fleet's demand.
-            fuel_d = _conn_fuel_demand(ctx, r, t)
-            if fuel_d is not None:
-                target = fuel_d if target is None else (target + fuel_d)
+            # A fleet burning this market flow, or a store running on it, draws on it
+            # too: the market (producer msell / external mbuy) must clear that demand.
+            for extra in (_conn_fuel_demand(ctx, r, t), _storage_energy_demand(ctx, r, t)):
+                if extra is not None:
+                    target = extra if target is None else (target + extra)
             rhs = target if target is not None else 0.0
             m.add_constraints(net == rhs, name=f"mclear[{r},{t}]")
         for mk in mkts:
@@ -1939,6 +1940,28 @@ def _conn_fuel_demand(ctx: BuildContext, fuel: str, t: int) -> Any:
     return _lin_sum(terms)
 
 
+def _storage_energy_demand(ctx: BuildContext, flow: str, t: int) -> Any:
+    r"""Running-energy demand for ``flow`` from every store using it in year ``t``.
+
+    ``Σ energy_per_throughput · (charge + discharge)`` over stores whose
+    ``energy_flow`` is ``flow``. Added to that flow's purchase cap + market
+    clearing (like fleet fuel), so a store's operating energy must be sourced —
+    and the objective prices it — instead of being free.
+    """
+    prob = ctx.problem
+    if ctx.charge is None:
+        return None
+    terms: list[Any] = []
+    for st in prob.storages:
+        if st.energy_flow != flow or st.energy_per_throughput <= 0:
+            continue
+        thru = ctx.charge.sel(store=st.storage_id, period=t) + ctx.discharge.sel(
+            store=st.storage_id, period=t
+        )
+        terms.append(st.energy_per_throughput * thru)
+    return _lin_sum(terms)
+
+
 def _objective(ctx: BuildContext) -> None:
     """Discounted total system cost + slack penalties (minimise).
 
@@ -2163,6 +2186,20 @@ def _objective(ctx: BuildContext) -> None:
                 st_fox = st.fixed_opex_per_capacity_at(t)
                 if st_fox:
                     obj_terms.append((w * st_fox) * ctx.cap_built.sel(store=st.storage_id))
+                # Running energy: priced at its flow price unless it clears through a
+                # market (then the market mbuy already pays — mirror the fleet fuel rule).
+                if (
+                    st.energy_flow
+                    and st.energy_per_throughput > 0
+                    and st.energy_flow not in market_comms
+                    and st.energy_flow in prob.flows
+                ):
+                    e_price = prob.flows[st.energy_flow].price(t)
+                    if e_price:
+                        thru = ctx.charge.sel(store=st.storage_id, period=t) + ctx.discharge.sel(
+                            store=st.storage_id, period=t
+                        )
+                        obj_terms.append((w * e_price * st.energy_per_throughput) * thru)
 
     # ── Flow markets ─────────────────────────────────────────────────────
     if tog.flow_cost and ctx.cmarkets:
