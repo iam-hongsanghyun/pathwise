@@ -649,12 +649,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
               headAction: (
                 <span className="rail-hint" style={{ padding: "0 6px" }}>drag onto a group ↑</span>
               ),
-              body: (
-                <>
-                  {templatesTree}
-                  <div className="rail-foot">Right-click a group for actions</div>
-                </>
-              ),
+              body: templatesTree,
             },
           ]}
         />

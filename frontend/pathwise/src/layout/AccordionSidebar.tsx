@@ -69,28 +69,43 @@ export function AccordionSidebar({
   const startResize = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     const handle = e.currentTarget as HTMLElement;
-    const sectionEl = handle.previousElementSibling as HTMLElement | null;
+    const aEl = handle.previousElementSibling as HTMLElement | null;
     const rail = handle.closest(".acc-sidebar") as HTMLElement | null;
-    const start = sectionEl?.offsetHeight ?? 120;
-    // The rail is fixed to the window — it never scrolls; each section scrolls its own
-    // body. Growing this section shrinks the last (flex-grow) section, which may only
-    // shrink to its floor (then its body scrolls). Cap growth at that room, measured at
-    // drag start, so the whole rail stays inside the window.
-    let room = Number.POSITIVE_INFINITY;
-    if (rail && sectionEl) {
-      const open = [...rail.querySelectorAll<HTMLElement>(".acc-section")].filter((s) =>
-        s.querySelector(".acc-body"),
-      );
-      const last = open[open.length - 1];
-      room = last && last !== sectionEl ? Math.max(0, last.offsetHeight - SECTION_MIN) : 0;
+    if (!aEl || !rail) return;
+    // A divider sits between two adjacent open sections, A (above) and B (below). A
+    // drag transfers height ONLY between A and B — every other section keeps its size,
+    // and the rail stays fixed to the window (no scroll). The last open section
+    // flex-grows; when B IS that last section it absorbs the change automatically.
+    const openEls = [...rail.querySelectorAll<HTMLElement>(".acc-section")].filter((s) =>
+      s.querySelector(".acc-body"),
+    );
+    const aIdx = openEls.indexOf(aEl);
+    const bEl = openEls[aIdx + 1];
+    if (!bEl) return;
+    const lastEl = openEls[openEls.length - 1];
+    const bId = bEl.dataset.secId;
+    const bIsLast = bEl === lastEl;
+    const startA = aEl.offsetHeight;
+    const startB = bEl.offsetHeight;
+    const total = startA + startB;
+    // Pin every open section EXCEPT the flex-grow last one, so untouched sections (incl.
+    // a non-adjacent last section) keep their exact height while A↔B trade space.
+    const snapshot: Record<string, number> = {};
+    for (const el of openEls) {
+      if (el === lastEl) continue;
+      const sid = el.dataset.secId;
+      if (sid) snapshot[sid] = el.offsetHeight;
     }
-    const maxH = start + room;
     const startY = e.clientY;
-    const move = (ev: MouseEvent) =>
-      setHeights((prev) => ({
-        ...prev,
-        [id]: Math.min(maxH, Math.max(SECTION_MIN, start + (ev.clientY - startY))),
-      }));
+    const move = (ev: MouseEvent) => {
+      const newA = Math.max(SECTION_MIN, Math.min(startA + (ev.clientY - startY), total - SECTION_MIN));
+      setHeights((prev) => {
+        const next = { ...prev, ...snapshot, [id]: newA };
+        if (bId && !bIsLast) next[bId] = total - newA; // A and B trade; others fixed
+        if (bId && bIsLast) delete next[bId]; // last stays flex and absorbs
+        return next;
+      });
+    };
     const up = () => {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
