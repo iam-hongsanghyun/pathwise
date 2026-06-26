@@ -253,6 +253,11 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   function editAsset(id: string, patch: Record<string, Row[string]>) {
     setWorkbook(setSheet(workbook, "assets", (workbook.assets ?? []).map((r) => (s(r.asset_id) === id ? { ...r, ...patch } : r))));
   }
+  // Storage / Station are hard copies placed here — their OWN physical values (capacity,
+  // efficiency, fee …) are edited on the System instance, not in the Library template.
+  function editScoped(sheet: "storage" | "stations", idCol: string, id: string, patch: Record<string, Row[string]>) {
+    setWorkbook(setSheet(workbook, sheet, (workbook[sheet] ?? []).map((r) => (s(r[idCol]) === id ? { ...r, ...patch } : r))));
+  }
   function editTech(techId: string, patch: Record<string, Row[string]>) {
     setWorkbook(setSheet(workbook, "technologies", (workbook.technologies ?? []).map((r) => (s(r.technology_id) === techId ? { ...r, ...patch } : r))));
   }
@@ -411,6 +416,57 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
       );
     }
     if (sel.kind === "asset") {
+      // A labelled numeric field bound to a workbook row value.
+      const numCell = (key: string, label: string, value: string, onChange: (v: string) => void, unit?: string, step?: string, placeholder?: string) => (
+        <div className="mf-cell" key={key}>
+          <div className="mf-name">{label}</div>
+          <div className="mf-val">
+            <input className="field-input" type="number" step={step} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
+            {unit ? <span className="mf-unit">{unit}</span> : null}
+          </div>
+        </div>
+      );
+      const numOf = (row: Row, k: string, dflt = "") => (s(row[k]) === "" ? dflt : s(row[k]));
+      // Storage instance — its own capacity + physics, edited here (hard copy).
+      const sto = (workbook.storage ?? []).find((x) => s(x.storage_id) === sel.id);
+      if (sto) {
+        const set = (k: string, v: string) => editScoped("storage", "storage_id", sel.id, { [k]: v === "" ? null : Number(v) });
+        return (
+          <section className="detail-col asset-detail">
+            <h2 className="view-title">{sel.label}</h2>
+            <p className="detail-sub muted">storage · stores {s(sto.flow_id) || "—"}</p>
+            <div className="asset-fields">
+              <div className="mf-sec">storage<span className="mf-sec-note">this instance's own physical values — set here, not in the Library</span></div>
+              {numCell("cap", "capacity", numOf(sto, "max_capacity"), (v) => set("max_capacity", v), "store")}
+              {numCell("cx", "capex /cap", numOf(sto, "capex_per_capacity"), (v) => set("capex_per_capacity", v))}
+              {numCell("ox", "fixed O&M /cap", numOf(sto, "fixed_opex_per_capacity"), (v) => set("fixed_opex_per_capacity", v))}
+              {numCell("ce", "charge eff", numOf(sto, "charge_efficiency", "1"), (v) => set("charge_efficiency", v), undefined, "0.01")}
+              {numCell("de", "discharge eff", numOf(sto, "discharge_efficiency", "1"), (v) => set("discharge_efficiency", v), undefined, "0.01")}
+              {numCell("sl", "standing loss", numOf(sto, "standing_loss"), (v) => set("standing_loss", v), undefined, "0.001")}
+              {numCell("il", "initial level", numOf(sto, "initial_level"), (v) => set("initial_level", v))}
+              {numCell("ept", "energy /throughput", numOf(sto, "energy_per_throughput"), (v) => set("energy_per_throughput", v), s(sto.energy_flow) || undefined, "0.01")}
+            </div>
+          </section>
+        );
+      }
+      // Station instance — its own refuel capacity + fee, edited here (hard copy).
+      const sta = (workbook.stations ?? []).find((x) => s(x.station_id) === sel.id);
+      if (sta) {
+        const set = (k: string, v: string) => editScoped("stations", "station_id", sel.id, { [k]: v === "" ? null : Number(v) });
+        return (
+          <section className="detail-col asset-detail">
+            <h2 className="view-title">{sel.label}</h2>
+            <p className="detail-sub muted">station · dispenses {s(sta.refuel_flow) || "—"}</p>
+            <div className="asset-fields">
+              <div className="mf-sec">station<span className="mf-sec-note">this instance's own physical values — set here, not in the Library</span></div>
+              {numCell("rc", "refuel capacity", numOf(sta, "refuel_capacity"), (v) => set("refuel_capacity", v), `${s(sta.refuel_flow) || "fuel"}/yr`)}
+              {numCell("rf", "refuel fee /unit", numOf(sta, "refuel_fee"), (v) => set("refuel_fee", v))}
+              {numCell("scx", "capex", numOf(sta, "capex"), (v) => set("capex", v))}
+              {numCell("sox", "fixed O&M", numOf(sta, "fixed_opex"), (v) => set("fixed_opex", v))}
+            </div>
+          </section>
+        );
+      }
       const r = machineRow(sel.id);
       if (!r) {
         return (
