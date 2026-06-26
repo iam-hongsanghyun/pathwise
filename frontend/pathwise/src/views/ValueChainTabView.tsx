@@ -1,8 +1,13 @@
-// Network tab — a 3-pane builder.
-//   LEFT  : the structure tree ONLY. Single click = select (shows detail on the
-//           right); the twisty expands/collapses; RIGHT-CLICK carries every
-//           action (add subgroup / add component / connect / add target / move
-//           up·down / rename / delete).
+// Network tab — wire together the components that already exist in the System.
+// The Network NEVER reaches into the Library: components (technologies, storage,
+// stations…) are placed + hard-copied in the System; here you only CONNECT them.
+// A connection carries a flow that is INTRINSIC to the components — a technology's
+// own output meeting another's input — so there is no free-typed flow and nothing
+// is placed from a library.
+//   LEFT  : the structure tree ONLY (the System's components). Single click =
+//           select; the twisty expands/collapses; RIGHT-CLICK carries every
+//           action (add subgroup / connect / add target / move up·down / rename /
+//           delete).
 //   CENTER: the relationship canvas for the selected group — how its children's
 //           streams flow (drill by selecting a deeper group).
 //   RIGHT : details of the selected item — a group's purchasing + targets, or a
@@ -16,7 +21,6 @@ import { VariantsPanel } from "../features/valuechain/VariantsPanel";
 import { ModelHealth } from "../features/valuechain/ModelHealth";
 import { indexIssues, rollUpBadges, validateModel, type FixDescriptor, type Issue } from "../lib/validate";
 import { useDialogs } from "../features/controls/Dialog";
-import { SearchableSelect } from "../features/controls/SearchableSelect";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
 import { FloatingPanel } from "../layout/FloatingPanel";
@@ -25,16 +29,8 @@ import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types
 import {
   addAlternative,
   type AvailableTechnology,
-  getComponentLibrary,
-  getSessionComponentLibrary,
-  instantiateComponent,
   type LibScope,
-  type LibrarySummary,
-  listAllComponentLibraries,
   listAvailableTechnologies,
-  placeStation,
-  placeStorage,
-  placeTechnology,
 } from "../lib/api/components";
 import { getFullModel, putModel } from "../lib/api/session";
 import { setSupplyCap } from "../lib/caps";
@@ -67,9 +63,7 @@ function parseAltId(id: string): { machineId: string; technology: string } | nul
 export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServerModel }: Props) {
   const [selId, setSelId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [libs, setLibs] = useState<LibrarySummary[]>([]);
   const [availableTechs, setAvailableTechs] = useState<AvailableTechnology[]>([]);
-  const [picker, setPicker] = useState<{ parentId: string } | null>(null);
   const [altPicker, setAltPicker] = useState<{ machineId: string } | null>(null);
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -77,11 +71,6 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   const [railOpen, setRailOpen] = useState(false); // left structure rail — collapsed by default
   const [showHealth, setShowHealth] = useState(false); // model-health popup toggle
   const { prompt, confirm, node: dialogNode } = useDialogs();
-
-  useEffect(() => {
-    if (!sessionId) return;
-    listAllComponentLibraries(sessionId).then(setLibs).catch((e) => setError(String(e)));
-  }, [sessionId]);
 
   // The technology pool an alternative can be drawn from (base + session libs);
   // refetch when the model changes so an imported project's techs appear.
@@ -166,30 +155,6 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     setWorkbook(setSheet(workbook, "nodes", (workbook.nodes ?? []).map((r) => (s(r.node_id) === e.dragId ? { ...r, parent_id: newParent } : r))));
   }
 
-  async function dropPick(library: string, name: string, kind: PickKind, parentId: string, scope: LibScope) {
-    if (!sessionId) return;
-    setError(null);
-    try {
-      await putModel(sessionId, workbook);
-      const res =
-        kind === "technology"
-          ? await placeTechnology(sessionId, { library, technology: name, parent_id: parentId, capacity: 1000, scope })
-          : kind === "storage"
-            ? await placeStorage(sessionId, { library, component: name, parent_id: parentId, scope })
-            : kind === "station"
-              ? await placeStation(sessionId, { library, component: name, parent_id: parentId, scope })
-              : await instantiateComponent(sessionId, { library, component: name, parent_id: parentId, scope });
-      adoptServerModel(await getFullModel(sessionId));
-      setExpanded((p) => new Set(p).add(parentId));
-      // Select the freshly instantiated node so it's immediately editable in the
-      // right rail (no need to hunt for it in the tree).
-      const newId = res.root ?? res.created[0];
-      if (newId) setSelId(newId);
-    } catch (e) {
-      setError(String(e));
-    }
-  }
-
   // ── Alternatives (technologies the optimiser may switch a asset to) ─────────
   async function addAlt(machineId: string, technology: string, library: string, scope: "base" | "session") {
     if (!sessionId) return;
@@ -261,6 +226,66 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
 
   const flows = useMemo(() => (workbook.flows ?? []).map((c) => s(c.flow_id)), [workbook]);
 
+  // The flows a node can emit / absorb — INTRINSIC to its component, never invented
+  // here: a technology's own io outputs/inputs, a storage's stored flow (both
+  // ways), a station's dispensed fuel. A group rolls up its whole subtree, so you
+  // can wire one group's product into another. This is what makes a connection in
+  // the Network "from the System" — you join an existing output to an existing
+  // input, you don't type a new flow name.
+  const ioByNode = useMemo(() => {
+    const add = (m: Map<string, Set<string>>, k: string, v: string) => {
+      if (!v) return;
+      (m.get(k) ?? m.set(k, new Set()).get(k)!).add(v);
+    };
+    const ownOut = new Map<string, Set<string>>();
+    const ownIn = new Map<string, Set<string>>();
+    const techOf = new Map((workbook.assets ?? []).map((m) => [s(m.asset_id), s(m.baseline_technology)]));
+    const ioByTech = new Map<string, { out: Set<string>; in: Set<string> }>();
+    for (const r of workbook.io ?? []) {
+      const t = s(r.technology_id);
+      const e = ioByTech.get(t) ?? { out: new Set<string>(), in: new Set<string>() };
+      if (s(r.role) === "output") e.out.add(s(r.target));
+      else if (s(r.role) === "input") e.in.add(s(r.target));
+      ioByTech.set(t, e);
+    }
+    for (const [aid, tech] of techOf) {
+      const e = ioByTech.get(tech);
+      if (!e) continue;
+      e.out.forEach((f) => add(ownOut, aid, f));
+      e.in.forEach((f) => add(ownIn, aid, f));
+    }
+    for (const r of workbook.storage ?? []) {
+      add(ownOut, s(r.storage_id), s(r.flow_id)); // a tank can discharge…
+      add(ownIn, s(r.storage_id), s(r.flow_id)); // …and charge the same flow
+    }
+    for (const r of workbook.stations ?? []) {
+      add(ownOut, s(r.station_id), s(r.refuel_flow)); // dispenses fuel…
+      add(ownIn, s(r.station_id), s(r.refuel_flow)); // …and must be supplied it
+    }
+    const childrenOf = new Map<string, string[]>();
+    for (const n of nodes) {
+      const k = n.parentId ?? "";
+      (childrenOf.get(k) ?? childrenOf.set(k, []).get(k)!).push(n.id);
+    }
+    const out = new Map<string, { out: Set<string>; in: Set<string> }>();
+    const gather = (id: string): { out: Set<string>; in: Set<string> } => {
+      const cached = out.get(id);
+      if (cached) return cached;
+      const o = new Set(ownOut.get(id) ?? []);
+      const i = new Set(ownIn.get(id) ?? []);
+      const v = { out: o, in: i };
+      out.set(id, v); // set before recursion so a cycle can't loop forever
+      for (const c of childrenOf.get(id) ?? []) {
+        const cc = gather(c);
+        cc.out.forEach((f) => o.add(f));
+        cc.in.forEach((f) => i.add(f));
+      }
+      return v;
+    };
+    for (const n of nodes) gather(n.id);
+    return out;
+  }, [workbook, nodes]);
+
   // ── Validation (live, client-side mirror of the most common model issues) ─────
   const issues = useMemo(() => validateModel(workbook), [workbook]);
   const issueIdx = useMemo(() => indexIssues(issues), [issues]);
@@ -307,7 +332,6 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     if (node.kind === "asset") return [{ id: "add-alternative", label: "Add alternative…" }, ...common];
     return [
       { id: "add-subgroup", label: "Add subgroup" },
-      { id: "add-component", label: "Add component…" },
       { id: "add-target", label: "Add target (demand)" },
       ...common,
     ];
@@ -324,7 +348,6 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     }
     setSelId(node.id);
     if (actionId === "add-subgroup") addSubgroup(node.id);
-    else if (actionId === "add-component") setPicker({ parentId: node.id });
     else if (actionId === "add-alternative") { setExpanded((p) => new Set(p).add(node.id)); setAltPicker({ machineId: node.id }); }
     else if (actionId === "add-target") addTarget(node.id);
     else if (actionId === "connect") setConnectFrom(node.id);
@@ -436,12 +459,12 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
           {!hasHierarchy ? (
             <div className="vc-empty">
               <h2 className="view-title" style={{ margin: 0 }}>Start a network</h2>
-              <p className="detail-note" style={{ maxWidth: 420, textAlign: "center", margin: 0 }}>
-                A network is a tree of <b>nodes</b> (sector → company → system) holding <b>assets</b> that run a <b>technology</b>; you wire them with <b>links</b> (in-network) and <b>markets</b> (buy/sell outside). Import a whole model from the <b>Project</b> tab.
+              <p className="detail-note" style={{ maxWidth: 440, textAlign: "center", margin: 0 }}>
+                The Network <b>wires together the components you placed in the System</b> — it never adds new ones. Components (technologies, storage, stations) are placed + edited in the <b>System</b> tab; here you join them with <b>links</b> over the flows they already carry, plus <b>markets</b> (buy/sell outside). Import a whole model from the <b>Project</b> tab.
               </p>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <button className="run-button" onClick={() => addSubgroup(null)}>＋ Add network</button>
-                <span className="detail-note">…then right-click it to add subgroups or templates</span>
+                <span className="detail-note">…then place components in the <b>System</b>, and right-click here to connect them</span>
               </div>
             </div>
           ) : (
@@ -562,7 +585,6 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
         </FloatingPanel>
       ) : null}
 
-      {picker && <ComponentPicker sessionId={sessionId} libs={libs} onPick={(lib, name, kind, scope) => { void dropPick(lib, name, kind, picker.parentId, scope); setPicker(null); }} onClose={() => setPicker(null)} />}
       {altPicker && (() => {
         const baseline = s((workbook.assets ?? []).find((m) => s(m.asset_id) === altPicker.machineId)?.baseline_technology);
         const existing = new Set((workbook.transitions ?? []).filter((r) => s(r.from_technology) === baseline).map((r) => s(r.to_technology)));
@@ -577,70 +599,29 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
           />
         );
       })()}
-      {connectFrom && (
-        <ConnectDialog
-          fromLabel={nodeById.get(connectFrom)?.label ?? connectFrom}
-          targets={nodes.filter((n) => n.id !== connectFrom).map((n) => ({ id: n.id, label: `${n.label}${n.level ? ` · ${n.level}` : ""}` }))}
-          flows={flows}
-          onConfirm={(to, flow, lag) => { addLink(connectFrom, to, flow, lag); setConnectFrom(null); }}
-          onClose={() => setConnectFrom(null)}
-        />
-      )}
+      {connectFrom && (() => {
+        const fromOut = [...(ioByNode.get(connectFrom)?.out ?? [])];
+        const fromSet = new Set(fromOut);
+        // Only nodes that can ABSORB one of this node's outputs are valid targets —
+        // a connection joins an existing output to an existing input.
+        const targets = nodes
+          .filter((n) => n.id !== connectFrom)
+          .map((n) => ({ n, shared: [...(ioByNode.get(n.id)?.in ?? [])].filter((f) => fromSet.has(f)) }))
+          .filter(({ shared }) => shared.length > 0)
+          .map(({ n }) => ({ id: n.id, label: `${n.label}${n.level ? ` · ${n.level}` : ""}` }));
+        return (
+          <ConnectDialog
+            fromLabel={nodeById.get(connectFrom)?.label ?? connectFrom}
+            fromOut={fromOut}
+            targets={targets}
+            inputsByNode={ioByNode}
+            onConfirm={(to, flow, lag) => { addLink(connectFrom, to, flow, lag); setConnectFrom(null); }}
+            onClose={() => setConnectFrom(null)}
+          />
+        );
+      })()}
       {dialogNode}
     </div>
-  );
-}
-
-// ── Library → component/technology picker ─────────────────────────────────────
-// Place a Component — a single asset or a composite group (e.g. CCGT = GT+ST) —
-// or a raw technology (as a single asset).
-type PickKind = "technology" | "asset" | "group" | "storage" | "station";
-interface PickItem { library: string; libLabel: string; scope: LibScope; name: string; label: string; kind: PickKind }
-
-function ComponentPicker({ sessionId, libs, onPick, onClose }: { sessionId: string | null; libs: LibrarySummary[]; onPick: (library: string, name: string, kind: PickKind, scope: LibScope) => void; onClose: () => void }) {
-  const [q, setQ] = useState("");
-  // Flatten EVERY library's components into one searchable list (cross-library),
-  // base + this project's own, so you don't have to know which library a
-  // technology lives in.
-  const [items, setItems] = useState<PickItem[] | null>(null);
-  useEffect(() => {
-    let alive = true;
-    const body = (l: LibrarySummary) =>
-      l.scope === "session" && sessionId ? getSessionComponentLibrary(sessionId, l.id) : getComponentLibrary(l.id);
-    Promise.all(libs.map((l) => body(l).then((b) => ({ l, b })).catch(() => null)))
-      .then((results) => {
-        if (!alive) return;
-        const out: PickItem[] = [];
-        for (const r of results) {
-          if (!r) continue;
-          const { l, b } = r;
-          for (const g of b.groups) out.push({ library: l.id, libLabel: l.label, scope: l.scope, name: g.name, label: g.label || g.name, kind: "group" });
-          for (const m of b.assets) out.push({ library: l.id, libLabel: l.label, scope: l.scope, name: m.name, label: m.label || m.name, kind: "asset" });
-          for (const t of b.technologies) out.push({ library: l.id, libLabel: l.label, scope: l.scope, name: t.technology_id, label: t.technology_id, kind: "technology" });
-          for (const st of b.storages ?? []) out.push({ library: l.id, libLabel: l.label, scope: l.scope, name: st.storage_id, label: st.storage_id, kind: "storage" });
-          for (const st of b.stations ?? []) out.push({ library: l.id, libLabel: l.label, scope: l.scope, name: st.station_id, label: st.station_id, kind: "station" });
-        }
-        setItems(out);
-      });
-    return () => { alive = false; };
-  }, [libs, sessionId]);
-  const ql = q.toLowerCase();
-  const filtered = (items ?? []).filter((it) => !ql || it.label.toLowerCase().includes(ql) || it.libLabel.toLowerCase().includes(ql));
-  const glyph = (k: PickItem["kind"]) => (k === "group" ? "▦" : k === "asset" ? "▪" : k === "storage" ? "▭" : k === "station" ? "⛽" : "▫");
-  const kindTag = (k: PickItem["kind"]) =>
-    k === "technology" ? " · technology" : k === "group" ? " · group" : k === "storage" ? " · storage" : k === "station" ? " · station" : "";
-  return (
-    <Modal onClose={onClose} title="Add a component">
-      {libs.length === 0 && <p className="muted">No component libraries — build one in the Component tab.</p>}
-      <input autoFocus placeholder="search all libraries…" value={q} onChange={(e) => setQ(e.target.value)} className="field-input" style={{ width: "100%", marginBottom: 8 }} />
-      {items === null && <p className="muted">loading…</p>}
-      {items !== null && filtered.length === 0 && <p className="muted">{items.length === 0 ? "No components yet — add some in the Component tab." : "No matches."}</p>}
-      {filtered.map((it) => (
-        <button key={`${it.kind}/${it.scope}/${it.library}/${it.name}`} className="rail-item" style={{ width: "100%", textAlign: "left" }} onClick={() => onPick(it.library, it.name, it.kind, it.scope)}>
-          {glyph(it.kind)} {it.label} <span className="muted">· {it.libLabel}{it.scope === "session" ? " · project" : ""}{kindTag(it.kind)}</span>
-        </button>
-      ))}
-    </Modal>
   );
 }
 
@@ -675,31 +656,66 @@ function AltPicker({ machineLabel, baseline, available, exclude, onPick, onClose
 }
 
 // ── Connect dialog ────────────────────────────────────────────────────────────
-function ConnectDialog({ fromLabel, targets, flows, onConfirm, onClose }: { fromLabel: string; targets: { id: string; label: string }[]; flows: string[]; onConfirm: (to: string, flow: string, lag: number) => void; onClose: () => void }) {
+// A connection joins one System component's OUTPUT to another's INPUT over a flow
+// they BOTH already carry — there is no free-typed flow. `fromOut` is the source's
+// own outputs; `targets` are pre-filtered to nodes that absorb ≥1 of them; the flow
+// list narrows to exactly the flows the chosen pair shares.
+function ConnectDialog({ fromLabel, fromOut, targets, inputsByNode, onConfirm, onClose }: {
+  fromLabel: string;
+  fromOut: string[];
+  targets: { id: string; label: string }[];
+  inputsByNode: Map<string, { out: Set<string>; in: Set<string> }>;
+  onConfirm: (to: string, flow: string, lag: number) => void;
+  onClose: () => void;
+}) {
   const [to, setTo] = useState("");
   const [flow, setFlow] = useState("");
   const [lag, setLag] = useState(0);
+  // Flows shared by this source's outputs and the chosen target's inputs.
+  const shared = useMemo(() => {
+    if (!to) return [] as string[];
+    const inn = inputsByNode.get(to)?.in ?? new Set<string>();
+    return fromOut.filter((f) => inn.has(f));
+  }, [to, fromOut, inputsByNode]);
+  // Keep the flow valid as the target changes (auto-pick when there's one choice).
+  useEffect(() => {
+    if (shared.length === 0) setFlow("");
+    else if (!shared.includes(flow)) setFlow(shared.length === 1 ? shared[0] : "");
+  }, [shared, flow]);
   return (
     <Modal onClose={onClose} title={`Connect from ${fromLabel}`}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: "0.82rem" }}>
-        <label style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          <span className="muted">to</span>
-          <SearchSelect value={to} onChange={setTo} placeholder="choose a node…"
-            options={targets.map((t) => ({ value: t.id, label: t.label }))} />
-        </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          <span className="muted">flow</span>
-          <SearchableSelect value={flow} options={flows} onChange={setFlow} onCreate={setFlow} placeholder="flow" />
-        </label>
-        <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span className="muted">lag (yr)</span>
-          <input type="number" value={lag} onChange={(e) => setLag(Number(e.target.value) || 0)} className="field-input" style={{ width: 64 }} />
-        </label>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 4 }}>
-          <button className="ghost" onClick={onClose}>cancel</button>
-          <button className="run-button" disabled={!to || !flow} onClick={() => onConfirm(to, flow, lag)}>↔ Connect</button>
+      {fromOut.length === 0 ? (
+        <p className="muted" style={{ fontSize: "0.82rem", marginTop: 0 }}>
+          <strong>{fromLabel}</strong> has no output flow to send. Connections carry a flow a
+          component already produces — give it (or a child) a technology with an output first.
+        </p>
+      ) : targets.length === 0 ? (
+        <p className="muted" style={{ fontSize: "0.82rem", marginTop: 0 }}>
+          Nothing in the System takes any of {fromLabel}'s outputs ({fromOut.join(", ")}). Add a
+          component that inputs one of these flows, then connect.
+        </p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: "0.82rem" }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <span className="muted">to (takes one of: {fromOut.join(", ")})</span>
+            <SearchSelect value={to} onChange={setTo} placeholder="choose a node…"
+              options={targets.map((t) => ({ value: t.id, label: t.label }))} />
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <span className="muted">flow</span>
+            <SearchSelect value={flow} onChange={setFlow} placeholder={to ? "shared flow…" : "choose a target first"}
+              options={shared.map((f) => ({ value: f }))} />
+          </label>
+          <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <span className="muted">lag (yr)</span>
+            <input type="number" value={lag} onChange={(e) => setLag(Number(e.target.value) || 0)} className="field-input" style={{ width: 64 }} />
+          </label>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 4 }}>
+            <button className="ghost" onClick={onClose}>cancel</button>
+            <button className="run-button" disabled={!to || !flow} onClick={() => onConfirm(to, flow, lag)}>↔ Connect</button>
+          </div>
         </div>
-      </div>
+      )}
     </Modal>
   );
 }
