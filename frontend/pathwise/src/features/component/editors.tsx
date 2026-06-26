@@ -4,9 +4,11 @@
 import { InfoTooltip } from "../controls/InfoTooltip";
 import { SearchableSelect } from "../controls/SearchableSelect";
 import { SearchSelect } from "../controls/SearchSelect";
+import { TemporalValue, type TemporalVal } from "../controls/TemporalValue";
 import { RecipePreview } from "./RecipePreview";
 import { fieldMeta } from "./fieldMeta";
 import type {
+  ByYear,
   FlowTemplate,
   GroupComponent,
   IoRow,
@@ -72,12 +74,61 @@ export function Row({ children }: { children: React.ReactNode }) {
   return <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>{children}</div>;
 }
 
+/** Inline static-or-temporal editor bridging a template's `scalar` + `scalar_by_year`
+ *  pair. Static shows a plain clickable value; once it varies over the horizon it shows
+ *  the green trend (↗ N yr). Mirrors the System view so every template field is
+ *  temporal-capable in place — there is no separate "by year" panel. */
+export function TemporalField({
+  scalar,
+  byYear,
+  onChange,
+  baseYear,
+  periods,
+  perYear = false,
+  unit,
+  placeholder = "0",
+  label,
+}: {
+  scalar: number;
+  byYear?: ByYear | null;
+  /** `by` is undefined when the user reverts to a single static value. */
+  onChange: (scalar: number, by: ByYear | undefined) => void;
+  baseYear: number;
+  periods?: number[];
+  perYear?: boolean;
+  unit?: string;
+  placeholder?: string;
+  label: string;
+}) {
+  const has = byYear != null && Object.keys(byYear).length > 0;
+  const value: TemporalVal = has ? (byYear as ByYear) : scalar;
+  return (
+    <TemporalValue
+      value={value}
+      baseYear={baseYear}
+      periods={periods}
+      variant="text"
+      perYear={perYear}
+      unit={unit}
+      placeholder={placeholder}
+      label={label}
+      onChange={(v) => {
+        if (v == null) onChange(0, undefined);
+        else if (typeof v === "number") onChange(v, undefined);
+        else onChange(scalar, v); // keep the scalar as the fallback for absent years
+      }}
+    />
+  );
+}
+
 // ── Flow / flow ────────────────────────────────────────────────────────
 export function FlowEditor({
   value,
   onChange,
   onRename,
   unitOptions = [],
+  baseYear = 2025,
+  periods,
 }: {
   value: FlowTemplate;
   onChange: (v: FlowTemplate) => void;
@@ -85,6 +136,9 @@ export function FlowEditor({
   /** Allowed units (the project's unit registry) — the unit picker is limited to
    *  these so a flow can't carry an unconvertible/typo'd unit. */
   unitOptions?: string[];
+  /** Horizon context for the inline temporal price editors. */
+  baseYear?: number;
+  periods?: number[];
 }) {
   return (
     <section>
@@ -124,20 +178,14 @@ export function FlowEditor({
           />
         </Field>
         <Field label="price (buy)" meta="price">
-          <input
-            style={inputStyle}
-            type="number"
-            value={value.price ?? ""}
-            onChange={(e) => onChange({ ...value, price: e.target.value === "" ? null : num(e.target.value) })}
-          />
+          <TemporalField scalar={value.price ?? 0} byYear={value.price_by_year} baseYear={baseYear} periods={periods}
+            placeholder="no price" label={`${value.flow_id} · buy price`}
+            onChange={(s, by) => onChange({ ...value, price: s, price_by_year: by })} />
         </Field>
         <Field label="sale price" meta="sale_price">
-          <input
-            style={inputStyle}
-            type="number"
-            value={value.sale_price ?? ""}
-            onChange={(e) => onChange({ ...value, sale_price: e.target.value === "" ? null : num(e.target.value) })}
-          />
+          <TemporalField scalar={value.sale_price ?? 0} byYear={value.sale_price_by_year} baseYear={baseYear} periods={periods}
+            placeholder="no sale" label={`${value.flow_id} · sale price`}
+            onChange={(s, by) => onChange({ ...value, sale_price: s, sale_price_by_year: by })} />
         </Field>
       </Row>
     </section>
@@ -145,6 +193,13 @@ export function FlowEditor({
 }
 
 // ── Technology (recipe flows) ───────────────────────────────────────────────
+/** Per-role wide-sheet field holding each io target's by-year coefficient. */
+const IO_TFIELD = {
+  input: "input_intensity_by_year",
+  output: "output_yield_by_year",
+  impact: "direct_impact_by_year",
+} as const;
+
 export function TechnologyEditor({
   value,
   flowIds,
@@ -153,6 +208,8 @@ export function TechnologyEditor({
   onRename,
   unitOptions = [],
   streamUnitOf,
+  baseYear = 2025,
+  periods,
 }: {
   value: TechnologyTemplate;
   flowIds: string[];
@@ -163,11 +220,27 @@ export function TechnologyEditor({
   unitOptions?: string[];
   /** Resolves a flow's canonical unit — the default shown when a row is blank. */
   streamUnitOf?: (id: string) => string | undefined;
+  /** Horizon context for the inline temporal editors. */
+  baseYear?: number;
+  periods?: number[];
 }) {
   const setIo = (i: number, patch: Partial<IoRow>) =>
     onChange({ ...value, io: value.io.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
   const addIo = () => onChange({ ...value, io: [...value.io, { target: "", role: "input", coefficient: 1 }] });
   const delIo = (i: number) => onChange({ ...value, io: value.io.filter((_, j) => j !== i) });
+  // A target's per-year coefficient lives in the role's wide map keyed by target.
+  const ioByYear = (r: IoRow): ByYear | undefined => (value[IO_TFIELD[r.role]] ?? {})[r.target];
+  const setIoCoeff = (i: number, r: IoRow, scalar: number, by: ByYear | undefined) => {
+    const field = IO_TFIELD[r.role];
+    const map = { ...(value[field] ?? {}) };
+    if (by && Object.keys(by).length && r.target) map[r.target] = by;
+    else delete map[r.target];
+    onChange({
+      ...value,
+      io: value.io.map((x, j) => (j === i ? { ...x, coefficient: scalar } : x)),
+      [field]: map,
+    });
+  };
 
   return (
     <section>
@@ -187,10 +260,14 @@ export function TechnologyEditor({
           <input style={{ ...inputStyle, width: 90 }} type="number" value={value.lifespan} onChange={(e) => onChange({ ...value, lifespan: num(e.target.value) })} />
         </Field>
         <Field label="capex /cap" meta="capex">
-          <input style={{ ...inputStyle, width: 100 }} type="number" value={value.capex} onChange={(e) => onChange({ ...value, capex: num(e.target.value) })} />
+          <TemporalField scalar={value.capex} byYear={value.capex_by_year} baseYear={baseYear} periods={periods}
+            label={`${value.technology_id} · capex`}
+            onChange={(s, by) => onChange({ ...value, capex: s, capex_by_year: by })} />
         </Field>
         <Field label="opex /unit" meta="opex">
-          <input style={{ ...inputStyle, width: 100 }} type="number" value={value.opex} onChange={(e) => onChange({ ...value, opex: num(e.target.value) })} />
+          <TemporalField scalar={value.opex} byYear={value.opex_by_year} baseYear={baseYear} periods={periods}
+            label={`${value.technology_id} · opex`}
+            onChange={(s, by) => onChange({ ...value, opex: s, opex_by_year: by })} />
         </Field>
         <Field label="available from" meta="introduction_year">
           <input style={{ ...inputStyle, width: 90 }} type="number" placeholder="any" value={value.introduction_year ?? ""}
@@ -246,7 +323,9 @@ export function TechnologyEditor({
                   options={[{ value: "input" }, { value: "output" }, { value: "impact" }]} />
               </td>
               <td>
-                <input style={{ ...inputStyle, width: 70 }} type="number" min={0} value={r.coefficient} onChange={(e) => setIo(i, { coefficient: num(e.target.value) })} />
+                <TemporalField scalar={r.coefficient} byYear={ioByYear(r)} baseYear={baseYear} periods={periods}
+                  label={`${value.technology_id} · ${r.target || r.role} coefficient`}
+                  onChange={(s, by) => setIoCoeff(i, r, s, by)} />
               </td>
               <td style={{ minWidth: 84 }}>
                 <SearchableSelect
@@ -429,12 +508,19 @@ export function LeverEditor({
   flowIds,
   onChange,
   onRename,
+  baseYear = 2025,
+  periods,
 }: {
   value: LeverTemplate;
   flowIds: string[];
   onChange: (v: LeverTemplate) => void;
   onRename: (id: string) => void;
+  /** Horizon context for the inline temporal block-cost editors. */
+  baseYear?: number;
+  periods?: number[];
 }) {
+  const setBlock = (bi: number, patch: Partial<LeverTemplate["blocks"][number]>) =>
+    onChange({ ...value, blocks: value.blocks.map((x, j) => (j === bi ? { ...x, ...patch } : x)) });
   return (
     <section>
       <h2 style={{ margin: "0 0 12px" }}>Lever <span className="muted" style={{ fontSize: "0.8rem" }}>(reusable)</span></h2>
@@ -471,8 +557,12 @@ export function LeverEditor({
             <tr key={bi}>
               <td className="muted">{bi}</td>
               <td><input style={{ ...inputStyle, width: 70 }} type="number" step="0.01" value={b.reduction} onChange={(e) => onChange({ ...value, blocks: value.blocks.map((x, j) => (j === bi ? { ...x, reduction: num(e.target.value) } : x)) })} /></td>
-              <td><input style={{ ...inputStyle, width: 90 }} type="number" value={b.capex_per_capacity} onChange={(e) => onChange({ ...value, blocks: value.blocks.map((x, j) => (j === bi ? { ...x, capex_per_capacity: num(e.target.value) } : x)) })} /></td>
-              <td><input style={{ ...inputStyle, width: 90 }} type="number" value={b.opex_per_capacity} onChange={(e) => onChange({ ...value, blocks: value.blocks.map((x, j) => (j === bi ? { ...x, opex_per_capacity: num(e.target.value) } : x)) })} /></td>
+              <td><TemporalField scalar={b.capex_per_capacity} byYear={b.capex_per_capacity_by_year} baseYear={baseYear} periods={periods}
+                label={`${value.lever_id} · block ${bi} capex`}
+                onChange={(s, by) => setBlock(bi, { capex_per_capacity: s, capex_per_capacity_by_year: by })} /></td>
+              <td><TemporalField scalar={b.opex_per_capacity} byYear={b.opex_per_capacity_by_year} baseYear={baseYear} periods={periods}
+                label={`${value.lever_id} · block ${bi} opex`}
+                onChange={(s, by) => setBlock(bi, { opex_per_capacity: s, opex_per_capacity_by_year: by })} /></td>
               <td><button className="ghost" onClick={() => onChange({ ...value, blocks: value.blocks.filter((_, j) => j !== bi) })}>✕</button></td>
             </tr>
           ))}

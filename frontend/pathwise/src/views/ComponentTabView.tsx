@@ -12,7 +12,6 @@ import {
   MaccEditor,
   TechnologyEditor,
 } from "../features/component/editors";
-import { TimeSeriesRail } from "../features/component/TimeSeriesRail";
 import { AccordionSidebar, type AccordionSection } from "../layout/AccordionSidebar";
 import { useDialogs } from "../features/controls/Dialog";
 import { SearchSelect } from "../features/controls/SearchSelect";
@@ -226,6 +225,9 @@ export function ComponentTabView({
   // fall back to the global allowed list when a model has no registry yet.
   const registryUnits = projectUnits(workbook);
   const pickerUnits = registryUnits.length ? registryUnits : unitOptions;
+  // Horizon context for the editors' inline temporal fields (System-style).
+  const periods = (workbook.periods ?? []).map((r) => Number(r.year)).filter(Number.isFinite);
+  const baseYear = periods.length ? Math.min(...periods) : 2025;
   const saved = useRef<Map<string, string>>(new Map());
   const importFileRef = useRef<HTMLInputElement>(null);
 
@@ -947,6 +949,8 @@ export function ComponentTabView({
             flowIds={flowIds}
             unitOptions={pickerUnits}
             streamUnitOf={streamUnit}
+            baseYear={baseYear}
+            periods={periods}
             onAddFlow={(id) => editLib(sel.libId, (l) => ({ ...l, flows: [...l.flows, { flow_id: id, kind: "material", unit: "unit" } as FlowTemplate] }))}
             onChange={setTech}
             onRename={(id) => setSel({ libId: sel.libId, kind: "tech", id })}
@@ -973,6 +977,8 @@ export function ComponentTabView({
           <FlowEditor
             value={c}
             unitOptions={pickerUnits}
+            baseYear={baseYear}
+            periods={periods}
             onChange={(v) => editLib(sel.libId, (l) => ({ ...l, flows: l.flows.map((x) => (x.flow_id === sel.id ? v : x)) }))}
             onRename={(id) => setSel({ libId: sel.libId, kind: "stream", id })}
           />
@@ -990,6 +996,8 @@ export function ComponentTabView({
         <LeverEditor
           value={m}
           flowIds={flowIds}
+          baseYear={baseYear}
+          periods={periods}
           onChange={(v) => editLib(sel.libId, (l) => ({ ...l, measures: l.measures.map((x) => (x.lever_id === sel.id ? v : x)) }))}
           onRename={(id) => setSel({ libId: sel.libId, kind: "lever", id })}
         />
@@ -1060,26 +1068,7 @@ export function ComponentTabView({
     return null;
   }
 
-  // ── Right-rail per-year time-series table for the selected single component ──
-  function tsRail() {
-    if (!sel || !body) return null;
-    if (sel.kind === "tech") {
-      const t = body.technologies.find((x) => x.technology_id === sel.id);
-      return t == null ? null : <TimeSeriesRail kind="tech" value={t} onChange={(v) => editLib(sel.libId, (l) => ({ ...l, technologies: l.technologies.map((x) => (x.technology_id === sel.id ? v : x)) }))} />;
-    }
-    if (sel.kind === "stream") {
-      const c = body.flows.find((x) => x.flow_id === sel.id);
-      return c == null ? null : <TimeSeriesRail kind="stream" value={c} onChange={(v) => editLib(sel.libId, (l) => ({ ...l, flows: l.flows.map((x) => (x.flow_id === sel.id ? v : x)) }))} />;
-    }
-    if (sel.kind === "lever") {
-      const m = body.measures.find((x) => x.lever_id === sel.id);
-      return m == null ? null : <TimeSeriesRail kind="lever" value={m} onChange={(v) => editLib(sel.libId, (l) => ({ ...l, measures: l.measures.map((x) => (x.lever_id === sel.id ? v : x)) }))} />;
-    }
-    return null;
-  }
-
   const notes = notesFor();
-  const rail = tsRail();
 
   // Library mode shows the shared base catalogue; project mode shows ONLY the
   // active project's own components (base is reached via the copy picker).
@@ -1256,18 +1245,6 @@ export function ComponentTabView({
                   } satisfies AccordionSection,
                 ]
               : tierSections),
-            ...(rail
-              ? [
-                  {
-                    id: "timeseries",
-                    title: "Time series",
-                    info: "Per-year overrides — an empty cell uses the latest value.",
-                    defaultOpen: false,
-                    grow: true,
-                    body: rail,
-                  } satisfies AccordionSection,
-                ]
-              : []),
           ]}
         />
         <main className="builder-main">
