@@ -74,5 +74,11 @@
     "file": "petrochemical.sqlite",
     "backend": "macc",
     "description": "An exact port of the Korean Petrochemical MACC model (PLANiT-Institute/petrochemical_macc_2025), default-demand scenario. This is a greedy marginal-abatement runner, NOT an LP: it ranks abatement options (renewable PPA, industrial heat pump, electric naphtha cracker) by $/tCO2 and deploys the cheapest first each year against a net-zero-by-2050 emission target, carrying deployment forward irreversibly. Runs under the MACC (greedy abatement) optimisation method — chosen automatically when you open this example. Reproduces the source to floating-point precision (2050: 29.85 MtCO2 residual, $36.15 B cumulative CAPEX)."
+  },
+  {
+    "id": "shipping_stations",
+    "label": "Shipping with stations & refuelling (Busan → Sydney)",
+    "file": "shipping_stations.json",
+    "description": "A cargo lane from Busan to Sydney made physical and carried by a carrier that owns two ship types the optimiser chooses between — an HFO-bunker ship (cheaper fuel, high impact) and an e-ammonia ship (pricier fuel, zero impact). Refuelling is real infrastructure: a Busan bunkering STATION dispenses the ships' bunker, capacity-limited and with a per-unit fee on top of the fuel price, so a fleet can only run as far as its stations let it refuel. With no carbon price the HFO ship wins and refuels at the station; add a carbon price (Market & Policy) or a green-corridor emission cap on the lane (Fleet route panel) and the optimiser switches to the e-ammonia ship. Demonstrates candidate fleets + station refuelling together."
   }
 ]
