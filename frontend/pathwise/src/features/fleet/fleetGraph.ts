@@ -122,6 +122,8 @@ export interface RouteLeaf {
   to: string;
   flow: string;
   mode: string;
+  /** Optional friendly route name (the `routes.label` column); blank ⇒ "From ↔ To". */
+  name?: string;
   /** true = a real `routes` row exists; false = a located link candidate. */
   physical: boolean;
 }
@@ -148,7 +150,7 @@ export function buildRouteLeaves(
     const to = s(r.to_node);
     const flow = s(r.flow);
     byTriple.add(triple(from, to, flow));
-    leaves.push({ proc, from, to, flow, mode: s(r.mode) || "sea", physical: true });
+    leaves.push({ proc, from, to, flow, mode: s(r.mode) || "sea", name: s(r.label) || undefined, physical: true });
   }
   for (const c of links) {
     if (!coord.has(c.from) || !coord.has(c.to)) continue;
@@ -173,7 +175,7 @@ export function routeTree(leaves: RouteLeaf[], labelOf: (id: string) => string):
     const gid = `stream::${flow}`;
     out.push({ id: gid, parentId: null, kind: "group", label: flow || "Direct routes", level: `flow · ${ls.length}`, hasChildren: true, droppable: false });
     for (const l of ls)
-      out.push({ id: l.proc, parentId: gid, kind: "asset", label: `${labelOf(l.from)} ↔ ${labelOf(l.to)}`, level: l.physical ? l.mode || "route" : "connect →", hasChildren: false });
+      out.push({ id: l.proc, parentId: gid, kind: "asset", label: l.name || `${labelOf(l.from)} ↔ ${labelOf(l.to)}`, level: l.physical ? l.mode || "route" : "connect →", hasChildren: false });
   }
   return out;
 }

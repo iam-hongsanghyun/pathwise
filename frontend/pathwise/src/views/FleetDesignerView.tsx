@@ -907,9 +907,17 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
   return (
     <FloatingPanel title="route" width={360} onClose={onClose}>
       <div style={{ padding: "12px 14px" }}>
-        <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>{labelOf(s(route.from_node))} ↔ {labelOf(s(route.to_node))}</div>
-        <div className="muted" style={{ fontSize: "0.74rem", marginBottom: 6 }}>
-          {flow ? <>flow <b style={{ color: "var(--text)" }}>{flow}</b> · made physical (otherwise it teleports)</> : "direct transport process"}
+        <input
+          className="field-input"
+          style={{ width: "100%", fontWeight: 600, fontSize: "0.9rem" }}
+          value={s(route.label)}
+          placeholder={`${labelOf(s(route.from_node))} ↔ ${labelOf(s(route.to_node))}`}
+          title="Route name (rename it)"
+          onChange={(e) => onChange({ label: e.target.value })}
+        />
+        <div className="muted" style={{ fontSize: "0.74rem", margin: "4px 0 6px" }}>
+          {labelOf(s(route.from_node))} ↔ {labelOf(s(route.to_node))}
+          {flow ? <> · flow <b style={{ color: "var(--text)" }}>{flow}</b></> : " · direct transport process"}
         </div>
         {row("mode", <SearchSelect value={s(route.mode) || "sea"} onChange={(v) => onChange({ mode: v })} options={MODES} />, "Sea follows real sea lanes (searoute, via Suez/Panama); road/rail use great-circle × a detour factor. Sets the route's distance basis.")}
         {row("distance", <input className="field-input" style={{ width: "100%" }} type="number" placeholder="auto · from the ports" value={s(route.distance)} onChange={(e) => onChange({ distance: blank(e.target.value) })} />, "Leave blank to derive it from the two ports (sea = searoute length; land = great-circle × factor). Override to pin a known distance.")}

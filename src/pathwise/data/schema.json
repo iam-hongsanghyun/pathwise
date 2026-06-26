@@ -768,6 +768,7 @@
         },
         "from_node": {"label": "From", "type": "string", "desc": "Origin node (carries lon/lat)."},
         "to_node": {"label": "To", "type": "string", "desc": "Destination node (carries lon/lat)."},
+        "label": {"label": "Name", "type": "string", "desc": "Optional friendly route name (display only); blank ⇒ shown as 'From ↔ To'."},
         "flow": {"label": "Flow", "type": "string", "desc": "Network flow this route physicalises (the link's flow); blank ⇒ a direct transport process."},
         "mode": {"label": "Mode", "type": "string", "desc": "sea (searoute) / road / rail (great-circle × factor)."},
         "distance": {
