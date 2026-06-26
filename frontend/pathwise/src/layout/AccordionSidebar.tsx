@@ -69,25 +69,27 @@ export function AccordionSidebar({
   const startResize = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     const handle = e.currentTarget as HTMLElement;
+    const sectionEl = handle.previousElementSibling as HTMLElement | null;
     const rail = handle.closest(".acc-sidebar") as HTMLElement | null;
-    // Freeze EVERY open section at its current height first, so dragging one panel's
-    // divider resizes only that panel — the sections below keep their size instead of
-    // reflowing. The rail scrolls (overflow-y:auto) if the panels exceed its height,
-    // so nothing is clipped out of view.
-    const snapshot: Record<string, number> = {};
-    if (rail)
-      for (const el of rail.querySelectorAll<HTMLElement>(".acc-section")) {
-        const sid = el.dataset.secId;
-        if (sid && el.querySelector(".acc-body")) snapshot[sid] = el.offsetHeight;
-      }
-    const start = snapshot[id] ?? (handle.previousElementSibling as HTMLElement)?.offsetHeight ?? 120;
-    setHeights((prev) => ({ ...prev, ...snapshot }));
+    const start = sectionEl?.offsetHeight ?? 120;
+    // The rail is fixed to the window — it never scrolls; each section scrolls its own
+    // body. Growing this section shrinks the last (flex-grow) section, which may only
+    // shrink to its floor (then its body scrolls). Cap growth at that room, measured at
+    // drag start, so the whole rail stays inside the window.
+    let room = Number.POSITIVE_INFINITY;
+    if (rail && sectionEl) {
+      const open = [...rail.querySelectorAll<HTMLElement>(".acc-section")].filter((s) =>
+        s.querySelector(".acc-body"),
+      );
+      const last = open[open.length - 1];
+      room = last && last !== sectionEl ? Math.max(0, last.offsetHeight - SECTION_MIN) : 0;
+    }
+    const maxH = start + room;
     const startY = e.clientY;
     const move = (ev: MouseEvent) =>
       setHeights((prev) => ({
         ...prev,
-        ...snapshot,
-        [id]: Math.max(SECTION_MIN, start + (ev.clientY - startY)),
+        [id]: Math.min(maxH, Math.max(SECTION_MIN, start + (ev.clientY - startY))),
       }));
     const up = () => {
       window.removeEventListener("mousemove", move);
@@ -112,7 +114,7 @@ export function AccordionSidebar({
     <>
       <aside
         className="builder-rail acc-sidebar"
-        style={{ width, display: "flex", flexDirection: "column", overflowY: "auto", overflowX: "hidden" }}
+        style={{ width, display: "flex", flexDirection: "column", overflow: "hidden" }}
       >
         {/* Rail-level collapse button */}
         <div className="rail-head-row">
@@ -128,11 +130,11 @@ export function AccordionSidebar({
           const isOpen = sectionOpen[sec.id] !== false;
           const isLastOpen = sec.id === lastOpenId;
           const h = heights[sec.id];
-          // Once the user has sized panels, each open section is fixed at its height
-          // (independent panels; the rail scrolls). Before any resize, the last open
-          // section flex-grows to fill the rail and the rest take their content height.
-          const sized = isOpen && h != null;
-          const grows = isOpen && !sized && isLastOpen;
+          // The last open section always flex-grows to fill the rail (no empty gap, no
+          // rail scroll); a user-sized non-last section is fixed at its height. Either
+          // way each section's own body scrolls when its content overflows.
+          const sized = isOpen && !isLastOpen && h != null;
+          const grows = isOpen && (isLastOpen || (sec.grow !== false && h == null));
           return (
             <Fragment key={sec.id}>
             <div
