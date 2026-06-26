@@ -32,7 +32,7 @@ import {
   type RouteLeaf,
 } from "../features/fleet/fleetGraph";
 import { routeExposure, routePath, type CorridorExposure } from "../lib/api/routing";
-import { modelCurrency } from "../lib/caps";
+import { impactUnit, modelCurrency } from "../lib/caps";
 import { impactIds } from "../lib/scope";
 import { FlatTablePanel } from "../features/table/FlatTablePanel";
 import { flattenFleetGroup } from "../features/table/flatten.fleet";
@@ -622,6 +622,7 @@ export function FleetDesignerView({
           onAddMode={(mode) => addModeRoute(editRoute, mode)}
           onSwitch={(p) => { setSelId(p); setEdit({ kind: "route", id: p }); }}
           impacts={impacts} green={greenCorridors} periods={periods} baseYear={baseYear} currency={currency}
+          impactUnitOf={(i) => impactUnit(workbook, i)}
           setGreen={(rows) => setWorkbook(setSheet(workbook, "green_corridors", rows))}
           onClose={() => setEdit(null)} />
       )}
@@ -702,7 +703,11 @@ function ChokepointDesigner({
           return (
             <div key={id} className={`corridor-row${stranded ? " is-stranded" : ""}`}>
               <div className="corridor-main">
-                <span className="corridor-name">{label}</span>
+                <span className="corridor-name" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  {label}
+                  {stranded && <span style={{ color: "var(--danger)" }} title="a route is stranded — no way around">⚠</span>}
+                  <InfoTooltip text={expoText} />
+                </span>
                 <input className="field-input corridor-num" type="number" min={0} max={100} step={0.5}
                   title="annual closure probability (%/yr)"
                   value={p ? Number((p * 100).toFixed(2)) : ""} placeholder="0"
@@ -711,9 +716,6 @@ function ChokepointDesigner({
                   title={`per-voyage toll (${currency}/voyage)`}
                   value={toll || ""} placeholder="0"
                   onChange={(ev) => onToll(id, ev.target.value === "" ? 0 : Number(ev.target.value))} />
-                <span style={{ display: "inline-flex", alignItems: "center", color: stranded ? "var(--danger)" : undefined }}>
-                  {stranded ? "⚠" : ""}<InfoTooltip text={expoText} />
-                </span>
               </div>
             </div>
           );
@@ -794,12 +796,12 @@ function NodePanel({ id, label, level, coord, onRename, onLevel, onCoord, onClos
   );
 }
 
-function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, onChange, onToggleBlock, setFleetRoutes, onAddMode, onSwitch, impacts, green, setGreen, periods, baseYear, currency, onClose }: {
+function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, onChange, onToggleBlock, setFleetRoutes, onAddMode, onSwitch, impacts, green, setGreen, periods, baseYear, currency, impactUnitOf, onClose }: {
   route: Row; routes: Row[]; fleets: Row[]; fleetRoutes: Row[]; labelOf: (id: string) => string; fleetLabel: (id: string) => string;
   onChange: (p: Row) => void; onToggleBlock: (on: boolean) => void; setFleetRoutes: (rows: Row[]) => void;
   onAddMode: (mode: string) => void; onSwitch: (proc: string) => void;
   impacts: string[]; green: Row[]; setGreen: (rows: Row[]) => void;
-  periods: number[]; baseYear: number; currency: string; onClose: () => void;
+  periods: number[]; baseYear: number; currency: string; impactUnitOf: (i: string) => string; onClose: () => void;
 }) {
   const proc = s(route.process);
   const blocked = s(route.blocked) === "true";
@@ -923,10 +925,13 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
                         soft
                       </label>
                       {soft && (
-                        <input className="field-input" type="number" style={{ width: 72 }} placeholder="penalty"
-                          title={`exceedance price (${currency} per unit over the cap)`}
-                          value={penalty ?? ""}
-                          onChange={(e) => commitGreen(imp, limitOf(imp), true, e.target.value === "" ? null : Number(e.target.value))} />
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                          <input className="field-input" type="number" style={{ width: 64 }} placeholder="penalty"
+                            title={`exceedance price — ${currency} per ${impactUnitOf(imp)} of ${imp} over the cap`}
+                            value={penalty ?? ""}
+                            onChange={(e) => commitGreen(imp, limitOf(imp), true, e.target.value === "" ? null : Number(e.target.value))} />
+                          <span className="muted" style={{ fontSize: ".68rem" }}>{currency}/{impactUnitOf(imp)}</span>
+                        </span>
                       )}
                       <button className="rail-add" title="remove cap" onClick={() => removeGreen(imp)}>✕</button>
                     </div>
