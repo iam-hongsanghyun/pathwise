@@ -80,6 +80,8 @@ export interface StationTemplate {
   refuel_fee: number;
   capex: number;
   fixed_opex: number;
+  throughput_capacity: number; // transfer-hub: cargo/yr ceiling (0 ⇒ unlimited)
+  handling_fee: number; // transfer-hub: currency per unit of cargo handled
   notes?: string;
 }
 

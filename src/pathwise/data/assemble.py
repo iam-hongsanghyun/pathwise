@@ -1277,6 +1277,8 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 legs=tuple(legs),
                 blocked=_bool(r.get("blocked"), False),
                 toll=route_toll,
+                from_node=rfrom,
+                to_node=rto,
                 scope_chain=tuple(x for x in scope_chain if x),
             )
         )
@@ -1324,23 +1326,28 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     # ── Stations: refuelling infrastructure (caps + prices a scope's fleet fuel) ──
     sta_cap_t = _wide_temporal(workbook, "stations_t__refuel_capacity")
     sta_fee_t = _wide_temporal(workbook, "stations_t__refuel_fee")
+    sta_thru_t = _wide_temporal(workbook, "stations_t__throughput_capacity")
+    sta_hfee_t = _wide_temporal(workbook, "stations_t__handling_fee")
     stations: list[Station] = []
     for r in _rows(workbook, STATIONS):
         sid = _str(r.get("station_id"))
-        rfuel = _str(r.get("refuel_flow"))
-        if not sid or not rfuel:
+        if not sid:  # a station may refuel, be a transfer hub, or both — only the id is required
             continue
         stations.append(
             Station(
                 station_id=sid,
                 company=_str(r.get("company")) or "all",
-                refuel_flow=rfuel,
+                refuel_flow=_str(r.get("refuel_flow")) or "",
                 refuel_capacity=_num(r.get("refuel_capacity"), 0.0) or 0.0,
                 refuel_fee=_num(r.get("refuel_fee"), 0.0) or 0.0,
                 capex=_num(r.get("capex"), 0.0) or 0.0,
                 fixed_opex=_num(r.get("fixed_opex"), 0.0) or 0.0,
+                throughput_capacity=_num(r.get("throughput_capacity"), 0.0) or 0.0,
+                handling_fee=_num(r.get("handling_fee"), 0.0) or 0.0,
                 refuel_capacity_by_year=dict(sta_cap_t.get(sid, {})),
                 refuel_fee_by_year=dict(sta_fee_t.get(sid, {})),
+                throughput_capacity_by_year=dict(sta_thru_t.get(sid, {})),
+                handling_fee_by_year=dict(sta_hfee_t.get(sid, {})),
             )
         )
 

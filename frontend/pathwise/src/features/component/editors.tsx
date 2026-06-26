@@ -314,7 +314,7 @@ export function StationEditor({
   );
   return (
     <section>
-      <h2 style={{ margin: "0 0 12px" }}>Station <span className="muted" style={{ fontSize: "0.8rem" }}>(refuelling)</span></h2>
+      <h2 style={{ margin: "0 0 12px" }}>Station <span className="muted" style={{ fontSize: "0.8rem" }}>(refuelling / transfer hub)</span></h2>
       <Row>
         <Field label="id" meta="station_id">
           <input
@@ -342,6 +342,10 @@ export function StationEditor({
         </Field>
         {numField("refuel capacity", "refuel_capacity", 110)}
         {numField("refuel fee /unit", "refuel_fee", 100)}
+      </Row>
+      <Row>
+        {numField("throughput cap (cargo/yr)", "throughput_capacity", 150)}
+        {numField("handling fee /unit", "handling_fee", 110)}
       </Row>
       <Row>
         {numField("capex", "capex", 100)}

@@ -476,7 +476,7 @@ export function ComponentTabView({
   function addStation(libId: string) {
     editLib(libId, (l) => {
       const id = uniq("Station", new Set((l.stations ?? []).map((s) => s.station_id)));
-      const s: StationTemplate = { station_id: id, refuel_flow: l.flows.find((f) => f.kind === "energy")?.flow_id ?? l.flows[0]?.flow_id ?? "", refuel_capacity: 0, refuel_fee: 0, capex: 0, fixed_opex: 0 };
+      const s: StationTemplate = { station_id: id, refuel_flow: l.flows.find((f) => f.kind === "energy")?.flow_id ?? l.flows[0]?.flow_id ?? "", refuel_capacity: 0, refuel_fee: 0, capex: 0, fixed_opex: 0, throughput_capacity: 0, handling_fee: 0 };
       setSel({ libId, kind: "station", id });
       setExpanded((p) => new Set(p).add(`lib:${libId}`).add(`cat:${libId}:${STATION_CAT}`));
       return { ...l, stations: [...(l.stations ?? []), s] };

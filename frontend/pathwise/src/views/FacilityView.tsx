@@ -423,11 +423,15 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         return (
           <section className="detail-col asset-detail">
             <h2 className="view-title">{sel.label}</h2>
-            <p className="detail-sub muted">station · dispenses {s(sta.refuel_flow) || "—"}</p>
+            <p className="detail-sub muted">station · {s(sta.refuel_flow) ? `refuels ${s(sta.refuel_flow)}` : "transfer hub"}</p>
             <div className="asset-fields">
-              <div className="mf-sec">station<span className="mf-sec-note">this instance's own physical values — set here, not in the Library</span></div>
+              <div className="mf-sec">refuelling<span className="mf-sec-note">fuel dispensed to fleets in scope (leave blank for a pure transfer hub)</span></div>
               {numCell("rc", "refuel capacity", numOf(sta, "refuel_capacity"), (v) => set("refuel_capacity", v), `${s(sta.refuel_flow) || "fuel"}/yr`)}
               {numCell("rf", "refuel fee /unit", numOf(sta, "refuel_fee"), (v) => set("refuel_fee", v))}
+              <div className="mf-sec">transfer hub<span className="mf-sec-note">cargo passing through this port (the routes it endpoints)</span></div>
+              {numCell("tc", "throughput cap", numOf(sta, "throughput_capacity"), (v) => set("throughput_capacity", v), "cargo/yr", undefined, "unlimited")}
+              {numCell("hf", "handling fee /unit", numOf(sta, "handling_fee"), (v) => set("handling_fee", v))}
+              <div className="mf-sec">build</div>
               {numCell("scx", "capex", numOf(sta, "capex"), (v) => set("capex", v))}
               {numCell("sox", "fixed O&M", numOf(sta, "fixed_opex"), (v) => set("fixed_opex", v))}
             </div>

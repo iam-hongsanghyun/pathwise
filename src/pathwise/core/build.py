@@ -2103,6 +2103,24 @@ def _conn_fuel_demand(ctx: BuildContext, fuel: str, t: int, scope: str = "all") 
     return base
 
 
+def _station_throughput(ctx: BuildContext, station: Any, t: int) -> Any:
+    r"""Cargo through a station (port/hub) in year ``t`` — ``Σ legflow`` over every
+    connection route it is an endpoint of. A station's id IS its node id and a route
+    carries ``from_node``/``to_node``, so "through this port" = the routes touching it
+    (a transshipment that arrives on one route and departs on another counts both
+    moves). Returns a linopy expr or None."""
+    prob = ctx.problem
+    if ctx.legflow is None:
+        return None
+    terms: list[Any] = [
+        ctx.legflow.sel(leg=leg_key(cr.process, leg.fleet_id), period=t)
+        for cr in prob.connection_routes
+        if not cr.blocked and station.station_id in (cr.from_node, cr.to_node)
+        for leg in cr.legs
+    ]
+    return _lin_sum(terms)
+
+
 def _stations(ctx: BuildContext) -> None:
     r"""Refuelling infrastructure: a scope's fleet fuel must be served by its stations.
 
@@ -2117,30 +2135,41 @@ def _stations(ctx: BuildContext) -> None:
     station are unaffected (they refuel at the flat fuel price, as before).
     """
     prob, m = ctx.problem, ctx.model
-    if not prob.stations or ctx.dispense is None:
+    if not prob.stations:
         return
-    groups: dict[tuple[str, str], list[Any]] = {}
-    for st in prob.stations:
-        if st.refuel_flow:
-            groups.setdefault((st.company, st.refuel_flow), []).append(st)
-    for (company, fuel), sts in groups.items():
-        for t in ctx.years:
-            disp = _lin_sum([ctx.dispense.sel(station=st.station_id, period=t) for st in sts])
-            demand = _conn_fuel_demand(ctx, fuel, t, scope=company)
-            key = f"{company}|{fuel}|{t}"
-            if demand is None:
-                if disp is not None:
-                    m.add_constraints(disp == 0, name=f"stadisp0[{key}]")
-                continue
-            m.add_constraints(disp == demand, name=f"staserve[{key}]")
-        for st in sts:
+    # ── Refuelling: a scope's fleet fuel must be served by its stations ──────────
+    if ctx.dispense is not None:
+        groups: dict[tuple[str, str], list[Any]] = {}
+        for st in prob.stations:
+            if st.refuel_flow:
+                groups.setdefault((st.company, st.refuel_flow), []).append(st)
+        for (company, fuel), sts in groups.items():
             for t in ctx.years:
-                cap = st.refuel_capacity_at(t)  # per-year capacity (0 ⇒ unlimited)
-                if cap > 0:
-                    m.add_constraints(
-                        ctx.dispense.sel(station=st.station_id, period=t) <= cap,
-                        name=f"stacap[{st.station_id},{t}]",
-                    )
+                disp = _lin_sum([ctx.dispense.sel(station=st.station_id, period=t) for st in sts])
+                demand = _conn_fuel_demand(ctx, fuel, t, scope=company)
+                key = f"{company}|{fuel}|{t}"
+                if demand is None:
+                    if disp is not None:
+                        m.add_constraints(disp == 0, name=f"stadisp0[{key}]")
+                    continue
+                m.add_constraints(disp == demand, name=f"staserve[{key}]")
+            for st in sts:
+                for t in ctx.years:
+                    cap = st.refuel_capacity_at(t)  # per-year capacity (0 ⇒ unlimited)
+                    if cap > 0:
+                        m.add_constraints(
+                            ctx.dispense.sel(station=st.station_id, period=t) <= cap,
+                            name=f"stacap[{st.station_id},{t}]",
+                        )
+    # ── Transfer hub: cap the cargo passing through a port (the routes it endpoints) ─
+    for st in prob.stations:
+        for t in ctx.years:
+            capn = st.throughput_capacity_at(t)  # 0 ⇒ unlimited
+            if capn <= 0:
+                continue
+            thru = _station_throughput(ctx, st, t)
+            if thru is not None:
+                m.add_constraints(thru <= capn, name=f"stathru[{st.station_id},{t}]")
 
 
 def _storage_energy_demand(ctx: BuildContext, flow: str, t: int) -> Any:
@@ -2300,6 +2329,17 @@ def _objective(ctx: BuildContext) -> None:
                     toll_arr, coords={"leg": leg_ids, "period": ctx.years}, dims=["leg", "period"]
                 )
                 obj_terms.append((w_da * toll_da * ctx.legflow).sum(["leg", "period"]))
+
+    # ── Port/hub handling fee: fee · cargo through each station (transfer-hub cost) ──
+    if ctx.legflow is not None and prob.connection_routes:
+        for sta in prob.stations:
+            if not any(sta.handling_fee_at(t) for t in ctx.years):
+                continue
+            for t in ctx.years:
+                fee = sta.handling_fee_at(t)
+                thru = _station_throughput(ctx, sta, t) if fee else None
+                if thru is not None:
+                    obj_terms.append((prob.discount_factor(t) * dur[t] * fee) * thru)
 
     # ── Fleet acquisition capex: capex_charge(year, lifespan) * capex * built ──
     # A built carrier's overnight cost is discounted/annuitised over its lifespan via

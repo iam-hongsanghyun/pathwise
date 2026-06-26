@@ -202,11 +202,15 @@ class StationTemplate(BaseModel):
     """
 
     station_id: str
-    refuel_flow: str  # the fuel flow dispensed
+    refuel_flow: str = ""  # the fuel flow dispensed (empty ⇒ a pure transfer hub)
     refuel_capacity: float = Field(default=0.0, ge=0.0)
     refuel_fee: float = Field(default=0.0, ge=0.0)
     capex: float = Field(default=0.0, ge=0.0)
     fixed_opex: float = Field(default=0.0, ge=0.0)
+    #: Transfer-hub fields: a tonnage ceiling on cargo passing through + a per-unit
+    #: handling fee — what makes a station a port/hub beyond refuelling.
+    throughput_capacity: float = Field(default=0.0, ge=0.0)
+    handling_fee: float = Field(default=0.0, ge=0.0)
     #: Free-text notes / references for the authoring UI (optimiser ignores it).
     notes: str = ""
 
@@ -251,6 +255,8 @@ def _station_row(
         "refuel_fee": s.refuel_fee,
         "capex": s.capex,
         "fixed_opex": s.fixed_opex,
+        "throughput_capacity": s.throughput_capacity,
+        "handling_fee": s.handling_fee,
     }
     if company is not None:
         row["company"] = company

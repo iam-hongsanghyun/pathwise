@@ -354,6 +354,28 @@ def test_fleet_macc_not_taken_when_capex_exceeds_the_saving() -> None:
     assert abs(_co2(lev) - _co2(base)) < 1e-6  # not deployed ⇒ emissions unchanged
 
 
+def test_port_throughput_cap_throttles_delivery() -> None:
+    # A port (station) caps the cargo passing through it — the transfer-hub model. A
+    # station at the destination node with a tight throughput cap limits delivery
+    # regardless of fleet/fuel availability (its id IS the route's endpoint node).
+    wb = _wb(co2_price=0.0, candidates=("dirty",))
+    wb["stations"] = [{"station_id": "vc/dst", "throughput_capacity": 500.0}]
+    res = _solve(wb)
+    assert res["status"] == "optimal"
+    assert _delivered(res) <= 500.0 + 1e-6  # the port cap binds
+    assert _delivered(res) > 0.0  # some cargo still moves
+
+
+def test_port_with_no_cap_or_fee_is_inert() -> None:
+    # A transfer hub with neither a cap nor a fee leaves the solve unchanged (demand met).
+    base = _solve(_wb(co2_price=0.0, candidates=("dirty",)))
+    wb = _wb(co2_price=0.0, candidates=("dirty",))
+    wb["stations"] = [{"station_id": "vc/dst"}]  # transfer-only hub, no refuel_flow
+    res = _solve(wb)
+    assert res["status"] == "optimal"
+    assert abs(_delivered(res) - _delivered(base)) < 1e-6
+
+
 def test_single_candidate_is_forced() -> None:
     # Only the clean fleet may run the lane → it is used even with no carbon price.
     res = _solve(_wb(co2_price=0.0, candidates=("clean",)))

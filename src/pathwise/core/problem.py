@@ -216,6 +216,10 @@ class ConnectionRoute:
     legs: tuple[ConnectionLeg, ...] = ()
     blocked: bool = False
     toll: float = 0.0
+    #: Endpoint node ids (the lane's geography). A station whose id matches an endpoint
+    #: is a PORT on this route, so its throughput cap / handling fee binds the cargo here.
+    from_node: str = ""
+    to_node: str = ""
     #: Scope ids this route's emissions attribute to (its origin node + every ancestor),
     #: so a group/company/region impact cap that contains the origin also binds the
     #: transport leaving it. ``"all"`` always matches (sector-wide).
@@ -289,6 +293,11 @@ class Station:
         refuel_fee: Currency per unit dispensed, on top of the fuel price.
         capex: One-time overnight build cost [currency].
         fixed_opex: Annual fixed cost [currency/yr].
+        throughput_capacity: Max CARGO handled per year as a transfer hub — the sum of
+            the flow on every route this station is an endpoint of [cargo unit/yr]
+            (``0`` ⇒ unlimited). This is what makes a station a *port/hub* beyond
+            refuelling: a tonnage ceiling on what passes through it.
+        handling_fee: Currency per unit of cargo handled (priced in the objective).
     """
 
     station_id: str
@@ -298,14 +307,26 @@ class Station:
     refuel_fee: float = 0.0
     capex: float = 0.0
     fixed_opex: float = 0.0
+    throughput_capacity: float = 0.0
+    handling_fee: float = 0.0
     #: Per-year overrides (empty ⇒ scalar every year): capacity expands + the fee falls
     #: over the horizon. Read via the ``*_at`` accessors.
     refuel_capacity_by_year: dict[int, float] = field(default_factory=dict)
     refuel_fee_by_year: dict[int, float] = field(default_factory=dict)
+    throughput_capacity_by_year: dict[int, float] = field(default_factory=dict)
+    handling_fee_by_year: dict[int, float] = field(default_factory=dict)
 
     def refuel_capacity_at(self, year: int) -> float:
         """Dispensing capacity in ``year`` (override, else scalar; ``0`` ⇒ unlimited)."""
         return self.refuel_capacity_by_year.get(year, self.refuel_capacity)
+
+    def throughput_capacity_at(self, year: int) -> float:
+        """Cargo-handling capacity in ``year`` (override, else scalar; ``0`` ⇒ unlimited)."""
+        return self.throughput_capacity_by_year.get(year, self.throughput_capacity)
+
+    def handling_fee_at(self, year: int) -> float:
+        """Cargo handling fee in ``year`` (override, else the scalar)."""
+        return self.handling_fee_by_year.get(year, self.handling_fee)
 
     def refuel_fee_at(self, year: int) -> float:
         """Per-unit refuelling fee in ``year`` (override, else scalar)."""
