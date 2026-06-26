@@ -162,6 +162,98 @@ class LeverTemplate(BaseModel):
     notes: str = ""
 
 
+class StorageTemplate(BaseModel):
+    """A storage component: store an amount of a flow, with round-trip efficiency.
+
+    Maps 1:1 onto the engine's ``storage`` sheet (charge/discharge/level/built
+    capacity is solved; these are the per-unit economics + physics). Placing it
+    stamps a ``storage`` row scoped to the chosen company. ``energy_flow`` +
+    ``energy_per_throughput`` give the optional running-energy draw per unit moved.
+    """
+
+    storage_id: str
+    flow_id: str  # the stored flow
+    max_capacity: float = Field(default=0.0, ge=0.0)
+    capex_per_capacity: float = Field(default=0.0, ge=0.0)
+    fixed_opex_per_capacity: float = Field(default=0.0, ge=0.0)
+    charge_efficiency: float = Field(default=1.0, ge=0.0, le=1.0)
+    discharge_efficiency: float = Field(default=1.0, ge=0.0, le=1.0)
+    standing_loss: float = Field(default=0.0, ge=0.0, le=1.0)
+    initial_level: float = Field(default=0.0, ge=0.0)
+    #: Optional running-energy: a flow drawn per unit of throughput moved.
+    energy_flow: str | None = None
+    energy_per_throughput: float = Field(default=0.0, ge=0.0)
+    #: Free-text notes / references for the authoring UI (optimiser ignores it).
+    notes: str = ""
+
+
+class StationTemplate(BaseModel):
+    """A refuelling station: supplies a fuel flow to fleets/modes at its location.
+
+    Maps 1:1 onto the engine's ``stations`` sheet. Placing it stamps a ``stations``
+    row scoped to the chosen company; the fleets in that scope draw their fuel
+    through it, capped at ``refuel_capacity`` and priced at ``refuel_fee`` on top of
+    the fuel price.
+    """
+
+    station_id: str
+    refuel_flow: str  # the fuel flow dispensed
+    refuel_capacity: float = Field(default=0.0, ge=0.0)
+    refuel_fee: float = Field(default=0.0, ge=0.0)
+    capex: float = Field(default=0.0, ge=0.0)
+    fixed_opex: float = Field(default=0.0, ge=0.0)
+    #: Free-text notes / references for the authoring UI (optimiser ignores it).
+    notes: str = ""
+
+
+def _storage_row(
+    s: StorageTemplate, *, storage_id: str | None = None, company: str | None = None
+) -> dict[str, Any]:
+    """A :class:`StorageTemplate` projected to a ``storage`` sheet row.
+
+    ``storage_id`` / ``company`` override the template id + bind the placed
+    instance to a scope (omitted for the library catalogue, set on placement).
+    """
+    row: dict[str, Any] = {
+        "storage_id": storage_id or s.storage_id,
+        "flow_id": s.flow_id,
+        "max_capacity": s.max_capacity,
+        "capex_per_capacity": s.capex_per_capacity,
+        "fixed_opex_per_capacity": s.fixed_opex_per_capacity,
+        "charge_efficiency": s.charge_efficiency,
+        "discharge_efficiency": s.discharge_efficiency,
+        "standing_loss": s.standing_loss,
+        "initial_level": s.initial_level,
+    }
+    if s.energy_flow:
+        row["energy_flow"] = s.energy_flow
+        row["energy_per_throughput"] = s.energy_per_throughput
+    if company is not None:
+        row["company"] = company
+    if s.notes:
+        row["notes"] = s.notes
+    return row
+
+
+def _station_row(
+    s: StationTemplate, *, station_id: str | None = None, company: str | None = None
+) -> dict[str, Any]:
+    """A :class:`StationTemplate` projected to a ``stations`` sheet row."""
+    row: dict[str, Any] = {
+        "station_id": station_id or s.station_id,
+        "refuel_flow": s.refuel_flow,
+        "refuel_capacity": s.refuel_capacity,
+        "refuel_fee": s.refuel_fee,
+        "capex": s.capex,
+        "fixed_opex": s.fixed_opex,
+    }
+    if company is not None:
+        row["company"] = company
+    if s.notes:
+        row["notes"] = s.notes
+    return row
+
+
 def _io_rows(tech: TechnologyTemplate) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for r in tech.io:

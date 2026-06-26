@@ -49,6 +49,8 @@ from pathwise.data.sheets import (
     MACCS,
     META,
     NODES,
+    STATIONS,
+    STORAGE,
     TECHNOLOGIES,
     TECHNOLOGIES_PRICES,
     TRANSITIONS,
@@ -58,10 +60,14 @@ from pathwise.data.templates import (
     IoRow,
     LeverBlockTemplate,
     LeverTemplate,
+    StationTemplate,
+    StorageTemplate,
     TechnologyTemplate,
     _io_rows,
     _io_t_rows,
     _lever_block_t_rows,
+    _station_row,
+    _storage_row,
     _tech_row,
 )
 from pathwise.data.workbook import Workbook
@@ -173,6 +179,10 @@ class ComponentLibrary(BaseModel):
     label: str = ""
     flows: list[FlowTemplate] = Field(default_factory=list)
     technologies: list[TechnologyTemplate] = Field(default_factory=list)
+    #: Storage + station component kinds (alongside technologies). Each is placed
+    #: as a scope-bound ``storage`` / ``stations`` row, not a hierarchy node.
+    storages: list[StorageTemplate] = Field(default_factory=list)
+    stations: list[StationTemplate] = Field(default_factory=list)
     measures: list[LeverTemplate] = Field(default_factory=list)
     maccs: list[MaccGroup] = Field(default_factory=list)
     assets: list[AssetComponent] = Field(default_factory=list)
@@ -197,6 +207,12 @@ class ComponentLibrary(BaseModel):
 
     def technology(self, tech_id: str) -> TechnologyTemplate | None:
         return next((t for t in self.technologies if t.technology_id == tech_id), None)
+
+    def storage(self, storage_id: str) -> StorageTemplate | None:
+        return next((s for s in self.storages if s.storage_id == storage_id), None)
+
+    def station(self, station_id: str) -> StationTemplate | None:
+        return next((s for s in self.stations if s.station_id == station_id), None)
 
     def lever(self, lever_id: str) -> LeverTemplate | None:
         return next((m for m in self.measures if m.lever_id == lever_id), None)
@@ -239,6 +255,8 @@ def copy_component_into(
     have_m = {m.lever_id for m in out.measures}
     have_g = {g.macc_id for g in out.maccs}
     have_t = {t.technology_id for t in out.technologies}
+    have_s = {s.storage_id for s in out.storages}
+    have_st = {s.station_id for s in out.stations}
 
     def add_flow(cid: str) -> None:
         if not cid or cid in have_c:
@@ -281,8 +299,32 @@ def copy_component_into(
         for gid in t.maccs:
             add_macc(gid)
 
+    def add_storage(sid: str) -> None:
+        if not sid or sid in have_s:
+            return
+        s = src.storage(sid)
+        if s is not None:
+            out.storages.append(s.model_copy(deep=True))
+            have_s.add(sid)
+            add_flow(s.flow_id)
+            if s.energy_flow:
+                add_flow(s.energy_flow)
+
+    def add_station(sid: str) -> None:
+        if not sid or sid in have_st:
+            return
+        s = src.station(sid)
+        if s is not None:
+            out.stations.append(s.model_copy(deep=True))
+            have_st.add(sid)
+            add_flow(s.refuel_flow)
+
     if kind == "technology":
         add_tech(component_id)
+    elif kind == "storage":
+        add_storage(component_id)
+    elif kind == "station":
+        add_station(component_id)
     elif kind == "stream":
         add_flow(component_id)
     elif kind == "lever":
@@ -466,6 +508,8 @@ def library_to_workbook(lib: ComponentLibrary) -> Workbook:
             )
             for g in lib.maccs
         ],
+        STORAGE: [_storage_row(s) for s in lib.storages],
+        STATIONS: [_station_row(s) for s in lib.stations],
         ASSETS: [
             {
                 "name": mc.name,
@@ -720,6 +764,37 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
         )
         for r in wb.get(MACCS, [])
     ]
+    storages = [
+        StorageTemplate(
+            storage_id=_es(r.get("storage_id")),
+            flow_id=_es(r.get("flow_id")),
+            max_capacity=_enum(r.get("max_capacity")),
+            capex_per_capacity=_enum(r.get("capex_per_capacity")),
+            fixed_opex_per_capacity=_enum(r.get("fixed_opex_per_capacity")),
+            charge_efficiency=_enum(r.get("charge_efficiency"), 1.0),
+            discharge_efficiency=_enum(r.get("discharge_efficiency"), 1.0),
+            standing_loss=_enum(r.get("standing_loss")),
+            initial_level=_enum(r.get("initial_level")),
+            energy_flow=_es(r.get("energy_flow")) or None,
+            energy_per_throughput=_enum(r.get("energy_per_throughput")),
+            notes=_es(r.get("notes")),
+        )
+        for r in wb.get(STORAGE, [])
+        if _es(r.get("storage_id"))
+    ]
+    stations = [
+        StationTemplate(
+            station_id=_es(r.get("station_id")),
+            refuel_flow=_es(r.get("refuel_flow")),
+            refuel_capacity=_enum(r.get("refuel_capacity")),
+            refuel_fee=_enum(r.get("refuel_fee")),
+            capex=_enum(r.get("capex")),
+            fixed_opex=_enum(r.get("fixed_opex")),
+            notes=_es(r.get("notes")),
+        )
+        for r in wb.get(STATIONS, [])
+        if _es(r.get("station_id"))
+    ]
     flows = [
         FlowTemplate(
             flow_id=_es(r.get("flow_id")),
@@ -777,6 +852,8 @@ def library_from_workbook(wb: Workbook) -> ComponentLibrary:
         label=label,
         flows=flows,
         technologies=technologies,
+        storages=storages,
+        stations=stations,
         measures=measures,
         maccs=maccs,
         assets=assets,
@@ -1215,6 +1292,80 @@ def place_technology(
             )
             if t_rows := _lever_block_t_rows(mid, i, blk, capacity):
                 wb.setdefault(LEVER_BLOCKS_T, []).extend(t_rows)
+    return wb
+
+
+def _unique_id(rows: list[dict[str, Any]], id_col: str, wanted: str) -> str:
+    """``wanted`` if free in ``rows[id_col]``, else ``wanted-2``, ``-3`` … unused."""
+    have = {str(r.get(id_col)) for r in rows}
+    if wanted not in have:
+        return wanted
+    n = 2
+    while f"{wanted}-{n}" in have:
+        n += 1
+    return f"{wanted}-{n}"
+
+
+def place_storage(
+    model: Workbook,
+    library: ComponentLibrary,
+    storage_id: str,
+    *,
+    parent_id: str,
+    instance_id: str | None = None,
+) -> Workbook:
+    """Place a storage component as a ``storage`` row scoped to ``parent_id``.
+
+    Storage isn't a hierarchy node — it attaches to a company scope. This stamps a
+    ``storage`` row (``company = parent_id``, id uniquified) and merges its stored
+    flow (+ any running-energy flow) into ``flows``. The engine then lets that scope
+    build + cycle the store. Pure — returns a new workbook.
+
+    Raises:
+        KeyError: If ``storage_id`` is not in the library.
+    """
+    s = library.storage(storage_id)
+    if s is None:
+        raise KeyError(f"unknown storage '{storage_id}'")
+    wb: Workbook = {k: list(v) for k, v in model.items()}
+    sid = _unique_id(wb.get(STORAGE, []), "storage_id", instance_id or f"{parent_id}/{storage_id}")
+    wb.setdefault(STORAGE, []).append(_storage_row(s, storage_id=sid, company=parent_id))
+    for cid in (s.flow_id, s.energy_flow):
+        c = next((x for x in library.flows if x.flow_id == cid), None)
+        if c is not None:
+            _merge_row(wb, FLOWS, "flow_id", _flow_row(c))
+            _merge_flow_traj(wb, c)
+    return wb
+
+
+def place_station(
+    model: Workbook,
+    library: ComponentLibrary,
+    station_id: str,
+    *,
+    parent_id: str,
+    instance_id: str | None = None,
+) -> Workbook:
+    """Place a station component as a ``stations`` row scoped to ``parent_id``.
+
+    Like :func:`place_storage`: a station attaches to a company scope, not a node.
+    Stamps a ``stations`` row (``company = parent_id``, id uniquified) and merges its
+    dispensed fuel flow into ``flows``. The fleets in that scope then refuel through
+    it. Pure — returns a new workbook.
+
+    Raises:
+        KeyError: If ``station_id`` is not in the library.
+    """
+    s = library.station(station_id)
+    if s is None:
+        raise KeyError(f"unknown station '{station_id}'")
+    wb: Workbook = {k: list(v) for k, v in model.items()}
+    sid = _unique_id(wb.get(STATIONS, []), "station_id", instance_id or f"{parent_id}/{station_id}")
+    wb.setdefault(STATIONS, []).append(_station_row(s, station_id=sid, company=parent_id))
+    c = next((x for x in library.flows if x.flow_id == s.refuel_flow), None)
+    if c is not None:
+        _merge_row(wb, FLOWS, "flow_id", _flow_row(c))
+        _merge_flow_traj(wb, c)
     return wb
 
 

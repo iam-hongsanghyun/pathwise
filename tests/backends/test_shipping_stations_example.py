@@ -9,9 +9,9 @@ fuel's impact flips the optimiser to the e-ammonia ship.
 
 from __future__ import annotations
 
-import json
 from importlib.resources import files
 
+from pathwise.api.workbook_io import parse_sqlite
 from pathwise.backends.registry import get_backend
 
 _SCENARIO = {
@@ -24,7 +24,9 @@ _SCENARIO = {
 
 
 def _model() -> dict:
-    return json.loads((files("pathwise.assets.examples") / "shipping_stations.json").read_text())
+    return parse_sqlite(
+        (files("pathwise.assets.examples") / "shipping_stations.sqlite").read_bytes()
+    )
 
 
 def _run(carbon: float = 0.0) -> tuple[dict, dict[str, float]]:
