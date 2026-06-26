@@ -1159,7 +1159,6 @@ export function ComponentTabView({
           </div>
         )}
       </div>
-      <div className="rail-foot">Right-click for actions</div>
     </>
   );
 
@@ -1186,7 +1185,7 @@ export function ComponentTabView({
       body: (
         <>
           <div className="rail-scroll">{libTree(starterNodes, "No starter libraries found.")}</div>
-          {tierFoot("Read-only references · right-click to duplicate")}
+          {tierFoot("Read-only references")}
         </>
       ),
     },
@@ -1208,7 +1207,6 @@ export function ComponentTabView({
               "No libraries of your own yet — ＋ to add one, or duplicate a starter.",
             )}
           </div>
-          {tierFoot("Right-click for actions")}
         </>
       ),
     },
@@ -1226,7 +1224,6 @@ export function ComponentTabView({
           <div className="rail-scroll">
             {libTree(projectNodes, "No project libraries — ＋ to add one.")}
           </div>
-          {tierFoot("Right-click for actions")}
         </>
       ),
     },

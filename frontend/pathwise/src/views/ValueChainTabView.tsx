@@ -406,7 +406,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                     onMove={onMove}
                     emptyHint="Empty — click ＋ (or right-click) to add a network / sector."
                   />
-                  <div className="rail-foot">Right-click an item for actions · drag to move</div>
+                  <div className="rail-foot">Drag to move</div>
                 </>
               ),
             },
