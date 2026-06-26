@@ -100,9 +100,10 @@ export function AccordionSidebar({
                 // (min-height:0) so an over-tall section scrolls its own body instead of
                 // pushing the whole rail.
                 flex: grows ? "1 1 auto" : "0 1 auto",
-                // Floor so a squeezed open section keeps its header + a row or two and
-                // scrolls its own body, rather than collapsing to a sliver.
-                minHeight: "5rem",
+                // Floor ONLY when open, so a squeezed open section keeps its header + a
+                // row or two and scrolls its own body. A CLOSED section is just its
+                // header height (no 5rem gap between collapsed sections).
+                minHeight: isOpen ? "5rem" : undefined,
                 borderTop: "1px solid var(--border)",
               }}
             >

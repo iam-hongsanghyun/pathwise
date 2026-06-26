@@ -23,11 +23,10 @@ export interface MapRoute {
   from: { lon: number; lat: number };
   to: { lon: number; lat: number };
   blocked: boolean;
-  alt: boolean;
+  /** A located link not yet physicalised (no route row) — drawn dotted + orange. */
+  unconnected?: boolean;
   /** The real sea/land polyline ([lon,lat]…). Absent ⇒ straight fallback. */
   path?: [number, number][];
-  /** The detour polyline if a chokepoint on this lane closed — drawn dotted. */
-  altPath?: [number, number][];
   // hover metadata
   fromLabel?: string;
   toLabel?: string;
@@ -235,8 +234,10 @@ export function FleetMap({
   const resetView = () => { setView(FULL_VIEW); setRot([-10, -12]); setGScale(1); };
 
   // ── Render helpers ───────────────────────────────────────────────────────────
+  // Physical routes draw SOLID; a located link not yet physicalised draws dotted+orange
+  // (a "connect me" candidate). Blocked routes keep their own style.
   const routeCls = (r: MapRoute) =>
-    `fleet-route${selId === r.process ? " is-selected" : ""}${r.blocked ? " is-blocked" : r.alt ? " is-alt" : ""}`;
+    `fleet-route${selId === r.process ? " is-selected" : ""}${r.blocked ? " is-blocked" : r.unconnected ? " is-unconnected" : ""}`;
   const onRouteHover = (r: MapRoute) => (e: React.MouseEvent) => {
     const rect = svgRef.current?.parentElement?.getBoundingClientRect();
     setHover({ x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0), r });
@@ -250,24 +251,8 @@ export function FleetMap({
       {LAND.features.map((f, i) => (
         <path key={i} className="fleet-land" d={d(f)} />
       ))}
-      {/* Alternative (detour) paths — dotted, drawn under the base lines. Each segment
-          gets a wide invisible hit path so it's easy to hover/click near the line. */}
-      {routes.map((r) => {
-        if (!r.altPath || r.altPath.length < 2) return null;
-        const segs = mode === "globe" ? [r.altPath] : splitDateline(r.altPath);
-        return segs.map((seg, i) => {
-          const dd = d({ type: "LineString", coordinates: seg });
-          if (!dd) return null;
-          return (
-            <g key={`${r.process}-alt-${i}`} onMouseMove={onRouteHover(r)} onMouseLeave={() => setHover(null)}
-              onClick={(e) => { e.stopPropagation(); onSelectRoute(r.process); }}>
-              <path className="fleet-route-hit" d={dd} />
-              <path className={`fleet-route is-alt-path${selId === r.process ? " is-selected" : ""}`} d={dd} />
-            </g>
-          );
-        });
-      })}
-      {/* Base routes (+ a wide invisible hit path under each segment). */}
+      {/* Routes (+ a wide invisible hit path under each segment). Physical lanes are
+          solid; not-yet-connected candidates are dotted+orange (via routeCls). */}
       {routes.map((r) => {
         const line = r.path && r.path.length > 1 ? r.path : [[r.from.lon, r.from.lat], [r.to.lon, r.to.lat]] as [number, number][];
         const segs = mode === "globe" ? [line] : splitDateline(line);
@@ -311,6 +296,7 @@ export function FleetMap({
         onPointerDown={onPointerDownBg}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onContextMenu={(e) => e.preventDefault()}
         onDragOver={(e) => {
           if (onDropNode && (e.dataTransfer.types.includes(NODE_DRAG_TYPE) || e.dataTransfer.types.includes("text/plain")))
             e.preventDefault();
@@ -333,7 +319,7 @@ export function FleetMap({
         const fleets = (r.fleets ?? []).filter(Boolean);
         return (
           <div className="route-tip" style={{ left: Math.min(hover.x + 14, MAP_W * 2), top: hover.y + 14 }}>
-            <div className="route-tip-title">{r.fromLabel ?? "?"} → {r.toLabel ?? "?"}</div>
+            <div className="route-tip-title">{r.fromLabel ?? "?"} ↔ {r.toLabel ?? "?"}</div>
             <table className="route-tip-tbl">
               <tbody>
                 {r.distanceKm != null && <tr><td>Distance</td><td>{Math.round(r.distanceKm).toLocaleString()} km</td></tr>}
@@ -346,7 +332,6 @@ export function FleetMap({
                 {!!r.tollPerVoyage && r.tollPerVoyage > 0 && (
                   <tr><td>Toll</td><td>{currency ? `${currency} ` : ""}{Math.round(r.tollPerVoyage).toLocaleString()}/voyage</td></tr>
                 )}
-                {r.altPath && <tr><td>If shut</td><td>reroutes (dotted)</td></tr>}
               </tbody>
             </table>
           </div>

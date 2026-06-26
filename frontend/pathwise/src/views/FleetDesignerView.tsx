@@ -168,10 +168,7 @@ export function FleetDesignerView({
   // Each map route carries a cache key (rounded endpoints + mode) so a port's sea
   // polyline is fetched once and re-used; the polyline itself lives in `paths`.
   const [paths, setPaths] = useState<Map<string, [number, number][]>>(new Map());
-  // The dotted ALTERNATIVE (detour) polyline per route (process), drawn when a lane
-  // traverses an "active" chokepoint (a sub-100% closure probability OR a toll).
-  const [altPaths, setAltPaths] = useState<Map<string, [number, number][]>>(new Map());
-  // Active chokepoint ids each route crosses (for the hover tooltip).
+  // Active chokepoint ids each route crosses (for the hover tooltip + per-voyage toll).
   const [routeChokepoints, setRouteChokepoints] = useState<Map<string, string[]>>(new Map());
   // Chokepoints worth showing a detour for: a closure probability in (0,1) — 100% is
   // already the base reroute — OR a per-voyage toll (here's the toll-free way round).
@@ -201,24 +198,6 @@ export function FleetDesignerView({
     }
     return m;
   }, [fleets]);
-  // For each lane (from|to|flow), the canonical primary route is the one whose id is
-  // routeProc(from,to,flow); every other route on the lane is an alternative MODE,
-  // drawn dotted. (A single-mode lane has no alternatives, so nothing is dotted.)
-  const altProcs = useMemo(() => {
-    const byLane = new Map<string, Row[]>();
-    for (const r of routes) {
-      const k = `${s(r.from_node)}|${s(r.to_node)}|${s(r.flow)}`;
-      (byLane.get(k) ?? byLane.set(k, []).get(k)!).push(r);
-    }
-    const out = new Set<string>();
-    for (const [k, rs] of byLane) {
-      if (rs.length < 2) continue;
-      const [from, to, flow] = k.split("|");
-      const primary = routeProc(from, to, flow);
-      for (const r of rs) if (s(r.process) !== primary) out.add(s(r.process));
-    }
-    return out;
-  }, [routes]);
   const drawRoutes = useMemo(
     () =>
       routes
@@ -232,7 +211,7 @@ export function FleetDesignerView({
           const key = `${from.lon.toFixed(2)},${from.lat.toFixed(2)}|${to.lon.toFixed(2)},${to.lat.toFixed(2)}|${mode}|${blockedCorridors.join(",")}`;
           return {
             process: proc, from, to, mode, key,
-            blocked: s(r.blocked) === "true", alt: altProcs.has(proc),
+            blocked: s(r.blocked) === "true",
             fromLabel: nodeById.get(s(r.from_node))?.label ?? s(r.from_node),
             toLabel: nodeById.get(s(r.to_node))?.label ?? s(r.to_node),
             flow,
@@ -240,22 +219,42 @@ export function FleetDesignerView({
           };
         })
         .filter((r): r is NonNullable<typeof r> => r !== null),
-    [routes, coord, blockedCorridors, nodeById, fleetsByProc, fleetsByCargo, altProcs],
+    [routes, coord, blockedCorridors, nodeById, fleetsByProc, fleetsByCargo],
+  );
+  // Located links not yet physicalised (both endpoints placed, no route row) — drawn
+  // dotted + orange as a "connect me" candidate; clicking one physicalises it.
+  const candidateRoutes = useMemo<MapRoute[]>(
+    () =>
+      routeLeaves
+        .filter((l) => !l.physical && coord.has(l.from) && coord.has(l.to))
+        .map((l) => ({
+          process: l.proc,
+          from: coord.get(l.from)!,
+          to: coord.get(l.to)!,
+          blocked: false,
+          unconnected: true,
+          fromLabel: nodeById.get(l.from)?.label ?? l.from,
+          toLabel: nodeById.get(l.to)?.label ?? l.to,
+          flow: l.flow,
+        })),
+    [routeLeaves, coord, nodeById],
   );
   const mapRoutes = useMemo<MapRoute[]>(
-    () => drawRoutes.map((r) => {
-      const path = paths.get(r.key);
-      const cps = routeChokepoints.get(r.process) ?? [];
-      return {
-        ...r,
-        path,
-        distanceKm: path ? polyKm(path) : undefined,
-        altPath: altPaths.get(r.process),
-        chokepoints: cps.map((id) => CORRIDOR_LABEL.get(id) ?? id),
-        tollPerVoyage: cps.reduce((sum, id) => sum + (corridorTolls.get(id) ?? 0), 0),
-      };
-    }),
-    [drawRoutes, paths, altPaths, routeChokepoints, corridorTolls],
+    () => [
+      ...drawRoutes.map((r) => {
+        const path = paths.get(r.key);
+        const cps = routeChokepoints.get(r.process) ?? [];
+        return {
+          ...r,
+          path,
+          distanceKm: path ? polyKm(path) : undefined,
+          chokepoints: cps.map((id) => CORRIDOR_LABEL.get(id) ?? id),
+          tollPerVoyage: cps.reduce((sum, id) => sum + (corridorTolls.get(id) ?? 0), 0),
+        };
+      }),
+      ...candidateRoutes,
+    ],
+    [drawRoutes, candidateRoutes, paths, routeChokepoints, corridorTolls],
   );
   // Sea routes (located) fed to the chokepoint-exposure analysis. Memoised so its
   // identity only changes with the geometry — the panel refetches on that, not on
@@ -280,41 +279,24 @@ export function FleetDesignerView({
     return () => clearTimeout(t);
   }, [drawRoutes, paths, blockedCorridors]);
 
-  // Dotted ALTERNATIVE paths: for every sea route that traverses an active chokepoint,
-  // fetch the detour it would take if those corridors were avoided. The exposure call
-  // tells us which active corridors each route uses; we then route around exactly those
-  // (plus any already-shut). Recomputes only when geometry or the active set changes.
+  // Which active chokepoints each sea route crosses — drives the hover tooltip + the
+  // per-voyage toll. (Routes draw solid; no dotted detour overlay.)
   const activeKey = activeCorridorIds.join(",");
-  const blockedKey = blockedCorridors.join(",");
   useEffect(() => {
     let alive = true;
-    if (exposureRoutes.length === 0 || activeCorridorIds.length === 0) { setAltPaths(new Map()); setRouteChokepoints(new Map()); return; }
+    if (exposureRoutes.length === 0 || activeCorridorIds.length === 0) { setRouteChokepoints(new Map()); return; }
     const t = setTimeout(() => {
       void routeExposure(exposureRoutes, activeCorridorIds.map((id) => ({ id, prob: corridorProbs.get(id) ?? 0 })))
         .then((list) => {
           const used = new Map<string, string[]>(); // process -> active corridors it crosses
           for (const c of list) for (const r of c.routes) (used.get(r.route_id) ?? used.set(r.route_id, []).get(r.route_id)!).push(c.id);
           if (alive) setRouteChokepoints(new Map(used));
-          return Promise.all(
-            [...used.entries()].map(([proc, cors]) => {
-              const r = drawRoutes.find((d) => d.process === proc);
-              if (!r) return null;
-              return routePath(r.from, r.to, r.mode, [...blockedCorridors, ...cors])
-                .then((coords) => [proc, coords] as const)
-                .catch(() => null);
-            }),
-          );
         })
-        .then((pairs) => {
-          if (!alive || !pairs) return;
-          const ok = pairs.filter((p): p is readonly [string, [number, number][]] => p !== null);
-          setAltPaths(new Map(ok));
-        })
-        .catch(() => { if (alive) setAltPaths(new Map()); });
+        .catch(() => { if (alive) setRouteChokepoints(new Map()); });
     }, 300);
     return () => { alive = false; clearTimeout(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exposureRoutes, activeKey, blockedKey]);
+  }, [exposureRoutes, activeKey]);
 
   // ── writes ───────────────────────────────────────────────────────────────────
   const setSheet = (wb: Workbook, sheet: string, rows: Row[]): Workbook => ({ ...wb, [sheet]: rows });
@@ -597,7 +579,7 @@ export function FleetDesignerView({
               onMovePort={(id, lon, lat) => patchNode(id, { lon, lat })}
               onClickPort={(id) => { setSelId(id); setEdit({ kind: "node", id }); }}
               onDropNode={locateNode}
-              onSelectRoute={(proc) => { setSelId(proc); setEdit({ kind: "route", id: proc }); }}
+              onSelectRoute={(proc) => { const leaf = leafByProc.get(proc); if (leaf) selectRoute(leaf); else { setSelId(proc); setEdit({ kind: "route", id: proc }); } }}
               onBackground={() => undefined}
             />
           </div>
@@ -640,7 +622,6 @@ export function FleetDesignerView({
           onSwitch={(p) => { setSelId(p); setEdit({ kind: "route", id: p }); }}
           impacts={impacts} green={greenCorridors}
           setGreen={(rows) => setWorkbook(setSheet(workbook, "green_corridors", rows))}
-          onDelete={() => { removeRoute(edit!.id); setEdit(null); }}
           onClose={() => setEdit(null)} />
       )}
       {dialogNode}
@@ -818,11 +799,11 @@ function NodePanel({ id, label, level, coord, onRename, onLevel, onCoord, onClos
   );
 }
 
-function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, onChange, onToggleBlock, setFleetRoutes, onAddMode, onSwitch, impacts, green, setGreen, onDelete, onClose }: {
+function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, onChange, onToggleBlock, setFleetRoutes, onAddMode, onSwitch, impacts, green, setGreen, onClose }: {
   route: Row; routes: Row[]; fleets: Row[]; fleetRoutes: Row[]; labelOf: (id: string) => string; fleetLabel: (id: string) => string;
   onChange: (p: Row) => void; onToggleBlock: (on: boolean) => void; setFleetRoutes: (rows: Row[]) => void;
   onAddMode: (mode: string) => void; onSwitch: (proc: string) => void;
-  impacts: string[]; green: Row[]; setGreen: (rows: Row[]) => void; onDelete: () => void; onClose: () => void;
+  impacts: string[]; green: Row[]; setGreen: (rows: Row[]) => void; onClose: () => void;
 }) {
   const proc = s(route.process);
   const blocked = s(route.blocked) === "true";
@@ -848,16 +829,19 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
   );
   const usedModes = new Set(siblings.map((r) => s(r.mode) || "sea"));
   const addableModes = MODES.filter((m) => !usedModes.has(m.value));
+  const routeMode = s(route.mode) || "sea";
   const candidates = fleetRoutes.filter((r) => s(r.process) === proc);
   const candIds = new Set(candidates.map((r) => fleetId(r)));
-  const addable = fleets.filter((f) => !candIds.has(fleetId(f)));
+  // A fleet's mode MUST match the route's mode — a rail route only offers trains, a sea
+  // route only ships. Keeps candidates physically consistent with the lane.
+  const addable = fleets.filter((f) => !candIds.has(fleetId(f)) && (s(f.mode) || "sea") === routeMode);
   const addCandidate = (fid: string) => { if (fid && !candIds.has(fid)) setFleetRoutes([...fleetRoutes, { process: proc, fleet_id: fid }]); };
   const removeCandidate = (fid: string) => setFleetRoutes(fleetRoutes.filter((r) => !(s(r.process) === proc && fleetId(r) === fid)));
   const row = (lbl: string, el: React.ReactNode, info?: string) => (<label className="field-row" style={{ marginTop: 6 }}><span className="muted">{lbl} {info && <InfoTooltip text={info} />}</span><div style={{ flex: 1 }}>{el}</div></label>);
   return (
     <FloatingPanel title="route" width={360} onClose={onClose}>
       <div style={{ padding: "12px 14px" }}>
-        <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>{labelOf(s(route.from_node))} → {labelOf(s(route.to_node))}</div>
+        <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>{labelOf(s(route.from_node))} ↔ {labelOf(s(route.to_node))}</div>
         <div className="muted" style={{ fontSize: "0.74rem", marginBottom: 6 }}>
           {flow ? <>flow <b style={{ color: "var(--text)" }}>{flow}</b> · made physical (otherwise it teleports)</> : "direct transport process"}
         </div>
@@ -922,9 +906,9 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
         )}
         {!blocked && flow && (
           <div className="rail-section" style={{ marginTop: 8 }}>
-            <div className="rail-head">Candidate fleets <InfoTooltip text="Fleets that MAY carry this flow — the optimiser picks which one(s) run the route (some, not all). Leave empty to let it choose from every fleet that carries this flow." /></div>
+            <div className="rail-head">Candidate fleets <InfoTooltip text="Fleets that MAY carry this flow — the optimiser picks which one(s) run the route (some, not all). Only fleets of this route's mode are eligible. Leave empty to let it choose from every same-mode fleet carrying this flow." /></div>
             {candidates.length === 0 ? (
-              <p className="rail-empty" style={{ margin: "2px 0 4px" }}>Empty — the optimiser may use any fleet carrying "{flow}".</p>
+              <p className="rail-empty" style={{ margin: "2px 0 4px" }}>Empty — the optimiser may use any {routeMode} fleet carrying "{flow}".</p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", margin: "4px 0" }}>
                 {candidates.map((r) => {
@@ -941,9 +925,6 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
             {addable.length > 0 && row("add fleet", <SearchSelect value="" onChange={addCandidate} options={[{ value: "", label: "— add a candidate" }, ...addable.map((f) => ({ value: fleetId(f), label: fleetLabel(fleetId(f)) }))]} />)}
           </div>
         )}
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
-          <button className="ghost" style={{ color: "var(--danger)" }} onClick={onDelete}>{flow ? "Remove route (back to teleport)" : "Delete route"}</button>
-        </div>
       </div>
     </FloatingPanel>
   );

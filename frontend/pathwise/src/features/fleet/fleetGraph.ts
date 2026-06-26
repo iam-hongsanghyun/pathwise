@@ -173,7 +173,7 @@ export function routeTree(leaves: RouteLeaf[], labelOf: (id: string) => string):
     const gid = `stream::${flow}`;
     out.push({ id: gid, parentId: null, kind: "group", label: flow || "Direct routes", level: `flow · ${ls.length}`, hasChildren: true, droppable: false });
     for (const l of ls)
-      out.push({ id: l.proc, parentId: gid, kind: "asset", label: `${labelOf(l.from)} → ${labelOf(l.to)}`, level: l.physical ? l.mode || "route" : "physicalise →", hasChildren: false });
+      out.push({ id: l.proc, parentId: gid, kind: "asset", label: `${labelOf(l.from)} ↔ ${labelOf(l.to)}`, level: l.physical ? l.mode || "route" : "connect →", hasChildren: false });
   }
   return out;
 }

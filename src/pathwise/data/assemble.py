@@ -1246,10 +1246,14 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         geo = routes.get(rproc)
         distance = geo.distance if geo is not None else (_num(r.get("distance"), 0.0) or 0.0)
         route_toll = route_tolls.get(rproc, 0.0)  # Σ per-voyage toll over corridors crossed
+        rmode = _str(r.get("mode")) or "sea"
         # Explicit candidate fleets win; otherwise "optimiser chooses" ⇒ every fleet
-        # that carries this stream is a candidate (none compatible ⇒ stays teleport).
+        # that carries this stream AND runs this route's MODE is a candidate (a rail
+        # route never gets ships). None compatible ⇒ the lane stays teleport.
         legs = legs_by_route.get(rproc) or [
-            ConnectionLeg(fleet_id=fid) for fid, fl in fleets.items() if fl.cargo == rcomm
+            ConnectionLeg(fleet_id=fid)
+            for fid, fl in fleets.items()
+            if fl.cargo == rcomm and (fl.mode or "sea") == rmode
         ]
         # Emissions attribute to the origin node + its ancestors, so a region/company
         # cap that contains the origin also binds this leg's transport emissions.

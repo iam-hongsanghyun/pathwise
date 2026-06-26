@@ -756,7 +756,8 @@
   cursor: pointer;
   vector-effect: non-scaling-stroke;
 }
-.fleet-route.is-alt { stroke-dasharray: 6 4; }
+/* A located link not yet physicalised — dotted + orange ("connect me"). */
+.fleet-route.is-unconnected { stroke: var(--warn, #d97706); stroke-dasharray: 6 4; }
 .fleet-route.is-blocked { stroke: var(--danger); stroke-dasharray: 2 4; }
 .fleet-route.is-selected { stroke: var(--brand); stroke-width: 2.6; }
 .fleet-port { cursor: grab; }
@@ -839,14 +840,6 @@
 
 /* Globe view: the sphere is the ocean disc, so the panel behind it stays neutral. */
 .fleet-map.is-globe { background: transparent; }
-/* The dotted ALTERNATIVE (detour) line a chokepoint closure would force. */
-.fleet-route.is-alt-path {
-  fill: none;
-  stroke: var(--muted);
-  stroke-width: 1.4;
-  stroke-dasharray: 3 4;
-  opacity: 0.8;
-}
 /* Map / Globe view switch (bottom-left of the map). */
 .fleet-viewtoggle {
   position: absolute;
