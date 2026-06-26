@@ -226,19 +226,20 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
 
   const flows = useMemo(() => (workbook.flows ?? []).map((c) => s(c.flow_id)), [workbook]);
 
-  // The flows a node can emit / absorb — INTRINSIC to its component, never invented
-  // here: a technology's own io outputs/inputs, a storage's stored flow (both
-  // ways), a station's dispensed fuel. A group rolls up its whole subtree, so you
-  // can wire one group's product into another. This is what makes a connection in
-  // the Network "from the System" — you join an existing output to an existing
-  // input, you don't type a new flow name.
+  // The flows an ASSET can emit / absorb — INTRINSIC to its component, never invented
+  // here: a technology's own io outputs/inputs, a storage's stored flow (both ways),
+  // a station's dispensed fuel. Keyed PER ASSET, with no group roll-up: connections
+  // are asset-to-asset (a group is an abstract scope, never a wiring endpoint — for a
+  // shared source you place a hub asset, not a group link). This is what makes a
+  // connection "from the System": you join an existing output to an existing input,
+  // you never type a new flow name.
   const ioByNode = useMemo(() => {
     const add = (m: Map<string, Set<string>>, k: string, v: string) => {
       if (!v) return;
       (m.get(k) ?? m.set(k, new Set()).get(k)!).add(v);
     };
-    const ownOut = new Map<string, Set<string>>();
-    const ownIn = new Map<string, Set<string>>();
+    const out = new Map<string, Set<string>>();
+    const inn = new Map<string, Set<string>>();
     const techOf = new Map((workbook.assets ?? []).map((m) => [s(m.asset_id), s(m.baseline_technology)]));
     const ioByTech = new Map<string, { out: Set<string>; in: Set<string> }>();
     for (const r of workbook.io ?? []) {
@@ -251,40 +252,22 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     for (const [aid, tech] of techOf) {
       const e = ioByTech.get(tech);
       if (!e) continue;
-      e.out.forEach((f) => add(ownOut, aid, f));
-      e.in.forEach((f) => add(ownIn, aid, f));
+      e.out.forEach((f) => add(out, aid, f));
+      e.in.forEach((f) => add(inn, aid, f));
     }
     for (const r of workbook.storage ?? []) {
-      add(ownOut, s(r.storage_id), s(r.flow_id)); // a tank can discharge…
-      add(ownIn, s(r.storage_id), s(r.flow_id)); // …and charge the same flow
+      add(out, s(r.storage_id), s(r.flow_id)); // a tank can discharge…
+      add(inn, s(r.storage_id), s(r.flow_id)); // …and charge the same flow
     }
     for (const r of workbook.stations ?? []) {
-      add(ownOut, s(r.station_id), s(r.refuel_flow)); // dispenses fuel…
-      add(ownIn, s(r.station_id), s(r.refuel_flow)); // …and must be supplied it
+      add(out, s(r.station_id), s(r.refuel_flow)); // dispenses fuel…
+      add(inn, s(r.station_id), s(r.refuel_flow)); // …and must be supplied it
     }
-    const childrenOf = new Map<string, string[]>();
-    for (const n of nodes) {
-      const k = n.parentId ?? "";
-      (childrenOf.get(k) ?? childrenOf.set(k, []).get(k)!).push(n.id);
-    }
-    const out = new Map<string, { out: Set<string>; in: Set<string> }>();
-    const gather = (id: string): { out: Set<string>; in: Set<string> } => {
-      const cached = out.get(id);
-      if (cached) return cached;
-      const o = new Set(ownOut.get(id) ?? []);
-      const i = new Set(ownIn.get(id) ?? []);
-      const v = { out: o, in: i };
-      out.set(id, v); // set before recursion so a cycle can't loop forever
-      for (const c of childrenOf.get(id) ?? []) {
-        const cc = gather(c);
-        cc.out.forEach((f) => o.add(f));
-        cc.in.forEach((f) => i.add(f));
-      }
-      return v;
-    };
-    for (const n of nodes) gather(n.id);
-    return out;
-  }, [workbook, nodes]);
+    const res = new Map<string, { out: Set<string>; in: Set<string> }>();
+    for (const id of new Set([...out.keys(), ...inn.keys()]))
+      res.set(id, { out: out.get(id) ?? new Set(), in: inn.get(id) ?? new Set() });
+    return res;
+  }, [workbook]);
 
   // ── Validation (live, client-side mirror of the most common model issues) ─────
   const issues = useMemo(() => validateModel(workbook), [workbook]);
@@ -323,13 +306,15 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
   function actionsFor(node: TreeNode): TreeAction[] {
     if (parseAltId(node.id)) return [{ id: "remove-alternative", label: "Remove this alternative", danger: true }];
     const common: TreeAction[] = [
-      { id: "connect", label: "Connect to…" },
       { id: "up", label: "Move up", separatorBefore: true },
       { id: "down", label: "Move down" },
       { id: "rename", label: "Rename", separatorBefore: true },
       { id: "delete", label: "Delete", danger: true },
     ];
-    if (node.kind === "asset") return [{ id: "add-alternative", label: "Add alternative…" }, ...common];
+    // Only ASSETS connect — a group is an abstract scope (constraints / optimisation
+    // level), never a wiring endpoint. Groups get structure + targets, not "Connect".
+    if (node.kind === "asset")
+      return [{ id: "add-alternative", label: "Add alternative…" }, { id: "connect", label: "Connect to…" }, ...common];
     return [
       { id: "add-subgroup", label: "Add subgroup" },
       { id: "add-target", label: "Add target (demand)" },
@@ -479,6 +464,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
                 onDeleteLink={deleteLink}
                 onBackgroundClick={() => { setShowHealth(false); setSelId(null); }}
                 flows={flows}
+                assetFlows={ioByNode}
               />
             </div>
           )}
@@ -602,10 +588,11 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
       {connectFrom && (() => {
         const fromOut = [...(ioByNode.get(connectFrom)?.out ?? [])];
         const fromSet = new Set(fromOut);
-        // Only nodes that can ABSORB one of this node's outputs are valid targets —
-        // a connection joins an existing output to an existing input.
+        // Targets are other ASSETS that ABSORB one of this asset's outputs — a
+        // connection joins an existing output to an existing input, asset-to-asset.
+        // Groups are abstract and never appear here.
         const targets = nodes
-          .filter((n) => n.id !== connectFrom)
+          .filter((n) => n.id !== connectFrom && n.kind === "asset")
           .map((n) => ({ n, shared: [...(ioByNode.get(n.id)?.in ?? [])].filter((f) => fromSet.has(f)) }))
           .filter(({ shared }) => shared.length > 0)
           .map(({ n }) => ({ id: n.id, label: `${n.label}${n.level ? ` · ${n.level}` : ""}` }));

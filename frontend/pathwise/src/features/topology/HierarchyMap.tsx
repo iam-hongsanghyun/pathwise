@@ -51,6 +51,9 @@ interface Props {
   /** A no-drag click on empty canvas — clears the selection / closes the inspector. */
   onBackgroundClick?: () => void;
   flows?: string[];
+  /** Per-asset intrinsic flows (id → output/input sets). When given, a new link's flow
+   *  is restricted to the flows the two endpoint assets SHARE — no free-typed flow. */
+  assetFlows?: Map<string, { out: Set<string>; in: Set<string> }>;
 }
 
 export function HierarchyMap({
@@ -64,6 +67,7 @@ export function HierarchyMap({
   onDeleteLink,
   onBackgroundClick,
   flows = [],
+  assetFlows,
 }: Props) {
   const mode: MapMode = "expandable"; // the only layout: an expandable drill-down
   const overlayIdx = useMemo(() => (result ? buildOverlay(result) : null), [result]);
@@ -442,14 +446,12 @@ export function HierarchyMap({
     bgPress.current = null;
     onPanEnd();
     if (connect) {
-      // Complete the link if released anywhere on a destination node/group (not
-      // just on its tiny in-port dot); otherwise cancel.
+      // Complete the link if released anywhere on a destination ASSET box (not just
+      // its tiny in-port dot); otherwise cancel. Only assets are valid endpoints —
+      // a group (incl. a collapsed one) is an abstract scope, never a wiring target.
       const el = e?.target as Element | undefined;
-      const to =
-        el?.closest?.("[data-node]")?.getAttribute("data-node") ??
-        el?.closest?.("[data-group]")?.getAttribute("data-group") ??
-        null;
-      if (to && to !== connect.from && e) {
+      const to = el?.closest?.("[data-node]")?.getAttribute("data-node") ?? null;
+      if (to && to !== connect.from && e && boxById.get(to)?.kind === "asset") {
         setForm({ from: connect.from, to, sx: e.clientX, sy: e.clientY });
       }
       setConnect(null);
@@ -481,9 +483,11 @@ export function HierarchyMap({
     .sort((a, b) => a.depth - b.depth);
   const leaves = placed.filter((n) => n.kind === "asset" || n.collapsed);
 
-  // Port circles (left = input, right = output) for editing every node box.
+  // Port circles (left = input, right = output) — ONLY on assets. Connections are
+  // asset-to-asset; a group is an abstract scope (constraints / optimisation level),
+  // never a wiring endpoint, so its box gets no ports (nor does a collapsed group).
   const ports = (n: LaidNode) =>
-    editable ? (
+    editable && n.kind === "asset" ? (
       <>
         <circle
           className="topo-in"
@@ -923,7 +927,16 @@ export function HierarchyMap({
         <ConnectForm
           fromLabel={boxById.get(form.from)?.label ?? form.from}
           toLabel={boxById.get(form.to)?.label ?? form.to}
-          flows={flows}
+          flows={(() => {
+            // Restrict to flows BOTH endpoint assets carry (source output ∩ target
+            // input) — never a free-typed flow. Keep the current one when editing.
+            if (!assetFlows) return flows;
+            const out = assetFlows.get(form.from)?.out ?? new Set<string>();
+            const inn = assetFlows.get(form.to)?.in ?? new Set<string>();
+            const shared = [...out].filter((f) => inn.has(f));
+            if (form.flow && !shared.includes(form.flow)) shared.push(form.flow);
+            return shared;
+          })()}
           initialFlow={form.flow ?? ""}
           initialLag={form.lag ?? 0}
           editing={form.editRowIndex != null}
@@ -956,7 +969,8 @@ function ConnectForm({
     <div style={{ position: "fixed", left: Math.min(x, window.innerWidth - 300), top: Math.min(y, window.innerHeight - 160), zIndex: 1000, background: "var(--surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-button)", boxShadow: "0 6px 24px rgba(0,0,0,0.14)", padding: 10, width: 268, fontSize: "0.78rem" }}>
       <div style={{ marginBottom: 6 }}><b>{fromLabel}</b> → <b>{toLabel}</b></div>
       <div style={{ marginBottom: 6 }}>
-        <SearchableSelect value={flow} options={flows} onChange={setFlow} onCreate={setFlow} placeholder="flow" />
+        {/* No onCreate: a link's flow must be one the two assets already share. */}
+        <SearchableSelect value={flow} options={flows} onChange={setFlow} placeholder={flows.length ? "flow" : "no shared flow"} />
       </div>
       <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
         <span className="muted" style={{ width: 70 }}>lag (yr)</span>
