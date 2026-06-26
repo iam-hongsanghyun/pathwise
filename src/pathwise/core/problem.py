@@ -238,7 +238,14 @@ class GreenCorridor:
     impact: str
     limits: dict[int, float] = field(default_factory=dict)
     soft: bool = True
-    penalty: float = 0.0
+    penalty: float = 0.0  # flat fallback when a year has no penalties[] entry
+    #: Per-year exceedance penalty (currency / impact-unit over the cap); overrides
+    #: ``penalty`` for the years given. Temporal, like ``limits``.
+    penalties: dict[int, float] = field(default_factory=dict)
+
+    def penalty_at(self, year: int) -> float:
+        """Exceedance penalty in ``year`` (per-year override, else the flat penalty)."""
+        return self.penalties.get(year, self.penalty)
 
 
 @dataclass(slots=True, frozen=True)

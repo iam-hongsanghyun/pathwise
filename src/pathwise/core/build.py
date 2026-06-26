@@ -2374,8 +2374,8 @@ def _objective(ctx: BuildContext) -> None:
             penalty_terms.append(pen * ctx.slk_cap.sel(ckey=f"{cap_c}|{cap_i}|{cap_y}"))
     if ctx.green_keys:
         for gc in prob.green_corridors:
-            pen = gc.penalty or prob.slack_penalty
             for gy in gc.limits:
+                pen = gc.penalty_at(gy) or prob.slack_penalty  # per-year penalty
                 gk = green_key(gc.label, gc.impact, gy)
                 penalty_terms.append(pen * ctx.slk_green.sel(gkey=gk))
 

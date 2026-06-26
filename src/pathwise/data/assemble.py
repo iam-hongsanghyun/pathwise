@@ -1306,8 +1306,11 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             )
             green_by_lane[lane_key] = gc
         yr = _int(r.get("year"))
+        rowpen = _num(r.get("penalty"))
         for y in [yr] if yr is not None else years:
             gc.limits[y] = limit
+            if rowpen is not None:
+                gc.penalties[y] = rowpen
     green_corridors = [gc for gc in green_by_lane.values() if gc.limits]
 
     # ── Stations: refuelling infrastructure (caps + prices a scope's fleet fuel) ──

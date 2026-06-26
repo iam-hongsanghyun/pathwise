@@ -833,21 +833,42 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
     const r = rowsFor(impact)[0];
     return !r || (s(r.soft) !== "false" && s(r.soft) !== "");
   };
-  const penaltyOf = (impact: string) => {
-    const r = rowsFor(impact).find((x) => s(x.penalty));
-    return r ? Number(r.penalty) : null;
+  // Penalty is TEMPORAL too: gather per-year penalty (else flat) as a TemporalVal.
+  const penaltyOf = (impact: string): TemporalVal | null => {
+    const rows = rowsFor(impact);
+    const yearly: Record<string, number> = {};
+    let flat: number | null = null;
+    for (const r of rows) {
+      if (!s(r.penalty)) continue;
+      const pen = Number(r.penalty);
+      if (s(r.year)) yearly[s(r.year)] = pen;
+      else flat = pen;
+    }
+    return Object.keys(yearly).length ? yearly : flat;
   };
-  // Rewrite all (lane, impact) rows from a temporal limit + soft + penalty.
-  const commitGreen = (impact: string, lim: TemporalVal | null, soft: boolean, penalty: number | null) => {
+  const tvAt = (v: TemporalVal | null, y: number): number | undefined =>
+    v == null ? undefined : typeof v === "number" ? v : v[String(y)];
+  const tvFirst = (v: TemporalVal | null): number =>
+    v == null ? 0 : typeof v === "number" ? v : (Object.values(v)[0] ?? 0);
+  // Rewrite all (lane, impact) rows from a temporal limit + soft + temporal penalty.
+  // Rows span the union of limit/penalty years; each row carries a limit (required) and,
+  // when soft, a penalty (per-year if set, else the flat value).
+  const commitGreen = (impact: string, lim: TemporalVal | null, soft: boolean, pen: TemporalVal | null) => {
     const others = green.filter((r) => !laneIs(r, impact));
-    const base: Row = { from_node: fromN, to_node: toN, flow, impact, soft: soft ? "true" : "false" };
-    if (soft && penalty != null && penalty > 0) base.penalty = penalty;
-    const rows: Row[] =
-      lim == null
-        ? [{ ...base, limit: 0 }]
-        : typeof lim === "number"
-          ? [{ ...base, limit: lim }]
-          : Object.entries(lim).map(([y, v]) => ({ ...base, year: Number(y), limit: v }));
+    const yearsOf = (v: TemporalVal | null) => (v && typeof v === "object" ? Object.keys(v).map(Number) : []);
+    const allYears = [...new Set([...yearsOf(lim), ...yearsOf(soft ? pen : null)])].sort((a, b) => a - b);
+    const softS = soft ? "true" : "false";
+    const mkRow = (y: number | null): Row => {
+      const r: Row = { from_node: fromN, to_node: toN, flow, impact, soft: softS };
+      r.limit = (y == null ? (typeof lim === "number" ? lim : tvFirst(lim)) : tvAt(lim, y) ?? tvFirst(lim));
+      if (soft) {
+        const p = y == null ? (typeof pen === "number" ? pen : null) : tvAt(pen, y) ?? (typeof pen === "number" ? pen : undefined);
+        if (p != null && p > 0) r.penalty = p;
+      }
+      if (y != null) r.year = y;
+      return r;
+    };
+    const rows = allYears.length ? allYears.map((y) => mkRow(y)) : [mkRow(null)];
     setGreen([...others, ...rows]);
   };
   const addGreen = (impact: string) => commitGreen(impact, 0, true, null);
@@ -925,12 +946,11 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
                         soft
                       </label>
                       {soft && (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-                          <input className="field-input" type="number" style={{ width: 64 }} placeholder="penalty"
-                            title={`exceedance price — ${currency} per ${impactUnitOf(imp)} of ${imp} over the cap`}
-                            value={penalty ?? ""}
-                            onChange={(e) => commitGreen(imp, limitOf(imp), true, e.target.value === "" ? null : Number(e.target.value))} />
-                          <span className="muted" style={{ fontSize: ".68rem" }}>{currency}/{impactUnitOf(imp)}</span>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }} title={`exceedance price over the cap (${currency}/${impactUnitOf(imp)})`}>
+                          <span className="muted" style={{ fontSize: ".7rem" }}>@</span>
+                          <TemporalValue value={penalty} onChange={(v) => commitGreen(imp, limitOf(imp), true, v)}
+                            label={`green penalty · ${imp}`} unit={`${currency}/${impactUnitOf(imp)}`} perYear={false}
+                            baseYear={baseYear} periods={periods} variant="text" placeholder="penalty…" />
                         </span>
                       )}
                       <button className="rail-add" title="remove cap" onClick={() => removeGreen(imp)}>✕</button>
