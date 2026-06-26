@@ -316,6 +316,22 @@ export function ComponentTabView({
     return () => clearTimeout(t);
   }, [dirty, openLibs, sessionId]);
 
+  // The autosave is debounced (600ms), and switching views UNMOUNTS this tab — so a
+  // recent edit, or one held back behind a draft, would be dropped when the user
+  // navigates away (and re-fetched stale on return). Keep the latest editor state in
+  // a ref and flush every saveable dirty library on unmount so nothing is lost.
+  const flushRef = useRef({ openLibs, dirty, sessionId });
+  flushRef.current = { openLibs, dirty, sessionId };
+  useEffect(() => {
+    return () => {
+      const { openLibs: libsNow, dirty: dirtyNow, sessionId: sid } = flushRef.current;
+      for (const libId of dirtyNow) {
+        const body = libsNow.get(libId);
+        if (body && !draftBlocker(body)) void saveLib(libId, body, sid);
+      }
+    };
+  }, []);
+
   function editLib(libId: string, fn: (l: ComponentLibrary) => ComponentLibrary) {
     // Shipped starters are read-only — every detail edit flows through here, so a
     // single guard freezes the whole editor (the backend rejects writes too).

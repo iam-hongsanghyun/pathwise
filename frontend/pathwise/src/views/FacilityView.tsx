@@ -19,6 +19,8 @@ import {
   type LibrarySummary,
   type LibScope,
   listAllComponentLibraries,
+  placeStation,
+  placeStorage,
   placeTechnology,
 } from "../lib/api/components";
 import { getFullModel, putModel } from "../lib/api/session";
@@ -47,7 +49,7 @@ interface Props {
 }
 
 /** Which kind a dragged Library leaf carries (encoded as the leaf id's prefix). */
-type DragKind = "t" | "s" | "m" | "g";
+type DragKind = "t" | "s" | "m" | "g" | "o" | "n";
 
 // The PREFIXED modelling groups — Technology / Flow / Levers & MACC — are
 // auto-created when a component is dropped, and are distinct from the user's own
@@ -167,6 +169,8 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     s: "Flow",
     m: "Levers & MACC",
     g: "Levers & MACC",
+    o: "Storage",
+    n: "Stations",
   };
 
   function normalParentOf(targetId: string): string | null {
@@ -190,6 +194,22 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
 
   async function dropComponent(scope: LibScope, libId: string, kind: DragKind, compId: string, parentId: string) {
     if (!sessionId) return;
+    // Storage / Station attach to a COMPANY scope (a scope-bound row), not a node —
+    // resolve the dropped-on group and stamp the row there.
+    if (kind === "o" || kind === "n") {
+      const company = normalParentOf(parentId) ?? parentId;
+      setError(null);
+      try {
+        await putModel(sessionId, workbook);
+        const place = kind === "o" ? placeStorage : placeStation;
+        await place(sessionId, { library: libId, component: compId, parent_id: company, scope });
+        adoptServerModel(await getFullModel(sessionId));
+        setExpanded((p) => new Set(p).add(company));
+      } catch (e) {
+        setError(String(e));
+      }
+      return;
+    }
     const kindWord = { t: "technology", s: "stream", m: "lever", g: "MACC" }[kind];
     const name = (await prompt({ title: `Name this ${kindWord}`, label: "name", defaultValue: compId, placeholder: "e.g. Pohang BF#3" }))?.trim();
     if (!name) return;
@@ -271,7 +291,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     const out: TreeNode[] = [];
     for (const l of allLibs) {
       const key = `${l.scope}/${l.id}`;
-      const total = l.technologies + l.flows + l.levers + l.maccs;
+      const total = l.technologies + l.flows + l.levers + l.maccs + (l.storages ?? 0) + (l.stations ?? 0);
       out.push({
         id: `lib:${key}`,
         parentId: null,
@@ -300,6 +320,12 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         out.push({ id: `g:${l.scope}:${l.id}:${g.macc_id}`, parentId: mg, kind: "leaf", label: g.label || g.macc_id, hasChildren: false, draggable: true });
       for (const m of body.measures)
         out.push({ id: `m:${l.scope}:${l.id}:${m.lever_id}`, parentId: mg, kind: "leaf", label: m.label || m.lever_id, hasChildren: false, draggable: true });
+      const og = grp("storage", "Storage", (body.storages ?? []).length > 0);
+      for (const s2 of body.storages ?? [])
+        out.push({ id: `o:${l.scope}:${l.id}:${s2.storage_id}`, parentId: og, kind: "leaf", label: s2.storage_id, hasChildren: false, draggable: true });
+      const ng = grp("station", "Stations", (body.stations ?? []).length > 0);
+      for (const s2 of body.stations ?? [])
+        out.push({ id: `n:${l.scope}:${l.id}:${s2.station_id}`, parentId: ng, kind: "leaf", label: s2.station_id, hasChildren: false, draggable: true });
     }
     return out;
   }, [allLibs, libBodies]);
