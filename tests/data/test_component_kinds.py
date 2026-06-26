@@ -93,7 +93,7 @@ def test_copy_is_a_deep_copy() -> None:
     assert src.storage("h2_tank").capex_per_capacity == 12.0  # source untouched
 
 
-def test_place_storage_scopes_to_parent() -> None:
+def test_place_storage_creates_a_node_under_parent() -> None:
     wb = place_storage({}, _lib(), "h2_tank", parent_id="vc/kr")
     rows = wb["storage"]
     assert len(rows) == 1
@@ -101,6 +101,9 @@ def test_place_storage_scopes_to_parent() -> None:
     assert rows[0]["storage_id"] == "vc/kr/h2_tank"
     assert rows[0]["flow_id"] == "h2"
     assert {c["flow_id"] for c in wb["flows"]} == {"h2", "elec"}  # closure merged
+    # Storage is a NODE in the hierarchy (not a scope row): a leaf under its parent.
+    node = next(n for n in wb["nodes"] if n["node_id"] == "vc/kr/h2_tank")
+    assert node["parent_id"] == "vc/kr" and node["kind"] == "asset" and node["level"] == "storage"
 
 
 def test_place_storage_uniquifies_id() -> None:
@@ -110,13 +113,16 @@ def test_place_storage_uniquifies_id() -> None:
     assert ids == ["vc/kr/h2_tank", "vc/kr/h2_tank-2"]
 
 
-def test_place_station_scopes_to_parent() -> None:
+def test_place_station_creates_a_node_under_parent() -> None:
     wb = place_station({}, _lib(), "bunkering", parent_id="vc/kr")
     rows = wb["stations"]
     assert len(rows) == 1
     assert rows[0]["company"] == "vc/kr"
+    assert rows[0]["station_id"] == "vc/kr/bunkering"
     assert rows[0]["refuel_flow"] == "bunker"
     assert abs(rows[0]["refuel_fee"] - 2.0) < 1e-9
+    node = next(n for n in wb["nodes"] if n["node_id"] == "vc/kr/bunkering")
+    assert node["parent_id"] == "vc/kr" and node["kind"] == "asset" and node["level"] == "station"
 
 
 def test_placed_storage_assembles_into_the_problem() -> None:

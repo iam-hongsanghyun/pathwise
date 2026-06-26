@@ -194,23 +194,7 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
 
   async function dropComponent(scope: LibScope, libId: string, kind: DragKind, compId: string, parentId: string) {
     if (!sessionId) return;
-    // Storage / Station attach to a COMPANY scope (a scope-bound row), not a node —
-    // resolve the dropped-on group and stamp the row there.
-    if (kind === "o" || kind === "n") {
-      const company = normalParentOf(parentId) ?? parentId;
-      setError(null);
-      try {
-        await putModel(sessionId, workbook);
-        const place = kind === "o" ? placeStorage : placeStation;
-        await place(sessionId, { library: libId, component: compId, parent_id: company, scope });
-        adoptServerModel(await getFullModel(sessionId));
-        setExpanded((p) => new Set(p).add(company));
-      } catch (e) {
-        setError(String(e));
-      }
-      return;
-    }
-    const kindWord = { t: "technology", s: "stream", m: "lever", g: "MACC" }[kind];
+    const kindWord = { t: "technology", s: "stream", m: "lever", g: "MACC", o: "storage", n: "station" }[kind];
     const name = (await prompt({ title: `Name this ${kindWord}`, label: "name", defaultValue: compId, placeholder: "e.g. Pohang BF#3" }))?.trim();
     if (!name) return;
     setError(null);
@@ -222,6 +206,21 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         if (np) m.add(np);
         return m;
       };
+      // Storage / Station place EXACTLY like a technology — a node under their kind-group.
+      if (kind === "o" || kind === "n") {
+        setWorkbook(wb);
+        await putModel(sessionId, wb);
+        const place = kind === "o" ? placeStorage : placeStation;
+        const res = await place(sessionId, { library: libId, component: compId, parent_id: kgId, scope });
+        let fresh = await getFullModel(sessionId);
+        const newId = res.root ?? res.created[0];
+        if (newId) fresh = setSheet(fresh, "nodes", (fresh.nodes ?? []).map((r) => (s(r.node_id) === newId ? { ...r, label: name } : r)));
+        adoptServerModel(fresh);
+        await putModel(sessionId, fresh);
+        setExpanded(expand);
+        if (newId) setSelId(newId);
+        return;
+      }
       if (kind === "t") {
         setWorkbook(wb);
         await putModel(sessionId, wb);
@@ -262,11 +261,16 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
   const facilityNodes = useMemo<TreeNode[]>(() => {
     // A leaf's TYPE is the kind of component it instantiates (Technology / Storage /
     // Station), not the raw node `level` (which carried legacy strings like "machine").
+    // A leaf's TYPE = the kind of component it is. Technologies carry it on the asset
+    // row; Storage / Station are their own nodes, identified by membership in the
+    // storage / stations sheets (keyed by node id).
     const kindOf = new Map<string, string>();
     for (const m of workbook.assets ?? []) {
       const k = s(m.kind).toLowerCase();
       kindOf.set(s(m.asset_id), k === "storage" ? "Storage" : k === "station" ? "Station" : "Technology");
     }
+    for (const r of workbook.storage ?? []) kindOf.set(s(r.storage_id), "Storage");
+    for (const r of workbook.stations ?? []) kindOf.set(s(r.station_id), "Station");
     const out: TreeNode[] = [];
     const walk = (parentId: string | null) => {
       for (const nd of childrenOf(nodes, parentId)) {

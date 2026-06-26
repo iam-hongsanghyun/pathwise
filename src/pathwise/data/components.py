@@ -1306,6 +1306,42 @@ def _unique_id(rows: list[dict[str, Any]], id_col: str, wanted: str) -> str:
     return f"{wanted}-{n}"
 
 
+def _scope_group(wb: Workbook, parent_id: str) -> str:
+    """The abstract group a node placed under ``parent_id`` belongs to. If ``parent_id``
+    is a kind-group node (Storage / Stations / Technology … wrapper), step up to its
+    parent so the engine scopes on the real group, not the kind wrapper. Group *types*
+    are arbitrary user labels — this only unwraps the kind grouping, nothing hardcoded."""
+    for r in wb.get(NODES, []):
+        if str(r.get("node_id")) == parent_id:
+            return str(r.get("parent_id") or "") or parent_id
+    return parent_id
+
+
+def _place_node(
+    wb: Workbook, parent_id: str, label: str, level: str, instance_id: str | None
+) -> str:
+    """Add a fresh asset NODE under ``parent_id`` (kind=asset, given ``level``) and
+    return its unique node id. Storage / Station are components — real nodes in the
+    hierarchy — so they show + group like anything else (``parent_id`` is just their
+    abstract place, not a scope)."""
+    have = {str(r.get("node_id")) for r in wb.get(NODES, [])}
+    node_id = instance_id or f"{parent_id}/{label}"
+    base, n = node_id, 2
+    while node_id in have:
+        node_id = f"{base}-{n}"
+        n += 1
+    wb.setdefault(NODES, []).append(
+        {
+            "node_id": node_id,
+            "parent_id": parent_id,
+            "kind": "asset",
+            "level": level,
+            "label": label,
+        }
+    )
+    return node_id
+
+
 def place_storage(
     model: Workbook,
     library: ComponentLibrary,
@@ -1314,12 +1350,13 @@ def place_storage(
     parent_id: str,
     instance_id: str | None = None,
 ) -> Workbook:
-    """Place a storage component as a ``storage`` row scoped to ``parent_id``.
+    """Place a storage component as an asset NODE under ``parent_id``.
 
-    Storage isn't a hierarchy node — it attaches to a company scope. This stamps a
-    ``storage`` row (``company = parent_id``, id uniquified) and merges its stored
-    flow (+ any running-energy flow) into ``flows``. The engine then lets that scope
-    build + cycle the store. Pure — returns a new workbook.
+    Storage is a component like any other — it becomes a node in the hierarchy (so it
+    shows in the structure, groups + moves like a technology), plus a ``storage`` row
+    keyed by that node id carrying its physics + economics. ``company`` records the
+    node's parent purely as the abstract group it sits in (not a scope the user sets).
+    Merges the stored flow (+ any running-energy flow). Pure — returns a new workbook.
 
     Raises:
         KeyError: If ``storage_id`` is not in the library.
@@ -1328,8 +1365,9 @@ def place_storage(
     if s is None:
         raise KeyError(f"unknown storage '{storage_id}'")
     wb: Workbook = {k: list(v) for k, v in model.items()}
-    sid = _unique_id(wb.get(STORAGE, []), "storage_id", instance_id or f"{parent_id}/{storage_id}")
-    wb.setdefault(STORAGE, []).append(_storage_row(s, storage_id=sid, company=parent_id))
+    group = _scope_group(wb, parent_id)
+    node_id = _place_node(wb, parent_id, storage_id, "storage", instance_id)
+    wb.setdefault(STORAGE, []).append(_storage_row(s, storage_id=node_id, company=group))
     for cid in (s.flow_id, s.energy_flow):
         c = next((x for x in library.flows if x.flow_id == cid), None)
         if c is not None:
@@ -1346,12 +1384,11 @@ def place_station(
     parent_id: str,
     instance_id: str | None = None,
 ) -> Workbook:
-    """Place a station component as a ``stations`` row scoped to ``parent_id``.
+    """Place a station component as an asset NODE under ``parent_id``.
 
-    Like :func:`place_storage`: a station attaches to a company scope, not a node.
-    Stamps a ``stations`` row (``company = parent_id``, id uniquified) and merges its
-    dispensed fuel flow into ``flows``. The fleets in that scope then refuel through
-    it. Pure — returns a new workbook.
+    Like :func:`place_storage`: a station is a node in the hierarchy plus a ``stations``
+    row keyed by that node id. ``company`` records the parent group (abstract place).
+    Merges its dispensed fuel flow into ``flows``. Pure — returns a new workbook.
 
     Raises:
         KeyError: If ``station_id`` is not in the library.
@@ -1360,8 +1397,9 @@ def place_station(
     if s is None:
         raise KeyError(f"unknown station '{station_id}'")
     wb: Workbook = {k: list(v) for k, v in model.items()}
-    sid = _unique_id(wb.get(STATIONS, []), "station_id", instance_id or f"{parent_id}/{station_id}")
-    wb.setdefault(STATIONS, []).append(_station_row(s, station_id=sid, company=parent_id))
+    group = _scope_group(wb, parent_id)
+    node_id = _place_node(wb, parent_id, station_id, "station", instance_id)
+    wb.setdefault(STATIONS, []).append(_station_row(s, station_id=node_id, company=group))
     c = next((x for x in library.flows if x.flow_id == s.refuel_flow), None)
     if c is not None:
         _merge_row(wb, FLOWS, "flow_id", _flow_row(c))
