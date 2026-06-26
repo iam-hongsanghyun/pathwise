@@ -15,6 +15,8 @@ import type {
   LeverTemplate,
   AssetComponent,
   MaccGroup,
+  StationTemplate,
+  StorageTemplate,
   TechnologyTemplate,
 } from "../../lib/api/components";
 
@@ -193,6 +195,162 @@ export function FlowEditor({
 }
 
 // ── Technology (recipe flows) ───────────────────────────────────────────────
+// ── Storage ────────────────────────────────────────────────────────────────
+export function StorageEditor({
+  value,
+  flowIds,
+  onAddFlow,
+  onChange,
+  onRename,
+}: {
+  value: StorageTemplate;
+  flowIds: string[];
+  onAddFlow: (id: string) => void;
+  onChange: (v: StorageTemplate) => void;
+  onRename: (id: string) => void;
+}) {
+  const numField = (
+    label: string,
+    key: keyof StorageTemplate,
+    meta?: string,
+    width = 100,
+    step?: string,
+  ) => (
+    <Field label={label} meta={meta ?? (key as string)}>
+      <input
+        style={{ ...inputStyle, width }}
+        type="number"
+        step={step}
+        value={(value[key] as number) ?? 0}
+        onChange={(e) => onChange({ ...value, [key]: num(e.target.value) })}
+      />
+    </Field>
+  );
+  return (
+    <section>
+      <h2 style={{ margin: "0 0 12px" }}>Storage</h2>
+      <Row>
+        <Field label="id" meta="storage_id">
+          <input
+            style={inputStyle}
+            value={value.storage_id}
+            onChange={(e) => {
+              onChange({ ...value, storage_id: e.target.value });
+              onRename(e.target.value);
+            }}
+          />
+        </Field>
+        <Field label="stored flow" meta="flow_id">
+          <div style={{ minWidth: 130 }}>
+            <SearchableSelect
+              value={value.flow_id}
+              options={flowIds}
+              onChange={(v) => onChange({ ...value, flow_id: v })}
+              onCreate={(name) => {
+                onAddFlow(name);
+                onChange({ ...value, flow_id: name });
+              }}
+              placeholder="flow to store"
+            />
+          </div>
+        </Field>
+        {numField("max capacity", "max_capacity", "max_capacity", 110)}
+        {numField("capex /cap", "capex_per_capacity", "capex_per_capacity", 100)}
+        {numField("fixed O&M /cap", "fixed_opex_per_capacity", "fixed_opex_per_capacity", 110)}
+      </Row>
+      <Row>
+        {numField("charge eff", "charge_efficiency", "charge_efficiency", 80, "0.01")}
+        {numField("discharge eff", "discharge_efficiency", "discharge_efficiency", 80, "0.01")}
+        {numField("standing loss", "standing_loss", "standing_loss", 80, "0.001")}
+        {numField("initial level", "initial_level", "initial_level", 90)}
+      </Row>
+      <h3 style={{ margin: "8px 0 6px", fontSize: "0.85rem" }}>
+        Running energy <span className="muted">(optional — drawn per unit moved)</span>
+      </h3>
+      <Row>
+        <Field label="energy flow" meta="energy_flow">
+          <div style={{ minWidth: 130 }}>
+            <SearchableSelect
+              value={value.energy_flow ?? ""}
+              options={flowIds}
+              onChange={(v) => onChange({ ...value, energy_flow: v.trim() || null })}
+              onCreate={(name) => {
+                onAddFlow(name);
+                onChange({ ...value, energy_flow: name });
+              }}
+              placeholder="none"
+            />
+          </div>
+        </Field>
+        {numField("energy /throughput", "energy_per_throughput", "energy_per_throughput", 110, "0.01")}
+      </Row>
+    </section>
+  );
+}
+
+// ── Station ────────────────────────────────────────────────────────────────
+export function StationEditor({
+  value,
+  flowIds,
+  onAddFlow,
+  onChange,
+  onRename,
+}: {
+  value: StationTemplate;
+  flowIds: string[];
+  onAddFlow: (id: string) => void;
+  onChange: (v: StationTemplate) => void;
+  onRename: (id: string) => void;
+}) {
+  const numField = (label: string, key: keyof StationTemplate, width = 100) => (
+    <Field label={label} meta={key as string}>
+      <input
+        style={{ ...inputStyle, width }}
+        type="number"
+        value={(value[key] as number) ?? 0}
+        onChange={(e) => onChange({ ...value, [key]: num(e.target.value) })}
+      />
+    </Field>
+  );
+  return (
+    <section>
+      <h2 style={{ margin: "0 0 12px" }}>Station <span className="muted" style={{ fontSize: "0.8rem" }}>(refuelling)</span></h2>
+      <Row>
+        <Field label="id" meta="station_id">
+          <input
+            style={inputStyle}
+            value={value.station_id}
+            onChange={(e) => {
+              onChange({ ...value, station_id: e.target.value });
+              onRename(e.target.value);
+            }}
+          />
+        </Field>
+        <Field label="dispensed fuel" meta="refuel_flow">
+          <div style={{ minWidth: 130 }}>
+            <SearchableSelect
+              value={value.refuel_flow}
+              options={flowIds}
+              onChange={(v) => onChange({ ...value, refuel_flow: v })}
+              onCreate={(name) => {
+                onAddFlow(name);
+                onChange({ ...value, refuel_flow: name });
+              }}
+              placeholder="fuel flow"
+            />
+          </div>
+        </Field>
+        {numField("refuel capacity", "refuel_capacity", 110)}
+        {numField("refuel fee /unit", "refuel_fee", 100)}
+      </Row>
+      <Row>
+        {numField("capex", "capex", 100)}
+        {numField("fixed O&M", "fixed_opex", 100)}
+      </Row>
+    </section>
+  );
+}
+
 /** Per-role wide-sheet field holding each io target's by-year coefficient. */
 const IO_TFIELD = {
   input: "input_intensity_by_year",

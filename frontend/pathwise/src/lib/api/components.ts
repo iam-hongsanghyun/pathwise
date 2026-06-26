@@ -53,6 +53,36 @@ export interface TechnologyTemplate {
   notes?: string;
 }
 
+/** A storage component: store a flow with round-trip efficiency + economics.
+ *  Maps 1:1 onto the engine's `storage` sheet; placed as a company-scoped row. */
+export interface StorageTemplate {
+  storage_id: string;
+  flow_id: string;
+  max_capacity: number;
+  capex_per_capacity: number;
+  fixed_opex_per_capacity: number;
+  charge_efficiency: number;
+  discharge_efficiency: number;
+  standing_loss: number;
+  initial_level: number;
+  /** Optional running-energy: a flow drawn per unit moved through the store. */
+  energy_flow?: string | null;
+  energy_per_throughput: number;
+  notes?: string;
+}
+
+/** A refuelling station: dispenses a fuel flow to the fleets in its scope.
+ *  Maps 1:1 onto the engine's `stations` sheet; placed as a company-scoped row. */
+export interface StationTemplate {
+  station_id: string;
+  refuel_flow: string;
+  refuel_capacity: number;
+  refuel_fee: number;
+  capex: number;
+  fixed_opex: number;
+  notes?: string;
+}
+
 export interface LeverBlock {
   reduction: number;
   capex_per_capacity: number;
@@ -132,6 +162,9 @@ export interface ComponentLibrary {
   label: string;
   flows: FlowTemplate[];
   technologies: TechnologyTemplate[];
+  /** Storage + station component kinds, placed as company-scoped rows. */
+  storages?: StorageTemplate[];
+  stations?: StationTemplate[];
   /** Standalone, reusable levers. */
   measures: LeverTemplate[];
   /** MACC bundles grouping levers. */
@@ -156,6 +189,8 @@ export interface LibrarySummary {
   origin?: "starter" | "user";
   flows: number;
   technologies: number;
+  storages?: number;
+  stations?: number;
   levers: number;
   maccs: number;
   assets: number;
@@ -164,7 +199,7 @@ export interface LibrarySummary {
 
 /** A blank library — every list defaults to empty. */
 export function emptyLibrary(label = ""): ComponentLibrary {
-  return { label, flows: [], technologies: [], measures: [], maccs: [], assets: [], groups: [] }; // `measures` = lever list (field name unchanged)
+  return { label, flows: [], technologies: [], storages: [], stations: [], measures: [], maccs: [], assets: [], groups: [] }; // `measures` = lever list (field name unchanged)
 }
 
 // ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -357,3 +392,28 @@ export async function placeTechnology(
     }),
   );
 }
+
+/** Place a storage / station component as a company-scoped row of the session. */
+async function placeScopeComponent(
+  sessionId: string,
+  endpoint: "place-storage" | "place-station",
+  body: { library: string; component: string; parent_id: string; instance_id?: string; scope?: LibScope },
+): Promise<{ created: string[]; root: string | null }> {
+  return json<{ created: string[]; root: string | null }>(
+    await fetch(`/api/session/${sessionId}/${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+export const placeStorage = (
+  sessionId: string,
+  body: { library: string; component: string; parent_id: string; instance_id?: string; scope?: LibScope },
+) => placeScopeComponent(sessionId, "place-storage", body);
+
+export const placeStation = (
+  sessionId: string,
+  body: { library: string; component: string; parent_id: string; instance_id?: string; scope?: LibScope },
+) => placeScopeComponent(sessionId, "place-station", body);

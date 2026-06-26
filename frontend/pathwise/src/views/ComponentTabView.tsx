@@ -10,6 +10,8 @@ import {
   FlowEditor,
   LeverEditor,
   MaccEditor,
+  StationEditor,
+  StorageEditor,
   TechnologyEditor,
 } from "../features/component/editors";
 import { AccordionSidebar, type AccordionSection } from "../layout/AccordionSidebar";
@@ -35,6 +37,8 @@ import {
   type MaccGroup,
   saveComponentLibrary,
   saveSessionComponentLibrary,
+  type StationTemplate,
+  type StorageTemplate,
   type TechnologyTemplate,
 } from "../lib/api/components";
 import type { LibraryEntry } from "../lib/api/libraries";
@@ -81,15 +85,18 @@ function draftBlocker(body: ComponentLibrary): string | null {
   return null;
 }
 
-type Kind = "library" | "cat" | "tech" | "stream" | "lever" | "macc";
+type Kind = "library" | "cat" | "tech" | "stream" | "lever" | "macc" | "storage" | "station";
 interface Sel {
   libId: string;
   kind: Kind;
   /** For cat: the category key; for items: the item id. */
   id?: string;
 }
-const PREFIX: Record<string, Kind> = { t: "tech", s: "stream", m: "lever", g: "macc" };
-const KIND_PREFIX: Partial<Record<Kind, string>> = { tech: "t", stream: "s", lever: "m", macc: "g" };
+const PREFIX: Record<string, Kind> = { t: "tech", s: "stream", m: "lever", g: "macc", o: "storage", n: "station" };
+const KIND_PREFIX: Partial<Record<Kind, string>> = { tech: "t", stream: "s", lever: "m", macc: "g", storage: "o", station: "n" };
+//: Library-level (sector-less) category sentinels for the two scope-bound kinds.
+const STORAGE_CAT = "__storage__";
+const STATION_CAT = "__station__";
 
 const uniq = (base: string, taken: Set<string>): string => {
   if (!taken.has(base)) return base;
@@ -362,6 +369,14 @@ export function ComponentTabView({
         node(`cat:${lk}:${s}/indiv`, `cat:${lk}:${s}/measures`, "Individual", "group", b.measures.length > 0);
         for (const m of b.measures) node(`m:${lk}:${m.lever_id}`, `cat:${lk}:${s}/indiv`, m.label || m.lever_id, "leaf", false);
       }
+      // Storage + Stations are library-wide (no sector), so they hang straight off
+      // the library alongside the sector groups.
+      const storages = body.storages ?? [];
+      const stations = body.stations ?? [];
+      node(`cat:${lk}:${STORAGE_CAT}`, `lib:${lk}`, "Storage", "group", storages.length > 0);
+      for (const s of storages) node(`o:${lk}:${s.storage_id}`, `cat:${lk}:${STORAGE_CAT}`, s.storage_id, "leaf", false);
+      node(`cat:${lk}:${STATION_CAT}`, `lib:${lk}`, "Stations", "group", stations.length > 0);
+      for (const s of stations) node(`n:${lk}:${s.station_id}`, `cat:${lk}:${STATION_CAT}`, s.station_id, "leaf", false);
     }
     return out;
   }, [libs, openLibs]);
@@ -403,12 +418,32 @@ export function ComponentTabView({
       return { ...l, maccs: [...l.maccs, { macc_id: id, label: "", measures: [] } as MaccGroup] };
     });
   }
+  function addStorage(libId: string) {
+    editLib(libId, (l) => {
+      const id = uniq("Storage", new Set((l.storages ?? []).map((s) => s.storage_id)));
+      const s: StorageTemplate = { storage_id: id, flow_id: l.flows[0]?.flow_id ?? "", max_capacity: 0, capex_per_capacity: 0, fixed_opex_per_capacity: 0, charge_efficiency: 1, discharge_efficiency: 1, standing_loss: 0, initial_level: 0, energy_per_throughput: 0 };
+      setSel({ libId, kind: "storage", id });
+      setExpanded((p) => new Set(p).add(`lib:${libId}`).add(`cat:${libId}:${STORAGE_CAT}`));
+      return { ...l, storages: [...(l.storages ?? []), s] };
+    });
+  }
+  function addStation(libId: string) {
+    editLib(libId, (l) => {
+      const id = uniq("Station", new Set((l.stations ?? []).map((s) => s.station_id)));
+      const s: StationTemplate = { station_id: id, refuel_flow: l.flows.find((f) => f.kind === "energy")?.flow_id ?? l.flows[0]?.flow_id ?? "", refuel_capacity: 0, refuel_fee: 0, capex: 0, fixed_opex: 0 };
+      setSel({ libId, kind: "station", id });
+      setExpanded((p) => new Set(p).add(`lib:${libId}`).add(`cat:${libId}:${STATION_CAT}`));
+      return { ...l, stations: [...(l.stations ?? []), s] };
+    });
+  }
   function deleteItem(s: Sel) {
     editLib(s.libId, (l) => {
       if (s.kind === "tech") return { ...l, technologies: l.technologies.filter((t) => t.technology_id !== s.id) };
       if (s.kind === "stream") return { ...l, flows: l.flows.filter((c) => c.flow_id !== s.id) };
       if (s.kind === "lever") return { ...l, measures: l.measures.filter((m) => m.lever_id !== s.id), maccs: l.maccs.map((g) => ({ ...g, measures: g.measures.filter((x) => x !== s.id) })) };
       if (s.kind === "macc") return { ...l, maccs: l.maccs.filter((g) => g.macc_id !== s.id), technologies: l.technologies.map((t) => ({ ...t, maccs: t.maccs.filter((x) => x !== s.id) })) };
+      if (s.kind === "storage") return { ...l, storages: (l.storages ?? []).filter((x) => x.storage_id !== s.id) };
+      if (s.kind === "station") return { ...l, stations: (l.stations ?? []).filter((x) => x.station_id !== s.id) };
       return l;
     });
     setSel({ libId: s.libId, kind: "library" });
@@ -419,6 +454,8 @@ export function ComponentTabView({
       if (s.kind === "stream") return { ...l, flows: l.flows.map((c) => (c.flow_id === s.id ? { ...c, flow_id: name } : c)) };
       if (s.kind === "lever") return { ...l, measures: l.measures.map((m) => (m.lever_id === s.id ? { ...m, lever_id: name } : m)), maccs: l.maccs.map((g) => ({ ...g, measures: g.measures.map((x) => (x === s.id ? name : x)) })) };
       if (s.kind === "macc") return { ...l, maccs: l.maccs.map((g) => (g.macc_id === s.id ? { ...g, macc_id: name } : g)), technologies: l.technologies.map((t) => ({ ...t, maccs: t.maccs.map((x) => (x === s.id ? name : x)) })) };
+      if (s.kind === "storage") return { ...l, storages: (l.storages ?? []).map((x) => (x.storage_id === s.id ? { ...x, storage_id: name } : x)) };
+      if (s.kind === "station") return { ...l, stations: (l.stations ?? []).map((x) => (x.station_id === s.id ? { ...x, station_id: name } : x)) };
       return l;
     });
     setSel({ ...s, id: name });
@@ -596,6 +633,32 @@ export function ComponentTabView({
   function renderCat(raw: string) {
     if (!sel || !body || !buckets) return null;
     const libId = sel.libId;
+    // Library-wide kinds (Storage / Stations) — sector-less, their own card grids.
+    if (raw === STORAGE_CAT || raw === STATION_CAT) {
+      const isStorage = raw === STORAGE_CAT;
+      const items: { id: string; meta: string }[] = isStorage
+        ? (body.storages ?? []).map((s) => ({ id: s.storage_id, meta: `stores ${s.flow_id || "—"} · cap ${s.max_capacity}` }))
+        : (body.stations ?? []).map((s) => ({ id: s.station_id, meta: `dispenses ${s.refuel_flow || "—"} · fee ${s.refuel_fee}` }));
+      const cards = items.map((it) => (
+        <button className="comp-card" key={it.id} onClick={() => setSel({ libId, kind: isStorage ? "storage" : "station", id: it.id })}>
+          <div className="comp-card-row">
+            <div className="comp-card-mid comp-card-mid-wide">
+              <span className="lib-tier">{isStorage ? "storage" : "station"}</span>
+              <div className="comp-card-title">{it.id}</div>
+              <div className="comp-card-meta">{it.meta}</div>
+            </div>
+          </div>
+        </button>
+      ));
+      return (
+        <BucketShell
+          title={isStorage ? "Storage" : "Stations"}
+          add={() => (isStorage ? addStorage(libId) : addStation(libId))}
+        >
+          {cards.length ? <div className="comp-grid">{cards}</div> : <p className="muted" style={{ fontSize: "0.78rem" }}>No {isStorage ? "storage" : "stations"} in this library.</p>}
+        </BucketShell>
+      );
+    }
     const sector = raw.split("/")[0] || OTHER;
     const sub = raw.includes("/") ? raw.split("/")[1] : "";
     // An empty (e.g. newly-reachable) group still renders, so its "+ add" shows.
@@ -937,6 +1000,34 @@ export function ComponentTabView({
       );
     }
     if (sel.kind === "cat") return renderCat(sel.id ?? OTHER);
+    const addFlowTo = (id: string) =>
+      editLib(sel.libId, (l) => ({ ...l, flows: [...l.flows, { flow_id: id, kind: "material", unit: "unit" } as FlowTemplate] }));
+    if (sel.kind === "storage") {
+      const s = (body.storages ?? []).find((x) => x.storage_id === sel.id);
+      if (!s) return null;
+      return (
+        <StorageEditor
+          value={s}
+          flowIds={flowIds}
+          onAddFlow={addFlowTo}
+          onChange={(v) => editLib(sel.libId, (l) => ({ ...l, storages: (l.storages ?? []).map((x) => (x.storage_id === sel.id ? v : x)) }))}
+          onRename={(id) => setSel({ libId: sel.libId, kind: "storage", id })}
+        />
+      );
+    }
+    if (sel.kind === "station") {
+      const s = (body.stations ?? []).find((x) => x.station_id === sel.id);
+      if (!s) return null;
+      return (
+        <StationEditor
+          value={s}
+          flowIds={flowIds}
+          onAddFlow={addFlowTo}
+          onChange={(v) => editLib(sel.libId, (l) => ({ ...l, stations: (l.stations ?? []).map((x) => (x.station_id === sel.id ? v : x)) }))}
+          onRename={(id) => setSel({ libId: sel.libId, kind: "station", id })}
+        />
+      );
+    }
     if (sel.kind === "tech") {
       const t = body.technologies.find((x) => x.technology_id === sel.id);
       if (!t) return null;
