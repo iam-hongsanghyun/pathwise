@@ -797,6 +797,18 @@
         "penalty": {"label": "Penalty", "type": "number", "desc": "Per-unit exceedance penalty; blank/0 ⇒ the model's default slack penalty."}
       }
     },
+    "stations": {
+      "label": "Stations (refuelling)",
+      "columns": {
+        "station_id": {"label": "Station", "type": "string", "required": true, "desc": "Unique station id."},
+        "company": {"label": "Scope (or all)", "type": "string", "desc": "Fleets in this scope refuel here; blank/all ⇒ every fleet."},
+        "refuel_flow": {"label": "Fuel flow", "type": "string", "required": true, "desc": "The fuel flow this station dispenses to fleets."},
+        "refuel_capacity": {"label": "Capacity / yr", "type": "number", "desc": "Max fuel dispensed per year (blank/0 ⇒ unlimited)."},
+        "refuel_fee": {"label": "Fee / unit", "type": "number", "desc": "Charge per unit of fuel dispensed, on top of the fuel's own price."},
+        "capex": {"label": "CAPEX", "type": "number", "desc": "One-time overnight build cost."},
+        "fixed_opex": {"label": "Fixed O&M / yr", "type": "number", "desc": "Annual fixed cost."}
+      }
+    },
     "fleet_routes": {
       "label": "Fleet → route assignment",
       "columns": {

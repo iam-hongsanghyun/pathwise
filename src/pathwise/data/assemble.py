@@ -38,6 +38,7 @@ from pathwise.core.problem import (
     GreenCorridor,
     Problem,
     Route,
+    Station,
 )
 from pathwise.data.aliases import normalize_workbook
 from pathwise.data.hierarchy import Hierarchy, load_hierarchy
@@ -108,6 +109,7 @@ from pathwise.data.sheets import (
     PROCESSES_T_FIXED_OPEX,
     PROCESSES_T_MAX_CF,
     ROUTES,
+    STATIONS,
     STORAGE,
     STORAGE_T_CAPEX,
     STORAGE_T_CHARGE_EFFICIENCY,
@@ -1304,6 +1306,25 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             gc.limits[y] = limit
     green_corridors = [gc for gc in green_by_lane.values() if gc.limits]
 
+    # ── Stations: refuelling infrastructure (caps + prices a scope's fleet fuel) ──
+    stations: list[Station] = []
+    for r in _rows(workbook, STATIONS):
+        sid = _str(r.get("station_id"))
+        rfuel = _str(r.get("refuel_flow"))
+        if not sid or not rfuel:
+            continue
+        stations.append(
+            Station(
+                station_id=sid,
+                company=_str(r.get("company")) or "all",
+                refuel_flow=rfuel,
+                refuel_capacity=_num(r.get("refuel_capacity"), 0.0) or 0.0,
+                refuel_fee=_num(r.get("refuel_fee"), 0.0) or 0.0,
+                capex=_num(r.get("capex"), 0.0) or 0.0,
+                fixed_opex=_num(r.get("fixed_opex"), 0.0) or 0.0,
+            )
+        )
+
     # ── Levers (+ blocks, + optional per-year block cost) ────────────────────
     # Long-format lever_blocks_t (lever_id, block, year, capex, opex —
     # absolute, already scaled to the instance, matching lever_blocks).
@@ -1728,6 +1749,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         routes=routes,
         connection_routes=connection_routes,
         green_corridors=green_corridors,
+        stations=stations,
         company_objective=company_objective,
         default_objective=ObjectiveMode(scenario.objective),
         objective_impact=scenario.objective_impact,

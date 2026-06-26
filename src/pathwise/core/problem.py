@@ -226,7 +226,8 @@ class GreenCorridor:
         label: Readable lane id (``<from>→<to>·<flow>``) for keys + outputs.
         edges: Indices into :attr:`Problem.edges` for the lane this binds — matched
             against :attr:`ConnectionRoute.edges` so it applies to every mode on the lane.
-        impact: The capped impact (e.g. ``co2``); characterised categories expand.
+        impact: The capped impact id (as defined in the model); characterised
+            categories expand to their flow components.
         limits: ``{year: limit}`` intensity cap [impact-unit / cargo-unit].
         soft: Soft (penalised slack) vs hard (must hold).
         penalty: Per-unit exceedance penalty; ``0`` ⇒ the global slack penalty.
@@ -238,6 +239,40 @@ class GreenCorridor:
     limits: dict[int, float] = field(default_factory=dict)
     soft: bool = True
     penalty: float = 0.0
+
+
+@dataclass(slots=True, frozen=True)
+class Station:
+    r"""Refuelling infrastructure at a scope — caps + prices a fleet's fuel.
+
+    A station dispenses a fuel flow to the fleets in its ``company`` scope: their
+    fuel demand (``Σ legflow·efficiency·distance``) must be served by that scope's
+    stations, capacity-limited, at a per-unit fee on top of the fuel's own price::
+
+        Σ_{stations in scope}  dispense = Σ fleet fuel demand in scope
+        dispense ≤ refuel_capacity                                   (per station)
+
+    Inert for fleets whose scope has no matching station (they refuel at the flat
+    fuel price, as before). The dispensed fuel is the SAME fuel the fleet already
+    draws — ``dispense`` only adds the infrastructure cap + fee, not a second draw.
+
+    Attributes:
+        station_id: Unique id.
+        company: Scope it refuels (fleets in this scope); ``"all"`` ⇒ every fleet.
+        refuel_flow: The fuel flow it dispenses.
+        refuel_capacity: Max units dispensed per year (``0`` ⇒ unlimited).
+        refuel_fee: Currency per unit dispensed, on top of the fuel price.
+        capex: One-time overnight build cost [currency].
+        fixed_opex: Annual fixed cost [currency/yr].
+    """
+
+    station_id: str
+    company: str = "all"
+    refuel_flow: str = ""
+    refuel_capacity: float = 0.0
+    refuel_fee: float = 0.0
+    capex: float = 0.0
+    fixed_opex: float = 0.0
 
 
 @dataclass(slots=True, frozen=True)
@@ -379,6 +414,9 @@ class Problem:
     # Green corridors (Layer 1c+): per-lane transport emission-intensity caps. Inert
     # unless authored. See ``build._connection_fleet`` + ``GreenCorridor``.
     green_corridors: list[GreenCorridor] = field(default_factory=list)
+    # Stations (Layer 1c+): refuelling infrastructure that caps + prices a fleet's
+    # fuel within a scope. Inert unless authored. See ``build._stations``.
+    stations: list[Station] = field(default_factory=list)
     company_objective: dict[str, ObjectiveMode] = field(default_factory=dict)
     # Default goal for companies without a company_config override (the run-level
     # objective set in the Optimisation tab). Falls back to COST.

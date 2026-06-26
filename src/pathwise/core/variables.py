@@ -111,6 +111,7 @@ class BuildContext:
     asell: Any = None  # ETS allowance sold [imarket, period]
     cmarkets: list[Any] = field(default_factory=list)  # flow Market entities
     imarkets: list[Any] = field(default_factory=list)  # impact (ETS) Market entities
+    dispense: Any = None  # fuel a station dispenses [station, period]
     slk_dem: Any = None  # demand slack [demand_key]
     slk_cap: Any = None  # impact-cap slack [cap_key]
     slk_green: Any = None  # green-corridor intensity-cap slack [green_key]
@@ -327,6 +328,11 @@ def build_context(model: Model, problem: Problem) -> BuildContext:
     if ctx.cap_keys:
         ck_idx = pd.Index([f"{c}|{i}|{y}" for (c, i, y) in ctx.cap_keys], name="ckey")
         ctx.slk_cap = model.add_variables(lower=0.0, coords=[ck_idx], name="slk_cap")
+
+    # Stations (refuelling): fuel dispensed per station per year.
+    if problem.stations:
+        st_idx = pd.Index([s.station_id for s in problem.stations], name="station")
+        ctx.dispense = model.add_variables(lower=0.0, coords=[st_idx, t_idx], name="dispense")
 
     # Green-corridor (transport intensity-cap) slack — one per (lane·impact·year).
     ctx.green_keys = sorted(

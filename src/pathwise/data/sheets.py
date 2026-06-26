@@ -161,6 +161,13 @@ CORRIDORS = "corridors"
 #: soft by default (exceedance penalised). See ``build._connection_fleet``.
 GREEN_CORRIDORS = "green_corridors"
 
+#: Stations (Layer 1c+): refuelling infrastructure — (station_id, company,
+#: refuel_flow, refuel_capacity, refuel_fee, capex, fixed_opex). A station dispenses
+#: its fuel flow to the fleets in its scope: their fuel demand must be served by the
+#: scope's stations (capacity-limited) at a per-unit fee on top of the fuel price.
+#: Inert for fleets whose scope has no matching station. See ``build._stations``.
+STATIONS = "stations"
+
 #: Long-format per-year transition capex (from_technology, to_technology, year,
 #: capex_per_capacity).
 TRANSITIONS_T = "transitions_t"

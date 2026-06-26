@@ -93,6 +93,7 @@ def build(problem: Problem) -> BuildContext:
     _fleet(ctx)
     _connection_fleet(ctx)
     _green_corridors(ctx)
+    _stations(ctx)
     _objective(ctx)
     return ctx
 
@@ -1914,13 +1915,14 @@ def _route_emit_terms(
     return _lin_sum(terms)
 
 
-def _conn_fuel_demand(ctx: BuildContext, fuel: str, t: int) -> Any:
+def _conn_fuel_demand(ctx: BuildContext, fuel: str, t: int, scope: str = "all") -> Any:
     r"""Connection-route fleet demand for ``fuel`` in year ``t`` (a linopy expr or None).
 
-    ``Σ legflow · efficiency · distance`` over every candidate leg burning ``fuel``.
-    Added to the fuel flow's market clearing + purchase cap so a bunkering
-    producer / supply limit must actually source the fleet's fuel (the "fuel from a
-    producer" model) instead of it being unlimited at a flat price.
+    ``Σ legflow · efficiency · distance`` over every candidate leg burning ``fuel``
+    (optionally only fleets in ``scope``). Added to the fuel flow's market clearing +
+    purchase cap so a bunkering producer / supply limit must actually source the
+    fleet's fuel (the "fuel from a producer" model) instead of it being unlimited at a
+    flat price. The scoped form also drives station refuelling balances.
     """
     prob = ctx.problem
     if ctx.legflow is None:
@@ -1933,11 +1935,52 @@ def _conn_fuel_demand(ctx: BuildContext, fuel: str, t: int) -> Any:
             fl = prob.fleets.get(leg.fleet_id)
             if fl is None or fl.fuel != fuel or fl.efficiency <= 0 or cr.distance <= 0:
                 continue
+            if scope != "all" and not fl.in_scope(scope):
+                continue
             terms.append(
                 (fl.efficiency * cr.distance)
                 * ctx.legflow.sel(leg=leg_key(cr.process, leg.fleet_id), period=t)
             )
     return _lin_sum(terms)
+
+
+def _stations(ctx: BuildContext) -> None:
+    r"""Refuelling infrastructure: a scope's fleet fuel must be served by its stations.
+
+    Per (scope ``c``, fuel ``f``) that has stations, and each year::
+
+        Σ_{stations s∈c serving f}  dispense[s,t] = Σ fleet fuel demand of f in scope c
+        dispense[s,t] ≤ refuel_capacity_s                                  (per station)
+
+    ``dispense`` is the SAME fuel the fleet already draws (priced via the flow), so it
+    is not re-added to the flow balance — the station only imposes the capacity limit
+    and a per-unit fee (added in the objective). Fleets whose scope has no matching
+    station are unaffected (they refuel at the flat fuel price, as before).
+    """
+    prob, m = ctx.problem, ctx.model
+    if not prob.stations or ctx.dispense is None:
+        return
+    groups: dict[tuple[str, str], list[Any]] = {}
+    for st in prob.stations:
+        if st.refuel_flow:
+            groups.setdefault((st.company, st.refuel_flow), []).append(st)
+    for (company, fuel), sts in groups.items():
+        for t in ctx.years:
+            disp = _lin_sum([ctx.dispense.sel(station=st.station_id, period=t) for st in sts])
+            demand = _conn_fuel_demand(ctx, fuel, t, scope=company)
+            key = f"{company}|{fuel}|{t}"
+            if demand is None:
+                if disp is not None:
+                    m.add_constraints(disp == 0, name=f"stadisp0[{key}]")
+                continue
+            m.add_constraints(disp == demand, name=f"staserve[{key}]")
+        for st in sts:
+            if st.refuel_capacity > 0:
+                for t in ctx.years:
+                    m.add_constraints(
+                        ctx.dispense.sel(station=st.station_id, period=t) <= st.refuel_capacity,
+                        name=f"stacap[{st.station_id},{t}]",
+                    )
 
 
 def _storage_energy_demand(ctx: BuildContext, flow: str, t: int) -> Any:
@@ -2200,6 +2243,19 @@ def _objective(ctx: BuildContext) -> None:
                             store=st.storage_id, period=t
                         )
                         obj_terms.append((w * e_price * st.energy_per_throughput) * thru)
+
+    # ── Stations: per-unit refuelling fee on dispensed fuel ───────────────────
+    # (capex / fixed_opex are sunk constants for an always-present station — they do
+    # not change the optimum, so only the variable fee enters the objective for now.)
+    if tog.flow_cost and prob.stations and ctx.dispense is not None:
+        for sta in prob.stations:
+            if not sta.refuel_fee:
+                continue
+            for t in ctx.years:
+                w = prob.discount_factor(t) * dur[t]
+                obj_terms.append(
+                    (w * sta.refuel_fee) * ctx.dispense.sel(station=sta.station_id, period=t)
+                )
 
     # ── Flow markets ─────────────────────────────────────────────────────
     if tog.flow_cost and ctx.cmarkets:
