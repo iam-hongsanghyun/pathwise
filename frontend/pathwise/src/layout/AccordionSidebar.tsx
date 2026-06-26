@@ -69,27 +69,25 @@ export function AccordionSidebar({
   const startResize = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     const handle = e.currentTarget as HTMLElement;
-    const sectionEl = handle.previousElementSibling as HTMLElement | null;
     const rail = handle.closest(".acc-sidebar") as HTMLElement | null;
-    const start = sectionEl?.offsetHeight ?? 120;
-    // Growing this section pushes the last (flex-grow) open section down; it may
-    // only shrink to its floor, beyond which the rail would overflow the window and
-    // the bottom section would slide out of view. Cap growth at that available room
-    // (measured at drag start) so everything stays inside the rail.
-    let room = Number.POSITIVE_INFINITY;
-    if (rail && sectionEl) {
-      const open = [...rail.querySelectorAll<HTMLElement>(".acc-section")].filter((s) =>
-        s.querySelector(".acc-body"),
-      );
-      const last = open[open.length - 1];
-      room = last && last !== sectionEl ? Math.max(0, last.offsetHeight - SECTION_MIN) : 0;
-    }
-    const maxH = start + room;
+    // Freeze EVERY open section at its current height first, so dragging one panel's
+    // divider resizes only that panel — the sections below keep their size instead of
+    // reflowing. The rail scrolls (overflow-y:auto) if the panels exceed its height,
+    // so nothing is clipped out of view.
+    const snapshot: Record<string, number> = {};
+    if (rail)
+      for (const el of rail.querySelectorAll<HTMLElement>(".acc-section")) {
+        const sid = el.dataset.secId;
+        if (sid && el.querySelector(".acc-body")) snapshot[sid] = el.offsetHeight;
+      }
+    const start = snapshot[id] ?? (handle.previousElementSibling as HTMLElement)?.offsetHeight ?? 120;
+    setHeights((prev) => ({ ...prev, ...snapshot }));
     const startY = e.clientY;
     const move = (ev: MouseEvent) =>
       setHeights((prev) => ({
         ...prev,
-        [id]: Math.min(maxH, Math.max(SECTION_MIN, start + (ev.clientY - startY))),
+        ...snapshot,
+        [id]: Math.max(SECTION_MIN, start + (ev.clientY - startY)),
       }));
     const up = () => {
       window.removeEventListener("mousemove", move);
@@ -114,7 +112,7 @@ export function AccordionSidebar({
     <>
       <aside
         className="builder-rail acc-sidebar"
-        style={{ width, display: "flex", flexDirection: "column", overflow: "hidden" }}
+        style={{ width, display: "flex", flexDirection: "column", overflowY: "auto", overflowX: "hidden" }}
       >
         {/* Rail-level collapse button */}
         <div className="rail-head-row">
@@ -130,21 +128,22 @@ export function AccordionSidebar({
           const isOpen = sectionOpen[sec.id] !== false;
           const isLastOpen = sec.id === lastOpenId;
           const h = heights[sec.id];
-          // A user-sized open section is fixed at its height; the last open section
-          // always grows to fill; otherwise the default content/grow layout.
-          const sized = isOpen && !isLastOpen && h != null;
-          const grows = isOpen && (isLastOpen || (sec.grow !== false && h == null));
+          // Once the user has sized panels, each open section is fixed at its height
+          // (independent panels; the rail scrolls). Before any resize, the last open
+          // section flex-grows to fill the rail and the rest take their content height.
+          const sized = isOpen && h != null;
+          const grows = isOpen && !sized && isLastOpen;
           return (
             <Fragment key={sec.id}>
             <div
               className="acc-section"
+              data-sec-id={sec.id}
               style={{
                 display: "flex",
                 flexDirection: "column",
-                // Basis = content (auto), not 0, so a short open section doesn't claim an
-                // equal share of the rail; grow:true also fills free space. Both shrink
-                // (min-height:0) so an over-tall section scrolls its own body instead of
-                // pushing the whole rail.
+                // Sized → fixed panel (0 0 auto + explicit height). Last open & unsized →
+                // grow to fill. Otherwise content height. min-height:0 lets a panel
+                // scroll its own body rather than push the rail.
                 flex: sized ? "0 0 auto" : grows ? "1 1 auto" : "0 1 auto",
                 height: sized ? h : undefined,
                 // Floor ONLY when open, so a squeezed open section keeps its header + a
