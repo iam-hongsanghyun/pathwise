@@ -99,3 +99,64 @@ def test_place_technology_defaults_to_base_scope() -> None:
         json={"library": "steel", "technology": "BF_BOF", "parent_id": "co"},
     )
     assert res.status_code == 200, res.text
+
+
+def _scope_library() -> dict[str, Any]:
+    return {
+        "label": "Scope",
+        "flows": [
+            {"flow_id": "h2", "kind": "energy", "unit": "t"},
+            {"flow_id": "bunker", "kind": "energy", "unit": "t", "price": 1.0},
+        ],
+        "storages": [
+            {
+                "storage_id": "h2_tank",
+                "flow_id": "h2",
+                "max_capacity": 100.0,
+                "capex_per_capacity": 5.0,
+            }
+        ],
+        "stations": [
+            {
+                "station_id": "depot",
+                "refuel_flow": "bunker",
+                "refuel_capacity": 500.0,
+                "refuel_fee": 1.5,
+            }
+        ],
+    }
+
+
+def test_place_storage_and_station_scope_to_company() -> None:
+    sid = client.post("/api/session").json()["sessionId"]
+    assert (
+        client.put(f"/api/session/{sid}/component-library/sc", json=_scope_library()).status_code
+        == 200
+    )
+    client.post(
+        "/api/session/model",
+        json={
+            "sessionId": sid,
+            "model": {
+                "nodes": [{"node_id": "co", "kind": "group", "level": "company", "label": "Acme"}]
+            },
+        },
+    )
+    sto = client.post(
+        f"/api/session/{sid}/place-storage",
+        json={"library": "sc", "component": "h2_tank", "parent_id": "co", "scope": "session"},
+    )
+    assert sto.status_code == 200, sto.text
+    sta = client.post(
+        f"/api/session/{sid}/place-station",
+        json={"library": "sc", "component": "depot", "parent_id": "co", "scope": "session"},
+    )
+    assert sta.status_code == 200, sta.text
+    model = client.get(f"/api/session/{sid}/model").json()["model"]
+    assert any(
+        r.get("company") == "co" and r.get("flow_id") == "h2" for r in model.get("storage", [])
+    )
+    assert any(
+        r.get("company") == "co" and r.get("refuel_flow") == "bunker"
+        for r in model.get("stations", [])
+    )

@@ -40,6 +40,8 @@ from pathwise.data.components import (
     instantiate_into,
     library_to_workbook,
     load_component_library,
+    place_station,
+    place_storage,
     place_technology,
     referenced_technology_ids,
     slice_library_to_technologies,
@@ -177,6 +179,8 @@ def _summary(
         "origin": "starter" if (scope == "base" and lib_id in starters) else "user",
         "flows": len(lib.flows),
         "technologies": len(lib.technologies),
+        "storages": len(lib.storages),
+        "stations": len(lib.stations),
         "levers": len(lib.measures),
         "maccs": len(lib.maccs),
         "assets": len(lib.assets),
@@ -602,6 +606,60 @@ def place_technology_route(session_id: str, body: PlaceTechnology) -> dict[str, 
         "root": created[0] if created else None,
         "sheets": counts,
     }
+
+
+class PlaceScopeComponent(BaseModel):
+    """Body for ``place-storage`` / ``place-station``.
+
+    Place ``component`` (a storage / station id) from ``library`` as a scope-bound
+    row under the company ``parent_id``. These are scope sheets, not hierarchy nodes.
+    """
+
+    library: str
+    component: str
+    parent_id: str
+    instance_id: str | None = None
+    scope: str = "base"  # "base" (shared) | "session" (this project's own)
+
+
+def _place_scope(
+    session_id: str, body: PlaceScopeComponent, sheet: str, place: Any, id_col: str
+) -> dict[str, Any]:
+    """Shared body for the two scope-bound placements (storage / station)."""
+    lib = _resolve_library(session_id, body.library, body.scope)
+    store = _store()
+    try:
+        model = store.get_model(session_id)
+    except SessionNotFound as exc:
+        raise HTTPException(status_code=404, detail=f"unknown session '{session_id}'") from exc
+
+    before = {str(r.get(id_col)) for r in model.get(sheet, [])}
+    try:
+        model = place(
+            model, lib, body.component, parent_id=body.parent_id, instance_id=body.instance_id
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    created = [str(r[id_col]) for r in model.get(sheet, []) if str(r[id_col]) not in before]
+    counts = store.put_model(session_id, model)
+    return {
+        "sessionId": session_id,
+        "created": created,
+        "root": created[0] if created else None,
+        "sheets": counts,
+    }
+
+
+@router.post("/session/{session_id}/place-storage")
+def place_storage_route(session_id: str, body: PlaceScopeComponent) -> dict[str, Any]:
+    """Add one storage component as a scope-bound ``storage`` row."""
+    return _place_scope(session_id, body, "storage", place_storage, "storage_id")
+
+
+@router.post("/session/{session_id}/place-station")
+def place_station_route(session_id: str, body: PlaceScopeComponent) -> dict[str, Any]:
+    """Add one station component as a scope-bound ``stations`` row."""
+    return _place_scope(session_id, body, "stations", place_station, "station_id")
 
 
 # ── Network alternatives ──────────────────────────────────────────────────
