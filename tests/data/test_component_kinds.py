@@ -134,3 +134,22 @@ def test_placed_storage_assembles_into_the_problem() -> None:
     placed = [s for s in prob.storages if s.flow_id == "h2"]
     assert len(placed) == 1
     assert abs(placed[0].charge_efficiency - 0.95) < 1e-9
+
+
+def test_draft_technology_without_io_round_trips() -> None:
+    # A half-authored technology (no flows yet) is a valid DRAFT: it must save and
+    # reload, so the library — and the user's other work — persists.
+    lib = ComponentLibrary.model_validate(
+        {
+            "label": "draft",
+            "technologies": [{"technology_id": "WIP", "io": []}],
+            "measures": [
+                {"lever_id": "L", "type": "energy_efficiency", "target": "x", "blocks": []}
+            ],
+        }
+    )
+    back = library_from_workbook(library_to_workbook(lib))
+    t = back.technology("WIP")
+    assert t is not None and t.io == []
+    m = back.lever("L")
+    assert m is not None and m.blocks == []

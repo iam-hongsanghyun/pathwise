@@ -88,7 +88,10 @@ class TechnologyTemplate(BaseModel):
     #: facility run / switch to the technology within this window.
     introduction_year: int | None = None
     phase_out_year: int | None = None
-    io: list[IoRow] = Field(min_length=1)
+    #: Recipe rows. May be EMPTY: a half-authored technology (no flows yet) is a valid
+    #: DRAFT the library saves, so partial work persists. The model-level validator
+    #: still requires io before a model is solvable — authoring and solving differ.
+    io: list[IoRow] = Field(default_factory=list)
     #: Per-year overrides of an io coefficient, keyed ``target -> {year: value}`` —
     #: a recipe whose intensity / yield / emission factor improves over the horizon.
     #: Empty = use the scalar ``io`` coefficient every year (sparse points are
@@ -157,7 +160,9 @@ class LeverTemplate(BaseModel):
     type: str = Field(pattern="^(energy_efficiency|emission_reduction|environmental)$")
     target: str  # flow id (energy_efficiency) or impact id (otherwise)
     lifetime: int = Field(default=15, ge=1)
-    blocks: list[LeverBlockTemplate] = Field(min_length=1)
+    #: Cost-curve steps. May be EMPTY — a half-authored lever saves as a draft (same
+    #: rationale as a technology's io); the optimiser simply ignores a lever with no blocks.
+    blocks: list[LeverBlockTemplate] = Field(default_factory=list)
     #: Free-text notes / references for the authoring UI (optimiser ignores it).
     notes: str = ""
 

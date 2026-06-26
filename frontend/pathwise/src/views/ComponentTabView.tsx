@@ -73,15 +73,12 @@ const removeLib = (libId: string, sid: string | null): Promise<void> => {
   return scope === "session" && sid ? deleteSessionComponentLibrary(sid, id) : deleteComponentLibrary(id);
 };
 
-/** Why the backend would reject this library as an incomplete draft, or null if
- *  it is saveable. Mirrors the `min_length` constraints in `data/templates.py`
- *  (a technology needs ≥1 io row; a lever needs ≥1 cost block) so a freshly
- *  added, not-yet-filled component is held back from autosave instead of 422ing. */
-function draftBlocker(body: ComponentLibrary): string | null {
-  const t = body.technologies.find((x) => x.io.length === 0);
-  if (t) return `add an input or output to “${t.technology_id}”`;
-  const m = body.measures.find((x) => x.blocks.length === 0);
-  if (m) return `add a cost block to “${m.lever_id}”`;
+/** Why the backend would reject this library, or null if it is saveable. The
+ *  template models now accept a technology with no io and a lever with no cost
+ *  block as valid DRAFTS (see `data/templates.py`), so half-authored components
+ *  persist instead of holding the whole library back from autosave. Kept as a hook
+ *  for any future hard constraint; today nothing blocks a save. */
+function draftBlocker(_body: ComponentLibrary): string | null {
   return null;
 }
 
@@ -331,6 +328,39 @@ export function ComponentTabView({
       }
     };
   }, []);
+
+  /** Save every dirty library to disk right now (the explicit "Save" action).
+   *  Edits already autosave + flush on navigation; this is for users who want a
+   *  deliberate, confirmed persist. Incomplete drafts are reported, not silently lost. */
+  async function flushNow() {
+    if (dirty.size === 0) {
+      setStatus("saved");
+      return;
+    }
+    setStatus("saving…");
+    const remaining = new Set<string>();
+    let blocked: string | null = null;
+    try {
+      for (const libId of dirty) {
+        const body = openLibs.get(libId);
+        if (!body) continue;
+        const why = draftBlocker(body);
+        if (why) {
+          remaining.add(libId);
+          blocked = why;
+          continue;
+        }
+        const summary = await saveLib(libId, body, sessionId);
+        saved.current.set(libId, JSON.stringify(body));
+        setLibs((prev) => prev.map((x) => (keyOf(x) === libId ? summary : x)));
+      }
+      setDirty(remaining);
+      setStatus(blocked ? `draft — ${blocked}` : "saved");
+    } catch (e) {
+      setStatus("save failed");
+      setError(String(e));
+    }
+  }
 
   function editLib(libId: string, fn: (l: ComponentLibrary) => ComponentLibrary) {
     // Shipped starters are read-only — every detail edit flows through here, so a
@@ -885,28 +915,50 @@ export function ComponentTabView({
           </p>
         ) : (
           <div className="lib-grid">
-            {shown.map((l) => (
-              <button className="lib-card-v2" key={keyOf(l)} onClick={() => open(l)}>
-                <div className="lib-card-top">
-                  <span className="lib-card-name"><span className="lib-dot" /> {l.label || l.id}</span>
-                  <span className="lib-tier">
-                    {l.scope === "session" ? tier(l.scope) : l.origin === "starter" ? "starter" : "mine"}
-                  </span>
+            {shown.map((l) => {
+              const deletable = l.origin !== "starter"; // starters are read-only
+              return (
+                <div
+                  className="lib-card-v2"
+                  key={keyOf(l)}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => open(l)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(l); } }}
+                  style={{ position: "relative", cursor: "pointer" }}
+                >
+                  <div className="lib-card-top">
+                    <span className="lib-card-name"><span className="lib-dot" /> {l.label || l.id}</span>
+                    <span className="lib-tier">
+                      {l.scope === "session" ? tier(l.scope) : l.origin === "starter" ? "starter" : "mine"}
+                    </span>
+                  </div>
+                  <div className="lib-card-sub muted">
+                    {l.scope === "session"
+                      ? "this project's set"
+                      : l.origin === "starter"
+                        ? "shipped · read-only"
+                        : "your library"}
+                  </div>
+                  <div className="lib-card-stats">
+                    <div><b>{l.technologies}</b><span className="muted">tech</span></div>
+                    <div><b>{l.flows}</b><span className="muted">flows</span></div>
+                    <div><b>{(l.storages ?? 0) + (l.stations ?? 0)}</b><span className="muted">store/stn</span></div>
+                    <div><b>{l.levers}</b><span className="muted">levers</span></div>
+                  </div>
+                  {deletable && (
+                    <button
+                      className="ghost lib-card-del"
+                      title={l.scope === "session" ? "Delete project library" : "Delete library"}
+                      onClick={(e) => { e.stopPropagation(); void removeLibrary(keyOf(l)); }}
+                      style={{ position: "absolute", top: 6, right: 6, padding: "2px 6px", lineHeight: 1 }}
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
-                <div className="lib-card-sub muted">
-                  {l.scope === "session"
-                    ? "this project's set"
-                    : l.origin === "starter"
-                      ? "shipped · read-only"
-                      : "your library"}
-                </div>
-                <div className="lib-card-stats">
-                  <div><b>{l.technologies}</b><span className="muted">tech</span></div>
-                  <div><b>{l.flows}</b><span className="muted">flows</span></div>
-                  <div><b>{l.levers}</b><span className="muted">levers</span></div>
-                </div>
-              </button>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
@@ -1357,7 +1409,17 @@ export function ComponentTabView({
         <main className="builder-main">
           <div className="view-head">
             <div className="eyebrow">{mode === "project" ? "project workbench" : scope === "session" ? "project templates" : "template library"}</div>
+            <span style={{ flex: 1 }} />
             <span className="view-status">{status}</span>
+            <button
+              className="ghost"
+              title="Save your templates to disk now (they also autosave)"
+              onClick={() => void flushNow()}
+              disabled={dirty.size === 0}
+              style={{ marginLeft: 8 }}
+            >
+              {dirty.size > 0 ? `Save (${dirty.size})` : "Saved"}
+            </button>
           </div>
           {/* Detail scrolls on its own so a tall recipe (+ the Applicable MACCs
               list) can't spill over the notes section pinned beneath it. */}
