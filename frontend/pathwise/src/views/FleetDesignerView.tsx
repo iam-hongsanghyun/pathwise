@@ -148,6 +148,28 @@ export function FleetDesignerView({
   const leftTree = useMemo(() => fleetRegistryTree(fleetGroups, fleets), [fleetGroups, fleets]);
   const routesTree = useMemo(() => routeTree(routeLeaves, (id) => nodeById.get(id)?.label ?? id), [routeLeaves, nodeById]);
   const facilityNodes = useMemo(() => facilityTree(nodes, coord), [nodes, coord]);
+  // Routes are STRICTLY between Station components: a node is a route endpoint only if a
+  // station is placed on it (a `stations` row scoped to it). The Facility rail shows only
+  // those station nodes (+ their ancestor path so the tree renders), and a route candidate
+  // only appears once both its stations are located and connected by a flow.
+  const stationNodes = useMemo(() => {
+    const out = new Set<string>();
+    for (const r of (workbook.stations ?? []) as Row[]) {
+      const c = s(r.company);
+      if (c && c !== "all") out.add(c);
+    }
+    return out;
+  }, [workbook.stations]);
+  const stationFacilityNodes = useMemo(() => {
+    if (!stationNodes.size) return facilityNodes.filter(() => false);
+    const byId = new Map(facilityNodes.map((n) => [n.id, n]));
+    const keep = new Set<string>();
+    for (const sid of stationNodes) {
+      let cur: string | null | undefined = sid;
+      while (cur && byId.has(cur) && !keep.has(cur)) { keep.add(cur); cur = byId.get(cur)!.parentId; }
+    }
+    return facilityNodes.filter((n) => keep.has(n.id));
+  }, [facilityNodes, stationNodes]);
   // Friendly "from → to" label for a route (process id), for the chokepoint panel.
   const routeLabelByProc = useMemo(() => {
     const m = new Map<string, string>();
@@ -227,7 +249,7 @@ export function FleetDesignerView({
   const candidateRoutes = useMemo<MapRoute[]>(
     () =>
       routeLeaves
-        .filter((l) => !l.physical && coord.has(l.from) && coord.has(l.to))
+        .filter((l) => !l.physical && coord.has(l.from) && coord.has(l.to) && stationNodes.has(l.from) && stationNodes.has(l.to))
         .map((l) => ({
           process: l.proc,
           from: coord.get(l.from)!,
@@ -238,7 +260,7 @@ export function FleetDesignerView({
           toLabel: nodeById.get(l.to)?.label ?? l.to,
           flow: l.flow,
         })),
-    [routeLeaves, coord, nodeById],
+    [routeLeaves, coord, nodeById, stationNodes],
   );
   const mapRoutes = useMemo<MapRoute[]>(
     () => [
@@ -553,7 +575,7 @@ export function FleetDesignerView({
             },
             {
               id: "facility",
-              title: "Facility",
+              title: "Stations",
               defaultOpen: false,
               headAction: (
                 <span className="rail-hint" style={{ padding: "0 6px" }}>{[...coord.keys()].length} placed</span>
@@ -561,7 +583,7 @@ export function FleetDesignerView({
               body: (
                 <>
                   <TreeExplorer
-                    nodes={facilityNodes}
+                    nodes={stationFacilityNodes}
                     selectedId={selId}
                     expandedIds={expF}
                     onToggle={(id, e) => setExpF((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
@@ -570,7 +592,7 @@ export function FleetDesignerView({
                     onContextAction={() => undefined}
                     onMove={() => undefined}
                     canDrop={() => false}
-                    emptyHint="The facility / network structure — drag a node onto the map to place it."
+                    emptyHint="No stations yet — place a Station component on a company (Network/System), then drag it onto the map. Routes form between located stations connected by a flow."
                   />
                   <div className="rail-foot">Drag a facility node onto the map to give it a location.</div>
                 </>
