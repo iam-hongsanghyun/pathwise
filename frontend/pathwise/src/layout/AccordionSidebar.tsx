@@ -65,13 +65,32 @@ export function AccordionSidebar({
   // section without an entry uses the default flex layout; the last OPEN section
   // always flex-grows to fill, so the rail stays full however the others are sized.
   const [heights, setHeights] = useState<Record<string, number>>({});
+  const SECTION_MIN = 80; // matches the open-section min-height (5rem)
   const startResize = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
-    const sectionEl = e.currentTarget.previousElementSibling as HTMLElement | null;
+    const handle = e.currentTarget as HTMLElement;
+    const sectionEl = handle.previousElementSibling as HTMLElement | null;
+    const rail = handle.closest(".acc-sidebar") as HTMLElement | null;
     const start = sectionEl?.offsetHeight ?? 120;
+    // Growing this section pushes the last (flex-grow) open section down; it may
+    // only shrink to its floor, beyond which the rail would overflow the window and
+    // the bottom section would slide out of view. Cap growth at that available room
+    // (measured at drag start) so everything stays inside the rail.
+    let room = Number.POSITIVE_INFINITY;
+    if (rail && sectionEl) {
+      const open = [...rail.querySelectorAll<HTMLElement>(".acc-section")].filter((s) =>
+        s.querySelector(".acc-body"),
+      );
+      const last = open[open.length - 1];
+      room = last && last !== sectionEl ? Math.max(0, last.offsetHeight - SECTION_MIN) : 0;
+    }
+    const maxH = start + room;
     const startY = e.clientY;
     const move = (ev: MouseEvent) =>
-      setHeights((prev) => ({ ...prev, [id]: Math.max(60, start + (ev.clientY - startY)) }));
+      setHeights((prev) => ({
+        ...prev,
+        [id]: Math.min(maxH, Math.max(SECTION_MIN, start + (ev.clientY - startY))),
+      }));
     const up = () => {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
