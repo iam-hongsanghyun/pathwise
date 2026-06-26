@@ -1318,28 +1318,188 @@ def _scope_group(wb: Workbook, parent_id: str) -> str:
 
 
 def _place_node(
-    wb: Workbook, parent_id: str, label: str, level: str, instance_id: str | None
+    wb: Workbook,
+    parent_id: str,
+    label: str,
+    level: str,
+    instance_id: str | None,
+    component: str | None = None,
 ) -> str:
     """Add a fresh asset NODE under ``parent_id`` (kind=asset, given ``level``) and
-    return its unique node id. Storage / Station are components — real nodes in the
-    hierarchy — so they show + group like anything else (``parent_id`` is just their
-    abstract place, not a scope)."""
+    return its unique node id. EVERY component kind is a real node in the hierarchy —
+    they show + group like a technology (``parent_id`` is just their abstract place, not
+    a scope). ``component`` records the model-row id this node represents, when that id
+    differs from the node id (flow / lever / macc reference a shared row by its own id)."""
     have = {str(r.get("node_id")) for r in wb.get(NODES, [])}
     node_id = instance_id or f"{parent_id}/{label}"
     base, n = node_id, 2
     while node_id in have:
         node_id = f"{base}-{n}"
         n += 1
-    wb.setdefault(NODES, []).append(
-        {
-            "node_id": node_id,
-            "parent_id": parent_id,
-            "kind": "asset",
-            "level": level,
-            "label": label,
-        }
-    )
+    row: dict[str, Any] = {
+        "node_id": node_id,
+        "parent_id": parent_id,
+        "kind": "asset",
+        "level": level,
+        "label": label,
+    }
+    if component is not None:
+        row["component"] = component
+    wb.setdefault(NODES, []).append(row)
     return node_id
+
+
+def _copy_lever_def(wb: Workbook, library: ComponentLibrary, lever_id: str) -> None:
+    """Copy a lever DEFINITION (row + cost-curve blocks + its target flow) from the
+    library into the model — the System's hard copy. Idempotent by lever id; blocks store
+    per-capacity values (a later facility link scales them). The model is the System copy;
+    the Library is untouched."""
+    m = library.lever(lever_id)
+    if m is None:
+        return
+    _merge_row(
+        wb,
+        LEVERS,
+        "lever_id",
+        {
+            "lever_id": m.lever_id,
+            "label": m.label,
+            "type": m.type,
+            "target": m.target,
+            "lifetime": m.lifetime,
+        },
+    )
+    if not any(str(r.get("lever_id")) == lever_id for r in wb.get(LEVER_BLOCKS, [])):
+        for i, b in enumerate(m.blocks):
+            wb.setdefault(LEVER_BLOCKS, []).append(
+                {
+                    "lever_id": lever_id,
+                    "block": i,
+                    "reduction": b.reduction,
+                    "capex": b.capex_per_capacity,
+                    "opex": b.opex_per_capacity,
+                }
+            )
+    c = next((x for x in library.flows if x.flow_id == m.target), None)
+    if c is not None:
+        _merge_row(wb, FLOWS, "flow_id", _flow_row(c))
+        _merge_flow_traj(wb, c)
+
+
+def place_flow(
+    model: Workbook,
+    library: ComponentLibrary,
+    flow_id: str,
+    *,
+    parent_id: str,
+    instance_id: str | None = None,
+) -> Workbook:
+    """Place a flow component as an asset NODE + the flow's hard copy in the model.
+
+    Same pipeline as every other kind: a node in the System hierarchy, plus the flow's
+    definition copied into the model's ``flows`` (its real-world price etc. are then edited
+    in the System, never the Library). The node's ``component`` links to the flow row.
+    """
+    c = next((x for x in library.flows if x.flow_id == flow_id), None)
+    if c is None:
+        raise KeyError(f"unknown flow '{flow_id}'")
+    wb: Workbook = {k: list(v) for k, v in model.items()}
+    _place_node(wb, parent_id, flow_id, "flow", instance_id, component=flow_id)
+    _merge_row(wb, FLOWS, "flow_id", _flow_row(c))
+    _merge_flow_traj(wb, c)
+    return wb
+
+
+def place_lever(
+    model: Workbook,
+    library: ComponentLibrary,
+    lever_id: str,
+    *,
+    parent_id: str,
+    instance_id: str | None = None,
+) -> Workbook:
+    """Place a lever component as an asset NODE + the lever's hard copy in the model."""
+    if library.lever(lever_id) is None:
+        raise KeyError(f"unknown lever '{lever_id}'")
+    wb: Workbook = {k: list(v) for k, v in model.items()}
+    _place_node(wb, parent_id, lever_id, "lever", instance_id, component=lever_id)
+    _copy_lever_def(wb, library, lever_id)
+    return wb
+
+
+def place_macc(
+    model: Workbook,
+    library: ComponentLibrary,
+    macc_id: str,
+    *,
+    parent_id: str,
+    instance_id: str | None = None,
+) -> Workbook:
+    """Place a MACC component as an asset NODE + the MACC's hard copy (and its levers)."""
+    g = library.macc(macc_id)
+    if g is None:
+        raise KeyError(f"unknown macc '{macc_id}'")
+    wb: Workbook = {k: list(v) for k, v in model.items()}
+    _place_node(wb, parent_id, macc_id, "macc", instance_id, component=macc_id)
+    _merge_row(
+        wb,
+        MACCS,
+        "macc_id",
+        {"macc_id": g.macc_id, "label": g.label, "measures": "|".join(g.measures)},
+    )
+    for mid in g.measures:
+        _copy_lever_def(wb, library, mid)
+    return wb
+
+
+def place_component(
+    model: Workbook,
+    library: ComponentLibrary,
+    kind: str,
+    component_id: str,
+    *,
+    parent_id: str,
+    capacity: float = 0.0,
+    instance_id: str | None = None,
+) -> Workbook:
+    """Place ANY component kind into the System through ONE uniform pipeline: a node in the
+    hierarchy + the component's definition hard-copied into the model, so the instance is
+    edited in the System (never the Library). Dispatches to the per-kind placer — the
+    pipeline is identical; only the copied fields differ by kind.
+
+    Raises:
+        KeyError: If ``kind`` is unknown or ``component_id`` is not in the library.
+    """
+    if kind == "technology":
+        return place_technology(
+            model,
+            library,
+            component_id,
+            parent_id=parent_id,
+            capacity=capacity,
+            instance_id=instance_id,
+        )
+    if kind == "storage":
+        return place_storage(
+            model, library, component_id, parent_id=parent_id, instance_id=instance_id
+        )
+    if kind == "station":
+        return place_station(
+            model, library, component_id, parent_id=parent_id, instance_id=instance_id
+        )
+    if kind == "flow":
+        return place_flow(
+            model, library, component_id, parent_id=parent_id, instance_id=instance_id
+        )
+    if kind == "lever":
+        return place_lever(
+            model, library, component_id, parent_id=parent_id, instance_id=instance_id
+        )
+    if kind == "macc":
+        return place_macc(
+            model, library, component_id, parent_id=parent_id, instance_id=instance_id
+        )
+    raise KeyError(f"unknown component kind '{kind}'")
 
 
 def place_storage(

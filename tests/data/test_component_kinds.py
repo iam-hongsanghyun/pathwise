@@ -159,3 +159,55 @@ def test_draft_technology_without_io_round_trips() -> None:
     assert t is not None and t.io == []
     m = back.lever("L")
     assert m is not None and m.blocks == []
+
+
+def _lib_full() -> ComponentLibrary:
+    return ComponentLibrary.model_validate(
+        {
+            "label": "base",
+            "flows": [
+                {"flow_id": "elec", "kind": "energy", "unit": "MWh", "price": 50.0},
+                {"flow_id": "steel", "kind": "product", "unit": "t"},
+            ],
+            "technologies": [
+                {
+                    "technology_id": "EAF",
+                    "io": [
+                        {"target": "steel", "role": "output", "coefficient": 1, "is_product": True},
+                        {"target": "elec", "role": "input", "coefficient": 2},
+                    ],
+                    "maccs": ["M"],
+                }
+            ],
+            "measures": [
+                {
+                    "lever_id": "eff",
+                    "type": "energy_efficiency",
+                    "target": "elec",
+                    "blocks": [{"reduction": 0.1, "capex_per_capacity": 5.0}],
+                }
+            ],
+            "maccs": [{"macc_id": "M", "label": "M", "measures": ["eff"]}],
+        }
+    )
+
+
+def test_place_component_is_uniform_node_plus_copy() -> None:
+    from pathwise.data.components import place_component
+
+    lib = _lib_full()
+    # Flow → node (level=flow, component link) + flow copied into the model.
+    wb = place_component({}, lib, "flow", "elec", parent_id="co")
+    fn = next(n for n in wb["nodes"] if n["component"] == "elec")
+    assert fn["kind"] == "asset" and fn["level"] == "flow"
+    assert any(f["flow_id"] == "elec" for f in wb["flows"])
+    # Lever → node + lever def + its blocks copied (the System hard copy).
+    wb = place_component(wb, lib, "lever", "eff", parent_id="co")
+    ln = next(n for n in wb["nodes"] if n["component"] == "eff")
+    assert ln["level"] == "lever"
+    assert any(m["lever_id"] == "eff" for m in wb["levers"])
+    assert any(b["lever_id"] == "eff" for b in wb["lever_blocks"])
+    # MACC → node + macc row + its member lever copied.
+    wb = place_component(wb, lib, "macc", "M", parent_id="co")
+    assert next(n for n in wb["nodes"] if n["component"] == "M")["level"] == "macc"
+    assert any(g["macc_id"] == "M" for g in wb["maccs"])
