@@ -32,6 +32,8 @@ import {
   type LibrarySummary,
   listAllComponentLibraries,
   listAvailableTechnologies,
+  placeStation,
+  placeStorage,
   placeTechnology,
 } from "../lib/api/components";
 import { getFullModel, putModel } from "../lib/api/session";
@@ -164,7 +166,7 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
     setWorkbook(setSheet(workbook, "nodes", (workbook.nodes ?? []).map((r) => (s(r.node_id) === e.dragId ? { ...r, parent_id: newParent } : r))));
   }
 
-  async function dropPick(library: string, name: string, kind: "technology" | "asset" | "group", parentId: string, scope: LibScope) {
+  async function dropPick(library: string, name: string, kind: PickKind, parentId: string, scope: LibScope) {
     if (!sessionId) return;
     setError(null);
     try {
@@ -172,7 +174,11 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
       const res =
         kind === "technology"
           ? await placeTechnology(sessionId, { library, technology: name, parent_id: parentId, capacity: 1000, scope })
-          : await instantiateComponent(sessionId, { library, component: name, parent_id: parentId, scope });
+          : kind === "storage"
+            ? await placeStorage(sessionId, { library, component: name, parent_id: parentId, scope })
+            : kind === "station"
+              ? await placeStation(sessionId, { library, component: name, parent_id: parentId, scope })
+              : await instantiateComponent(sessionId, { library, component: name, parent_id: parentId, scope });
       adoptServerModel(await getFullModel(sessionId));
       setExpanded((p) => new Set(p).add(parentId));
       // Select the freshly instantiated node so it's immediately editable in the
@@ -588,9 +594,10 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
 // ── Library → component/technology picker ─────────────────────────────────────
 // Place a Component — a single asset or a composite group (e.g. CCGT = GT+ST) —
 // or a raw technology (as a single asset).
-interface PickItem { library: string; libLabel: string; scope: LibScope; name: string; label: string; kind: "technology" | "asset" | "group" }
+type PickKind = "technology" | "asset" | "group" | "storage" | "station";
+interface PickItem { library: string; libLabel: string; scope: LibScope; name: string; label: string; kind: PickKind }
 
-function ComponentPicker({ sessionId, libs, onPick, onClose }: { sessionId: string | null; libs: LibrarySummary[]; onPick: (library: string, name: string, kind: "technology" | "asset" | "group", scope: LibScope) => void; onClose: () => void }) {
+function ComponentPicker({ sessionId, libs, onPick, onClose }: { sessionId: string | null; libs: LibrarySummary[]; onPick: (library: string, name: string, kind: PickKind, scope: LibScope) => void; onClose: () => void }) {
   const [q, setQ] = useState("");
   // Flatten EVERY library's components into one searchable list (cross-library),
   // base + this project's own, so you don't have to know which library a
@@ -610,6 +617,8 @@ function ComponentPicker({ sessionId, libs, onPick, onClose }: { sessionId: stri
           for (const g of b.groups) out.push({ library: l.id, libLabel: l.label, scope: l.scope, name: g.name, label: g.label || g.name, kind: "group" });
           for (const m of b.assets) out.push({ library: l.id, libLabel: l.label, scope: l.scope, name: m.name, label: m.label || m.name, kind: "asset" });
           for (const t of b.technologies) out.push({ library: l.id, libLabel: l.label, scope: l.scope, name: t.technology_id, label: t.technology_id, kind: "technology" });
+          for (const st of b.storages ?? []) out.push({ library: l.id, libLabel: l.label, scope: l.scope, name: st.storage_id, label: st.storage_id, kind: "storage" });
+          for (const st of b.stations ?? []) out.push({ library: l.id, libLabel: l.label, scope: l.scope, name: st.station_id, label: st.station_id, kind: "station" });
         }
         setItems(out);
       });
@@ -617,7 +626,9 @@ function ComponentPicker({ sessionId, libs, onPick, onClose }: { sessionId: stri
   }, [libs, sessionId]);
   const ql = q.toLowerCase();
   const filtered = (items ?? []).filter((it) => !ql || it.label.toLowerCase().includes(ql) || it.libLabel.toLowerCase().includes(ql));
-  const glyph = (k: PickItem["kind"]) => (k === "group" ? "▦" : k === "asset" ? "▪" : "▫");
+  const glyph = (k: PickItem["kind"]) => (k === "group" ? "▦" : k === "asset" ? "▪" : k === "storage" ? "▭" : k === "station" ? "⛽" : "▫");
+  const kindTag = (k: PickItem["kind"]) =>
+    k === "technology" ? " · technology" : k === "group" ? " · group" : k === "storage" ? " · storage" : k === "station" ? " · station" : "";
   return (
     <Modal onClose={onClose} title="Add a component">
       {libs.length === 0 && <p className="muted">No component libraries — build one in the Component tab.</p>}
@@ -626,7 +637,7 @@ function ComponentPicker({ sessionId, libs, onPick, onClose }: { sessionId: stri
       {items !== null && filtered.length === 0 && <p className="muted">{items.length === 0 ? "No components yet — add some in the Component tab." : "No matches."}</p>}
       {filtered.map((it) => (
         <button key={`${it.kind}/${it.scope}/${it.library}/${it.name}`} className="rail-item" style={{ width: "100%", textAlign: "left" }} onClick={() => onPick(it.library, it.name, it.kind, it.scope)}>
-          {glyph(it.kind)} {it.label} <span className="muted">· {it.libLabel}{it.scope === "session" ? " · project" : ""}{it.kind === "technology" ? " · technology" : it.kind === "group" ? " · group" : ""}</span>
+          {glyph(it.kind)} {it.label} <span className="muted">· {it.libLabel}{it.scope === "session" ? " · project" : ""}{kindTag(it.kind)}</span>
         </button>
       ))}
     </Modal>
