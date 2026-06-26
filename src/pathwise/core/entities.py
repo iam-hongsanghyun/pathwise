@@ -614,10 +614,15 @@ class Lever:
     Attributes:
         lever_id: Unique id.
         lever_type: Which lever (energy efficiency / emission / environmental).
-        applies_to: Process id the lever can be installed on.
+        applies_to: Process id the lever can be installed on (process-targeted lever).
         target: Flow id (energy efficiency) or impact id (reduction/environmental).
         lifetime: Economic lifetime [yr].
         blocks: Ordered piecewise blocks (cumulative reduction).
+        scope: A GROUP this lever covers instead of a single process — any scope id
+            (a fleet, a company, ``"all"``), resolved with the same ``in_scope``
+            mechanism caps use. Empty ⇒ a plain process lever (``applies_to``). A
+            fleet is just a group of transport assets, so a "fleet MACC" is simply a
+            scoped lever — no fleet-specific machinery.
     """
 
     lever_id: str
@@ -626,6 +631,7 @@ class Lever:
     target: str
     lifetime: int = 15
     blocks: list[LeverBlock] = field(default_factory=list)
+    scope: str = ""
 
 
 class MarketTarget(StrEnum):

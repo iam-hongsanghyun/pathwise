@@ -328,6 +328,51 @@ export function FleetDesignerView({
   const patchNode = (id: string, p: Row) => setWorkbook(setSheet(workbook, "nodes", (workbook.nodes ?? []).map((r) => (s(r.node_id) === id ? { ...r, ...p } : r))));
   const patchRoute = (proc: string, p: Row) => setWorkbook(setSheet(workbook, "routes", routes.map((r) => (s(r.process) === proc ? { ...r, ...p } : r))));
 
+  // Fleet MACC: a fleet is a GROUP of transport assets, so its lever is the ordinary
+  // `levers` / `lever_blocks` rows scoped with `fleet=<id>` — the SAME mechanism the
+  // System uses on an asset/group, no fleet-specific sheet. One block per lever here
+  // (keep authoring simple); the engine deploys it endogenously (invest → cut fuel).
+  const block0Of = (leverId: string): Row | undefined =>
+    (workbook.lever_blocks ?? []).find((b) => s(b.lever_id) === leverId && (Number(b.block) || 0) === 0);
+  const fleetLeversOf = (fid: string) =>
+    (workbook.levers ?? [])
+      .filter((r) => s(r.fleet) === fid)
+      .map((r) => {
+        const b = block0Of(s(r.lever_id));
+        return {
+          id: s(r.lever_id),
+          target: s(r.target),
+          reduction: Number(b?.reduction) || 0,
+          capex: Number(b?.capex) || 0,
+          opex: Number(b?.opex) || 0,
+        };
+      });
+  function addFleetLever(fid: string, fuel: string) {
+    const id = genId("flmacc");
+    let wb = setSheet(workbook, "levers", [
+      ...(workbook.levers ?? []),
+      { lever_id: id, type: "energy_efficiency", target: fuel, fleet: fid, lifetime: 15 },
+    ]);
+    wb = setSheet(wb, "lever_blocks", [
+      ...(wb.lever_blocks ?? []),
+      { lever_id: id, block: 0, reduction: 0.1, capex: 0, opex: 0 },
+    ]);
+    setWorkbook(wb);
+  }
+  function editFleetLever(leverId: string, leverPatch: Row, blockPatch: Row) {
+    let wb = workbook;
+    if (Object.keys(leverPatch).length)
+      wb = setSheet(wb, "levers", (wb.levers ?? []).map((r) => (s(r.lever_id) === leverId ? { ...r, ...leverPatch } : r)));
+    if (Object.keys(blockPatch).length)
+      wb = setSheet(wb, "lever_blocks", (wb.lever_blocks ?? []).map((b) => (s(b.lever_id) === leverId && (Number(b.block) || 0) === 0 ? { ...b, ...blockPatch } : b)));
+    setWorkbook(wb);
+  }
+  function delFleetLever(leverId: string) {
+    let wb = setSheet(workbook, "levers", (workbook.levers ?? []).filter((r) => s(r.lever_id) !== leverId));
+    wb = setSheet(wb, "lever_blocks", (wb.lever_blocks ?? []).filter((b) => s(b.lever_id) !== leverId));
+    setWorkbook(wb);
+  }
+
   // ── Fleet registry (fleet_groups + fleet — NEVER nodes) ─────────────────────
   async function addFleetGroup(parentId: string | null) {
     const label = (await prompt({ title: "Add group", label: "name", placeholder: "e.g. Alliance, Carrier Co." }))?.trim();
@@ -669,6 +714,10 @@ export function FleetDesignerView({
         <FleetPanel fleet={fleetByNode.get(edit.id)!} flows={flows} periods={periods} baseYear={baseYear}
           tv={(field) => instAttr(workbook, "fleet", "fleet_id", edit.id, field, `fleet_t__${field}`)}
           setTv={(field, v) => setWorkbook(setInstAttr(workbook, "fleet", "fleet_id", edit.id, field, `fleet_t__${field}`, v))}
+          levers={fleetLeversOf(edit.id)}
+          onAddLever={(fuel) => addFleetLever(edit.id, fuel)}
+          onEditLever={editFleetLever}
+          onDeleteLever={delFleetLever}
           onRename={(v) => patchFleet(edit.id, { label: v })} onChange={(p) => patchFleet(edit.id, p)} onClose={() => setEdit(null)} />
       )}
       {edit?.kind === "node" && nodeById.get(edit.id) && (
@@ -815,11 +864,17 @@ const FIELD_INFO: Record<string, string> = {
   lifespan: "Service life in years — with a build year, the fleet retires after build + lifespan − 1.",
 };
 
-function FleetPanel({ fleet, flows, periods, baseYear, tv, setTv, onRename, onChange, onClose }: {
+interface FleetLever { id: string; target: string; reduction: number; capex: number; opex: number }
+function FleetPanel({ fleet, flows, periods, baseYear, tv, setTv, levers, onAddLever, onEditLever, onDeleteLever, onRename, onChange, onClose }: {
   fleet: Row; flows: string[]; periods: number[]; baseYear: number;
   tv: (field: string) => TemporalVal | null; setTv: (field: string, v: TemporalVal | null) => void;
+  levers: FleetLever[];
+  onAddLever: (fuel: string) => void;
+  onEditLever: (leverId: string, leverPatch: Row, blockPatch: Row) => void;
+  onDeleteLever: (leverId: string) => void;
   onRename: (v: string) => void; onChange: (p: Row) => void; onClose: () => void;
 }) {
+  const fuel = s(fleet.fuel);
   return (
     <FloatingPanel title="fleet" width={360} onClose={onClose}>
       <div style={{ padding: "12px 14px" }}>
@@ -841,6 +896,41 @@ function FleetPanel({ fleet, flows, periods, baseYear, tv, setTv, onRename, onCh
             )}
           </label>
         ))}
+
+        {/* Levers & MACC — a fleet is a group of assets, so this is the SAME lever the
+            System uses, scoped to the fleet. An efficiency retrofit the optimiser may
+            INVEST in (pay capex) to cut this fleet's fuel use + emissions. */}
+        <div className="rail-section" style={{ marginTop: 14 }}>
+          <div className="rail-head-row">
+            <span className="rail-head">Levers &amp; MACC</span>
+            <button className="rail-add" title="add an efficiency retrofit on this fleet"
+              disabled={!fuel} onClick={() => onAddLever(fuel)}>＋</button>
+          </div>
+          {levers.length === 0 && (
+            <div className="rail-empty">
+              {fuel ? "No levers — ＋ adds a fuel-efficiency retrofit the optimiser can invest in." : "Set a fuel first, then add a retrofit."}
+            </div>
+          )}
+          {levers.map((lv) => (
+            <div key={lv.id} style={{ display: "flex", flexDirection: "column", gap: 3, padding: "4px 8px", borderTop: "1px solid var(--border)" }}>
+              <div style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.78rem" }}>
+                <span className="muted" style={{ flex: 1 }}>efficiency on <b>{lv.target || "—"}</b></span>
+                <button className="ghost" title="remove" onClick={() => onDeleteLever(lv.id)}>✕</button>
+              </div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.76rem" }}>
+                <span className="muted" title="fraction of fuel cut at full adoption">cut</span>
+                <input className="field-input" style={{ width: 56 }} type="number" min={0} max={1} step={0.05}
+                  value={lv.reduction} onChange={(e) => onEditLever(lv.id, {}, { reduction: Number(e.target.value) || 0 })} />
+                <span className="muted" title="one-off capital cost to adopt (the optimiser weighs this vs. fuel saved)">capex</span>
+                <input className="field-input" style={{ width: 80 }} type="number" min={0}
+                  value={lv.capex} onChange={(e) => onEditLever(lv.id, {}, { capex: Number(e.target.value) || 0 })} />
+                <span className="muted">O&amp;M</span>
+                <input className="field-input" style={{ width: 70 }} type="number" min={0}
+                  value={lv.opex} onChange={(e) => onEditLever(lv.id, {}, { opex: Number(e.target.value) || 0 })} />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </FloatingPanel>
   );

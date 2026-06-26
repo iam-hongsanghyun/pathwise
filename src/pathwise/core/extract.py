@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pathwise.core.entities import Transition
+from pathwise.core.entities import LeverType, Transition
 from pathwise.core.problem import leg_key
 from pathwise.core.solve import SolveResult
 
@@ -435,6 +435,23 @@ def extract_results(
                     by_period_impact[(int(t), imp)] = (
                         by_period_impact.get((int(t), imp), 0.0) + fuel_used * fac
                     )
+        # Credit endogenous fleet-MACC abatement (the abated fuel ``fsaved`` is not burnt),
+        # so the reported inventory matches what the solve actually cut.
+        if ctx.fsaved is not None:
+            eff_slot = {
+                s.key: s
+                for s in ctx.slots
+                if s.scope and s.lever_type == LeverType.ENERGY_EFFICIENCY
+            }
+            for (sk, t), v in _series(ctx.fsaved).items():
+                s = eff_slot.get(sk)
+                if s is None or v <= _EPS:
+                    continue
+                for (comm, imp), fac in prob.flow_impacts.items():
+                    if comm == s.target and fac:
+                        by_period_impact[(int(t), imp)] = (
+                            by_period_impact.get((int(t), imp), 0.0) - v * fac
+                        )
     out["summary"]["impacts"] = [
         {"period": t, "impact": i, "total": val} for (t, i), val in sorted(by_period_impact.items())
     ]

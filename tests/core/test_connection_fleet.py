@@ -310,6 +310,50 @@ def test_bunkering_fuel_supply_cap_limits_the_fleet() -> None:
     assert _delivered(res) > 0.0  # some cargo still moves on the available fuel
 
 
+def _with_fleet_macc(
+    wb: dict[str, Any], *, reduction: float = 0.5, capex: float = 1000.0
+) -> dict[str, Any]:
+    """Attach a fleet-scoped energy-efficiency MACC on the 'dirty' fleet (cuts HFO).
+
+    A fleet is a group of transport assets, so this is the ORDINARY lever/MACC mechanism
+    with a ``fleet`` scope — no fleet-specific sheet.
+    """
+    wb["levers"] = [
+        {"lever_id": "retrofit", "type": "energy_efficiency", "target": "hfo", "fleet": "dirty"}
+    ]
+    wb["lever_blocks"] = [
+        {"lever_id": "retrofit", "block": 0, "reduction": reduction, "capex": capex, "opex": 0.0}
+    ]
+    return wb
+
+
+def _co2(res: dict[str, Any]) -> float:
+    return sum(float(s["total"]) for s in res["summary"]["impacts"] if s["impact"] == "co2")
+
+
+def test_fleet_macc_deploys_and_cuts_fuel_emissions_when_cheap() -> None:
+    # A MACC on a fleet (a group of ships) is the same scoped lever any asset group uses.
+    # A cheap HFO-efficiency retrofit is deployed endogenously ⇒ less fuel ⇒ ~halved CO2.
+    base = _solve(_wb(co2_price=0.0, candidates=("dirty",)))
+    lev = _solve(_with_fleet_macc(_wb(co2_price=0.0, candidates=("dirty",)), reduction=0.5))
+    assert lev["status"] == "optimal"
+    assert _co2(lev) < _co2(base) - 1e-6  # the retrofit cut transport CO2
+    assert abs(_co2(lev) - 0.5 * _co2(base)) < 1.0  # exactly the block's 50% reduction
+    assert _co2(lev) > 0.0  # not driven negative (capped at the ACTUAL fuel)
+    assert abs(_delivered(lev) - _DEMAND) < 1e-6  # demand still met
+
+
+def test_fleet_macc_not_taken_when_capex_exceeds_the_saving() -> None:
+    # Endogenous: a retrofit costing more than the fuel it saves is NOT adopted (CO2
+    # unchanged) — the deploy is a real economic decision, not free abatement.
+    base = _solve(_wb(co2_price=0.0, candidates=("dirty",)))
+    lev = _solve(
+        _with_fleet_macc(_wb(co2_price=0.0, candidates=("dirty",)), reduction=0.5, capex=1e12)
+    )
+    assert lev["status"] == "optimal"
+    assert abs(_co2(lev) - _co2(base)) < 1e-6  # not deployed ⇒ emissions unchanged
+
+
 def test_single_candidate_is_forced() -> None:
     # Only the clean fleet may run the lane → it is used even with no carbon price.
     res = _solve(_wb(co2_price=0.0, candidates=("clean",)))

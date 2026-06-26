@@ -1412,7 +1412,7 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
         macc = _str(r.get("macc"))
         if not macc:
             continue
-        for link_kind in ("facility", "technology", "flow", "storage"):
+        for link_kind in ("facility", "technology", "flow", "storage", "fleet"):
             if target := _str(r.get(link_kind)):
                 macc_targets.setdefault(macc, []).append((link_kind, target))
 
@@ -1454,30 +1454,56 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
             continue
         ordered = [b for _, b in sorted(blocks_by_lever.get(mid, []), key=lambda t: t[0])]
         targets: list[str] = []
+        scopes: list[str] = []  # GROUP targets (a fleet, company…) — covered via in_scope
         if direct_fac := _str(r.get("facility")):
             targets.extend(_resolve(direct_fac))
         if direct_tech := _str(r.get("technology")):
             targets.extend(_resolve(direct_tech))
+        # A fleet is a group of transport assets — a fleet/group lever is a SCOPED lever,
+        # not a process one. Authored directly (``fleet``/``scope`` column) or via a MACC.
+        if direct_scope := (_str(r.get("fleet")) or _str(r.get("scope"))):
+            scopes.append(direct_scope)
         for macc in maccs_by_lever.get(mid, []):
             for link_kind, link in macc_targets.get(macc, []):
-                targets.extend(_resolve_link(link_kind, link))
+                if link_kind == "fleet":
+                    scopes.append(link)
+                else:
+                    targets.extend(_resolve_link(link_kind, link))
         if direct_link := _str(r.get("applies_to")):  # legacy column
             targets.extend(_resolve(direct_link))
         if set_id := _str(r.get("set")):  # legacy named set
             for link in links_by_set.get(set_id, []):
                 targets.extend(_resolve(link))
         unique = list(dict.fromkeys(targets))
+        uscopes = list(dict.fromkeys(scopes))
+        total = len(unique) + len(uscopes)
+
+        def _name(suffix: str, _mid: str = mid, _n: int = total) -> str:
+            # Plain id for the simple 1:1 case (backwards compatible); suffix when expanded
+            # so every Lever — process or scoped — has a unique id (its slots stay distinct).
+            return _mid if _n == 1 else f"{_mid} @ {suffix}"
+
         for pid in unique:
             levers.append(
                 Lever(
-                    # Keep the plain id for the simple 1:1 case (backwards
-                    # compatible); suffix with the facility when expanded.
-                    lever_id=mid if len(unique) == 1 else f"{mid} @ {pid}",
+                    lever_id=_name(pid),
                     lever_type=LeverType(mtype_s),
                     applies_to=pid,
                     target=_str(r.get("target")) or "",
                     lifetime=_int(r.get("lifetime"), 15) or 15,
                     blocks=ordered,
+                )
+            )
+        for sc in uscopes:
+            levers.append(
+                Lever(
+                    lever_id=_name(sc),
+                    lever_type=LeverType(mtype_s),
+                    applies_to="",
+                    target=_str(r.get("target")) or "",
+                    lifetime=_int(r.get("lifetime"), 15) or 15,
+                    blocks=ordered,
+                    scope=sc,
                 )
             )
 

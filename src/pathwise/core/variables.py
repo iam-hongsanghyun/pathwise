@@ -43,6 +43,10 @@ class LeverSlot:
     capex: float
     opex: float
     lifetime: int
+    #: A GROUP scope (a fleet, company, "all"…) when the lever covers a group of assets
+    #: rather than one process. Empty ⇒ a plain process slot. A fleet is just a group, so
+    #: a fleet MACC is a scoped slot — the deploy/capex/ordering machinery is unchanged.
+    scope: str = ""
     #: Per-year overrides of the scalar block cost / reduction (empty → scalar).
     capex_by_year: dict[int, float] = field(default_factory=dict)
     opex_by_year: dict[int, float] = field(default_factory=dict)
@@ -79,6 +83,7 @@ class BuildContext:
     slots: list[LeverSlot]
     ref_consumption: dict[tuple[str, str], float]  # (process, flow) -> baseline use
     ref_impact: dict[tuple[str, str], float]  # (process, impact) -> baseline emission
+    fleet_ref_fuel: dict[str, float] = field(default_factory=dict)  # fleet -> full-deploy fuel
     grouped_comms: list[str] = field(default_factory=list)  # flows in any blend group
     grouped_out_comms: list[str] = field(default_factory=list)  # flows in any output slate
 
@@ -92,7 +97,9 @@ class BuildContext:
     sell: Any = None  # external sale/disposal [process, flow, period]
     deliver: Any = None  # product delivered to demand [process, flow, period]
     flow: Any = None  # inter-process flow [edge, period]
-    z: Any = None  # lever adoption [slot, period]
+    z: Any = None  # lever adoption [slot, period] (process levers — continuous 0..1)
+    dfl: Any = None  # binary deploy of a scoped (fleet/group) lever slot [slot, period]
+    fsaved: Any = None  # abated fuel from a scoped fleet lever [slot, period] (≤ actual fuel)
     emit: Any = None  # impact emitted [process, impact, period]
     units: Any = None  # integer ships assigned to a fleet route [process, period]
     cunits: Any = None  # integer carriers of a fleet on a physicalised connection [leg, period]
@@ -160,6 +167,7 @@ def _lever_slots(problem: Problem) -> list[LeverSlot]:
                     capex=blk.capex,
                     opex=blk.opex,
                     lifetime=m.lifetime,
+                    scope=m.scope,
                     capex_by_year=blk.capex_by_year,
                     opex_by_year=blk.opex_by_year,
                     reduction_by_year=blk.reduction_by_year,
@@ -205,6 +213,45 @@ def _references(
     return ref_cons, ref_imp
 
 
+def _fleet_references(problem: Problem) -> dict[str, float]:
+    r"""Per-fleet full-deployment annual fuel — the baseline a fleet (group of N
+    transport assets) lever's saving scales against, exactly like ``ref_consumption``
+    is a process's full-capacity baseline.
+
+    A fleet's fuel is ``Σ legflow · efficiency · distance`` over its candidate
+    connection-route legs. At full deployment ``legflow → cap_on(distance) ·
+    max_units``, so::
+
+        ref_fuel[f] = Σ_{legs of f} efficiency(t₀) · distance · cap_on(distance) · max_units
+
+    with ``max_units`` falling back to the fleet's own ``count`` (then ``max_build``)
+    when a leg sets no ceiling. Read at the first horizon year so a year-trajectory
+    efficiency still yields a well-defined, constant reference (keeps the saving
+    linear: ``reduction · z · ref``, never ``reduction · z · legflow``).
+    """
+    refs: dict[str, float] = {}
+    t0 = problem.years[0] if problem.years else 0
+    for cr in problem.connection_routes:
+        if cr.distance <= 0 or not cr.legs:
+            continue
+        for leg in cr.legs:
+            fl = problem.fleets.get(leg.fleet_id)
+            if fl is None or fl.efficiency_at(t0) <= 0:
+                continue
+            cap = fl.capacity_on(cr.distance) or fl.capacity
+            if cap <= 0:
+                continue
+            units = leg.max_units
+            if units is None:
+                units = fl.count or fl.max_build or 0.0
+            if units <= 0:
+                continue
+            refs[fl.fleet_id] = refs.get(fl.fleet_id, 0.0) + (
+                fl.efficiency_at(t0) * cr.distance * cap * units
+            )
+    return refs
+
+
 def build_context(model: Model, problem: Problem) -> BuildContext:
     """Create all decision variables and return the populated context."""
     procs = [p.process_id for p in problem.processes]
@@ -216,6 +263,7 @@ def build_context(model: Model, problem: Problem) -> BuildContext:
     feasible = _feasible_techs(problem)
     slots = _lever_slots(problem)
     ref_cons, ref_imp = _references(problem)
+    fleet_ref_fuel = _fleet_references(problem)
     grouped_comms = sorted({c for k in problem.technologies.values() for c in k.grouped_inputs()})
     grouped_out = sorted({c for k in problem.technologies.values() for c in k.grouped_outputs()})
 
@@ -237,6 +285,7 @@ def build_context(model: Model, problem: Problem) -> BuildContext:
         slots=slots,
         ref_consumption=ref_cons,
         ref_impact=ref_imp,
+        fleet_ref_fuel=fleet_ref_fuel,
         grouped_comms=grouped_comms,
         grouped_out_comms=grouped_out,
     )
@@ -298,6 +347,14 @@ def build_context(model: Model, problem: Problem) -> BuildContext:
     if slots:
         s_idx = pd.Index([s.key for s in slots], name="slot")
         ctx.z = model.add_variables(lower=0.0, upper=1.0, coords=[s_idx, t_idx], name="z")
+    # Scoped (fleet/group) slots deploy via a BINARY decision + an abated-fuel variable
+    # capped at the actual legflow fuel (built in build._fleet_lever) — endogenous like a
+    # process MACC, but exact for a variable transport activity (no over-abatement).
+    fleet_slot_keys = [s.key for s in slots if s.scope]
+    if fleet_slot_keys:
+        fs_idx = pd.Index(fleet_slot_keys, name="slot")
+        ctx.dfl = model.add_variables(binary=True, coords=[fs_idx, t_idx], name="dfl")
+        ctx.fsaved = model.add_variables(lower=0.0, coords=[fs_idx, t_idx], name="fsaved")
     if problem.edges:
         e_idx = pd.Index(list(range(len(problem.edges))), name="edge")
         ctx.flow = model.add_variables(lower=0.0, coords=[e_idx, t_idx], name="flow")

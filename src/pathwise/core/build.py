@@ -92,6 +92,7 @@ def build(problem: Problem) -> BuildContext:
     _adoption_caps(ctx)
     _fleet(ctx)
     _connection_fleet(ctx)
+    _fleet_lever(ctx)
     _green_corridors(ctx)
     _stations(ctx)
     _objective(ctx)
@@ -1333,11 +1334,17 @@ def _impacts(ctx: BuildContext) -> None:
 
 
 def _macc(ctx: BuildContext) -> None:
-    """MACC adoption: cumulative blocks + persistence across periods."""
+    """MACC adoption: cumulative blocks + persistence across periods.
+
+    Process levers only (continuous ``z``). Scoped (fleet/group) slots deploy via the
+    binary ``dfl`` and get their own ordering in :func:`_fleet_lever`.
+    """
     m, prob = ctx.model, ctx.problem
     prev = _prev(ctx.years)
     by_lever: dict[str, list[str]] = {}
     for s in ctx.slots:
+        if s.scope:
+            continue
         by_lever.setdefault(s.lever_id, []).append(s.key)
     for keys in by_lever.values():
         for a, b in itertools.pairwise(keys):  # block a adopted before b
@@ -1347,6 +1354,8 @@ def _macc(ctx: BuildContext) -> None:
                     name=f"mono[{a},{b},{t}]",
                 )
     for s in ctx.slots:
+        if s.scope:
+            continue
         for t in ctx.years:
             pt = prev[t]
             if pt is not None:
@@ -1355,6 +1364,75 @@ def _macc(ctx: BuildContext) -> None:
                     name=f"persist[{s.key},{t}]",
                 )
     _ = prob  # referenced for symmetry; measures already flattened into slots
+
+
+def _fleet_lever(ctx: BuildContext) -> None:
+    r"""Endogenous fleet (group-of-assets) MACC — the abated-fuel model.
+
+    A fleet is just a group of transport assets, so a fleet MACC is the SAME lever/MACC
+    rows + scope mechanism a process uses; only the linearisation differs, because a
+    fleet's activity is a demand-driven variable (a process's is ≈ its fixed capacity).
+    For each scoped energy-efficiency slot ``s`` and year ``t`` the abated fuel
+    ``fsaved`` is bounded by the reduction fraction of the ACTUAL legflow fuel and a
+    big-M·deploy gate::
+
+        fsaved[s,t] ≤ reduction(t) · Σ_legs efficiency·distance·legflow   (≤ fraction of actual)
+        fsaved[s,t] ≤ reduction(t) · ref_fuel(s) · dfl[s,t]               (zero unless deployed)
+        dfl[block b] ≥ dfl[block b+1]                                      (cumulative blocks)
+        dfl[s,t]    ≥ dfl[s,t-1]                                           (persists once built)
+
+    so deploying the binary ``dfl`` (which pays the block capex) unlocks exactly
+    ``reduction · actual_fuel`` of abatement — never more (no over-abatement into
+    negative fuel), never for a fraction of the capex (binary, not continuous).
+    """
+    if ctx.dfl is None or ctx.fsaved is None:
+        return
+    prob, m = ctx.problem, ctx.model
+    prev = _prev(ctx.years)
+    slots = _fleet_lever_slots(ctx)
+
+    def _ref(slot: Any) -> float:
+        return sum(
+            rf
+            for fid, rf in ctx.fleet_ref_fuel.items()
+            if (fl := prob.fleets.get(fid)) is not None
+            and fl.fuel == slot.target
+            and fl.in_scope(slot.scope)
+        )
+
+    for s in slots:
+        ref = _ref(s)
+        for t in ctx.years:
+            fs = ctx.fsaved.sel(slot=s.key, period=t)
+            red = s.reduction_at(t)
+            actual = _fleet_actual_fuel(ctx, s, t)
+            if actual is None or red <= 0 or ref <= 0:
+                m.add_constraints(fs == 0, name=f"flsave0[{s.key},{t}]")
+                continue
+            m.add_constraints(fs <= red * actual, name=f"flsaveact[{s.key},{t}]")
+            m.add_constraints(
+                fs <= (red * ref) * ctx.dfl.sel(slot=s.key, period=t),
+                name=f"flsavedep[{s.key},{t}]",
+            )
+    # Cumulative blocks (deploy b before b+1) + persistence (stays once built), on dfl.
+    by_lever: dict[str, list[str]] = {}
+    for s in slots:
+        by_lever.setdefault(s.lever_id, []).append(s.key)
+    for keys in by_lever.values():
+        for a, b in itertools.pairwise(keys):
+            for t in ctx.years:
+                m.add_constraints(
+                    ctx.dfl.sel(slot=a, period=t) >= ctx.dfl.sel(slot=b, period=t),
+                    name=f"flmono[{a},{b},{t}]",
+                )
+    for s in slots:
+        for t in ctx.years:
+            pt = prev[t]
+            if pt is not None:
+                m.add_constraints(
+                    ctx.dfl.sel(slot=s.key, period=t) >= ctx.dfl.sel(slot=s.key, period=pt),
+                    name=f"flpersist[{s.key},{t}]",
+                )
 
 
 def _scope_processes(ctx: BuildContext, scope: str) -> list[str]:
@@ -1539,7 +1617,8 @@ def _controls(ctx: BuildContext) -> None:
     trans_idx = _transition_index(prob)
     cap = {p.process_id: p.capacity for p in prob.processes}
     baseline = {p.process_id: p.baseline_technology for p in prob.processes}
-    slot_company = {s.key: company_of.get(s.process, "all") for s in ctx.slots}
+    # A scoped (fleet/group) slot attributes to its scope; a process slot to its company.
+    slot_company = {s.key: (s.scope or company_of.get(s.process, "all")) for s in ctx.slots}
 
     def _in_scope(company: str, target: str) -> bool:
         return company == "all" or target == company
@@ -1912,6 +1991,72 @@ def _route_emit_terms(
                 terms.append(
                     coeff * ctx.legflow.sel(leg=leg_key(cr.process, leg.fleet_id), period=year)
                 )
+    # Endogenous fleet MACC cuts these emissions in lockstep with the fuel it abates:
+    # fsaved · flow_impact(fuel, impact). Credit a scope only when it covers ALL the
+    # slot's fleets — a narrow cap then stays strict (never counts out-of-scope
+    # abatement) while the global inventory / LCIA gets the exact reduction.
+    if ctx.fsaved is not None and prob.connection_routes:
+
+        def _fleet_ok(fid: str) -> bool:
+            return any(
+                in_scope(cr, fid)
+                for cr in prob.connection_routes
+                if not cr.blocked
+                for leg in cr.legs
+                if leg.fleet_id == fid
+            )
+
+        for s in _fleet_lever_slots(ctx):
+            cf_imp = sum(prob.flow_impact(s.target, fi, year) * cf for fi, cf in comps)
+            if cf_imp == 0:
+                continue
+            slot_fleets = {
+                leg.fleet_id
+                for cr in prob.connection_routes
+                if not cr.blocked
+                for leg in cr.legs
+                if (fl := prob.fleets.get(leg.fleet_id)) is not None
+                and fl.fuel == s.target
+                and fl.in_scope(s.scope)
+            }
+            if slot_fleets and all(_fleet_ok(fid) for fid in slot_fleets):
+                terms.append(-cf_imp * ctx.fsaved.sel(slot=s.key, period=year))
+    return _lin_sum(terms)
+
+
+def _fleet_lever_slots(ctx: BuildContext) -> list[Any]:
+    """The energy-efficiency lever slots scoped to a group of transport assets (a fleet).
+
+    These are ordinary MACC slots whose ``scope`` is a fleet/group rather than a single
+    process — a fleet is just a group of assets, so a fleet MACC reuses the same lever
+    rows, blocks and scope mechanism. They drive the endogenous abatement built in
+    :func:`_fleet_lever` (deploy decision + abated-fuel variable).
+    """
+    return [s for s in ctx.slots if s.scope and s.lever_type == LeverType.ENERGY_EFFICIENCY]
+
+
+def _fleet_actual_fuel(ctx: BuildContext, slot: Any, t: int) -> Any:
+    """``Σ legflow · efficiency · distance`` over the legs a scoped slot's fleets burn —
+    the ACTUAL fuel its abatement is capped at (so a constant reference can never
+    over-abate into negative fuel). Restricted to fleets in the slot's scope that burn
+    the slot's target fuel."""
+    prob = ctx.problem
+    if ctx.legflow is None:
+        return None
+    terms: list[Any] = []
+    for cr in prob.connection_routes:
+        if cr.blocked or cr.distance <= 0:
+            continue
+        for leg in cr.legs:
+            fl = prob.fleets.get(leg.fleet_id)
+            if fl is None or fl.fuel != slot.target or fl.efficiency_at(t) <= 0:
+                continue
+            if not fl.in_scope(slot.scope):
+                continue
+            terms.append(
+                (fl.efficiency_at(t) * cr.distance)
+                * ctx.legflow.sel(leg=leg_key(cr.process, leg.fleet_id), period=t)
+            )
     return _lin_sum(terms)
 
 
@@ -1941,7 +2086,21 @@ def _conn_fuel_demand(ctx: BuildContext, fuel: str, t: int, scope: str = "all") 
                 (fl.efficiency_at(t) * cr.distance)
                 * ctx.legflow.sel(leg=leg_key(cr.process, leg.fleet_id), period=t)
             )
-    return _lin_sum(terms)
+    base = _lin_sum(terms)
+    # Endogenous fleet MACC cuts the fuel (less bought ⇒ lower cost). Subtract the abated
+    # fuel from the market/supply total (scope "all"); it is a variable capped at the
+    # ACTUAL fuel (see _fleet_lever), so demand can never go negative.
+    if base is not None and scope == "all" and ctx.fsaved is not None:
+        sav = _lin_sum(
+            [
+                ctx.fsaved.sel(slot=s.key, period=t)
+                for s in _fleet_lever_slots(ctx)
+                if s.target == fuel
+            ]
+        )
+        if sav is not None:
+            base = base - sav
+    return base
 
 
 def _stations(ctx: BuildContext) -> None:
@@ -2333,20 +2492,51 @@ def _objective(ctx: BuildContext) -> None:
             obj_terms.append((ren_capex_da * ctx.ren).sum(["process", "tech", "period"]))
 
     # ── Lever capex + opex (small — few slots) ────────────────────────────────
+    # A scoped (fleet/group) slot's deploy decision is the BINARY ``dfl`` (so a fraction
+    # of capex can't buy full abatement); a process slot's is the continuous ``z``.
     if ctx.slots:
         for t in ctx.years:
             df = prob.discount_factor(t)
             w = df * dur[t]
             pt = prev[t]
             for s in ctx.slots:
-                if tog.lever_capex:
-                    inc = ctx.z.sel(slot=s.key, period=t)
+                dep = (
+                    ctx.dfl.sel(slot=s.key, period=t)
+                    if s.scope
+                    else ctx.z.sel(slot=s.key, period=t)
+                )
+                if tog.lever_capex and s.capex_at(t):
+                    inc = dep
                     if pt is not None:
-                        inc = inc - ctx.z.sel(slot=s.key, period=pt)
-                    if s.capex_at(t):
-                        obj_terms.append((df * s.capex_at(t)) * inc)
+                        inc = inc - (
+                            ctx.dfl.sel(slot=s.key, period=pt)
+                            if s.scope
+                            else ctx.z.sel(slot=s.key, period=pt)
+                        )
+                    obj_terms.append((df * s.capex_at(t)) * inc)
                 if tog.opex and s.opex_at(t):
-                    obj_terms.append((w * s.opex_at(t)) * ctx.z.sel(slot=s.key, period=t))
+                    obj_terms.append((w * s.opex_at(t)) * dep)
+                # Endogenous fleet MACC: the abated fuel ``fsaved`` cuts the fleet's fuel +
+                # emission COST (mirrors the _fuel_coeff term — market fuel already cut via
+                # its market purchase, so charge the flat price only when NOT a market; the
+                # emission price applies either way). Without this the optimiser would see
+                # abatement but no saving and never invest.
+                if s.scope and ctx.fsaved is not None:
+                    fuel = s.target
+                    fuel_price = (
+                        0.0
+                        if fuel in market_comms
+                        else prob.flows[fuel].price(t)
+                        if fuel in prob.flows
+                        else 0.0
+                    )
+                    emit_price = sum(
+                        prob.flow_impact(fuel, i, t) * prob.impacts[i].price(t)
+                        for i in prob.impacts
+                    )
+                    unit_cost = fuel_price + emit_price
+                    if unit_cost:
+                        obj_terms.append(-(w * unit_cost) * ctx.fsaved.sel(slot=s.key, period=t))
 
     # ── Profit: product sale revenue ──────────────────────────────────────────
     for comp, q, y in ctx.demand_keys:
