@@ -596,13 +596,31 @@ export function ValueChainTabView({ workbook, setWorkbook, sessionId, adoptServe
           .map((n) => ({ n, shared: [...(ioByNode.get(n.id)?.in ?? [])].filter((f) => fromSet.has(f)) }))
           .filter(({ shared }) => shared.length > 0)
           .map(({ n }) => ({ id: n.id, label: `${n.label}${n.level ? ` · ${n.level}` : ""}` }));
+        // Existing connections touching this asset (both directions), each carrying its
+        // links-row index (for edit/delete) and the flows that pair can legally share.
+        const conns: Conn[] = (workbook.links ?? []).flatMap((r, rowIndex): Conn[] => {
+          const from = s(r.from_node), to = s(r.to_node);
+          const flow = s(r.flow_id), lag = Number(r.lag_years) || 0;
+          if (from === connectFrom) {
+            const shared = [...(ioByNode.get(connectFrom)?.out ?? [])].filter((f) => ioByNode.get(to)?.in?.has(f));
+            return [{ rowIndex, dir: "out", otherLabel: nodeById.get(to)?.label ?? to, flow, lag, shared }];
+          }
+          if (to === connectFrom) {
+            const shared = [...(ioByNode.get(from)?.out ?? [])].filter((f) => ioByNode.get(connectFrom)?.in?.has(f));
+            return [{ rowIndex, dir: "in", otherLabel: nodeById.get(from)?.label ?? from, flow, lag, shared }];
+          }
+          return [];
+        });
         return (
           <ConnectDialog
             fromLabel={nodeById.get(connectFrom)?.label ?? connectFrom}
             fromOut={fromOut}
             targets={targets}
             inputsByNode={ioByNode}
-            onConfirm={(to, flow, lag) => { addLink(connectFrom, to, flow, lag); setConnectFrom(null); }}
+            conns={conns}
+            onAdd={(to, flow, lag) => addLink(connectFrom, to, flow, lag)}
+            onEdit={editLink}
+            onDelete={deleteLink}
             onClose={() => setConnectFrom(null)}
           />
         );
@@ -642,17 +660,22 @@ function AltPicker({ machineLabel, baseline, available, exclude, onPick, onClose
   );
 }
 
-// ── Connect dialog ────────────────────────────────────────────────────────────
-// A connection joins one System component's OUTPUT to another's INPUT over a flow
-// they BOTH already carry — there is no free-typed flow. `fromOut` is the source's
-// own outputs; `targets` are pre-filtered to nodes that absorb ≥1 of them; the flow
-// list narrows to exactly the flows the chosen pair shares.
-function ConnectDialog({ fromLabel, fromOut, targets, inputsByNode, onConfirm, onClose }: {
+// ── Connections manager ───────────────────────────────────────────────────────
+// Lists every connection already touching this asset (both directions) with its flow
+// + lag editable in place and a delete, AND adds new ones. A connection joins one
+// asset's OUTPUT to another's INPUT over a flow they BOTH carry — never free-typed:
+// `fromOut` is the source's outputs, `targets` are assets that absorb ≥1 of them, the
+// add-flow list narrows to the chosen pair's shared flows.
+interface Conn { rowIndex: number; dir: "out" | "in"; otherLabel: string; flow: string; lag: number; shared: string[] }
+function ConnectDialog({ fromLabel, fromOut, targets, inputsByNode, conns, onAdd, onEdit, onDelete, onClose }: {
   fromLabel: string;
   fromOut: string[];
   targets: { id: string; label: string }[];
   inputsByNode: Map<string, { out: Set<string>; in: Set<string> }>;
-  onConfirm: (to: string, flow: string, lag: number) => void;
+  conns: Conn[];
+  onAdd: (to: string, flow: string, lag: number) => void;
+  onEdit: (rowIndex: number, flow: string, lag: number) => void;
+  onDelete: (rowIndex: number) => void;
   onClose: () => void;
 }) {
   const [to, setTo] = useState("");
@@ -669,23 +692,46 @@ function ConnectDialog({ fromLabel, fromOut, targets, inputsByNode, onConfirm, o
     if (shared.length === 0) setFlow("");
     else if (!shared.includes(flow)) setFlow(shared.length === 1 ? shared[0] : "");
   }, [shared, flow]);
+  const canAdd = fromOut.length > 0 && targets.length > 0;
   return (
-    <Modal onClose={onClose} title={`Connect from ${fromLabel}`}>
-      {fromOut.length === 0 ? (
-        <p className="muted" style={{ fontSize: "0.82rem", marginTop: 0 }}>
-          <strong>{fromLabel}</strong> has no output flow to send. Connections carry a flow a
-          component already produces — give it (or a child) a technology with an output first.
-        </p>
-      ) : targets.length === 0 ? (
-        <p className="muted" style={{ fontSize: "0.82rem", marginTop: 0 }}>
-          Nothing in the System takes any of {fromLabel}'s outputs ({fromOut.join(", ")}). Add a
-          component that inputs one of these flows, then connect.
+    <Modal onClose={onClose} title={`Connections — ${fromLabel}`}>
+      {/* Already connected — edit the flow / lag in place, or remove. */}
+      <div className="rail-head" style={{ marginBottom: 6 }}>Connected</div>
+      {conns.length === 0 ? (
+        <p className="muted" style={{ fontSize: "0.8rem", margin: "0 0 12px" }}>No connections yet.</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12, fontSize: "0.8rem" }}>
+          {conns.map((c) => (
+            <div key={c.rowIndex} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span title={c.dir === "out" ? "this asset feeds it" : "it feeds this asset"} style={{ width: 16, textAlign: "center" }}>
+                {c.dir === "out" ? "→" : "←"}
+              </span>
+              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={c.otherLabel}>{c.otherLabel}</span>
+              <span style={{ width: 92 }}>
+                <SearchSelect value={c.flow} onChange={(v) => onEdit(c.rowIndex, v, c.lag)} placeholder="flow"
+                  options={(c.shared.includes(c.flow) ? c.shared : [c.flow, ...c.shared]).map((f) => ({ value: f }))} />
+              </span>
+              <input className="field-input" style={{ width: 48 }} type="number" title="lag (yr)"
+                value={c.lag} onChange={(e) => onEdit(c.rowIndex, c.flow, Number(e.target.value) || 0)} />
+              <button className="ghost" title="remove connection" onClick={() => onDelete(c.rowIndex)}>✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add a new connection. */}
+      <div className="rail-head" style={{ marginBottom: 6 }}>Add a connection</div>
+      {!canAdd ? (
+        <p className="muted" style={{ fontSize: "0.8rem", margin: 0 }}>
+          {fromOut.length === 0
+            ? <>{fromLabel} has no output flow to send — give it a technology with an output first.</>
+            : <>Nothing in the System takes any of {fromLabel}'s outputs ({fromOut.join(", ")}). Add a component that inputs one of these flows.</>}
         </p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: "0.82rem" }}>
           <label style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             <span className="muted">to (takes one of: {fromOut.join(", ")})</span>
-            <SearchSelect value={to} onChange={setTo} placeholder="choose a node…"
+            <SearchSelect value={to} onChange={setTo} placeholder="choose an asset…"
               options={targets.map((t) => ({ value: t.id, label: t.label }))} />
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 3 }}>
@@ -698,8 +744,8 @@ function ConnectDialog({ fromLabel, fromOut, targets, inputsByNode, onConfirm, o
             <input type="number" value={lag} onChange={(e) => setLag(Number(e.target.value) || 0)} className="field-input" style={{ width: 64 }} />
           </label>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 4 }}>
-            <button className="ghost" onClick={onClose}>cancel</button>
-            <button className="run-button" disabled={!to || !flow} onClick={() => onConfirm(to, flow, lag)}>↔ Connect</button>
+            <button className="run-button" disabled={!to || !flow}
+              onClick={() => { onAdd(to, flow, lag); setTo(""); setFlow(""); setLag(0); }}>↔ Connect</button>
           </div>
         </div>
       )}
