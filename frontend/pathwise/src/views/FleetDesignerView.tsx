@@ -32,7 +32,7 @@ import {
   type RouteLeaf,
 } from "../features/fleet/fleetGraph";
 import { routeExposure, routePath, type CorridorExposure } from "../lib/api/routing";
-import { impactUnit, modelCurrency } from "../lib/caps";
+import { impactUnit, instAttr, modelCurrency, setInstAttr } from "../lib/caps";
 import { impactIds } from "../lib/scope";
 import { FlatTablePanel } from "../features/table/FlatTablePanel";
 import { flattenFleetGroup } from "../features/table/flatten.fleet";
@@ -607,7 +607,9 @@ export function FleetDesignerView({
       </div>
 
       {edit?.kind === "fleet" && fleetByNode.get(edit.id) && (
-        <FleetPanel fleet={fleetByNode.get(edit.id)!} flows={flows}
+        <FleetPanel fleet={fleetByNode.get(edit.id)!} flows={flows} periods={periods} baseYear={baseYear}
+          tv={(field) => instAttr(workbook, "fleet", "fleet_id", edit.id, field, `fleet_t__${field}`)}
+          setTv={(field, v) => setWorkbook(setInstAttr(workbook, "fleet", "fleet_id", edit.id, field, `fleet_t__${field}`, v))}
           onRename={(v) => patchFleet(edit.id, { label: v })} onChange={(p) => patchFleet(edit.id, p)} onClose={() => setEdit(null)} />
       )}
       {edit?.kind === "node" && nodeById.get(edit.id) && (
@@ -731,8 +733,12 @@ function ChokepointDesigner({
 const FIELDS: [string, string][] = [
   ["mode", "mode"], ["cargo", "cargo (flow)"], ["fuel", "fuel (flow)"], ["efficiency", "efficiency (fuel/cargo/dist)"],
   ["count", "units"], ["ship_size", "cargo / voyage"], ["speed", "speed (dist/day)"], ["turnaround_days", "turnaround (days)"],
-  ["operating_days", "operating days/yr"], ["capacity", "flat capacity/unit"], ["build_year", "build year"], ["close_year", "close year"], ["lifespan", "lifespan (yr)"],
+  ["operating_days", "operating days/yr"], ["capacity", "flat capacity/unit"], ["opex", "O&M / unit / yr"], ["capex", "capex / unit"],
+  ["build_year", "build year"], ["close_year", "close year"], ["lifespan", "lifespan (yr)"],
 ];
+// Fleet fields that are TEMPORAL (improve over the horizon) → green-clickable TemporalValue;
+// the rest are structural/geometric scalars.
+const FLEET_TEMPORAL = new Set(["efficiency", "opex", "capex"]);
 const FIELD_INFO: Record<string, string> = {
   mode: "Transport mode. Sea routes follow real sea lanes (searoute, via Suez/Panama); road/rail use great-circle × a detour factor.",
   cargo: "The flow this fleet carries — what it delivers along its routes.",
@@ -749,7 +755,11 @@ const FIELD_INFO: Record<string, string> = {
   lifespan: "Service life in years — with a build year, the fleet retires after build + lifespan − 1.",
 };
 
-function FleetPanel({ fleet, flows, onRename, onChange, onClose }: { fleet: Row; flows: string[]; onRename: (v: string) => void; onChange: (p: Row) => void; onClose: () => void }) {
+function FleetPanel({ fleet, flows, periods, baseYear, tv, setTv, onRename, onChange, onClose }: {
+  fleet: Row; flows: string[]; periods: number[]; baseYear: number;
+  tv: (field: string) => TemporalVal | null; setTv: (field: string, v: TemporalVal | null) => void;
+  onRename: (v: string) => void; onChange: (p: Row) => void; onClose: () => void;
+}) {
   return (
     <FloatingPanel title="fleet" width={360} onClose={onClose}>
       <div style={{ padding: "12px 14px" }}>
@@ -761,6 +771,11 @@ function FleetPanel({ fleet, flows, onRename, onChange, onClose }: { fleet: Row;
               <div style={{ flex: 1 }}><SearchSelect value={s(fleet.mode) || "sea"} onChange={(v) => onChange({ mode: v })} options={MODES} /></div>
             ) : key === "cargo" || key === "fuel" ? (
               <div style={{ flex: 1 }}><SearchSelect value={s(fleet[key])} onChange={(v) => onChange({ [key]: v })} options={flows.map((c) => ({ value: c }))} /></div>
+            ) : FLEET_TEMPORAL.has(key) ? (
+              <div style={{ flex: 1 }}>
+                <TemporalValue value={tv(key)} onChange={(v) => setTv(key, v)} label={`${s(fleet.label) || fleetId(fleet)} · ${lbl}`}
+                  perYear={false} baseYear={baseYear} periods={periods} variant="text" placeholder="0" />
+              </div>
             ) : (
               <input className="field-input" style={{ flex: 1 }} type="number" value={s(fleet[key])} onChange={(e) => onChange({ [key]: blank(e.target.value) })} />
             )}

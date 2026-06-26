@@ -502,6 +502,11 @@ def _assemble_fleet(
 
     fleets: dict[str, Fleet] = {}
     fleet_traj: dict[str, dict[int, float]] = {}
+    # Per-year overrides of a fleet's economic / efficiency fields (wide sheets keyed by
+    # fleet_id) — lets efficiency / O&M / build cost improve over the horizon.
+    fleet_eff_t = _wide_temporal(workbook, "fleet_t__efficiency")
+    fleet_opex_t = _wide_temporal(workbook, "fleet_t__opex")
+    fleet_capex_t = _wide_temporal(workbook, "fleet_t__capex")
     for r in _rows(workbook, FLEET):
         fid = _str(r.get("fleet_id")) or _str(r.get("archetype"))
         if fid is None:
@@ -534,6 +539,9 @@ def _assemble_fleet(
                     for x in {_str(r.get("company")) or "all", *_fg_chain(_str(r.get("group")))}
                     if x
                 ),
+                efficiency_by_year=dict(fleet_eff_t.get(fid, {})),
+                opex_by_year=dict(fleet_opex_t.get(fid, {})),
+                capex_by_year=dict(fleet_capex_t.get(fid, {})),
             )
     fleet_available: dict[tuple[str, int], float] = {
         (fid, y): n for fid, traj in fleet_traj.items() for y, n in interpolate(traj, years).items()

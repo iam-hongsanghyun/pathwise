@@ -1847,12 +1847,12 @@ def _green_corridors(ctx: BuildContext) -> None:
                     fl is None
                     or not fl.active(t)
                     or not fl.fuel
-                    or fl.efficiency <= 0
+                    or fl.efficiency_at(t) <= 0
                     or cr.distance <= 0
                 ):
                     continue
                 coeff = sum(prob.flow_impact(fl.fuel, fi, t) * cf for fi, cf in comps)
-                coeff *= fl.efficiency * cr.distance
+                coeff *= fl.efficiency_at(t) * cr.distance
                 if coeff:
                     terms.append(
                         coeff * ctx.legflow.sel(leg=leg_key(cr.process, leg.fleet_id), period=t)
@@ -1902,12 +1902,12 @@ def _route_emit_terms(
                 fl is None
                 or not fl.active(year)
                 or not fl.fuel
-                or fl.efficiency <= 0
+                or fl.efficiency_at(year) <= 0
                 or cr.distance <= 0
             ):
                 continue
             coeff = sum(prob.flow_impact(fl.fuel, fi, year) * cf for fi, cf in comps)
-            coeff *= fl.efficiency * cr.distance
+            coeff *= fl.efficiency_at(year) * cr.distance
             if coeff:
                 terms.append(
                     coeff * ctx.legflow.sel(leg=leg_key(cr.process, leg.fleet_id), period=year)
@@ -1933,12 +1933,12 @@ def _conn_fuel_demand(ctx: BuildContext, fuel: str, t: int, scope: str = "all") 
             continue
         for leg in cr.legs:
             fl = prob.fleets.get(leg.fleet_id)
-            if fl is None or fl.fuel != fuel or fl.efficiency <= 0 or cr.distance <= 0:
+            if fl is None or fl.fuel != fuel or fl.efficiency_at(t) <= 0 or cr.distance <= 0:
                 continue
             if scope != "all" and not fl.in_scope(scope):
                 continue
             terms.append(
-                (fl.efficiency * cr.distance)
+                (fl.efficiency_at(t) * cr.distance)
                 * ctx.legflow.sel(leg=leg_key(cr.process, leg.fleet_id), period=t)
             )
     return _lin_sum(terms)
@@ -2081,9 +2081,9 @@ def _objective(ctx: BuildContext) -> None:
 
         def _fuel_coeff(cr: Any, leg: Any, t: int) -> float:
             fl = prob.fleets.get(leg.fleet_id)
-            if fl is None or not fl.fuel or fl.efficiency <= 0 or cr.distance <= 0:
+            if fl is None or not fl.fuel or fl.efficiency_at(t) <= 0 or cr.distance <= 0:
                 return 0.0
-            per_cargo = fl.efficiency * cr.distance  # fuel burned per unit cargo
+            per_cargo = fl.efficiency_at(t) * cr.distance  # fuel burned per unit cargo
             # Bunkering: when the fuel clears through a flow market, the market
             # mbuy already pays for it — don't also charge the bare price here (the
             # combustion emissions below stay with the fleet regardless of source).
@@ -2109,8 +2109,12 @@ def _objective(ctx: BuildContext) -> None:
             opex_arr = np.array(
                 [
                     [
-                        (prob.fleets[leg.fleet_id].opex if leg.fleet_id in prob.fleets else 0.0)
-                        for _ in ctx.years
+                        (
+                            prob.fleets[leg.fleet_id].opex_at(t)
+                            if leg.fleet_id in prob.fleets
+                            else 0.0
+                        )
+                        for t in ctx.years
                     ]
                     for _cr, leg in legs
                 ]
@@ -2146,7 +2150,7 @@ def _objective(ctx: BuildContext) -> None:
             [
                 [
                     prob.capex_charge(t, max(int(prob.fleets[fid].lifespan or len(ctx.years)), 1))
-                    * prob.fleets[fid].capex
+                    * prob.fleets[fid].capex_at(t)
                     for t in ctx.years
                 ]
                 for fid in bf

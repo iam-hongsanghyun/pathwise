@@ -1,12 +1,27 @@
 // Flatten a fleet-registry group into editable rows — one per fleet in its subtree,
 // located by its sub-group path. All fleet fields are plain `fleet`-sheet columns.
 
+import { instAttr, setInstAttr } from "../../lib/caps";
 import type { Row, Workbook } from "../../types";
 import { fleetId, parseFleetGroups } from "../fleet/fleetGraph";
 import type { CellVal, FlatColumn, FlatResult, FlatRow } from "./flatten";
 
 const s = (v: unknown): string => (v == null ? "" : String(v));
 const setSheet = (wb: Workbook, sheet: string, rows: Row[]): Workbook => ({ ...wb, [sheet]: rows });
+
+// A TEMPORAL fleet column: scalar on the `fleet` row OR per-year in `fleet_t__{key}`
+// (static = plain value, temporal = green-clickable, matching the System view).
+function fleetTemporalCol(key: string, label: string): FlatColumn {
+  const t = `fleet_t__${key}`;
+  return {
+    key,
+    label,
+    kind: "temporal",
+    perYear: false,
+    get: (wb, id) => instAttr(wb, "fleet", "fleet_id", id, key, t) as CellVal,
+    set: (wb, id, v) => setInstAttr(wb, "fleet", "fleet_id", id, key, t, v as number | Record<string, number> | null),
+  };
+}
 
 // A plain `fleet`-sheet column (read/write the matching fleet row by id).
 function fleetCol(key: string, label: string, kind: FlatColumn["kind"], options?: string[]): FlatColumn {
@@ -36,10 +51,10 @@ const FLEET_COLUMNS: FlatColumn[] = [
   fleetCol("speed", "Speed", "number"),
   fleetCol("turnaround_days", "Turnaround (d)", "number"),
   fleetCol("operating_days", "Op. days/yr", "number"),
-  fleetCol("efficiency", "Efficiency", "number"),
+  fleetTemporalCol("efficiency", "Efficiency"),
   fleetCol("capacity", "Flat capacity", "number"),
-  fleetCol("opex", "O&M / unit / yr", "number"),
-  fleetCol("capex", "Capex / unit", "number"),
+  fleetTemporalCol("opex", "O&M / unit / yr"),
+  fleetTemporalCol("capex", "Capex / unit"),
   fleetCol("max_build", "Max build", "number"),
   fleetCol("build_year", "Build year", "number"),
   fleetCol("close_year", "Close year", "number"),

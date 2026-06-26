@@ -81,6 +81,24 @@ class Fleet:
     #: fleet registry) — so a cap/target keyed to ANY fleet group binds on the sum over
     #: its member fleets, exactly like a node group. Empty ⇒ no group scoping.
     scopes: frozenset[str] = frozenset()
+    #: Per-year overrides of the scalar economic / efficiency fields (empty ⇒ scalar
+    #: every year). Lets a fleet's fuel efficiency, O&M and build cost improve over the
+    #: horizon (a transition lever). Read via the ``*_at`` accessors below.
+    efficiency_by_year: dict[int, float] = field(default_factory=dict)
+    opex_by_year: dict[int, float] = field(default_factory=dict)
+    capex_by_year: dict[int, float] = field(default_factory=dict)
+
+    def efficiency_at(self, year: int) -> float:
+        """Fuel use per cargo·distance in ``year`` (override, else the scalar)."""
+        return self.efficiency_by_year.get(year, self.efficiency)
+
+    def opex_at(self, year: int) -> float:
+        """Per-carrier annual O&M in ``year`` (override, else the scalar)."""
+        return self.opex_by_year.get(year, self.opex)
+
+    def capex_at(self, year: int) -> float:
+        """Per-carrier overnight capex in ``year`` (override, else the scalar)."""
+        return self.capex_by_year.get(year, self.capex)
 
     def in_scope(self, scope: str) -> bool:
         """Whether a constraint ``scope`` covers this fleet (``all`` / id / group chain)."""
