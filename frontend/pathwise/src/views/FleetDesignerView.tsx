@@ -614,7 +614,7 @@ export function FleetDesignerView({
                   actionsFor={routeActions}
                   onContextAction={onRouteAction}
                   onMove={() => undefined}
-                  emptyHint="Place both ends of a network flow to see it here as a route."
+                  emptyHint="No routes yet — locate two stations joined by a flow and the route between them appears here."
                 />
               ),
             },
@@ -626,21 +626,18 @@ export function FleetDesignerView({
                 <span className="rail-hint" style={{ padding: "0 6px" }}>{[...coord.keys()].length} placed</span>
               ),
               body: (
-                <>
-                  <TreeExplorer
-                    nodes={stationFacilityNodes}
-                    selectedId={selId}
-                    expandedIds={expF}
-                    onToggle={(id, e) => setExpF((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
-                    onSelect={(id) => { setSelId(id); setEdit({ kind: "node", id }); }}
-                    actionsFor={() => []}
-                    onContextAction={() => undefined}
-                    onMove={() => undefined}
-                    canDrop={() => false}
-                    emptyHint="No stations yet — place a Station component on a company (Network/System), then drag it onto the map. Routes form between located stations connected by a flow."
-                  />
-                  <div className="rail-foot">Drag a facility node onto the map to give it a location.</div>
-                </>
+                <TreeExplorer
+                  nodes={stationFacilityNodes}
+                  selectedId={selId}
+                  expandedIds={expF}
+                  onToggle={(id, e) => setExpF((p) => { const m = new Set(p); e ? m.add(id) : m.delete(id); return m; })}
+                  onSelect={(id) => { setSelId(id); setEdit({ kind: "node", id }); }}
+                  actionsFor={() => []}
+                  onContextAction={() => undefined}
+                  onMove={() => undefined}
+                  canDrop={() => false}
+                  emptyHint="No stations on the map yet — place a Station in the System, then drag it here to give it a location. A route appears once two stations are joined by a flow."
+                />
               ),
             },
             {
@@ -791,7 +788,7 @@ function ChokepointDesigner({
   return (
     <div style={{ padding: "8px 12px" }}>
       {routes.length === 0 ? (
-        <p className="rail-empty">Place both ends of a sea route on the map to see exposure.</p>
+        <p className="rail-empty">No located sea routes yet — once a sea route's stations are on the map, its chokepoint exposure shows here.</p>
       ) : (
         <>
           <div className="corridor-cols">
