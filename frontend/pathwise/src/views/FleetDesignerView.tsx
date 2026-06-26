@@ -389,6 +389,22 @@ export function FleetDesignerView({
     setSelId(proc);
     setEdit({ kind: "route", id: proc });
   }
+  // Add another FLOW to the same lane (same from/to/mode/name): one route carries
+  // several flows. Single cargo per carrier — each flow is served by the fleets that
+  // carry it, so the engine sees one ConnectionRoute per flow on the lane (no shared
+  // hold). Mirrors addModeRoute but varies the flow instead of the mode.
+  function addFlowRoute(base: Row, flow: string) {
+    if (!flow) return;
+    const from = s(base.from_node), to = s(base.to_node), mode = s(base.mode) || "sea";
+    if (routes.some((r) => s(r.from_node) === from && s(r.to_node) === to && s(r.flow) === flow && (s(r.mode) || "sea") === mode)) return;
+    const root = routeProc(from, to, flow);
+    const taken = new Set(routes.map((r) => s(r.process)));
+    let proc = root;
+    for (let n = 2; taken.has(proc); n++) proc = `${root}_${n}`;
+    setWorkbook(setSheet(workbook, "routes", [...routes, { process: proc, from_node: from, to_node: to, flow, mode, label: s(base.label) }]));
+    setSelId(proc);
+    setEdit({ kind: "route", id: proc });
+  }
   // Remove a route (a mode on a lane): drop its row + its fleet candidates. Lane-scoped
   // green corridors are left as-is (they bind the lane, which other modes may still serve).
   function removeRoute(proc: string) {
@@ -400,6 +416,27 @@ export function FleetDesignerView({
       ),
     );
     if (selId === proc) { setSelId(null); setEdit(null); }
+  }
+  // Drop a whole FLOW from a lane: every routes row for (from,to,flow) across modes,
+  // plus their fleet candidates. If the open panel was one of them, switch to another
+  // flow on the lane or close.
+  function removeFlowRoutes(from: string, to: string, flow: string) {
+    const doomed = new Set(
+      routes.filter((r) => s(r.from_node) === from && s(r.to_node) === to && s(r.flow) === flow).map((r) => s(r.process)),
+    );
+    if (!doomed.size) return;
+    setWorkbook(
+      setSheet(
+        setSheet(workbook, "routes", routes.filter((r) => !doomed.has(s(r.process)))),
+        "fleet_routes",
+        fleetRoutes.filter((r) => !doomed.has(s(r.process))),
+      ),
+    );
+    if (selId && doomed.has(selId)) {
+      const other = routes.find((r) => s(r.from_node) === from && s(r.to_node) === to && !doomed.has(s(r.process)));
+      if (other) { setSelId(s(other.process)); setEdit({ kind: "route", id: s(other.process) }); }
+      else { setSelId(null); setEdit(null); }
+    }
   }
   const routeActions = (n: TreeNode): TreeAction[] =>
     n.kind === "asset" && routes.some((r) => s(r.process) === n.id)
@@ -623,6 +660,7 @@ export function FleetDesignerView({
           setFleetRoutes={(rows) => setWorkbook(setSheet(workbook, "fleet_routes", rows))}
           onAddMode={(mode) => addModeRoute(editRoute, mode)}
           onSwitch={(p) => { setSelId(p); setEdit({ kind: "route", id: p }); }}
+          flowOptions={flows} onAddFlow={(flow) => addFlowRoute(editRoute, flow)} onRemoveFlow={removeFlowRoutes}
           impacts={impacts} green={greenCorridors} periods={periods} baseYear={baseYear} currency={currency}
           impactUnitOf={(i) => impactUnit(workbook, i)}
           setGreen={(rows) => setWorkbook(setSheet(workbook, "green_corridors", rows))}
@@ -811,12 +849,13 @@ function NodePanel({ id, label, level, coord, onRename, onLevel, onCoord, onClos
   );
 }
 
-function RoutePanel({ route, routes, fleets, fleetRoutes, fleetGroups, labelOf, fleetLabel, onChange, onToggleBlock, setFleetRoutes, onAddMode, onSwitch, impacts, green, setGreen, periods, baseYear, currency, impactUnitOf, onClose }: {
+function RoutePanel({ route, routes, fleets, fleetRoutes, fleetGroups, labelOf, fleetLabel, onChange, onToggleBlock, setFleetRoutes, onAddMode, onSwitch, flowOptions, onAddFlow, onRemoveFlow, impacts, green, setGreen, periods, baseYear, currency, impactUnitOf, onClose }: {
   route: Row; routes: Row[]; fleets: Row[]; fleetRoutes: Row[];
   fleetGroups: { id: string; parentId: string | null; label: string }[];
   labelOf: (id: string) => string; fleetLabel: (id: string) => string;
   onChange: (p: Row) => void; onToggleBlock: (on: boolean) => void; setFleetRoutes: (rows: Row[]) => void;
   onAddMode: (mode: string) => void; onSwitch: (proc: string) => void;
+  flowOptions: string[]; onAddFlow: (flow: string) => void; onRemoveFlow: (from: string, to: string, flow: string) => void;
   impacts: string[]; green: Row[]; setGreen: (rows: Row[]) => void;
   periods: number[]; baseYear: number; currency: string; impactUnitOf: (i: string) => string; onClose: () => void;
 }) {
@@ -898,6 +937,10 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, fleetGroups, labelOf, 
   const usedModes = new Set(siblings.map((r) => s(r.mode) || "sea"));
   const addableModes = MODES.filter((m) => !usedModes.has(m.value));
   const routeMode = s(route.mode) || "sea";
+  // FLOWS on this lane (same from/to, any mode) — one route carries several flows.
+  const laneFlows = [...new Set(routes.filter((r) => s(r.from_node) === fromN && s(r.to_node) === toN).map((r) => s(r.flow)).filter(Boolean))];
+  const procForFlow = (fl: string) => s(routes.find((r) => s(r.from_node) === fromN && s(r.to_node) === toN && s(r.flow) === fl)?.process);
+  const addableFlows = flowOptions.filter((f) => !laneFlows.includes(f));
   const candidates = fleetRoutes.filter((r) => s(r.process) === proc);
   const candIds = new Set(candidates.map((r) => fleetId(r)));
   // A fleet's mode MUST match the route's mode — a rail route only offers trains, a sea
@@ -965,6 +1008,26 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, fleetGroups, labelOf, 
             </div>
             {addableModes.length > 0 &&
               row("add mode", <SearchSelect value="" onChange={(v) => v && onAddMode(v)} options={[{ value: "", label: "— add an alternative mode" }, ...addableModes]} />)}
+          </div>
+        )}
+        {flow && (
+          <div className="rail-section" style={{ marginTop: 10 }}>
+            <div className="rail-head">Flows on this route <InfoTooltip text="One route (lane) can carry several flows. Each carrier still carries a single cargo, so a flow is served by the fleets that carry it — the optimiser treats every flow on the lane independently. Add a flow to physicalise it here; click one to edit it; ✕ removes it." /></div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, margin: "4px 0 2px" }}>
+              {laneFlows.map((fl) => {
+                const isThis = fl === flow;
+                return (
+                  <span key={fl} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: ".72rem", padding: "1px 4px 1px 8px", borderRadius: 10, border: "1px solid var(--border)", background: isThis ? "var(--accent-soft, var(--border))" : "transparent", fontWeight: isThis ? 600 : 400 }}>
+                    <button className="ghost" style={{ padding: 0, border: "none", background: "none", cursor: isThis ? "default" : "pointer", font: "inherit", fontWeight: "inherit" }}
+                      disabled={isThis} title={isThis ? "editing this flow" : `edit the ${fl} route`}
+                      onClick={() => { const p = procForFlow(fl); if (p) onSwitch(p); }}>{fl}</button>
+                    <button className="ghost" style={{ padding: 0, lineHeight: 1 }} title={`remove ${fl} from this route`} onClick={() => onRemoveFlow(fromN, toN, fl)}>✕</button>
+                  </span>
+                );
+              })}
+            </div>
+            {addableFlows.length > 0 &&
+              row("add flow", <SearchSelect value="" onChange={(v) => v && onAddFlow(v)} options={[{ value: "", label: "— add a flow to this route" }, ...addableFlows.map((f) => ({ value: f }))]} />)}
           </div>
         )}
         <label className="field-row" style={{ marginTop: 10 }}>
