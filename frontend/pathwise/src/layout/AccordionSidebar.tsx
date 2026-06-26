@@ -5,7 +5,7 @@
 // Open sections' bodies share the remaining vertical space (flex: 1 1 0;
 // min-height: 0; overflow: auto) unless the section opts out with grow:false.
 
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { InfoTooltip } from "../features/controls/InfoTooltip";
 import { Resizer } from "./Resizer";
 
@@ -61,6 +61,25 @@ export function AccordionSidebar({
   const toggleSection = (id: string) =>
     setSectionOpen((prev) => ({ ...prev, [id]: !prev[id] }));
 
+  // User-set heights (px) for sections resized via the dividers between them. A
+  // section without an entry uses the default flex layout; the last OPEN section
+  // always flex-grows to fill, so the rail stays full however the others are sized.
+  const [heights, setHeights] = useState<Record<string, number>>({});
+  const startResize = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    const sectionEl = e.currentTarget.previousElementSibling as HTMLElement | null;
+    const start = sectionEl?.offsetHeight ?? 120;
+    const startY = e.clientY;
+    const move = (ev: MouseEvent) =>
+      setHeights((prev) => ({ ...prev, [id]: Math.max(60, start + (ev.clientY - startY)) }));
+    const up = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  };
+
   if (!open) {
     return (
       <div className="rail-collapsed">
@@ -85,12 +104,20 @@ export function AccordionSidebar({
           </button>
         </div>
 
-        {sections.map((sec) => {
+        {(() => {
+          const openIds = sections.filter((s) => sectionOpen[s.id] !== false).map((s) => s.id);
+          const lastOpenId = openIds[openIds.length - 1];
+          return sections.map((sec) => {
           const isOpen = sectionOpen[sec.id] !== false;
-          const grows = isOpen && sec.grow !== false;
+          const isLastOpen = sec.id === lastOpenId;
+          const h = heights[sec.id];
+          // A user-sized open section is fixed at its height; the last open section
+          // always grows to fill; otherwise the default content/grow layout.
+          const sized = isOpen && !isLastOpen && h != null;
+          const grows = isOpen && (isLastOpen || (sec.grow !== false && h == null));
           return (
+            <Fragment key={sec.id}>
             <div
-              key={sec.id}
               className="acc-section"
               style={{
                 display: "flex",
@@ -99,7 +126,8 @@ export function AccordionSidebar({
                 // equal share of the rail; grow:true also fills free space. Both shrink
                 // (min-height:0) so an over-tall section scrolls its own body instead of
                 // pushing the whole rail.
-                flex: grows ? "1 1 auto" : "0 1 auto",
+                flex: sized ? "0 0 auto" : grows ? "1 1 auto" : "0 1 auto",
+                height: sized ? h : undefined,
                 // Floor ONLY when open, so a squeezed open section keeps its header + a
                 // row or two and scrolls its own body. A CLOSED section is just its
                 // header height (no 5rem gap between collapsed sections).
@@ -162,8 +190,21 @@ export function AccordionSidebar({
                 </div>
               )}
             </div>
+            {/* Drag-to-resize divider between this open section and the next. The
+                last open section flex-grows, so it has no handle. */}
+            {isOpen && !isLastOpen && (
+              <div
+                className="acc-resizer"
+                onMouseDown={(e) => startResize(e, sec.id)}
+                role="separator"
+                aria-orientation="horizontal"
+                title="Drag to resize this section"
+              />
+            )}
+            </Fragment>
           );
-        })}
+          });
+        })()}
       </aside>
       <Resizer width={width} setWidth={setWidth} side="left" min={min} max={max} />
     </>

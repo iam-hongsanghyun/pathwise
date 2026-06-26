@@ -271,6 +271,16 @@
 .resizer-h:hover {
   background: var(--brand-ring);
 }
+/* Drag handle between accordion sections — set each section's height. */
+.acc-resizer {
+  flex: 0 0 4px;
+  height: 4px;
+  cursor: row-resize;
+  background: transparent;
+}
+.acc-resizer:hover {
+  background: var(--brand-ring);
+}
 .rail-group {
   padding: 8px 0;
   border-bottom: 1px solid var(--border);

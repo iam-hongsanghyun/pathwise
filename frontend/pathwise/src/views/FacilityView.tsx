@@ -587,9 +587,9 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
         const parts = payload.split(":");
         const kind = parts[0];
         const scope = parts[1];
-        if (kind !== "t" && kind !== "s" && kind !== "m" && kind !== "g") return;
+        if (!["t", "s", "m", "g", "o", "n"].includes(kind)) return;
         if (scope !== "base" && scope !== "session") return;
-        void dropComponent(scope, parts[2], kind, parts.slice(3).join(":"), target.id);
+        void dropComponent(scope, parts[2], kind as DragKind, parts.slice(3).join(":"), target.id);
       }}
       emptyHint="Empty — ＋ to add a group, then drag technologies from the Templates below."
     />
