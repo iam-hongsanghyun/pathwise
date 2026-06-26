@@ -617,7 +617,7 @@ export function FleetDesignerView({
           onRename={(v) => patchNode(edit.id, { label: v })} onLevel={(v) => patchNode(edit.id, { level: v })} onCoord={(p) => patchNode(edit.id, p)} onClose={() => setEdit(null)} />
       )}
       {editRoute && (
-        <RoutePanel route={editRoute} routes={routes} fleets={fleets} fleetRoutes={fleetRoutes}
+        <RoutePanel route={editRoute} routes={routes} fleets={fleets} fleetRoutes={fleetRoutes} fleetGroups={fleetGroups}
           labelOf={(id) => nodeById.get(id)?.label ?? id} fleetLabel={(fid) => s(fleetByNode.get(fid)?.label) || fid}
           onChange={(p) => patchRoute(edit!.id, p)} onToggleBlock={(on) => toggleBlock(edit!.id, on)}
           setFleetRoutes={(rows) => setWorkbook(setSheet(workbook, "fleet_routes", rows))}
@@ -811,8 +811,10 @@ function NodePanel({ id, label, level, coord, onRename, onLevel, onCoord, onClos
   );
 }
 
-function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, onChange, onToggleBlock, setFleetRoutes, onAddMode, onSwitch, impacts, green, setGreen, periods, baseYear, currency, impactUnitOf, onClose }: {
-  route: Row; routes: Row[]; fleets: Row[]; fleetRoutes: Row[]; labelOf: (id: string) => string; fleetLabel: (id: string) => string;
+function RoutePanel({ route, routes, fleets, fleetRoutes, fleetGroups, labelOf, fleetLabel, onChange, onToggleBlock, setFleetRoutes, onAddMode, onSwitch, impacts, green, setGreen, periods, baseYear, currency, impactUnitOf, onClose }: {
+  route: Row; routes: Row[]; fleets: Row[]; fleetRoutes: Row[];
+  fleetGroups: { id: string; parentId: string | null; label: string }[];
+  labelOf: (id: string) => string; fleetLabel: (id: string) => string;
   onChange: (p: Row) => void; onToggleBlock: (on: boolean) => void; setFleetRoutes: (rows: Row[]) => void;
   onAddMode: (mode: string) => void; onSwitch: (proc: string) => void;
   impacts: string[]; green: Row[]; setGreen: (rows: Row[]) => void;
@@ -903,6 +905,27 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
   const addable = fleets.filter((f) => !candIds.has(fleetId(f)) && (s(f.mode) || "sea") === routeMode);
   const addCandidate = (fid: string) => { if (fid && !candIds.has(fid)) setFleetRoutes([...fleetRoutes, { process: proc, fleet_id: fid }]); };
   const removeCandidate = (fid: string) => setFleetRoutes(fleetRoutes.filter((r) => !(s(r.process) === proc && fleetId(r) === fid)));
+  // Bind a fleet GROUP to this route: every mode-matching fleet in the group (and its
+  // sub-groups) becomes a candidate at once — "this group operates on this route".
+  const descendantsOf = (gid: string): Set<string> => {
+    const out = new Set([gid]);
+    let added = true;
+    while (added) {
+      added = false;
+      for (const g of fleetGroups) if (g.parentId && out.has(g.parentId) && !out.has(g.id)) { out.add(g.id); added = true; }
+    }
+    return out;
+  };
+  const groupAddable = (gid: string) => {
+    const gs = descendantsOf(gid);
+    return addable.filter((f) => gs.has(s(f.group)));
+  };
+  const bindGroup = (gid: string) => {
+    if (!gid) return;
+    const add = groupAddable(gid).map((f) => ({ process: proc, fleet_id: fleetId(f) }));
+    if (add.length) setFleetRoutes([...fleetRoutes, ...add]);
+  };
+  const bindableGroups = fleetGroups.filter((g) => groupAddable(g.id).length > 0);
   const row = (lbl: string, el: React.ReactNode, info?: string) => (<label className="field-row" style={{ marginTop: 6 }}><span className="muted">{lbl} {info && <InfoTooltip text={info} />}</span><div style={{ flex: 1 }}>{el}</div></label>);
   return (
     <FloatingPanel title="route" width={360} onClose={onClose}>
@@ -1005,6 +1028,7 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
               </div>
             )}
             {addable.length > 0 && row("add fleet", <SearchSelect value="" onChange={addCandidate} options={[{ value: "", label: "— add a candidate" }, ...addable.map((f) => ({ value: fleetId(f), label: fleetLabel(fleetId(f)) }))]} />)}
+            {bindableGroups.length > 0 && row("bind group", <SearchSelect value="" onChange={bindGroup} options={[{ value: "", label: "— add every fleet in a group" }, ...bindableGroups.map((g) => ({ value: g.id, label: g.label || g.id }))]} />, "Link a fleet group (or sub-group) to this route: every same-mode fleet in it becomes a candidate at once, so the whole group operates on this lane.")}
           </div>
         )}
       </div>
