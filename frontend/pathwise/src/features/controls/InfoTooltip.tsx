@@ -24,8 +24,9 @@ export function InfoTooltip({ text, unit }: { text: string; unit?: string }) {
       className="info-icon"
       tabIndex={0}
       role="img"
+      // No native `title`: it would render a SECOND browser tooltip overlapping the
+      // custom .info-pop below. aria-label keeps the text for screen readers.
       aria-label={unit ? `${text} (unit: ${unit})` : text}
-      title={unit ? `${text}\nunit: ${unit}` : text}
       onMouseEnter={show}
       onMouseLeave={hide}
       onFocus={show}
