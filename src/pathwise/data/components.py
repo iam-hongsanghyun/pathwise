@@ -179,8 +179,8 @@ class ComponentLibrary(BaseModel):
     label: str = ""
     flows: list[FlowTemplate] = Field(default_factory=list)
     technologies: list[TechnologyTemplate] = Field(default_factory=list)
-    #: Storage + station component kinds (alongside technologies). Each is placed
-    #: as a scope-bound ``storage`` / ``stations`` row, not a hierarchy node.
+    #: Storage + station component kinds (alongside technologies). Each is placed as an
+    #: asset NODE (like a technology), plus a ``storage`` / ``stations`` row keyed by it.
     storages: list[StorageTemplate] = Field(default_factory=list)
     stations: list[StationTemplate] = Field(default_factory=list)
     measures: list[LeverTemplate] = Field(default_factory=list)
