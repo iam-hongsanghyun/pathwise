@@ -195,7 +195,10 @@ export function FleetMap({
 
   const onPointerDownBg = (e: React.PointerEvent) => {
     const t = e.target as Element;
-    if (t.classList?.contains("fleet-route")) return; // let the route handle the click
+    // Let a route handle its own click — INCLUDING its wide invisible hit path
+    // (`fleet-route-hit`); otherwise pressing the easy-to-click zone starts a pan and
+    // captures the pointer, swallowing the route's click ("sometimes clickable" bug).
+    if (t.classList?.contains("fleet-route") || t.classList?.contains("fleet-route-hit")) return;
     pan.current = { cx: e.clientX, cy: e.clientY, view, rot, moved: false };
     svgRef.current?.setPointerCapture(e.pointerId);
   };
