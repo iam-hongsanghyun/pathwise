@@ -408,6 +408,20 @@ async function placeScopeComponent(
   );
 }
 
+/** Place ANY component kind as a node + hard copy (uniform Library→System). */
+export async function placeComponent(
+  sessionId: string,
+  body: { kind: string; library: string; component: string; parent_id: string; capacity?: number; instance_id?: string; scope?: LibScope },
+): Promise<{ created: string[]; root: string | null }> {
+  return json<{ created: string[]; root: string | null }>(
+    await fetch(`/api/session/${sessionId}/place-component`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
 export const placeStorage = (
   sessionId: string,
   body: { library: string; component: string; parent_id: string; instance_id?: string; scope?: LibScope },

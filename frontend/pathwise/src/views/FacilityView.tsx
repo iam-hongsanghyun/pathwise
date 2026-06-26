@@ -19,9 +19,7 @@ import {
   type LibrarySummary,
   type LibScope,
   listAllComponentLibraries,
-  placeStation,
-  placeStorage,
-  placeTechnology,
+  placeComponent,
 } from "../lib/api/components";
 import { getFullModel, putModel } from "../lib/api/session";
 import {
@@ -192,59 +190,28 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
     return [id, setSheet(wb, "nodes", [...(wb.nodes ?? []), { node_id: id, parent_id: parentId, kind: "group", level: label, label }])];
   }
 
+  // ONE uniform placement for every kind — a node under its kind-group + the component's
+  // hard copy in the model (Library→System). No per-kind branch.
+  const KIND_OF: Record<DragKind, string> = { t: "technology", s: "flow", m: "lever", g: "macc", o: "storage", n: "station" };
   async function dropComponent(scope: LibScope, libId: string, kind: DragKind, compId: string, parentId: string) {
     if (!sessionId) return;
-    const kindWord = { t: "technology", s: "stream", m: "lever", g: "MACC", o: "storage", n: "station" }[kind];
-    const name = (await prompt({ title: `Name this ${kindWord}`, label: "name", defaultValue: compId, placeholder: "e.g. Pohang BF#3" }))?.trim();
+    const kindName = KIND_OF[kind];
+    const name = (await prompt({ title: `Name this ${kindName}`, label: "name", defaultValue: compId, placeholder: "e.g. Pohang BF#3" }))?.trim();
     if (!name) return;
     setError(null);
     try {
       const np = normalParentOf(parentId);
       const [kgId, wb] = ensureKindGroup(workbook, np, kind);
-      const expand = (p: Set<string>) => {
-        const m = new Set(p).add(kgId);
-        if (np) m.add(np);
-        return m;
-      };
-      // Storage / Station place EXACTLY like a technology — a node under their kind-group.
-      if (kind === "o" || kind === "n") {
-        setWorkbook(wb);
-        await putModel(sessionId, wb);
-        const place = kind === "o" ? placeStorage : placeStation;
-        const res = await place(sessionId, { library: libId, component: compId, parent_id: kgId, scope });
-        let fresh = await getFullModel(sessionId);
-        const newId = res.root ?? res.created[0];
-        if (newId) fresh = setSheet(fresh, "nodes", (fresh.nodes ?? []).map((r) => (s(r.node_id) === newId ? { ...r, label: name } : r)));
-        adoptServerModel(fresh);
-        await putModel(sessionId, fresh);
-        setExpanded(expand);
-        if (newId) setSelId(newId);
-        return;
-      }
-      if (kind === "t") {
-        setWorkbook(wb);
-        await putModel(sessionId, wb);
-        const res = await placeTechnology(sessionId, { library: libId, technology: compId, parent_id: kgId, capacity: 0, scope });
-        let fresh = await getFullModel(sessionId);
-        const newId = res.root ?? res.created[0];
-        if (newId) {
-          fresh = setSheet(fresh, "nodes", (fresh.nodes ?? []).map((r) => (s(r.node_id) === newId ? { ...r, label: name } : r)));
-        }
-        adoptServerModel(fresh);
-        await putModel(sessionId, fresh);
-        setExpanded(expand);
-        if (newId) setSelId(newId);
-      } else {
-        const leafId = genId("c");
-        const next = setSheet(wb, "nodes", [
-          ...(wb.nodes ?? []),
-          { node_id: leafId, parent_id: kgId, kind: "asset", label: name, level: kindWord },
-        ]);
-        setWorkbook(next);
-        await putModel(sessionId, next);
-        setExpanded(expand);
-        setSelId(leafId);
-      }
+      setWorkbook(wb);
+      await putModel(sessionId, wb);
+      const res = await placeComponent(sessionId, { kind: kindName, library: libId, component: compId, parent_id: kgId, capacity: 0, scope });
+      let fresh = await getFullModel(sessionId);
+      const newId = res.root ?? res.created[0];
+      if (newId) fresh = setSheet(fresh, "nodes", (fresh.nodes ?? []).map((r) => (s(r.node_id) === newId ? { ...r, label: name } : r)));
+      adoptServerModel(fresh);
+      await putModel(sessionId, fresh);
+      setExpanded((p) => { const m = new Set(p).add(kgId); if (np) m.add(np); return m; });
+      if (newId) setSelId(newId);
     } catch (e) {
       setError(String(e));
     }
@@ -463,6 +430,65 @@ export function FacilityView({ workbook, setWorkbook, sessionId, adoptServerMode
               {numCell("rf", "refuel fee /unit", numOf(sta, "refuel_fee"), (v) => set("refuel_fee", v))}
               {numCell("scx", "capex", numOf(sta, "capex"), (v) => set("capex", v))}
               {numCell("sox", "fixed O&M", numOf(sta, "fixed_opex"), (v) => set("fixed_opex", v))}
+            </div>
+          </section>
+        );
+      }
+      // Flow / Lever / MACC instances — the model row IS the System hard copy (the Library
+      // is a separate store), so it's edited here, never read-only. The node's `component`
+      // links to the model-row id.
+      const noderow = (workbook.nodes ?? []).find((n) => s(n.node_id) === sel.id);
+      const comp = s(noderow?.component) || sel.label;
+      const flowRow = (workbook.flows ?? []).find((f) => s(f.flow_id) === comp);
+      if (flowRow && (sel.level === "flow" || noderow?.component)) {
+        const set = (k: string, v: string) => setWorkbook(setSheet(workbook, "flows", (workbook.flows ?? []).map((r2) => (s(r2.flow_id) === comp ? { ...r2, [k]: v === "" ? null : Number(v) } : r2))));
+        return (
+          <section className="detail-col asset-detail">
+            <h2 className="view-title">{sel.label}</h2>
+            <p className="detail-sub muted">flow · {s(flowRow.kind) || "stream"} · {s(flowRow.unit) || "unit"}</p>
+            <div className="asset-fields">
+              <div className="mf-sec">flow<span className="mf-sec-note">this system's real-world values — set here, not in the Library</span></div>
+              {numCell("price", "buy price", numOf(flowRow, "price"), (v) => set("price", v), `/${s(flowRow.unit) || "unit"}`, undefined, "no price")}
+              {numCell("sale", "sale price", numOf(flowRow, "sale_price"), (v) => set("sale_price", v), `/${s(flowRow.unit) || "unit"}`, undefined, "no sale")}
+            </div>
+          </section>
+        );
+      }
+      const leverRow = (workbook.levers ?? []).find((l) => s(l.lever_id) === comp);
+      if (leverRow && (sel.level === "lever" || noderow?.component)) {
+        const blocks = (workbook.lever_blocks ?? []).filter((b) => s(b.lever_id) === comp).sort((a, b) => Number(a.block) - Number(b.block));
+        const setLever = (k: string, v: string) => setWorkbook(setSheet(workbook, "levers", (workbook.levers ?? []).map((r2) => (s(r2.lever_id) === comp ? { ...r2, [k]: v === "" ? null : Number(v) } : r2))));
+        const setBlock = (bi: number, k: string, v: string) => setWorkbook(setSheet(workbook, "lever_blocks", (workbook.lever_blocks ?? []).map((r2) => (s(r2.lever_id) === comp && Number(r2.block) === bi ? { ...r2, [k]: v === "" ? null : Number(v) } : r2))));
+        return (
+          <section className="detail-col asset-detail">
+            <h2 className="view-title">{sel.label}</h2>
+            <p className="detail-sub muted">lever · {s(leverRow.type) || "—"}{leverRow.target ? ` → ${s(leverRow.target)}` : ""}</p>
+            <div className="asset-fields">
+              <div className="mf-sec">lever<span className="mf-sec-note">this system's real-world cost curve — set here, not in the Library</span></div>
+              {numCell("lt", "lifetime", numOf(leverRow, "lifetime"), (v) => setLever("lifetime", v), "yr")}
+              {blocks.map((b, i) => (
+                <div className="mf-sec" key={`blk${i}`} style={{ marginTop: 4 }}>block {i} · reduction {s(b.reduction)}</div>
+              )) /* labels */}
+              {blocks.flatMap((b, i) => [
+                numCell(`r${i}`, `block ${i} reduction`, numOf(b, "reduction"), (v) => setBlock(Number(b.block), "reduction", v), undefined, "0.01"),
+                numCell(`c${i}`, `block ${i} capex /cap`, numOf(b, "capex"), (v) => setBlock(Number(b.block), "capex", v)),
+                numCell(`o${i}`, `block ${i} opex /cap`, numOf(b, "opex"), (v) => setBlock(Number(b.block), "opex", v)),
+              ])}
+              {blocks.length === 0 && <div className="mf-empty">no cost blocks</div>}
+            </div>
+          </section>
+        );
+      }
+      const maccRow = (workbook.maccs ?? []).find((g) => s(g.macc_id) === comp);
+      if (maccRow && (sel.level === "macc" || noderow?.component)) {
+        const members = s(maccRow.measures).split("|").filter(Boolean);
+        return (
+          <section className="detail-col asset-detail">
+            <h2 className="view-title">{sel.label}</h2>
+            <p className="detail-sub muted">MACC · {members.length} lever{members.length === 1 ? "" : "s"}</p>
+            <div className="asset-fields">
+              <div className="mf-sec">levers in this MACC<span className="mf-sec-note">edit each lever's cost on its own node</span></div>
+              {members.length ? members.map((m) => <div className="mf-cell" key={m}><div className="mf-name">{m}</div></div>) : <div className="mf-empty">no levers</div>}
             </div>
           </section>
         );

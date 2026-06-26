@@ -40,6 +40,7 @@ from pathwise.data.components import (
     instantiate_into,
     library_to_workbook,
     load_component_library,
+    place_component,
     place_station,
     place_storage,
     place_technology,
@@ -660,6 +661,55 @@ def place_storage_route(session_id: str, body: PlaceScopeComponent) -> dict[str,
 def place_station_route(session_id: str, body: PlaceScopeComponent) -> dict[str, Any]:
     """Add one station component as a scope-bound ``stations`` row."""
     return _place_scope(session_id, body, "stations", place_station, "station_id")
+
+
+class PlaceComponent(BaseModel):
+    """Body for ``place-component`` — the ONE generalised placement for every kind.
+
+    Place ``component`` of ``kind`` (technology/flow/lever/macc/storage/station) from
+    ``library`` as a node under ``parent_id``, hard-copying its definition into the System
+    model so the instance is edited in the System.
+    """
+
+    kind: str
+    library: str
+    component: str
+    parent_id: str
+    capacity: float = 0.0
+    instance_id: str | None = None
+    scope: str = "base"
+
+
+@router.post("/session/{session_id}/place-component")
+def place_component_route(session_id: str, body: PlaceComponent) -> dict[str, Any]:
+    """Place any component kind as a node + hard copy (uniform Library→System)."""
+    lib = _resolve_library(session_id, body.library, body.scope)
+    store = _store()
+    try:
+        model = store.get_model(session_id)
+    except SessionNotFound as exc:
+        raise HTTPException(status_code=404, detail=f"unknown session '{session_id}'") from exc
+    before = {str(r.get("node_id")) for r in model.get("nodes", [])}
+    try:
+        model = place_component(
+            model,
+            lib,
+            body.kind,
+            body.component,
+            parent_id=body.parent_id,
+            capacity=body.capacity,
+            instance_id=body.instance_id,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    created = [str(r["node_id"]) for r in model.get("nodes", []) if str(r["node_id"]) not in before]
+    counts = store.put_model(session_id, model)
+    return {
+        "sessionId": session_id,
+        "created": created,
+        "root": created[0] if created else None,
+        "sheets": counts,
+    }
 
 
 # ── Network alternatives ──────────────────────────────────────────────────
