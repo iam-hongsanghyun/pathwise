@@ -12,6 +12,7 @@ import { FloatingPanel } from "../layout/FloatingPanel";
 import { AccordionSidebar } from "../layout/AccordionSidebar";
 import { SearchSelect } from "../features/controls/SearchSelect";
 import { InfoTooltip } from "../features/controls/InfoTooltip";
+import { TemporalValue, type TemporalVal } from "../features/controls/TemporalValue";
 import { TreeExplorer } from "../features/tree/TreeExplorer";
 import type { TreeAction, TreeMoveEvent, TreeNode } from "../features/tree/types";
 import { parseNodes } from "../lib/groupGraph";
@@ -620,7 +621,7 @@ export function FleetDesignerView({
           setFleetRoutes={(rows) => setWorkbook(setSheet(workbook, "fleet_routes", rows))}
           onAddMode={(mode) => addModeRoute(editRoute, mode)}
           onSwitch={(p) => { setSelId(p); setEdit({ kind: "route", id: p }); }}
-          impacts={impacts} green={greenCorridors}
+          impacts={impacts} green={greenCorridors} periods={periods} baseYear={baseYear} currency={currency}
           setGreen={(rows) => setWorkbook(setSheet(workbook, "green_corridors", rows))}
           onClose={() => setEdit(null)} />
       )}
@@ -692,6 +693,12 @@ function ChokepointDesigner({
           const detail = e?.routes
             .map((r) => `${routeLabel(r.route_id)} — ${r.detour_km == null ? "no alternative" : `+${Math.round(r.delta_pct ?? 0)}% (+${_km(r.delta_km ?? 0)} km)`}`)
             .join("\n");
+          // The exposure description now lives behind a (ⓘ) on the right of the row.
+          const expoText = !used
+            ? "No route uses this chokepoint."
+            : stranded
+              ? `⚠ ${e!.n_stranded} route${e!.n_stranded > 1 ? "s" : ""} stranded — no way around${e!.n_routes > e!.n_stranded ? ` · ${e!.n_routes - e!.n_stranded} reroute` : ""}\n\n${detail}`
+              : `${e!.n_routes} route${e!.n_routes > 1 ? "s" : ""} · +${_km(e!.total_delta_km)} km if shut${p > 0 ? ` · ~${_km(expected)} km/yr expected` : ""}\n\n${detail}`;
           return (
             <div key={id} className={`corridor-row${stranded ? " is-stranded" : ""}`}>
               <div className="corridor-main">
@@ -704,21 +711,9 @@ function ChokepointDesigner({
                   title={`per-voyage toll (${currency}/voyage)`}
                   value={toll || ""} placeholder="0"
                   onChange={(ev) => onToll(id, ev.target.value === "" ? 0 : Number(ev.target.value))} />
-              </div>
-              <div className="corridor-exposure" title={detail || undefined}>
-                {!used ? (
-                  <span className="muted">no route uses this chokepoint</span>
-                ) : stranded ? (
-                  <span style={{ color: "var(--danger)" }}>
-                    ⚠ {e!.n_stranded} route{e!.n_stranded > 1 ? "s" : ""} stranded — no way around
-                    {e!.n_routes > e!.n_stranded ? ` · ${e!.n_routes - e!.n_stranded} reroute` : ""}
-                  </span>
-                ) : (
-                  <span>
-                    {e!.n_routes} route{e!.n_routes > 1 ? "s" : ""} · +{_km(e!.total_delta_km)} km if shut
-                    {p > 0 ? <span className="corridor-expected"> · ~{_km(expected)} km/yr expected</span> : null}
-                  </span>
-                )}
+                <span style={{ display: "inline-flex", alignItems: "center", color: stranded ? "var(--danger)" : undefined }}>
+                  {stranded ? "⚠" : ""}<InfoTooltip text={expoText} />
+                </span>
               </div>
             </div>
           );
@@ -799,29 +794,62 @@ function NodePanel({ id, label, level, coord, onRename, onLevel, onCoord, onClos
   );
 }
 
-function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, onChange, onToggleBlock, setFleetRoutes, onAddMode, onSwitch, impacts, green, setGreen, onClose }: {
+function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, onChange, onToggleBlock, setFleetRoutes, onAddMode, onSwitch, impacts, green, setGreen, periods, baseYear, currency, onClose }: {
   route: Row; routes: Row[]; fleets: Row[]; fleetRoutes: Row[]; labelOf: (id: string) => string; fleetLabel: (id: string) => string;
   onChange: (p: Row) => void; onToggleBlock: (on: boolean) => void; setFleetRoutes: (rows: Row[]) => void;
   onAddMode: (mode: string) => void; onSwitch: (proc: string) => void;
-  impacts: string[]; green: Row[]; setGreen: (rows: Row[]) => void; onClose: () => void;
+  impacts: string[]; green: Row[]; setGreen: (rows: Row[]) => void;
+  periods: number[]; baseYear: number; currency: string; onClose: () => void;
 }) {
   const proc = s(route.process);
   const blocked = s(route.blocked) === "true";
   const flow = s(route.flow);
   const fromN = s(route.from_node), toN = s(route.to_node);
-  // Green corridors on THIS lane (from, to, flow) — flat (all-year) caps managed here;
-  // per-year caps are authored in the model grid. One row per capped impact.
-  const isLaneCap = (r: Row) =>
-    s(r.from_node) === fromN && s(r.to_node) === toN && s(r.flow) === flow && !s(r.year);
-  const laneGreen = green.filter(isLaneCap);
-  const cappedImpacts = new Set(laneGreen.map((r) => s(r.impact)));
-  const addableImpacts = impacts.filter((i) => !cappedImpacts.has(i));
-  const patchGreen = (impact: string, p: Row) =>
-    setGreen(green.map((r) => (isLaneCap(r) && s(r.impact) === impact ? { ...r, ...p } : r)));
-  const addGreen = (impact: string) =>
-    setGreen([...green, { from_node: fromN, to_node: toN, flow, impact, limit: 0, soft: "true" }]);
-  const removeGreen = (impact: string) =>
-    setGreen(green.filter((r) => !(isLaneCap(r) && s(r.impact) === impact)));
+  // Green corridors on THIS lane (from, to, flow). The cap is a TEMPORAL value: a
+  // year-less row ⇒ a flat cap; per-year rows ⇒ a {year: limit} trajectory. Soft caps
+  // carry a penalty (price per unit of exceedance). One control per capped impact.
+  const laneIs = (r: Row, impact: string) =>
+    s(r.from_node) === fromN && s(r.to_node) === toN && s(r.flow) === flow && s(r.impact) === impact;
+  const laneRows = green.filter(
+    (r) => s(r.from_node) === fromN && s(r.to_node) === toN && s(r.flow) === flow,
+  );
+  const cappedImpacts = [...new Set(laneRows.map((r) => s(r.impact)))];
+  const addableImpacts = impacts.filter((i) => !cappedImpacts.includes(i));
+  const rowsFor = (impact: string) => laneRows.filter((r) => s(r.impact) === impact);
+  const limitOf = (impact: string): TemporalVal => {
+    const rows = rowsFor(impact);
+    const yearly: Record<string, number> = {};
+    let flat = 0;
+    for (const r of rows) {
+      const lim = Number(r.limit) || 0;
+      if (s(r.year)) yearly[s(r.year)] = lim;
+      else flat = lim;
+    }
+    return Object.keys(yearly).length ? yearly : flat;
+  };
+  const softOf = (impact: string) => {
+    const r = rowsFor(impact)[0];
+    return !r || (s(r.soft) !== "false" && s(r.soft) !== "");
+  };
+  const penaltyOf = (impact: string) => {
+    const r = rowsFor(impact).find((x) => s(x.penalty));
+    return r ? Number(r.penalty) : null;
+  };
+  // Rewrite all (lane, impact) rows from a temporal limit + soft + penalty.
+  const commitGreen = (impact: string, lim: TemporalVal | null, soft: boolean, penalty: number | null) => {
+    const others = green.filter((r) => !laneIs(r, impact));
+    const base: Row = { from_node: fromN, to_node: toN, flow, impact, soft: soft ? "true" : "false" };
+    if (soft && penalty != null && penalty > 0) base.penalty = penalty;
+    const rows: Row[] =
+      lim == null
+        ? [{ ...base, limit: 0 }]
+        : typeof lim === "number"
+          ? [{ ...base, limit: lim }]
+          : Object.entries(lim).map(([y, v]) => ({ ...base, year: Number(y), limit: v }));
+    setGreen([...others, ...rows]);
+  };
+  const addGreen = (impact: string) => commitGreen(impact, 0, true, null);
+  const removeGreen = (impact: string) => setGreen(green.filter((r) => !laneIs(r, impact)));
   // Sibling routes on the SAME lane (from, to, flow) — the modal alternatives the
   // optimiser splits the lane's flow across. Modes already on the lane can't be re-added.
   const siblings = routes.filter(
@@ -876,24 +904,30 @@ function RoutePanel({ route, routes, fleets, fleetRoutes, labelOf, fleetLabel, o
         </label>
         {flow && (
           <div className="rail-section" style={{ marginTop: 8 }}>
-            <div className="rail-head">Green corridor <InfoTooltip text="Cap the lane's cargo-weighted transport emission intensity (emissions ÷ cargo moved) for an impact. The optimiser must shift cargo onto cleaner modes/fuels to keep the corridor under the cap — across every mode on the lane. Soft = exceedance allowed at a penalty; hard = must hold. (Per-year caps: author in the model grid.)" /></div>
-            {laneGreen.length === 0 ? (
+            <div className="rail-head">Green corridor <InfoTooltip text="Cap the lane's cargo-weighted transport emission intensity (emissions ÷ cargo moved) for an impact. The optimiser must shift cargo onto cleaner modes/fuels to keep the corridor under the cap — across every mode on the lane. The cap is temporal (set a flat value or vary it by year). Soft = exceedance allowed at a per-unit penalty price; hard = must hold." /></div>
+            {cappedImpacts.length === 0 ? (
               <p className="rail-empty" style={{ margin: "2px 0 4px" }}>No cap — transport runs at least cost.</p>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4, margin: "4px 0" }}>
-                {laneGreen.map((r) => {
-                  const imp = s(r.impact);
-                  const soft = s(r.soft) !== "false" && s(r.soft) !== "";
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, margin: "4px 0" }}>
+                {cappedImpacts.map((imp) => {
+                  const soft = softOf(imp);
+                  const penalty = penaltyOf(imp);
                   return (
-                    <div key={imp} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ minWidth: 44, fontSize: ".74rem", color: "var(--text)" }}>{imp}</span>
-                      <input className="field-input" type="number" style={{ width: 80 }} placeholder="max ⁄ unit"
-                        value={s(r.limit)} title="max impact per unit of cargo moved"
-                        onChange={(e) => patchGreen(imp, { limit: blank(e.target.value) })} />
-                      <label style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: ".72rem" }} title="soft = penalised slack; unchecked = hard">
-                        <input type="checkbox" checked={soft} onChange={(e) => patchGreen(imp, { soft: e.target.checked ? "true" : "false" })} />
+                    <div key={imp} style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <span style={{ minWidth: 40, fontSize: ".74rem", color: "var(--text)" }}>{imp}</span>
+                      <TemporalValue value={limitOf(imp)} onChange={(v) => commitGreen(imp, v ?? 0, soft, penalty)}
+                        label={`green cap · ${imp}`} unit={`/${flow}`} perYear={false}
+                        baseYear={baseYear} periods={periods} variant="text" placeholder="cap…" />
+                      <label style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: ".72rem" }} title="soft = exceedance allowed at a penalty; unchecked = hard (must hold)">
+                        <input type="checkbox" checked={soft} onChange={(e) => commitGreen(imp, limitOf(imp), e.target.checked, penalty)} />
                         soft
                       </label>
+                      {soft && (
+                        <input className="field-input" type="number" style={{ width: 72 }} placeholder="penalty"
+                          title={`exceedance price (${currency} per unit over the cap)`}
+                          value={penalty ?? ""}
+                          onChange={(e) => commitGreen(imp, limitOf(imp), true, e.target.value === "" ? null : Number(e.target.value))} />
+                      )}
                       <button className="rail-add" title="remove cap" onClick={() => removeGreen(imp)}>✕</button>
                     </div>
                   );
