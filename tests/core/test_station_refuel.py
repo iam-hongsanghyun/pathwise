@@ -161,6 +161,25 @@ def test_station_fee_raises_cost_without_changing_delivery() -> None:
     assert abs((fee["objective"] - base["objective"]) - 48_000.0) < 1.0
 
 
+def test_station_capacity_is_temporal() -> None:
+    # A stations_t__refuel_capacity wide sheet gives a per-year dispensing cap, read via
+    # Station.refuel_capacity_at; absent years fall back to the scalar.
+    wb = _wb(
+        stations=[
+            {
+                "station_id": "S",
+                "company": "carrier",
+                "refuel_flow": "bunker",
+                "refuel_capacity": 9000.0,
+            }
+        ]
+    )
+    wb["stations_t__refuel_capacity"] = [{"year": 2025, "S": 12000.0}]
+    st = next(s for s in assemble_problem(wb, _SC).stations if s.station_id == "S")
+    assert abs(st.refuel_capacity_at(2025) - 12000.0) < 1e-6  # per-year override
+    assert abs(st.refuel_capacity_at(2030) - 9000.0) < 1e-6  # falls back to the scalar
+
+
 def test_station_in_another_scope_is_inert() -> None:
     # A station scoped to a different company doesn't gate the carrier's fleet.
     res = _solve(

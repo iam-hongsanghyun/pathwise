@@ -298,6 +298,18 @@ class Station:
     refuel_fee: float = 0.0
     capex: float = 0.0
     fixed_opex: float = 0.0
+    #: Per-year overrides (empty ⇒ scalar every year): capacity expands + the fee falls
+    #: over the horizon. Read via the ``*_at`` accessors.
+    refuel_capacity_by_year: dict[int, float] = field(default_factory=dict)
+    refuel_fee_by_year: dict[int, float] = field(default_factory=dict)
+
+    def refuel_capacity_at(self, year: int) -> float:
+        """Dispensing capacity in ``year`` (override, else scalar; ``0`` ⇒ unlimited)."""
+        return self.refuel_capacity_by_year.get(year, self.refuel_capacity)
+
+    def refuel_fee_at(self, year: int) -> float:
+        """Per-unit refuelling fee in ``year`` (override, else scalar)."""
+        return self.refuel_fee_by_year.get(year, self.refuel_fee)
 
 
 @dataclass(slots=True, frozen=True)

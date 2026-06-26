@@ -1975,10 +1975,11 @@ def _stations(ctx: BuildContext) -> None:
                 continue
             m.add_constraints(disp == demand, name=f"staserve[{key}]")
         for st in sts:
-            if st.refuel_capacity > 0:
-                for t in ctx.years:
+            for t in ctx.years:
+                cap = st.refuel_capacity_at(t)  # per-year capacity (0 ⇒ unlimited)
+                if cap > 0:
                     m.add_constraints(
-                        ctx.dispense.sel(station=st.station_id, period=t) <= st.refuel_capacity,
+                        ctx.dispense.sel(station=st.station_id, period=t) <= cap,
                         name=f"stacap[{st.station_id},{t}]",
                     )
 
@@ -2253,13 +2254,13 @@ def _objective(ctx: BuildContext) -> None:
     # not change the optimum, so only the variable fee enters the objective for now.)
     if tog.flow_cost and prob.stations and ctx.dispense is not None:
         for sta in prob.stations:
-            if not sta.refuel_fee:
+            if not sta.refuel_fee and not sta.refuel_fee_by_year:
                 continue
             for t in ctx.years:
-                w = prob.discount_factor(t) * dur[t]
-                obj_terms.append(
-                    (w * sta.refuel_fee) * ctx.dispense.sel(station=sta.station_id, period=t)
-                )
+                fee = sta.refuel_fee_at(t)  # per-year refuelling fee
+                if fee:
+                    w = prob.discount_factor(t) * dur[t]
+                    obj_terms.append((w * fee) * ctx.dispense.sel(station=sta.station_id, period=t))
 
     # ── Flow markets ─────────────────────────────────────────────────────
     if tog.flow_cost and ctx.cmarkets:

@@ -1322,6 +1322,8 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
     green_corridors = [gc for gc in green_by_lane.values() if gc.limits]
 
     # ── Stations: refuelling infrastructure (caps + prices a scope's fleet fuel) ──
+    sta_cap_t = _wide_temporal(workbook, "stations_t__refuel_capacity")
+    sta_fee_t = _wide_temporal(workbook, "stations_t__refuel_fee")
     stations: list[Station] = []
     for r in _rows(workbook, STATIONS):
         sid = _str(r.get("station_id"))
@@ -1337,6 +1339,8 @@ def assemble_problem(workbook: Workbook, scenario: ScenarioConfig) -> Problem:
                 refuel_fee=_num(r.get("refuel_fee"), 0.0) or 0.0,
                 capex=_num(r.get("capex"), 0.0) or 0.0,
                 fixed_opex=_num(r.get("fixed_opex"), 0.0) or 0.0,
+                refuel_capacity_by_year=dict(sta_cap_t.get(sid, {})),
+                refuel_fee_by_year=dict(sta_fee_t.get(sid, {})),
             )
         )
 
